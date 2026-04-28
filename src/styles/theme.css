@@ -1,0 +1,62 @@
+/* CSS variables for light/dark themes. Applied via <html data-theme="..."> */
+
+:root,
+:root[data-theme='dark'] {
+  --bg: #0c0f14;
+  --bg-raised: #151921;
+  --bg-canvas: #0a0d12;
+  --panel: #1b202a;
+  --panel-hover: #232a36;
+  --border: #2a3140;
+  --border-strong: #3a4356;
+
+  --text: #e6ecf3;
+  --text-dim: #a4afbe;
+  --text-muted: #6f7a8a;
+
+  --accent: #4fb3ff;
+  --accent-glow: rgba(79, 179, 255, 0.28);
+  --accent-warm: #ffb347;
+
+  --success: #3fc26b;
+  --danger: #ff6b6b;
+  --warning: #ffb347;
+
+  --wire-color: #e09a3f;
+  --feedpoint: #ff5a5a;
+  --ground-sea: #1d5980;
+  --ground-land: #3a2d20;
+
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-text: #c6cdd6;
+}
+
+:root[data-theme='light'] {
+  --bg: #f3f5f8;
+  --bg-raised: #ffffff;
+  --bg-canvas: #e8ecf1;
+  --panel: #ffffff;
+  --panel-hover: #f1f3f7;
+  --border: #d7dde6;
+  --border-strong: #b8c0cc;
+
+  --text: #1a1f2a;
+  --text-dim: #525a68;
+  --text-muted: #8089a0;
+
+  --accent: #1f7bd6;
+  --accent-glow: rgba(31, 123, 214, 0.22);
+  --accent-warm: #e67e22;
+
+  --success: #278d4a;
+  --danger: #cc3333;
+  --warning: #d97706;
+
+  --wire-color: #b87333;
+  --feedpoint: #d93030;
+  --ground-sea: #5ca6d6;
+  --ground-land: #ad9468;
+
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-text: #3a4250;
+}

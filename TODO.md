@@ -1,0 +1,9 @@
+- improve mobile layout
+- add balun calculations
+- add feedline calculations
+- add offset feed calculations
+- add terminating resistor calculations
+- add different antenna designs
+- add gain value annotations to renders and indicate optimal take off angle
+- add T index input or programatic pull, and estimate optimal range
+- improve rendering of the ground mesh to prevent thin lines flickering
