@@ -27,20 +27,28 @@ export function DipoleControl() {
     <div className="panel-section">
       <h3>Dipole</h3>
 
-      <label>Length ({unit})</label>
+      <label htmlFor="dipole-length">Length ({unit})</label>
       <div className="row">
         <input
+          id="dipole-length"
           type="number"
           min={0.1}
           step={0.1}
           value={dispLen.toFixed(2)}
           onChange={(e) => setLength(fromDisplayLength(parseFloat(e.target.value), units))}
         />
-        <button onClick={setHalfWaveLength} title="Set length to resonant ½λ">½λ</button>
+        <button
+          onClick={setHalfWaveLength}
+          title="Set length to resonant ½λ"
+          aria-label="Set length to resonant half wavelength"
+        >
+          ½λ
+        </button>
       </div>
 
-      <label style={{ marginTop: 10 }}>Height above ground ({unit}) — {dispHeight.toFixed(1)}</label>
+      <label htmlFor="dipole-height" style={{ marginTop: 10 }}>Height above ground ({unit}) — {dispHeight.toFixed(1)}</label>
       <input
+        id="dipole-height"
         type="range"
         min={0}
         max={maxHeight}
@@ -49,13 +57,14 @@ export function DipoleControl() {
         onChange={(e) => setHeight(fromDisplayLength(parseFloat(e.target.value), units))}
       />
 
-      <label style={{ marginTop: 10 }}>Orientation</label>
-      <div className="button-group">
+      <label id="dipole-orientation" style={{ marginTop: 10 }}>Orientation</label>
+      <div className="button-group" role="group" aria-labelledby="dipole-orientation">
         {orientations.map((o) => (
           <button
             key={o}
             className={orientation === o ? 'active' : ''}
             onClick={() => setOrientation(o)}
+            aria-pressed={orientation === o}
           >
             {o}
           </button>

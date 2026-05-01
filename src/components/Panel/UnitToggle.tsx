@@ -8,10 +8,14 @@ export function UnitToggle() {
       <button
         className={units === 'metric' ? 'active' : ''}
         onClick={() => setUnits('metric')}
+        aria-pressed={units === 'metric'}
+        aria-label="Meters"
       >m</button>
       <button
         className={units === 'imperial' ? 'active' : ''}
         onClick={() => setUnits('imperial')}
+        aria-pressed={units === 'imperial'}
+        aria-label="Feet"
       >ft</button>
     </div>
   );
