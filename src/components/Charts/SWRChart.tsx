@@ -111,6 +111,16 @@ export function SWRChart() {
     if (values.length === 0) return 5;
     return Math.min(999, Math.max(5, Math.ceil(Math.max(...values) * 1.1)));
   }, [comparisonActive, reference, sweep]);
+      const yMin = useMemo(() => {
+    const values = [
+      ...sweep.map((point) => point.swr),
+      ...(comparisonActive && reference ? reference.sweep.map((point) => point.swr) : []),
+    ];
+    if (values.length === 0) return 1;
+    const minVal = Math.min(...values);
+    return Math.max(1, Math.floor(minVal));
+  }, [comparisonActive, reference, sweep]);
+
   const calculatedAnnotations = useMemo(() => {
     const anns: Record<string, AnnotationOptions> = {};
     if (sweep.length < 2) return anns;
@@ -130,7 +140,7 @@ export function SWRChart() {
       type: 'line',
       xMin: minFreq,
       xMax: minFreq,
-      yMin: 1,
+      yMin: yMin,
       yMax: minSwr,
       borderColor: '#4fb3ff', // Accent color fallback
       borderWidth: 1,
@@ -161,7 +171,7 @@ export function SWRChart() {
           type: 'line',
           xMin: crossoverFreq,
           xMax: crossoverFreq,
-          yMin: 1,
+          yMin: yMin,
           yMax: 2,
           borderColor: '#ff6b6b',
           borderWidth: 1,
@@ -181,7 +191,7 @@ export function SWRChart() {
     }
 
     return anns;
-  }, [sweep, chartText]);
+  }, [sweep, chartText, yMin]);
 
 
   const options = useMemo<ChartOptions<'line'>>(() => ({
@@ -191,7 +201,7 @@ export function SWRChart() {
     parsing: false,
     scales: {
       y: {
-        min: 1,
+        min: yMin,
         max: yMax,
         ticks: { color: chartText },
         grid: { color: chartGrid },
@@ -237,7 +247,7 @@ export function SWRChart() {
         },
       },
     },
-  }), [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax, calculatedAnnotations]);
+  }), [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax, calculatedAnnotations, yMin]);
 
   if (!result || sweep.length === 0) {
     return (
