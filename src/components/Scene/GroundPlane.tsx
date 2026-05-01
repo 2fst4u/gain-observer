@@ -28,19 +28,25 @@ export function GroundPlane({ groundId, height, showGrid }: GroundPlaneProps) {
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
         <planeGeometry args={[400, 400]} />
-        <meshStandardMaterial color={color} roughness={0.95} />
+        <meshStandardMaterial
+          color={color}
+          roughness={0.95}
+          polygonOffset
+          polygonOffsetFactor={1}
+          polygonOffsetUnits={1}
+        />
       </mesh>
       {showGrid && (
         <Grid
           args={[400, 400]}
           cellSize={5}
-          cellThickness={0.6}
+          cellThickness={1.0}
           cellColor="#555"
           sectionSize={25}
-          sectionThickness={1.2}
+          sectionThickness={2.0}
           sectionColor="#888"
-          fadeDistance={120}
-          fadeStrength={1}
+          fadeDistance={150}
+          fadeStrength={5}
           infiniteGrid
         />
       )}
