@@ -27,16 +27,19 @@ function samplePatternDb(
 
   const ti0 = Math.floor(ti);
   const ti1 = Math.min(ti0 + 1, pattern.thetaSteps - 1);
-  const pi0 = Math.floor(pi) % pattern.phiSteps;
+  const piFloor = Math.floor(pi);
+  const pi0 = piFloor % pattern.phiSteps;
   const pi1 = (pi0 + 1) % pattern.phiSteps;
 
   const ft = ti - ti0;
-  const fp = pi - Math.floor(pi);
+  const fp = pi - piFloor;
 
-  const v00 = pattern.data[ti0 * pattern.phiSteps + pi0]!;
-  const v01 = pattern.data[ti0 * pattern.phiSteps + pi1]!;
-  const v10 = pattern.data[ti1 * pattern.phiSteps + pi0]!;
-  const v11 = pattern.data[ti1 * pattern.phiSteps + pi1]!;
+  const row0 = ti0 * pattern.phiSteps;
+  const row1 = ti1 * pattern.phiSteps;
+  const v00 = pattern.data[row0 + pi0]!;
+  const v01 = pattern.data[row0 + pi1]!;
+  const v10 = pattern.data[row1 + pi0]!;
+  const v11 = pattern.data[row1 + pi1]!;
 
   const v0 = v00 * (1 - fp) + v01 * fp;
   const v1 = v10 * (1 - fp) + v11 * fp;
