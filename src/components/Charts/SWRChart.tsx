@@ -109,7 +109,19 @@ export function SWRChart() {
       ...(comparisonActive && reference ? reference.sweep.map((point) => point.swr) : []),
     ];
     if (values.length === 0) return 5;
-    return Math.min(999, Math.max(5, Math.ceil(Math.max(...values) * 1.1)));
+
+    // Instead of fixed 999 max, maybe just use 1.1x of max, capped at something reasonable. Or no cap!
+    // User said: max SWR on the Y axis is still 6 so it wastes a lot of space.
+    // If the max SWR is 6, the graph goes up to 6. But what if we just cap it to the maximum SWR that is relevant?
+    // Usually SWR above 3 or 5 is useless. If the max value in the sweep is 3, yMax shouldn't be 6.
+
+    const maxVal = Math.max(...values);
+    // Let's cap yMax to a maximum of 6, but if maxVal is smaller, we can make it smaller.
+    // Actually, SWR above 3 is bad anyway. Let's cap yMax to max(3, Math.ceil(maxVal * 1.1)) but if maxVal > 6 then 6?
+    // User wants to cut out irrelevant Y axis values. If SWR is 20, we don't care about the shape of the curve at 20.
+    // Let's set yMax to at most 4, unless the whole curve is > 4.
+    const relevantMax = Math.min(4, Math.ceil(maxVal * 1.05));
+    return Math.max(3, relevantMax);
   }, [comparisonActive, reference, sweep]);
       const yMin = useMemo(() => {
     const values = [
@@ -145,15 +157,7 @@ export function SWRChart() {
       borderColor: '#4fb3ff', // Accent color fallback
       borderWidth: 1,
       borderDash: [2, 2],
-      label: {
-        display: true,
-        content: `${minFreq.toFixed(2)} MHz`,
-        position: 'start',
-        yAdjust: 15,
-        color: chartText,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        font: { size: 10 }
-      }
+      label: { display: false }
     };
 
     // Find crossovers (SWR 2.0)
@@ -176,22 +180,14 @@ export function SWRChart() {
           borderColor: '#ff6b6b',
           borderWidth: 1,
           borderDash: [2, 2],
-          label: {
-            display: true,
-            content: `${crossoverFreq.toFixed(2)} MHz`,
-            position: 'start',
-        yAdjust: 15,
-            color: '#ff6b6b',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            font: { size: 10 }
-          }
+          label: { display: false }
         };
         crossoverCount++;
       }
     }
 
     return anns;
-  }, [sweep, chartText, yMin]);
+  }, [sweep, yMin]);
 
 
   const options = useMemo<ChartOptions<'line'>>(() => ({
@@ -205,12 +201,43 @@ export function SWRChart() {
         max: yMax,
         ticks: { color: chartText },
         grid: { color: chartGrid },
+
         title: { display: true, text: 'SWR', color: chartText },
       },
       x: {
         type: 'linear',
         min: xBounds.min,
         max: xBounds.max,
+        afterBuildTicks: (axis) => {
+          if (!sweep || sweep.length < 2) return;
+
+          let minSwr = sweep[0].swr;
+          let minFreq = sweep[0].frequencyMHz;
+          for (const point of sweep) {
+            if (point.swr < minSwr) {
+              minSwr = point.swr;
+              minFreq = point.frequencyMHz;
+            }
+          }
+
+          // Add min SWR freq to ticks if not there
+          if (!axis.ticks.find(t => Math.abs(t.value - minFreq) < 0.01)) {
+             axis.ticks.push({ value: minFreq, label: minFreq.toFixed(2) });
+          }
+
+          for (let i = 0; i < sweep.length - 1; i++) {
+            const p1 = sweep[i];
+            const p2 = sweep[i + 1];
+            if ((p1.swr <= 2.0 && p2.swr > 2.0) || (p1.swr > 2.0 && p2.swr <= 2.0)) {
+              const fraction = (2.0 - p1.swr) / (p2.swr - p1.swr);
+              const crossoverFreq = p1.frequencyMHz + fraction * (p2.frequencyMHz - p1.frequencyMHz);
+              if (!axis.ticks.find(t => Math.abs(t.value - crossoverFreq) < 0.01)) {
+                 axis.ticks.push({ value: crossoverFreq, label: crossoverFreq.toFixed(2) });
+              }
+            }
+          }
+          axis.ticks.sort((a, b) => a.value - b.value);
+        },
         ticks: {
           color: chartText,
           callback: (value) => Number(value).toFixed(2),
@@ -247,7 +274,7 @@ export function SWRChart() {
         },
       },
     },
-  }), [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax, calculatedAnnotations, yMin]);
+  }), [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax, calculatedAnnotations, yMin, sweep]);
 
   if (!result || sweep.length === 0) {
     return (
