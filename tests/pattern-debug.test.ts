@@ -44,8 +44,6 @@ describe('color buffer histogram', () => {
     const basePositions = Float32Array.from(positions.array as ArrayLike<number>);
     const colorArray = new Float32Array(positions.count * 3);
     const dbRange = 30;
-    const patternScale = 1;
-    const linearRangeFactor = patternScale * 5;
 
     const histT = [0, 0, 0, 0, 0]; // bins
     let upperHemiSampleCount = 0;

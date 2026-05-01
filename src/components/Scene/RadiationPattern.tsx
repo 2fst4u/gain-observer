@@ -53,18 +53,16 @@ export function RadiationPattern({
 }: Props) {
   const lod = useAdaptiveLOD();
 
-  const geometry = useMemo(() => {
-    if (!result) return null;
-
+  // Cache base geometry and expensive angle calculations per vertex,
+  // which only depend on the LOD segments.
+  const cachedGeo = useMemo(() => {
     const source = new THREE.SphereGeometry(1, lod.phiSegments, lod.thetaSegments).toNonIndexed();
     const positions = source.attributes.position as THREE.BufferAttribute;
-    const positionArray = positions.array as Float32Array;
-    const basePositions = Float32Array.from(positionArray);
-    const colorArray = new Float32Array(positions.count * 4);
-    const linearRangeFactor = patternScale * 5;
-    const maxDb = result.maxGainDbi;
+    const basePositions = Float32Array.from(positions.array as Float32Array);
+    const count = positions.count;
+    const angles = new Float32Array(count * 2);
 
-    for (let i = 0; i < positions.count; i++) {
+    for (let i = 0; i < count; i++) {
       const x = basePositions[i * 3]!;
       const y = basePositions[i * 3 + 1]!;
       const z = basePositions[i * 3 + 2]!;
@@ -75,6 +73,34 @@ export function RadiationPattern({
       const thetaDeg = (Math.acos(necZ / r) * 180) / Math.PI;
       let phiDeg = (Math.atan2(necY, necX) * 180) / Math.PI;
       if (phiDeg < 0) phiDeg += 360;
+
+      angles[i * 2] = thetaDeg;
+      angles[i * 2 + 1] = phiDeg;
+    }
+
+    return { source, basePositions, angles, count };
+  }, [lod.phiSegments, lod.thetaSegments]);
+
+  const geometry = useMemo(() => {
+    if (!result) return null;
+
+    const source = cachedGeo.source.clone();
+    const positions = source.attributes.position as THREE.BufferAttribute;
+    const positionArray = positions.array as Float32Array;
+    const basePositions = cachedGeo.basePositions;
+    const angles = cachedGeo.angles;
+    const colorArray = new Float32Array(cachedGeo.count * 4);
+
+    const linearRangeFactor = patternScale * 5;
+    const maxDb = result.maxGainDbi;
+
+    for (let i = 0; i < cachedGeo.count; i++) {
+      const x = basePositions[i * 3]!;
+      const y = basePositions[i * 3 + 1]!;
+      const z = basePositions[i * 3 + 2]!;
+
+      const thetaDeg = angles[i * 2]!;
+      const phiDeg = angles[i * 2 + 1]!;
 
       const gainDb = samplePatternDb(result.pattern, thetaDeg, phiDeg);
       const linear = Math.pow(10, (gainDb - maxDb) / 20);
@@ -104,8 +130,10 @@ export function RadiationPattern({
     source.computeVertexNormals();
     source.computeBoundingSphere();
     return source;
-  }, [result, lod.phiSegments, lod.thetaSegments, patternScale, dbRange, colormap, mode]);
+  }, [result, cachedGeo, patternScale, dbRange, colormap, mode]);
 
+  // Clean up cached geometry when unmounting
+  useEffect(() => () => cachedGeo.source.dispose(), [cachedGeo]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
 
   if (!geometry) return null;
