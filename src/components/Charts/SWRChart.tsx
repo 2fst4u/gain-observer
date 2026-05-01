@@ -18,6 +18,7 @@ import {
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { useAntennaStore } from '../../store/antennaStore';
 import { useMemo } from 'react';
+import type { AnnotationOptions } from 'chartjs-plugin-annotation';
 
 ChartJS.register(
   LinearScale,
@@ -110,6 +111,78 @@ export function SWRChart() {
     if (values.length === 0) return 5;
     return Math.min(999, Math.max(5, Math.ceil(Math.max(...values) * 1.1)));
   }, [comparisonActive, reference, sweep]);
+  const calculatedAnnotations = useMemo(() => {
+    const anns: Record<string, AnnotationOptions> = {};
+    if (sweep.length < 2) return anns;
+
+    // Find min SWR
+    let minSwr = sweep[0].swr;
+    let minFreq = sweep[0].frequencyMHz;
+
+    for (const point of sweep) {
+      if (point.swr < minSwr) {
+        minSwr = point.swr;
+        minFreq = point.frequencyMHz;
+      }
+    }
+
+    anns['minSwr'] = {
+      type: 'line',
+      xMin: minFreq,
+      xMax: minFreq,
+      yMin: 1,
+      yMax: minSwr,
+      borderColor: '#4fb3ff', // Accent color fallback
+      borderWidth: 1,
+      borderDash: [2, 2],
+      label: {
+        display: true,
+        content: `${minFreq.toFixed(2)} MHz`,
+        position: 'start',
+        yAdjust: 15,
+        color: chartText,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        font: { size: 10 }
+      }
+    };
+
+    // Find crossovers (SWR 2.0)
+    let crossoverCount = 0;
+    for (let i = 0; i < sweep.length - 1; i++) {
+      const p1 = sweep[i];
+      const p2 = sweep[i + 1];
+
+      if ((p1.swr <= 2.0 && p2.swr > 2.0) || (p1.swr > 2.0 && p2.swr <= 2.0)) {
+        // Interpolate exactly where it crosses 2.0
+        const fraction = (2.0 - p1.swr) / (p2.swr - p1.swr);
+        const crossoverFreq = p1.frequencyMHz + fraction * (p2.frequencyMHz - p1.frequencyMHz);
+
+        anns[`crossover${crossoverCount}`] = {
+          type: 'line',
+          xMin: crossoverFreq,
+          xMax: crossoverFreq,
+          yMin: 1,
+          yMax: 2,
+          borderColor: '#ff6b6b',
+          borderWidth: 1,
+          borderDash: [2, 2],
+          label: {
+            display: true,
+            content: `${crossoverFreq.toFixed(2)} MHz`,
+            position: 'start',
+        yAdjust: 15,
+            color: '#ff6b6b',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            font: { size: 10 }
+          }
+        };
+        crossoverCount++;
+      }
+    }
+
+    return anns;
+  }, [sweep, chartText]);
+
 
   const options = useMemo<ChartOptions<'line'>>(() => ({
     responsive: true,
@@ -143,6 +216,7 @@ export function SWRChart() {
       },
       annotation: {
         annotations: {
+          ...calculatedAnnotations,
           swr2: {
             type: 'line',
             yMin: 2,
@@ -163,7 +237,7 @@ export function SWRChart() {
         },
       },
     },
-  }), [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax]);
+  }), [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax, calculatedAnnotations]);
 
   if (!result || sweep.length === 0) {
     return (
