@@ -17,6 +17,7 @@ import {
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { useAntennaStore } from '../../store/antennaStore';
+import type { AnnotationOptions } from 'chartjs-plugin-annotation';
 import { useMemo } from 'react';
 
 ChartJS.register(
@@ -138,7 +139,7 @@ export function SWRChart() {
   }, [comparisonActive, reference, sweep]);
 
   const options = useMemo<ChartOptions<'line'>>(() => {
-    const annotations: any = {
+    const annotations: Record<string, AnnotationOptions> = {
       swr2: {
         type: 'line',
         yMin: 2,
