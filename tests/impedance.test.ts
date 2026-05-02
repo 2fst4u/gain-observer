@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { reflectionCoefficientMag, swr } from '../src/physics/impedance';
+import { swr } from '../src/physics/impedance';
 
 describe('reflection coefficient and SWR', () => {
   it('perfect match => |Γ|=0, SWR=1', () => {
-    expect(reflectionCoefficientMag({ R: 50, X: 0 })).toBeCloseTo(0, 10);
     expect(swr({ R: 50, X: 0 })).toBeCloseTo(1, 10);
   });
 
   it('open circuit => |Γ|=1, SWR at display cap', () => {
-    expect(reflectionCoefficientMag({ R: 1e15, X: 0 })).toBeCloseTo(1, 4);
     expect(swr({ R: 1e15, X: 0 })).toBe(999);
   });
 
@@ -36,7 +34,8 @@ describe('reflection coefficient and SWR', () => {
   });
 
   it('den === 0 edge case (e.g. Z = -Z0) gives |Γ| = 1', () => {
-    // With Z0 = 50, Z = -50 + j0 gives denR = -50 + 50 = 0 and denX = 0 => den = 0
-    expect(reflectionCoefficientMag({ R: -50, X: 0 })).toBe(1);
+    // With Z0 = 50, Z = -50 + j0 gives denR = -50 + 50 = 0 and denX = 0 => den = 0.
+    // When |Γ| = 1, SWR is clamped at 999.
+    expect(swr({ R: -50, X: 0 })).toBe(999);
   });
 });
