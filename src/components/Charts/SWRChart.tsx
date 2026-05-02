@@ -242,18 +242,24 @@ export function SWRChart() {
         <Line data={data} options={options} />
       </div>
       {stats && (
-        <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-            <span>Min SWR: {stats.minSWR.toFixed(2)}:1 at {stats.minFreq.toFixed(3)} MHz</span>
+        <div style={{ marginTop: 12 }}>
+          <div className="stat" style={{ marginBottom: 2 }}>
+            <span className="stat-label" style={{ textTransform: 'none' }}>Min SWR</span>
+            <span className="stat-value">{stats.minSWR.toFixed(2)}:1 at {stats.minFreq.toFixed(3)} MHz</span>
           </div>
-          {stats.fLow !== null && stats.fHigh !== null ? (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>2:1 BW: {((stats.fHigh - stats.fLow) * 1000).toFixed(0)} kHz</span>
-              <span>({stats.fLow.toFixed(3)} - {stats.fHigh.toFixed(3)} MHz)</span>
-            </div>
-          ) : (
-            <div>2:1 Bandwidth: N/A</div>
-          )}
+          <div className="stat">
+            <span className="stat-label" style={{ textTransform: 'none' }}>2:1 BW</span>
+            {stats.fLow !== null && stats.fHigh !== null ? (
+              <span className="stat-value">
+                {((stats.fHigh - stats.fLow) * 1000).toFixed(0)} kHz
+                <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontWeight: 'normal' }}>
+                  ({stats.fLow.toFixed(3)} - {stats.fHigh.toFixed(3)} MHz)
+                </span>
+              </span>
+            ) : (
+              <span className="stat-value" style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>N/A</span>
+            )}
+          </div>
         </div>
       )}
     </div>
