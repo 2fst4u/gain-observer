@@ -16,7 +16,10 @@ export function FrequencyControl() {
           max={30}
           step={0.01}
           value={frequency}
-          onChange={(e) => setFrequency(parseFloat(e.target.value))}
+          onChange={(e) => {
+            const val = parseFloat(e.target.value);
+            if (!isNaN(val)) setFrequency(val);
+          }}
         />
       </div>
       <div style={{ marginTop: 8 }} className="button-group">

@@ -35,7 +35,10 @@ export function DipoleControl() {
           min={0.1}
           step={0.1}
           value={dispLen.toFixed(2)}
-          onChange={(e) => setLength(fromDisplayLength(parseFloat(e.target.value), units))}
+          onChange={(e) => {
+            const val = parseFloat(e.target.value);
+            if (!isNaN(val)) setLength(fromDisplayLength(val, units));
+          }}
         />
         <button
           onClick={setHalfWaveLength}
@@ -54,7 +57,10 @@ export function DipoleControl() {
         max={maxHeight}
         step={units === 'metric' ? 0.5 : 1}
         value={dispHeight}
-        onChange={(e) => setHeight(fromDisplayLength(parseFloat(e.target.value), units))}
+        onChange={(e) => {
+          const val = parseFloat(e.target.value);
+          if (!isNaN(val)) setHeight(fromDisplayLength(val, units));
+        }}
       />
 
       <label id="dipole-orientation" style={{ marginTop: 10 }}>Orientation</label>
