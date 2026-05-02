@@ -26,6 +26,12 @@ import type { SimulationInput } from './types';
 
 export interface BuildNecCardsOptions {
   readonly includePattern?: boolean;
+  /** Number of frequency steps for a linear sweep. Default 1. */
+  readonly sweepPoints?: number;
+  /** Frequency step size in MHz for a sweep. Default 0. */
+  readonly sweepStep?: number;
+  /** Start frequency for a sweep. Defaults to input.frequencyMHz. */
+  readonly sweepStartFreq?: number;
 }
 
 /** Round to fixed digits without introducing trailing zeros drift. */
@@ -60,8 +66,13 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
   const hasGround = input.ground.type !== 'free';
   lines.push(`GE ${hasGround ? 1 : 0}`);
 
-  // Frequency: FR 0 (linear), 1 frequency, _, _, f_MHz, step
-  lines.push(`FR 0 1 0 0 ${n(input.frequencyMHz, 6)} 0`);
+  // Frequency: FR 0 (linear), n frequency, _, _, f_MHz, step
+  const sweepPoints = opts.sweepPoints ?? 1;
+  const sweepStep = opts.sweepStep ?? 0;
+  const freqStart = opts.sweepStartFreq ?? input.frequencyMHz;
+  // If not sweeping, keep step as strictly "0" for exact fixture match.
+  const stepStr = sweepPoints > 1 ? n(sweepStep, 6) : '0';
+  lines.push(`FR 0 ${sweepPoints} 0 0 ${n(freqStart, 6)} ${stepStr}`);
 
   // Ground card (before EX per NEC-2 convention for static model).
   if (input.ground.type === 'perfect') {
