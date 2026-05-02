@@ -102,7 +102,7 @@ RADIATION PATTERNS
   200.00   0.00  1.0  1.0  1.0
   0.00     0.00  2.0  2.0  2.0
     `;
-    const parsed = parseNecOutput(mockOutput, 2, 1); // 2 theta steps (0, 180), dTheta=180
+    parseNecOutput(mockOutput, 2, 1); // 2 theta steps (0, 180), dTheta=180
     // -10/180 = 0 -> ti=0
     // 200/180 = 1 -> ti=1
     // Let's explicitly trigger out of bounds: 360/180 = 2 >= thetaSteps=2
