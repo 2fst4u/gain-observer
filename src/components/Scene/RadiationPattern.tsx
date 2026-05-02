@@ -84,59 +84,117 @@ export function RadiationPattern({
     return { source, basePositions, angles, count };
   }, [lod.phiSegments, lod.thetaSegments]);
 
-  const geometry = useMemo(() => {
+  // 1. Cache the gain for each vertex. Only re-run if the simulation result
+  //    or the LOD geometry (vertex count/angles) changes.
+  const vertexGains = useMemo(() => {
     if (!result) return null;
+    const { count, angles } = cachedGeo;
+    const gains = new Float32Array(count);
+    const { data, dTheta, dPhi, thetaSteps, phiSteps } = result.pattern;
 
-    const source = cachedGeo.source.clone();
-    const positions = source.attributes.position as THREE.BufferAttribute;
-    const positionArray = positions.array as Float32Array;
-    const basePositions = cachedGeo.basePositions;
-    const angles = cachedGeo.angles;
-    const colorArray = new Float32Array(cachedGeo.count * 4);
+    // Local optimization: avoid property lookups in the hot loop
+    const invDTheta = 1 / dTheta;
+    const invDPhi = 1 / dPhi;
 
-    const linearRangeFactor = patternScale * 5;
-    const maxDb = result.maxGainDbi;
-
-    for (let i = 0; i < cachedGeo.count; i++) {
-      const x = basePositions[i * 3]!;
-      const y = basePositions[i * 3 + 1]!;
-      const z = basePositions[i * 3 + 2]!;
-
+    for (let i = 0; i < count; i++) {
       const thetaDeg = angles[i * 2]!;
       const phiDeg = angles[i * 2 + 1]!;
 
-      const gainDb = samplePatternDb(result.pattern, thetaDeg, phiDeg);
+      // Inline and optimize samplePatternDb for the hot loop
+      const phi = ((phiDeg % 360) + 360) % 360;
+      const theta = thetaDeg < 0 ? 0 : thetaDeg > 180 ? 180 : thetaDeg;
+
+      const ti = theta * invDTheta;
+      const pi = phi * invDPhi;
+
+      const ti0 = ti | 0;
+      const ti1 = ti0 + 1 >= thetaSteps ? thetaSteps - 1 : ti0 + 1;
+      const piFloor = pi | 0;
+      const pi0 = piFloor % phiSteps;
+      const pi1 = (pi0 + 1) % phiSteps;
+
+      const ft = ti - ti0;
+      const fp = pi - piFloor;
+
+      const row0 = ti0 * phiSteps;
+      const row1 = ti1 * phiSteps;
+      const v00 = data[row0 + pi0]!;
+      const v01 = data[row0 + pi1]!;
+      const v10 = data[row1 + pi0]!;
+      const v11 = data[row1 + pi1]!;
+
+      const v0 = v00 * (1 - fp) + v01 * fp;
+      const v1 = v10 * (1 - fp) + v11 * fp;
+      gains[i] = v0 * (1 - ft) + v1 * ft;
+    }
+    return gains;
+  }, [result, cachedGeo]);
+
+  // 2. Compute vertex positions. Re-run if gains or pattern scale change.
+  const vertexPositions = useMemo(() => {
+    if (!result || !vertexGains) return null;
+    const { count, basePositions } = cachedGeo;
+    const positions = new Float32Array(count * 3);
+    const linearRangeFactor = patternScale * 5;
+    const maxDb = result.maxGainDbi;
+
+    for (let i = 0; i < count; i++) {
+      const gainDb = vertexGains[i]!;
       const linear = Math.pow(10, (gainDb - maxDb) / 20);
       const radius = linear * linearRangeFactor;
+      const idx = i * 3;
+      positions[idx] = basePositions[idx]! * radius;
+      positions[idx + 1] = basePositions[idx + 1]! * radius;
+      positions[idx + 2] = basePositions[idx + 2]! * radius;
+    }
+    return positions;
+  }, [vertexGains, patternScale, result?.maxGainDbi, cachedGeo]);
 
+  // 3. Compute vertex colors. Re-run if gains, colormap, or mode change.
+  const vertexColors = useMemo(() => {
+    if (!result || !vertexGains) return null;
+    const { count, angles } = cachedGeo;
+    const colors = new Float32Array(count * 4);
+    const maxDb = result.maxGainDbi;
+
+    for (let i = 0; i < count; i++) {
+      const gainDb = vertexGains[i]!;
       let t = gainToColorT(gainDb, maxDb, dbRange);
-      if (mode === 'nvis' && thetaDeg < 30) {
+      if (mode === 'nvis' && angles[i * 2]! < 30) {
         t = Math.min(1, t + 0.1);
       }
       const [cr, cg, cb] = sampleColormap(colormap, t);
-
-      positionArray[i * 3] = x * radius;
-      positionArray[i * 3 + 1] = y * radius;
-      positionArray[i * 3 + 2] = z * radius;
-      colorArray[i * 4] = cr;
-      colorArray[i * 4 + 1] = cg;
-      colorArray[i * 4 + 2] = cb;
-      // Firefox is correctly handling color attributes again when we provide
-      // explicit RGBA vertex colors, while still letting us keep smooth per-
-      // vertex interpolation across triangles.
-      colorArray[i * 4 + 3] = 1;
+      const idx = i * 4;
+      colors[idx] = cr;
+      colors[idx + 1] = cg;
+      colors[idx + 2] = cb;
+      colors[idx + 3] = 1;
     }
+    return colors;
+  }, [vertexGains, colormap, dbRange, mode, result?.maxGainDbi, cachedGeo]);
 
-    source.setAttribute('color', new THREE.Float32BufferAttribute(colorArray, 4));
-    positions.needsUpdate = true;
-    source.attributes.color.needsUpdate = true;
-    source.computeVertexNormals();
-    source.computeBoundingSphere();
-    return source;
-  }, [result, cachedGeo, patternScale, dbRange, colormap, mode]);
+  // 4. Cache the geometry with positions and normals.
+  // This avoids recomputing normals when only colors change.
+  const positionedGeo = useMemo(() => {
+    if (!vertexPositions) return null;
+    const geo = cachedGeo.source.clone();
+    geo.setAttribute('position', new THREE.BufferAttribute(vertexPositions, 3));
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    return geo;
+  }, [cachedGeo, vertexPositions]);
+
+  // 5. Final geometry with colors applied. Re-runs if colors change.
+  const geometry = useMemo(() => {
+    if (!positionedGeo || !vertexColors) return null;
+    const geo = positionedGeo.clone();
+    geo.setAttribute('color', new THREE.BufferAttribute(vertexColors, 4));
+    return geo;
+  }, [positionedGeo, vertexColors]);
 
   // Clean up cached geometry when unmounting
   useEffect(() => () => cachedGeo.source.dispose(), [cachedGeo]);
+  useEffect(() => () => positionedGeo?.dispose(), [positionedGeo]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
 
   if (!geometry) return null;
