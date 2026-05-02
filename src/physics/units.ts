@@ -4,11 +4,11 @@ export type UnitSystem = 'metric' | 'imperial';
 
 const METERS_PER_FOOT = 0.3048;
 
-export function metersToFeet(m: number): number {
+function metersToFeet(m: number): number {
   return m / METERS_PER_FOOT;
 }
 
-export function feetToMeters(ft: number): number {
+function feetToMeters(ft: number): number {
   return ft * METERS_PER_FOOT;
 }
 
