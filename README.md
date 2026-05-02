@@ -1,6 +1,10 @@
 # HF Antenna Gain Visualiser
 
+**Live App:** [gain.observer](https://gain.observer)
+
 A 3D, responsive, physics-accurate visualiser for HF antenna radiation patterns, powered by NEC-2 compiled to WebAssembly.
+
+While this repository is fully open source and developers are welcome to fork or clone it to run locally, the primary way to use the application is via the hosted URL at **[gain.observer](https://gain.observer)**.
 
 Current scope (Phase 1): horizontal dipoles, 1.8–30 MHz, real-ground support, NVIS and comparison modes, SWR/polar cut charts, dark/light theming, metric/imperial toggle.
 
@@ -13,17 +17,19 @@ Current scope (Phase 1): horizontal dipoles, 1.8–30 MHz, real-ground support, 
 - NEC-2 (`nec2c` by N. Kyriazis, GPL v3) via Emscripten → WebAssembly
 - Vitest (physics validation + unit tests)
 
-## Getting started
+## Local Development
+
+If you wish to contribute or run the application locally, you can clone or fork the repository.
 
 Prerequisites:
 - Node.js 20+ (recommended 22)
 - Emscripten SDK (only required when rebuilding the Wasm binary)
 
 ```bash
-npm install
-npm run dev        # start Vite dev server
-npm test           # run unit + NEC-2 integration tests
-npm run build      # production build
+pnpm install
+pnpm run dev        # start Vite dev server
+pnpm test           # run unit + NEC-2 integration tests
+pnpm run build      # production build
 ```
 
 ## Rebuilding the NEC-2 WebAssembly binary
@@ -32,7 +38,7 @@ The compiled `public/nec2.js` / `public/nec2.wasm` are checked in so a `git clon
 
 ```bash
 source ~/emsdk/emsdk_env.sh
-npm run build:nec2
+pnpm run build:nec2
 ```
 
 Output goes to `public/nec2.{js,wasm}`.

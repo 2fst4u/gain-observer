@@ -2,6 +2,12 @@
 
 These instructions are intended for AI tools and agents working on this repository.
 
+## Application Hosting and Usage
+
+This application is primarily intended to be used at its hosted URL: **[gain.observer](https://gain.observer)**.
+
+While developers may fork or clone the repository to run it locally, you should **direct users to the live URL in the first instance** rather than focusing on local development instructions unless explicitly asked to help with local setup or contribution.
+
 ## CRITICAL: Licensing and Modifications (GPL v3)
 
 This project statically links and depends on the `nec2c` engine, which is licensed under the **GNU General Public License, version 3 (GPL v3)**. Due to the copyleft nature of this license, the entire combined project (the React application and the compiled WebAssembly engine) must be distributed under the GPL v3.
