@@ -39,6 +39,26 @@ export function ControlPanel() {
       <SWRChart />
       <PolarPlots />
       <DisplayControl />
+
+      <div style={{
+        marginTop: 20,
+        paddingTop: 12,
+        borderTop: '1px solid var(--border)',
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        textAlign: 'center',
+      }}>
+        <a
+          href="https://github.com/2fst4u/gain-observer"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'inherit', textDecoration: 'none' }}
+          onMouseOver={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+          onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
+        >
+          View source on GitHub
+        </a>
+      </div>
     </div>
   );
 }
