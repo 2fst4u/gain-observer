@@ -4,7 +4,7 @@
 // display imperial but the physics layer and stored state are always metric.
 
 /** Speed of light in a vacuum, m/s. */
-export const SPEED_OF_LIGHT = 299_792_458;
+const SPEED_OF_LIGHT = 299_792_458;
 
 /** Speed of light expressed as MHz·m (useful: λ_m = C_MHZ_M / f_MHz). */
 export const C_MHZ_M = SPEED_OF_LIGHT / 1_000_000;
