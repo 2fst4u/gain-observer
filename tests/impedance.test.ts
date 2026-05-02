@@ -34,4 +34,9 @@ describe('reflection coefficient and SWR', () => {
   it('extremely high resistance capped at 999', () => {
     expect(swr({ R: 1e10, X: 0 })).toBe(999);
   });
+
+  it('den === 0 edge case (e.g. Z = -Z0) gives |Γ| = 1', () => {
+    // With Z0 = 50, Z = -50 + j0 gives denR = -50 + 50 = 0 and denX = 0 => den = 0
+    expect(reflectionCoefficientMag({ R: -50, X: 0 })).toBe(1);
+  });
 });
