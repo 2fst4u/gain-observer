@@ -102,6 +102,32 @@ export function SWRChart() {
     };
   }, [comparisonActive, frequency, reference, sweep]);
 
+  const stats = useMemo(() => {
+    if (sweep.length === 0) return null;
+    let minSWR = Infinity;
+    let minFreq = 0;
+    for (const pt of sweep) {
+      if (pt.swr < minSWR) {
+        minSWR = pt.swr;
+        minFreq = pt.frequencyMHz;
+      }
+    }
+    let fLow: number | null = null;
+    let fHigh: number | null = null;
+    for (let i = 0; i < sweep.length - 1; i++) {
+      const p1 = sweep[i];
+      const p2 = sweep[i + 1];
+      if (p1.swr >= 2 && p2.swr <= 2) {
+        const t = (2 - p1.swr) / (p2.swr - p1.swr);
+        fLow = p1.frequencyMHz + t * (p2.frequencyMHz - p1.frequencyMHz);
+      } else if (p1.swr <= 2 && p2.swr >= 2) {
+        const t = (2 - p1.swr) / (p2.swr - p1.swr);
+        fHigh = p1.frequencyMHz + t * (p2.frequencyMHz - p1.frequencyMHz);
+      }
+    }
+    return { minSWR, minFreq, fLow, fHigh };
+  }, [sweep]);
+
   const yMax = useMemo(() => {
     const values = [
       ...sweep.map((point) => point.swr),
@@ -111,62 +137,97 @@ export function SWRChart() {
     return Math.min(999, Math.max(5, Math.ceil(Math.max(...values) * 1.1)));
   }, [comparisonActive, reference, sweep]);
 
-  const options = useMemo<ChartOptions<'line'>>(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: { duration: 200 },
-    parsing: false,
-    scales: {
-      y: {
-        min: 1,
-        max: yMax,
-        ticks: { color: chartText },
-        grid: { color: chartGrid },
-        title: { display: true, text: 'SWR', color: chartText },
+  const options = useMemo<ChartOptions<'line'>>(() => {
+    const annotations: any = {
+      swr2: {
+        type: 'line',
+        yMin: 2,
+        yMax: 2,
+        borderColor: '#ff6b6b',
+        borderWidth: 1,
+        borderDash: [6, 4],
       },
-      x: {
-        type: 'linear',
-        min: xBounds.min,
-        max: xBounds.max,
-        ticks: {
-          color: chartText,
-          callback: (value) => Number(value).toFixed(2),
+      currentFrequency: {
+        type: 'line',
+        xMin: frequency,
+        xMax: frequency,
+        borderColor: accent,
+        borderWidth: 1,
+        borderDash: [4, 4],
+      },
+    };
+
+    if (stats) {
+      annotations.minFreq = {
+        type: 'line',
+        xMin: stats.minFreq,
+        xMax: stats.minFreq,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+        borderWidth: 1,
+        borderDash: [2, 2],
+      };
+      if (stats.fLow !== null) {
+        annotations.fLow = {
+          type: 'line',
+          xMin: stats.fLow,
+          xMax: stats.fLow,
+          borderColor: 'rgba(255, 107, 107, 0.4)',
+          borderWidth: 1,
+          borderDash: [4, 4],
+        };
+      }
+      if (stats.fHigh !== null) {
+        annotations.fHigh = {
+          type: 'line',
+          xMin: stats.fHigh,
+          xMax: stats.fHigh,
+          borderColor: 'rgba(255, 107, 107, 0.4)',
+          borderWidth: 1,
+          borderDash: [4, 4],
+        };
+      }
+    }
+
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 200 },
+      parsing: false,
+      scales: {
+        y: {
+          min: 1,
+          max: yMax,
+          ticks: { color: chartText },
+          grid: { color: chartGrid },
+          title: { display: true, text: 'SWR', color: chartText },
         },
-        grid: { color: chartGrid },
-        title: { display: true, text: 'MHz', color: chartText },
-      },
-    },
-    plugins: {
-      legend: {
-        display: comparisonActive,
-        labels: { color: chartText },
-      },
-      annotation: {
-        annotations: {
-          swr2: {
-            type: 'line',
-            yMin: 2,
-            yMax: 2,
-            borderColor: '#ff6b6b',
-            borderWidth: 1,
-            borderDash: [6, 4],
+        x: {
+          type: 'linear',
+          min: xBounds.min,
+          max: xBounds.max,
+          ticks: {
+            color: chartText,
+            callback: (value) => Number(value).toFixed(2),
           },
-          currentFrequency: {
-            type: 'line',
-            xMin: frequency,
-            xMax: frequency,
-            borderColor: accent,
-            borderWidth: 1,
-            borderDash: [4, 4],
-          },
+          grid: { color: chartGrid },
+          title: { display: true, text: 'MHz', color: chartText },
         },
       },
-    },
-  }), [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax]);
+      plugins: {
+        legend: {
+          display: comparisonActive,
+          labels: { color: chartText },
+        },
+        annotation: {
+          annotations,
+        },
+      },
+    };
+  }, [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax, stats]);
 
   if (!result || sweep.length === 0) {
     return (
-      <div className="panel-section" style={{ height: 180 }}>
+      <div className="panel-section" style={{ height: 210 }}>
         <h3>SWR sweep</h3>
         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Computing frequency sweep…</div>
       </div>
@@ -174,11 +235,26 @@ export function SWRChart() {
   }
 
   return (
-    <div className="panel-section" style={{ height: 180 }}>
+    <div className="panel-section" style={{ height: 210 }}>
       <h3>SWR sweep</h3>
       <div style={{ height: 130 }}>
         <Line data={data} options={options} />
       </div>
+      {stats && (
+        <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+            <span>Min SWR: {stats.minSWR.toFixed(2)}:1 at {stats.minFreq.toFixed(3)} MHz</span>
+          </div>
+          {stats.fLow !== null && stats.fHigh !== null ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>2:1 BW: {((stats.fHigh - stats.fLow) * 1000).toFixed(0)} kHz</span>
+              <span>({stats.fLow.toFixed(3)} - {stats.fHigh.toFixed(3)} MHz)</span>
+            </div>
+          ) : (
+            <div>2:1 Bandwidth: N/A</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
