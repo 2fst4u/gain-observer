@@ -8,7 +8,7 @@
 
 import { describe, expect, it, beforeAll } from 'vitest';
 import { Nec2Engine } from '../src/physics/nec2Engine';
-import { halfWaveLength, C_MHZ_M } from '../src/physics/constants';
+import { halfWaveLength, wavelengthMeters } from '../src/physics/constants';
 import type { SimulationInput } from '../src/physics/types';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
@@ -53,14 +53,14 @@ describe('Nec2Engine (real Wasm)', () => {
     expect(r.impedance.R).toBeGreaterThan(60);
     expect(r.impedance.R).toBeLessThan(90);
     // Wavelength sanity.
-    const lambda = C_MHZ_M / freq;
+    const lambda = wavelengthMeters(freq);
     expect(lambda).toBeCloseTo(42.224, 2);
   }, 30_000);
 
   it('reports higher gain when above real ground vs free space', async () => {
     const freq = 7.1;
     const tip = halfWaveLength(freq, 1.0) / 2;
-    const lambda = C_MHZ_M / freq;
+    const lambda = wavelengthMeters(freq);
 
     const fs: SimulationInput = {
       wires: [{ start: [-tip, 0, 0], end: [tip, 0, 0], radius: 0.001, segments: 21, tag: 1 }],
@@ -98,7 +98,7 @@ describe('Nec2Engine (real Wasm)', () => {
   it('quarter-wave height produces NVIS (high take-off angle)', async () => {
     const freq = 7.1;
     const tip = halfWaveLength(freq, 1.0) / 2;
-    const lambda = C_MHZ_M / freq;
+    const lambda = wavelengthMeters(freq);
 
     const input: SimulationInput = {
       wires: [{
