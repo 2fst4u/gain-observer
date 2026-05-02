@@ -14,7 +14,6 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
-      includeAssets: [],
       manifest: {
         name: 'HF Gain Visualiser',
         short_name: 'Gain Observer',
@@ -33,7 +32,6 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm}'],
-        // Increase the limit for WASM files if necessary
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
