@@ -269,7 +269,7 @@ export function buildWires(
   }];
 }
 
-export function buildGroundParams(state: AntennaState): GroundParams {
+function buildGroundParams(state: AntennaState): GroundParams {
   if (state.height <= 0) return { type: 'free' };
   switch (state.groundId) {
     case 'free': return { type: 'free' };
