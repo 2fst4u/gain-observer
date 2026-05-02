@@ -4,10 +4,6 @@ export type UnitSystem = 'metric' | 'imperial';
 
 const METERS_PER_FOOT = 0.3048;
 
-function metersToFeet(m: number): number {
-  return m / METERS_PER_FOOT;
-}
-
 function feetToMeters(ft: number): number {
   return ft * METERS_PER_FOOT;
 }
@@ -17,7 +13,7 @@ function feetToMeters(ft: number): number {
  * Always returns meters for metric, feet for imperial.
  */
 export function toDisplayLength(meters: number, system: UnitSystem): number {
-  return system === 'metric' ? meters : metersToFeet(meters);
+  return system === 'metric' ? meters : meters / METERS_PER_FOOT;
 }
 
 /**
