@@ -196,4 +196,56 @@ describe('Nec2Engine (real Wasm)', () => {
     expect(Number.isFinite(r.maxGainDbi)).toBe(true);
     expect(r.impedance.R).toBeGreaterThan(0);
   }, 30_000);
+
+  it('handles concurrent simulate() calls by serializing them', async () => {
+    const freq = 7.1;
+    const tip = halfWaveLength(freq, 1.0) / 2;
+    const input: SimulationInput = {
+      wires: [{ start: [-tip, 0, 10], end: [tip, 0, 10], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: freq,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    // Fire two simulations at once. The engine lock should handle it.
+    const [r1, r2] = await Promise.all([
+      engine.simulate(input),
+      engine.simulate({ ...input, frequencyMHz: 14.2 }),
+    ]);
+
+    expect(r1.impedance.R).toBeGreaterThan(60);
+    // 40m dipole (~20m long) at 14.2 MHz is approx 1 wavelength long.
+    // Feedpoint impedance at the center of a 1-wave wire is very high (thousands of ohms).
+    expect(r2.impedance.R).toBeGreaterThan(1000);
+    expect(r1.computeTimeMs).toBeGreaterThan(0);
+    expect(r2.computeTimeMs).toBeGreaterThan(0);
+  }, 60_000);
+
+  it('verifies azimuth wrapping consistency (phi 0 vs 360)', async () => {
+    const freq = 7.1;
+    const tip = halfWaveLength(freq, 1.0) / 2;
+    const input: SimulationInput = {
+      wires: [{ start: [-tip, 0, 10], end: [tip, 0, 10], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: freq,
+      ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+    };
+
+    const r = await engine.simulate(input);
+    const p = r.pattern;
+
+    // NEC-2 RP card calculates phi from 0 to 360-dPhi if we ask for phiSteps.
+    // In our parser, we use modulo phiSteps.
+    // Let's check that phi=0 and the last phi are what we expect.
+    // For 72 steps of 5deg, phi indices are 0..71 corresponding to 0..355 deg.
+
+    const t90 = 18; // 90 deg theta
+    const g0 = p.data[t90 * 72 + 0];
+    const gLast = p.data[t90 * 72 + 71];
+
+    // In a symmetric dipole, g0 (phi=0) and gLast (phi=355) should be very close.
+    expect(Math.abs(g0 - gLast)).toBeLessThan(1.0);
+  }, 30_000);
 });
