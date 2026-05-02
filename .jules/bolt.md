@@ -10,3 +10,6 @@
 ## 2024-05-18 - Optimized Zenith Gain Fetch
 **Learning:** In spherical coordinates used by the NEC-2 engine (theta=0 at zenith), the direction vector is straight up regardless of the azimuth (phi) step.
 **Action:** Replace $O(N)$ averaging loops over `phi` at zenith with a direct $O(1)$ sample from `data[0]` to fetch the gain faster, avoiding redundant memory reads in the JS engine.
+## 2025-02-18 - [Batching WebAssembly Engine Execution]
+**Learning:** Instantiating the Emscripten WASM module and interacting with its virtual filesystem repeatedly inside a `for` loop (as seen in sequential sweeps) is a major performance bottleneck due to the engine's internal concurrency lock and initialization overhead.
+**Action:** Always batch related simulations at the lowest possible layer. For the NEC-2 engine, this means generating a single input deck using the `FR` card's linear sweep capability (`FR 0 nfreq ...`) and parsing the multiple concatenated outputs in a single execution context.

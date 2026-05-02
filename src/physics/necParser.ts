@@ -46,6 +46,54 @@ export function parseNecImpedance(text: string): { impedance: ImpedanceResult | 
 }
 
 /**
+ * Extracts all ANTENNA INPUT PARAMETERS blocks for frequency sweeps.
+ */
+export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResult | null; power: number | null }[] {
+  const results: { impedance: ImpedanceResult | null; power: number | null }[] = [];
+  let pos = 0;
+  const rowRe = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/;
+
+  while (true) {
+    const blockStart = text.indexOf('ANTENNA INPUT PARAMETERS', pos);
+    if (blockStart < 0) break;
+
+    let lineStart = blockStart;
+    const newlinePositions = [];
+    for (let i = 0; i < 12; i++) {
+      const p = text.indexOf('\n', lineStart);
+      if (p < 0) break;
+      newlinePositions.push(p);
+      lineStart = p + 1;
+    }
+
+    if (newlinePositions.length === 0) break;
+
+    const blockText = text.slice(blockStart, newlinePositions[newlinePositions.length - 1]);
+    const lines = blockText.split('\n');
+    let found = false;
+    for (const line of lines) {
+      const m = rowRe.exec(line);
+      if (m) {
+        const zR = parseFloat(m[5]!);
+        const zX = parseFloat(m[6]!);
+        const power = parseFloat(m[9]!);
+        results.push({ impedance: { R: zR, X: zX }, power });
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      results.push({ impedance: null, power: null });
+    }
+
+    pos = blockStart + 24; // advance safely past the start
+  }
+
+  return results;
+}
+
+/**
  * The RADIATION PATTERNS block. Each row is:
  *   THETA  PHI  VERT_DB  HORIZ_DB  TOTAL_DB  AXIAL  TILT  SENSE  E_TH_MAG  E_TH_PHASE  E_PHI_MAG  E_PHI_PHASE
  *

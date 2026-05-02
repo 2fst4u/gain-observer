@@ -19,7 +19,7 @@
 // module is cheap and guarantees correctness.
 
 import { buildNecCards } from './necCard';
-import { parseNecImpedance, parseNecOutput } from './necParser';
+import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
 import { swr } from './impedance';
 import type { Engine, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 
@@ -236,19 +236,21 @@ export class Nec2Engine implements Engine {
     const start = Math.max(1.8, input.frequencyMHz * (1 - spanFraction / 2));
     const end = Math.min(30, input.frequencyMHz * (1 + spanFraction / 2));
     const step = points > 1 ? (end - start) / (points - 1) : 0;
+
+    const parsedResults = await this.solveImpedanceSweep(input, points, start, step);
     const sweep: SweepPoint[] = [];
 
     for (let i = 0; i < points; i++) {
       const frequencyMHz = i === points - 1 ? end : start + step * i;
-      const impedance = await this.solveImpedance({
-        ...input,
-        frequencyMHz,
-      });
+      const parsed = parsedResults[i];
+      if (!parsed?.impedance) {
+        throw new Error(`NEC-2 sweep missing impedance result for frequency ${frequencyMHz} MHz`);
+      }
       sweep.push({
         frequencyMHz,
-        swr: swr(impedance),
-        R: impedance.R,
-        X: impedance.X,
+        swr: swr(parsed.impedance),
+        R: parsed.impedance.R,
+        X: parsed.impedance.X,
       });
     }
 
@@ -266,7 +268,12 @@ export class Nec2Engine implements Engine {
     return release;
   }
 
-  private async solveImpedance(input: SimulationInput): Promise<ImpedanceResult> {
+  private async solveImpedanceSweep(
+    input: SimulationInput,
+    points: number,
+    startFreq: number,
+    step: number,
+  ): Promise<{ impedance: ImpedanceResult | null; power: number | null }[]> {
     if (!this.factory) await this.init();
     const factory = this.factory;
     if (!factory) throw new Error('NEC-2 engine failed to initialise');
@@ -286,7 +293,15 @@ export class Nec2Engine implements Engine {
 
       const inPath = '/input.nec';
       const outPath = '/output.nout';
-      instance.FS.writeFile(inPath, buildNecCards(input, { includePattern: false }));
+      instance.FS.writeFile(
+        inPath,
+        buildNecCards(input, {
+          includePattern: false,
+          sweepPoints: points,
+          sweepStartFreq: startFreq,
+          sweepStep: step,
+        }),
+      );
 
       const rc = instance.callMain(['-i', inPath, '-o', outPath]);
       if (rc !== 0) {
@@ -296,11 +311,7 @@ export class Nec2Engine implements Engine {
 
       const outputBytes = instance.FS.readFile(outPath);
       const output = new TextDecoder().decode(outputBytes);
-      const { impedance } = parseNecImpedance(output);
-      if (!impedance) {
-        throw new Error('NEC-2 sweep did not produce an impedance result.');
-      }
-      return impedance;
+      return parseNecImpedanceSweep(output);
     } finally {
       release();
     }
