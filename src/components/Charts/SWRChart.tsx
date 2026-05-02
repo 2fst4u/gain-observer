@@ -150,7 +150,6 @@ export function SWRChart() {
             borderColor: '#ff6b6b',
             borderWidth: 1,
             borderDash: [6, 4],
-            label: { display: true, content: 'SWR 2.0', position: 'end', color: '#ff6b6b' },
           },
           currentFrequency: {
             type: 'line',
