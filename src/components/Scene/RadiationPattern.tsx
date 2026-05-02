@@ -14,38 +14,6 @@ interface Props {
   readonly mode: Mode;
 }
 
-function samplePatternDb(
-  pattern: SimulationResult['pattern'],
-  thetaDeg: number,
-  phiDeg: number,
-): number {
-  const phi = ((phiDeg % 360) + 360) % 360;
-  const theta = Math.max(0, Math.min(180, thetaDeg));
-
-  const ti = theta / pattern.dTheta;
-  const pi = phi / pattern.dPhi;
-
-  const ti0 = Math.floor(ti);
-  const ti1 = Math.min(ti0 + 1, pattern.thetaSteps - 1);
-  const piFloor = Math.floor(pi);
-  const pi0 = piFloor % pattern.phiSteps;
-  const pi1 = (pi0 + 1) % pattern.phiSteps;
-
-  const ft = ti - ti0;
-  const fp = pi - piFloor;
-
-  const row0 = ti0 * pattern.phiSteps;
-  const row1 = ti1 * pattern.phiSteps;
-  const v00 = pattern.data[row0 + pi0]!;
-  const v01 = pattern.data[row0 + pi1]!;
-  const v10 = pattern.data[row1 + pi0]!;
-  const v11 = pattern.data[row1 + pi1]!;
-
-  const v0 = v00 * (1 - fp) + v01 * fp;
-  const v1 = v10 * (1 - fp) + v11 * fp;
-  return v0 * (1 - ft) + v1 * ft;
-}
-
 export function RadiationPattern({
   originY = 0,
   result,
@@ -178,7 +146,7 @@ export function RadiationPattern({
   const positionedGeo = useMemo(() => {
     if (!vertexPositions) return null;
     const geo = cachedGeo.source.clone();
-    geo.setAttribute('position', new THREE.BufferAttribute(vertexPositions, 3));
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertexPositions, 3));
     geo.computeVertexNormals();
     geo.computeBoundingSphere();
     return geo;
@@ -188,7 +156,7 @@ export function RadiationPattern({
   const geometry = useMemo(() => {
     if (!positionedGeo || !vertexColors) return null;
     const geo = positionedGeo.clone();
-    geo.setAttribute('color', new THREE.BufferAttribute(vertexColors, 4));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(vertexColors, 4));
     return geo;
   }, [positionedGeo, vertexColors]);
 
