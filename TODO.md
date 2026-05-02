@@ -6,5 +6,3 @@
 - add different antenna designs, namely delta loop, terminated delta loop (and inverted) sloping V, inverted V, terminated V, and other common designs
 - add gain value annotations to renders and indicate optimal take off angle
 - add T index input or programatic pull, and estimate optimal physical range of a signal for the given frequency
-- [x] improve rendering of the ground mesh to prevent thin lines flickering
-- The swr sweep graph needs annotations for key crossover points and values. Without them it just looks like a curve with no context
