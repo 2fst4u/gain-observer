@@ -18,7 +18,7 @@ export const DEFAULT_WIRE_RADIUS_M = 0.001;
 /**
  * Convenience: wavelength in metres for a given frequency in MHz.
  */
-export function wavelengthMeters(frequencyMHz: number): number {
+function wavelengthMeters(frequencyMHz: number): number {
   return C_MHZ_M / frequencyMHz;
 }
 
