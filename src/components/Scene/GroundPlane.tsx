@@ -4,14 +4,8 @@
 // We draw a large grid on top for scale reference.
 
 import { Grid } from '@react-three/drei';
-const GROUND_COLORS: Record<string, string> = {
-  sea: '#1d5980',
-  fresh: '#2f7ca0',
-  pastoral: '#3a3022',
-  'dry-rocky': '#6a5a44',
-  city: '#3f3f44',
-  perfect: '#888888',
-};
+import { useAntennaStore } from '../../store/antennaStore';
+import { THEME_COLORS } from '../../utils/themeColors';
 
 interface GroundPlaneProps {
   readonly groundId: string;
@@ -20,9 +14,11 @@ interface GroundPlaneProps {
 }
 
 export function GroundPlane({ groundId, height, showGrid }: GroundPlaneProps) {
+  const theme = useAntennaStore((s) => s.theme);
   if (height <= 0 || groundId === 'free') return null;
 
-  const color = GROUND_COLORS[groundId] ?? '#3a3022';
+  const colors = THEME_COLORS[theme].ground;
+  const color = (colors as Record<string, string>)[groundId] ?? colors.pastoral;
 
   return (
     <group>
@@ -41,10 +37,10 @@ export function GroundPlane({ groundId, height, showGrid }: GroundPlaneProps) {
           args={[400, 400]}
           cellSize={5}
           cellThickness={1.0}
-          cellColor="#555"
+          cellColor={theme === 'dark' ? '#555' : '#aaa'}
           sectionSize={25}
           sectionThickness={2.0}
-          sectionColor="#888"
+          sectionColor={theme === 'dark' ? '#888' : '#777'}
           fadeDistance={150}
           fadeStrength={5}
           infiniteGrid
