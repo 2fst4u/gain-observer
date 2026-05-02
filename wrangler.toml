@@ -1,6 +1,7 @@
 name = "gain-observer"
 compatibility_date = "2026-05-02"
 compatibility_flags = [ "nodejs_compat" ]
+preview_urls = true
 
 [[routes]]
 pattern = "gain.observer"
