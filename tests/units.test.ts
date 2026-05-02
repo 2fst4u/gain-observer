@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  metersToFeet,
-  feetToMeters,
   toDisplayLength,
   fromDisplayLength,
   formatLength,
@@ -11,7 +9,7 @@ describe('unit conversions', () => {
   it('round-trips m → ft → m within float precision', () => {
     const samples = [0, 0.1, 1, 10.05, 21.11, 100];
     for (const m of samples) {
-      const back = feetToMeters(metersToFeet(m));
+      const back = fromDisplayLength(toDisplayLength(m, 'imperial'), 'imperial');
       expect(back).toBeCloseTo(m, 10);
     }
   });
@@ -34,8 +32,8 @@ describe('unit conversions', () => {
 
   it('converts common benchmarks correctly', () => {
     // 1 meter approx 3.28084 feet
-    expect(metersToFeet(1)).toBeCloseTo(3.28084, 5);
+    expect(toDisplayLength(1, 'imperial')).toBeCloseTo(3.28084, 5);
     // 1 foot is exactly 0.3048 meters
-    expect(feetToMeters(1)).toBe(0.3048);
+    expect(fromDisplayLength(1, 'imperial')).toBe(0.3048);
   });
 });
