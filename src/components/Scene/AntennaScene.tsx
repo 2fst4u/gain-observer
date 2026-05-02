@@ -12,6 +12,7 @@ import { DipoleWire } from './DipoleWire';
 import { GroundPlane } from './GroundPlane';
 import { RadiationPattern } from './RadiationPattern';
 import { useAntennaStore, type ComparisonSnapshot } from '../../store/antennaStore';
+import { THEME_COLORS } from '../../utils/themeColors';
 
 interface AntennaSceneProps {
   readonly snapshot?: ComparisonSnapshot | null;
@@ -31,6 +32,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const dbRange = useAntennaStore((s) => s.dbRange);
   const colormap = useAntennaStore((s) => s.colormap);
   const mode = useAntennaStore((s) => s.mode);
+  const theme = useAntennaStore((s) => s.theme);
 
   const length = snapshot?.length ?? liveLength;
   const height = snapshot?.height ?? liveHeight;
@@ -47,7 +49,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
       gl={{ antialias: true, alpha: false }}
       style={{ background: 'var(--bg-canvas)' }}
     >
-      <color attach="background" args={[getBg()]} />
+      <color attach="background" args={[THEME_COLORS[theme].background]} />
       <ambientLight intensity={0.35} />
       <directionalLight position={[15, 25, 10]} intensity={1.15} castShadow />
       <directionalLight position={[-10, 8, -8]} intensity={0.45} />
@@ -84,11 +86,4 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
       </GizmoHelper>
     </Canvas>
   );
-}
-
-function getBg(): string {
-  // Peek the actual CSS variable — falls back to a neutral dark.
-  if (typeof window === 'undefined') return '#0a0d12';
-  const v = getComputedStyle(document.documentElement).getPropertyValue('--bg-canvas').trim();
-  return v || '#0a0d12';
 }

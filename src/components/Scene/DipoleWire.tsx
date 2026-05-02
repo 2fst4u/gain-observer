@@ -14,7 +14,8 @@
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { buildWires, type Orientation } from '../../store/antennaStore';
+import { useAntennaStore, buildWires, type Orientation } from '../../store/antennaStore';
+import { THEME_COLORS } from '../../utils/themeColors';
 
 interface DipoleWireProps {
   readonly length: number;
@@ -29,6 +30,7 @@ function necToScene(p: readonly [number, number, number]): [number, number, numb
 }
 
 export function DipoleWire({ length, height, orientation, wireRadius, segments }: DipoleWireProps) {
+  const theme = useAntennaStore((s) => s.theme);
   const rendered = useMemo(() => {
     // Build synthetic state just for the wire geometry. We reuse buildWires()
     // to keep the coordinate convention in one place.
@@ -68,16 +70,20 @@ export function DipoleWire({ length, height, orientation, wireRadius, segments }
           <mesh position={s.position} quaternion={s.quaternion}>
             <cylinderGeometry args={[s.radius, s.radius, s.length, 16]} />
             <meshStandardMaterial
-              color="#e09a3f"
-              emissive="#7a3d00"
-              emissiveIntensity={0.35}
+              color={THEME_COLORS[theme].wire}
+              emissive={THEME_COLORS[theme].wire}
+              emissiveIntensity={0.15}
               metalness={0.85}
               roughness={0.35}
             />
           </mesh>
           <mesh position={s.feed}>
             <sphereGeometry args={[0.22, 16, 16]} />
-            <meshStandardMaterial color="#ff3a3a" emissive="#aa0000" emissiveIntensity={0.8} />
+            <meshStandardMaterial
+              color={THEME_COLORS[theme].feedpoint}
+              emissive={THEME_COLORS[theme].feedpoint}
+              emissiveIntensity={0.4}
+            />
           </mesh>
         </group>
       ))}
