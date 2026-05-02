@@ -15,18 +15,19 @@ ChartJS.register(RadialLinearScale, ArcElement, Tooltip);
 
 function cutAzimuth(p: GainPattern, thetaDeg: number): number[] {
   const ti = Math.max(0, Math.min(p.thetaSteps - 1, Math.round(thetaDeg / p.dTheta)));
-  const out: number[] = [];
+  const out = new Array<number>(p.phiSteps);
+  const baseIdx = ti * p.phiSteps;
   for (let pi = 0; pi < p.phiSteps; pi++) {
-    out.push(p.data[ti * p.phiSteps + pi] ?? -60);
+    out[pi] = p.data[baseIdx + pi] ?? -60;
   }
   return out;
 }
 
 function cutElevation(p: GainPattern, phiDeg: number): number[] {
   const pi = Math.max(0, Math.min(p.phiSteps - 1, Math.round(phiDeg / p.dPhi)));
-  const out: number[] = [];
+  const out = new Array<number>(p.thetaSteps);
   for (let ti = 0; ti < p.thetaSteps; ti++) {
-    out.push(p.data[ti * p.phiSteps + pi] ?? -60);
+    out[ti] = p.data[ti * p.phiSteps + pi] ?? -60;
   }
   return out;
 }
