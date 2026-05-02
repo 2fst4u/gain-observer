@@ -77,8 +77,8 @@ export function PolarPlots() {
   return (
     <div className="panel-section">
       <h3>Polar cuts</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
             Azimuth @ {result.takeoffElevationDeg.toFixed(0)}° elev.
           </div>
@@ -97,7 +97,7 @@ export function PolarPlots() {
             />
           </div>
         </div>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
             Elevation @ {result.takeoffAzimuthDeg.toFixed(0)}° az.
           </div>
