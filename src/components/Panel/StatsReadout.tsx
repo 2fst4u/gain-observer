@@ -94,14 +94,11 @@ function formatSigned(value: number, digits: number): string {
 function NvisStats() {
   const result = useAntennaStore((s) => s.result);
   if (!result) return null;
-  // Compute NVIS metric: gain at theta=0 (i.e. zenith) averaged over phi.
+  // Compute NVIS metric: gain at theta=0 (i.e. zenith).
+  // At zenith, far-field gain is independent of phi, so we can just sample data[0]
+  // instead of averaging across all phi steps.
   const p = result.pattern;
-  let sum = 0, count = 0;
-  for (let pi = 0; pi < p.phiSteps; pi++) {
-    sum += p.data[pi] ?? 0;
-    count++;
-  }
-  const zenithGain = count > 0 ? sum / count : 0;
+  const zenithGain = p.phiSteps > 0 ? (p.data[0] ?? 0) : 0;
   const ratio = zenithGain - result.maxGainDbi;
 
   return (
