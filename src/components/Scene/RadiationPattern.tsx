@@ -116,7 +116,7 @@ export function RadiationPattern({
       positions[idx + 2] = basePositions[idx + 2]! * radius;
     }
     return positions;
-  }, [vertexGains, patternScale, result?.maxGainDbi, cachedGeo]);
+  }, [vertexGains, patternScale, cachedGeo, result]);
 
   // 3. Compute vertex colors. Re-run if gains, colormap, or mode change.
   const vertexColors = useMemo(() => {
@@ -139,7 +139,7 @@ export function RadiationPattern({
       colors[idx + 3] = 1;
     }
     return colors;
-  }, [vertexGains, colormap, dbRange, mode, result?.maxGainDbi, cachedGeo]);
+  }, [vertexGains, colormap, dbRange, mode, cachedGeo, result]);
 
   // 4. Cache the geometry with positions and normals.
   // This avoids recomputing normals when only colors change.
