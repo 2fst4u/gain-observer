@@ -9,17 +9,8 @@ export const SPEED_OF_LIGHT = 299_792_458;
 /** Speed of light expressed as MHz·m (useful: λ_m = C_MHZ_M / f_MHz). */
 export const C_MHZ_M = SPEED_OF_LIGHT / 1_000_000;
 
-/** Characteristic impedance of free space, ohms. */
-export const ETA_0 = 376.730_313_668;
-
 /** System / feedline reference impedance, ohms. */
 export const Z0_SYSTEM = 50;
-
-/** Permittivity of free space, F/m. */
-export const EPSILON_0 = 8.854_187_8128e-12;
-
-/** Permeability of free space, H/m. */
-export const MU_0 = 1.256_637_062_12e-6;
 
 /** Default wire radius for HF antennas, metres (≈ 14 AWG copper ~ 2 mm). */
 export const DEFAULT_WIRE_RADIUS_M = 0.001;
