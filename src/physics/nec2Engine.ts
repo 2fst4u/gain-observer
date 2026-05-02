@@ -75,11 +75,18 @@ async function loadNec2Factory(baseUrl: string): Promise<EmscriptenFactory> {
   return mod.default;
 }
 
+export interface Logger {
+  info(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+}
+
 export interface Nec2EngineOptions {
   /** Base URL to fetch nec2.js / nec2.wasm from. Defaults to "/". */
   baseUrl?: string;
   /** Suppress noisy nec2c stdout except warnings/errors. Default true. */
   quiet?: boolean;
+  /** Optional logger to receive console output from the engine. */
+  logger?: Logger;
 }
 
 export interface SweepOptions {
@@ -95,12 +102,14 @@ export class Nec2Engine implements Engine {
   private factory: EmscriptenFactory | null = null;
   private readonly baseUrl: string;
   private readonly quiet: boolean;
+  private readonly logger?: Logger;
   private initPromise: Promise<void> | null = null;
   private lock: Promise<void> = Promise.resolve();
 
   constructor(opts: Nec2EngineOptions = {}) {
     this.baseUrl = opts.baseUrl ?? '/';
     this.quiet = opts.quiet ?? true;
+    this.logger = opts.logger;
   }
 
   async init(): Promise<void> {
@@ -121,21 +130,21 @@ export class Nec2Engine implements Engine {
   }
 
   private async doInit(): Promise<void> {
-    console.log('[nec2] loading factory from', this.resolveAsset('nec2.js'));
+    this.logger?.info('[nec2] loading factory from', this.resolveAsset('nec2.js'));
     this.factory = await loadNec2Factory(this.baseUrl);
-    console.log('[nec2] factory loaded, instantiating warmup module…');
+    this.logger?.info('[nec2] factory loaded, instantiating warmup module…');
     // Warm up the V8/wasm compilation cache so the first simulate() call
     // doesn't pay the full compile cost.
     const warmup = await this.factory({
       noInitialRun: true,
       locateFile: (path: string) => this.resolveAsset(path),
       print: () => {},
-      printErr: (s) => console.warn('[nec2 warmup stderr]', s),
+      printErr: (s) => this.logger?.warn('[nec2 warmup stderr]', s),
     });
     // Touch FS so it's initialised.
     warmup.FS.writeFile('/warmup.txt', '');
     this.ready = true;
-    console.log('[nec2] engine ready');
+    this.logger?.info('[nec2] engine ready');
   }
 
   async simulate(input: SimulationInput): Promise<SimulationResult> {
@@ -151,10 +160,10 @@ export class Nec2Engine implements Engine {
       const instance = await factory({
         noInitialRun: true,
         locateFile: (path: string) => this.resolveAsset(path),
-        print: this.quiet ? () => {} : (s) => console.log('[nec2]', s),
+        print: this.quiet ? () => {} : (s) => this.logger?.info('[nec2]', s),
         printErr: (s) => {
           stderrLines.push(s);
-          if (!this.quiet) console.warn('[nec2 stderr]', s);
+          if (!this.quiet) this.logger?.warn('[nec2 stderr]', s);
         },
       });
 
@@ -268,10 +277,10 @@ export class Nec2Engine implements Engine {
       const instance = await factory({
         noInitialRun: true,
         locateFile: (path: string) => this.resolveAsset(path),
-        print: this.quiet ? () => {} : (s) => console.log('[nec2 sweep]', s),
+        print: this.quiet ? () => {} : (s) => this.logger?.info('[nec2 sweep]', s),
         printErr: (s) => {
           stderrLines.push(s);
-          if (!this.quiet) console.warn('[nec2 sweep stderr]', s);
+          if (!this.quiet) this.logger?.warn('[nec2 sweep stderr]', s);
         },
       });
 

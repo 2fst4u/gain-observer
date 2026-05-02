@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { useAntennaStore, buildWires, buildGroundParams, selectSimulationInput } from '../src/store/antennaStore';
+import { useAntennaStore, buildWires, selectSimulationInput } from '../src/store/antennaStore';
 
 
 describe('antennaStore selectors', () => {
@@ -39,31 +39,31 @@ describe('antennaStore selectors', () => {
     });
   });
 
-  describe('buildGroundParams', () => {
+  describe('ground logic (via selectSimulationInput)', () => {
     it('returns free space ground when height is <= 0', () => {
       // Arrange
       const state = useAntennaStore.getState();
 
       // Act
-      const ground = buildGroundParams({ ...state, height: 0 });
+      const input = selectSimulationInput({ ...state, height: 0 });
 
       // Assert
-      expect(ground.type).toBe('free');
+      expect(input.ground.type).toBe('free');
     });
 
     it('returns perfect ground when groundId is perfect', () => {
       const state = useAntennaStore.getState();
-      const ground = buildGroundParams({ ...state, height: 10, groundId: 'perfect' });
-      expect(ground.type).toBe('perfect');
+      const input = selectSimulationInput({ ...state, height: 10, groundId: 'perfect' });
+      expect(input.ground.type).toBe('perfect');
     });
 
     it('returns real ground with sigma and epsilon when groundId is custom', () => {
       const state = useAntennaStore.getState();
-      const ground = buildGroundParams({ ...state, height: 10, groundId: 'custom', groundSigma: 0.005, groundEpsilon: 13 });
-      expect(ground.type).toBe('real');
-      if (ground.type === 'real') {
-        expect(ground.sigma).toBe(0.005);
-        expect(ground.epsilon).toBe(13);
+      const input = selectSimulationInput({ ...state, height: 10, groundId: 'custom', groundSigma: 0.005, groundEpsilon: 13 });
+      expect(input.ground.type).toBe('real');
+      if (input.ground.type === 'real') {
+        expect(input.ground.sigma).toBe(0.005);
+        expect(input.ground.epsilon).toBe(13);
       }
     });
   });

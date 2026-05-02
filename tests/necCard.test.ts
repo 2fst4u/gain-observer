@@ -4,74 +4,183 @@ import type { SimulationInput } from '../src/physics/types';
 
 describe('buildNecCards', () => {
   const defaultInput: SimulationInput = {
-    wires: [{
-      start: [-10, 0, 10],
-      end: [10, 0, 10],
-      radius: 0.001,
-      segments: 21,
-      tag: 1,
-    }],
-    frequencyMHz: 7.1,
+    frequencyMHz: 14.15,
+    wires: [
+      {
+        start: [0, -5, 10],
+        end: [0, 5, 10],
+        radius: 0.001,
+        segments: 11,
+      },
+    ],
     ground: { type: 'free' },
-    excitation: { wireTag: 1, segment: 11 },
-    patternResolution: { thetaSteps: 37, phiSteps: 72 },
+    excitation: {
+      wireTag: 1,
+      segment: 6,
+    },
+    patternResolution: {
+      thetaSteps: 37,
+      phiSteps: 73,
+    },
   };
 
-  it('generates free-space cards (GE 0, no GN)', () => {
-    const deck = buildNecCards(defaultInput);
-    expect(deck).toContain('GE 0');
-    expect(deck).not.toContain('GN');
-    expect(deck).toContain('FR 0 1 0 0 7.100000 0');
-    expect(deck).toContain('RP 0 37 72 1000 0 0 5.0000 5.0000');
+  it('generates a valid basic deck for a dipole in free space', () => {
+    const output = buildNecCards(defaultInput);
+    const lines = output.trim().split('\n');
+
+    expect(lines[0]).toBe('CM gain-visualiser auto-generated deck');
+    expect(lines[1]).toBe('CM f=14.15 MHz  ground=free');
+    expect(lines[2]).toBe('CE');
+    expect(lines[3]).toBe('GW 1 11 0.00000 -5.00000 10.00000 0.00000 5.00000 10.00000 0.00100');
+    expect(lines[4]).toBe('GE 0');
+    expect(lines[5]).toBe('FR 0 1 0 0 14.150000 0');
+    expect(lines[6]).toBe('EX 0 1 6 0 1.0000 0.0000');
+    expect(lines[7]).toBe('RP 0 37 73 1000 0 0 5.0000 4.9315');
+    expect(lines[8]).toBe('EN');
   });
 
-  it('generates perfect ground cards (GE 1, GN 1)', () => {
-    const input: SimulationInput = {
-      ...defaultInput,
-      ground: { type: 'perfect' },
-    };
-    const deck = buildNecCards(input);
-    expect(deck).toContain('GE 1');
-    expect(deck).toContain('GN 1');
+  describe('geometry and coordinate formatting', () => {
+    it('handles multiple wires with auto-incrementing tags', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        wires: [
+          { start: [0, 0, 0], end: [1, 0, 0], radius: 0.01, segments: 10 },
+          { start: [1, 0, 0], end: [1, 1, 0], radius: 0.01, segments: 10 },
+        ],
+      };
+      const output = buildNecCards(input);
+      expect(output).toContain('GW 1 10 0.00000 0.00000 0.00000 1.00000 0.00000 0.00000 0.01000');
+      expect(output).toContain('GW 2 10 1.00000 0.00000 0.00000 1.00000 1.00000 0.00000 0.01000');
+    });
+
+    it('respects explicit wire tags', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        wires: [
+          { start: [0, 0, 0], end: [1, 0, 0], radius: 0.01, segments: 10, tag: 42 },
+        ],
+      };
+      const output = buildNecCards(input);
+      expect(output).toContain('GW 42 10 0.00000 0.00000 0.00000 1.00000 0.00000 0.00000 0.01000');
+    });
+
+    it('formats coordinates and radius to 5 decimal places', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        wires: [
+          {
+            start: [1.234567, 2.345678, 3.456789],
+            end: [4.5678901, 5.6789012, 6.7890123],
+            radius: 0.0001234,
+            segments: 5,
+          },
+        ],
+      };
+      const output = buildNecCards(input);
+      // GW tag nseg x1 y1 z1 x2 y2 z2 rad
+      expect(output).toContain('GW 1 5 1.23457 2.34568 3.45679 4.56789 5.67890 6.78901 0.00012');
+    });
   });
 
-  it('generates real ground cards (GE 1, GN 2)', () => {
-    const input: SimulationInput = {
-      ...defaultInput,
-      ground: { type: 'real', epsilon: 13, sigma: 0.005 },
-    };
-    const deck = buildNecCards(input);
-    expect(deck).toContain('GE 1');
-    expect(deck).toContain('GN 2 0 0 0 13.000 0.00500');
+  describe('ground configurations', () => {
+    it('generates GE 0 and no GN card for free space', () => {
+      const output = buildNecCards({ ...defaultInput, ground: { type: 'free' } });
+      expect(output).toContain('GE 0');
+      expect(output).not.toContain('GN');
+    });
+
+    it('generates GE 1 and GN 1 for perfect ground', () => {
+      const output = buildNecCards({ ...defaultInput, ground: { type: 'perfect' } });
+      expect(output).toContain('GE 1');
+      expect(output).toContain('GN 1');
+    });
+
+    it('generates GE 1 and GN 2 for real ground with custom parameters', () => {
+      const output = buildNecCards({
+        ...defaultInput,
+        ground: { type: 'real', epsilon: 15.5, sigma: 0.012345 },
+      });
+      expect(output).toContain('GE 1');
+      expect(output).toContain('GN 2 0 0 0 15.500 0.01235');
+    });
+
+    it('uses default real ground parameters if not provided', () => {
+      const output = buildNecCards({
+        ...defaultInput,
+        ground: { type: 'real' },
+      });
+      expect(output).toContain('GE 1');
+      expect(output).toContain('GN 2 0 0 0 13.000 0.00500');
+    });
   });
 
-  it('uses XQ card when includePattern is false', () => {
-    const deck = buildNecCards(defaultInput, { includePattern: false });
-    expect(deck).toContain('XQ');
-    expect(deck).not.toContain('RP');
+  describe('frequency, excitation, and control cards', () => {
+    it('formats FR card correctly', () => {
+      const output = buildNecCards({ ...defaultInput, frequencyMHz: 7.05 });
+      expect(output).toContain('FR 0 1 0 0 7.050000 0');
+    });
+
+    it('formats EX card with standard voltage', () => {
+      const output = buildNecCards(defaultInput);
+      expect(output).toContain('EX 0 1 6 0 1.0000 0.0000');
+    });
+
+    it('formats EX card with complex voltage', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        excitation: { wireTag: 1, segment: 1, real: 0.5, imag: -0.5 },
+      };
+      const output = buildNecCards(input);
+      expect(output).toContain('EX 0 1 1 0 0.5000 -0.5000');
+    });
+
+    it('includes required CE and EN markers', () => {
+      const output = buildNecCards(defaultInput);
+      const lines = output.trim().split('\n');
+      expect(lines[0].startsWith('CM')).toBe(true);
+      expect(lines[lines.length - 1]).toBe('EN');
+    });
   });
 
-  it('rounds wire coordinates and radius correctly', () => {
-    const input: SimulationInput = {
-      ...defaultInput,
-      wires: [{
-        start: [-10.123456, 0, 10.654321],
-        end: [10.123456, 0, 10.654321],
-        radius: 0.0012345,
-        segments: 21,
-        tag: 1,
-      }],
-    };
-    const deck = buildNecCards(input);
-    // n(v, 5) is used for GW
-    expect(deck).toContain('GW 1 21 -10.12346 0.00000 10.65432 10.12346 0.00000 10.65432 0.00123');
+  describe('simulation control and radiation pattern', () => {
+    it('generates RP card by default', () => {
+      const output = buildNecCards(defaultInput);
+      expect(output).toContain('RP 0 37 73 1000 0 0 5.0000 4.9315');
+    });
+
+    it('generates XQ card when includePattern is false', () => {
+      const output = buildNecCards(defaultInput, { includePattern: false });
+      expect(output).toContain('XQ');
+      expect(output).not.toContain('RP');
+    });
+
+    it('calculates dTheta and dPhi correctly', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        patternResolution: { thetaSteps: 19, phiSteps: 36 },
+      };
+      // dTheta = 180 / (19 - 1) = 10
+      // dPhi = 360 / 36 = 10
+      const output = buildNecCards(input);
+      expect(output).toContain('RP 0 19 36 1000 0 0 10.0000 10.0000');
+    });
   });
 
-  it('throws on non-finite numeric inputs', () => {
-    const input: SimulationInput = {
-      ...defaultInput,
-      frequencyMHz: NaN,
-    };
-    expect(() => buildNecCards(input)).toThrow('Non-finite numeric value');
+  describe('error handling', () => {
+    it('throws error for NaN coordinates', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        wires: [{ ...defaultInput.wires[0], start: [NaN, 0, 0] }],
+      };
+      expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: NaN');
+    });
+
+    it('throws error for Infinity in numeric fields', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        frequencyMHz: Infinity,
+      };
+      expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: Infinity');
+    });
   });
 });
