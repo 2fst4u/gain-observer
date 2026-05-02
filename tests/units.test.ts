@@ -31,4 +31,11 @@ describe('unit conversions', () => {
     expect(formatLength(10, 'metric', 2)).toBe('10.00 m');
     expect(formatLength(1, 'imperial', 2)).toBe('3.28 ft');
   });
+
+  it('converts common benchmarks correctly', () => {
+    // 1 meter approx 3.28084 feet
+    expect(metersToFeet(1)).toBeCloseTo(3.28084, 5);
+    // 1 foot is exactly 0.3048 meters
+    expect(feetToMeters(1)).toBe(0.3048);
+  });
 });
