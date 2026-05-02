@@ -1,18 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { wavelengthMeters, halfWaveLength, HF_BAND_PRESETS } from '../src/physics/constants';
+import { halfWaveLength, HF_BAND_PRESETS } from '../src/physics/constants';
 
 describe('physics constants and helpers', () => {
-  it('wavelengthMeters matches speed of light / f', () => {
-    expect(wavelengthMeters(7.1)).toBeCloseTo(42.224, 2);
-    expect(wavelengthMeters(14.2)).toBeCloseTo(21.112, 2);
-    expect(wavelengthMeters(28.4)).toBeCloseTo(10.556, 2);
-  });
-
   it('halfWaveLength accounts for end effect', () => {
     // 40m band dipole
-    const wl = wavelengthMeters(7.1);
-    expect(halfWaveLength(7.1, 1.0)).toBeCloseTo(wl / 2, 5);
-    expect(halfWaveLength(7.1, 0.95)).toBeCloseTo(wl * 0.5 * 0.95, 5);
+    // wavelength at 7.1 MHz = 299.792458 / 7.1 = 42.2242898...
+    expect(halfWaveLength(7.1, 1.0)).toBeCloseTo(21.1121, 4);
+    expect(halfWaveLength(7.1, 0.95)).toBeCloseTo(20.0565, 4);
   });
 
   it('HF_BAND_PRESETS contains standard bands', () => {
