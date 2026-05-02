@@ -46,7 +46,7 @@ const JET: readonly RGB[] = [
   [0.5, 1, 0.5], [1, 1, 0], [1, 0.5, 0], [1, 0, 0], [0.5, 0, 0],
 ];
 
-function pickTable(name: ColormapName): readonly RGB[] {
+export function pickTable(name: ColormapName): readonly RGB[] {
   switch (name) {
     case 'viridis': return VIRIDIS;
     case 'turbo': return TURBO;
@@ -84,4 +84,23 @@ export function gainToColorT(gainDb: number, maxDb: number, rangeDb: number): nu
   if (gainDb >= maxDb) return 1;
   if (gainDb <= minDb) return 0;
   return (gainDb - minDb) / rangeDb;
+}
+
+/**
+ * Hot-path optimized version of sampleColormap that writes directly into an output array.
+ * Uses bitwise operations and avoids creating intermediate array allocations.
+ */
+export function sampleColormapFast(table: readonly RGB[], t: number, out: Float32Array, offset: number): void {
+  const clamped = (t >= 0 && t <= 1) ? t : (t < 0 ? 0 : (t > 1 ? 1 : 0));
+  const lenM1 = table.length - 1;
+  const f = clamped * lenM1;
+  const i = f | 0; // fast Math.floor
+  const j = i === lenM1 ? i : i + 1;
+  const a = table[i]!;
+  const b = table[j]!;
+  const w = f - i;
+
+  out[offset] = a[0] + (b[0] - a[0]) * w;
+  out[offset + 1] = a[1] + (b[1] - a[1]) * w;
+  out[offset + 2] = a[2] + (b[2] - a[2]) * w;
 }

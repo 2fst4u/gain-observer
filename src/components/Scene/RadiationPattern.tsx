@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useAdaptiveLOD } from '../../hooks/useAdaptiveLOD';
 import type { SimulationResult } from '../../physics/types';
 import type { Colormap, Mode } from '../../store/antennaStore';
-import { gainToColorT, sampleColormap } from '../../utils/colormap';
+import { gainToColorT, pickTable, sampleColormapFast } from '../../utils/colormap';
 
 interface Props {
   originY?: number;
@@ -125,17 +125,18 @@ export function RadiationPattern({
     const colors = new Float32Array(count * 4);
     const maxDb = result.maxGainDbi;
 
+    // Fetch the colormap table outside the hot loop
+    const table = pickTable(colormap);
+
     for (let i = 0; i < count; i++) {
       const gainDb = vertexGains[i]!;
       let t = gainToColorT(gainDb, maxDb, dbRange);
       if (mode === 'nvis' && angles[i * 2]! < 30) {
         t = Math.min(1, t + 0.1);
       }
-      const [cr, cg, cb] = sampleColormap(colormap, t);
+
       const idx = i * 4;
-      colors[idx] = cr;
-      colors[idx + 1] = cg;
-      colors[idx + 2] = cb;
+      sampleColormapFast(table, t, colors, idx);
       colors[idx + 3] = 1;
     }
     return colors;
