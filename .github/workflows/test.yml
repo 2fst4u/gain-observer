@@ -2,15 +2,9 @@ name: Test
 
 on:
   push:
-    branches:
-      - '**'
+    branches: [ "main" ]
   pull_request:
-    branches:
-      - '**'
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+    branches: [ "main" ]
 
 jobs:
   test:
