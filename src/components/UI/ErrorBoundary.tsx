@@ -42,7 +42,6 @@ export class ErrorBoundary extends Component<Props, State> {
         }}>
           <h2 style={{ marginTop: 0 }}>Render error</h2>
           <div style={{ marginBottom: 12 }}>{this.state.error.message}</div>
-          <pre style={{ fontSize: 11, opacity: 0.7 }}>{this.state.error.stack}</pre>
           <button onClick={this.reset}>Try again</button>
         </div>
       );
