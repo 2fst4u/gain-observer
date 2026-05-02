@@ -35,7 +35,10 @@ export function GroundControl() {
             min={0}
             step={0.001}
             value={sigma}
-            onChange={(e) => setCustomGround(parseFloat(e.target.value), epsilon)}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              if (!isNaN(val)) setCustomGround(val, epsilon);
+            }}
           />
           <label style={{ marginTop: 6 }}>Permittivity εr</label>
           <input
@@ -43,7 +46,10 @@ export function GroundControl() {
             min={1}
             step={0.5}
             value={epsilon}
-            onChange={(e) => setCustomGround(sigma, parseFloat(e.target.value))}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              if (!isNaN(val)) setCustomGround(sigma, val);
+            }}
           />
         </>
       )}
