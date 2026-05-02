@@ -2,6 +2,10 @@ name = "gain-observer"
 compatibility_date = "2026-05-02"
 compatibility_flags = [ "nodejs_compat" ]
 
+[[routes]]
+pattern = "gain.observer"
+custom_domain = true
+
 [assets]
 directory = "dist"
 not_found_handling = "single-page-application"
