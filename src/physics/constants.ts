@@ -7,7 +7,7 @@
 const SPEED_OF_LIGHT = 299_792_458;
 
 /** Speed of light expressed as MHz·m (useful: λ_m = C_MHZ_M / f_MHz). */
-export const C_MHZ_M = SPEED_OF_LIGHT / 1_000_000;
+const C_MHZ_M = SPEED_OF_LIGHT / 1_000_000;
 
 /** System / feedline reference impedance, ohms. */
 export const Z0_SYSTEM = 50;
@@ -18,7 +18,7 @@ export const DEFAULT_WIRE_RADIUS_M = 0.001;
 /**
  * Convenience: wavelength in metres for a given frequency in MHz.
  */
-function wavelengthMeters(frequencyMHz: number): number {
+export function wavelengthMeters(frequencyMHz: number): number {
   return C_MHZ_M / frequencyMHz;
 }
 
