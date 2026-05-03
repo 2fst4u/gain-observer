@@ -306,3 +306,37 @@ label {
     grid-template-rows: repeat(2, minmax(220px, 1fr));
   }
 }
+
+/* Colormap Legend */
+.colormap-legend {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 6;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--bg-raised) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  height: 120px;
+}
+
+.colormap-legend-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: monospace;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.colormap-legend-gradient {
+  width: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}

@@ -1,6 +1,7 @@
 import { AntennaScene } from './components/Scene/AntennaScene';
 import { ControlPanel } from './components/Panel/ControlPanel';
 import { ErrorBoundary } from './components/UI/ErrorBoundary';
+import { ColormapLegend } from './components/Scene/ColormapLegend';
 import { useTheme } from './hooks/useTheme';
 import { useUnitsPersistence } from './hooks/useUnits';
 import { usePhysicsEngine } from './hooks/usePhysicsEngine';
@@ -18,6 +19,7 @@ export function App() {
   const loading = useAntennaStore((s) => s.loading);
   const engineReady = useAntennaStore((s) => s.engineReady);
   const comparisonReference = useAntennaStore((s) => s.comparisonReference);
+  const liveResult = useAntennaStore((s) => s.result);
 
   const showComparison = mode === 'comparison' && comparisonReference;
 
@@ -26,12 +28,12 @@ export function App() {
       <div className="app-viewport">
         {showComparison ? (
           <div className="scene-compare-grid">
-            <ScenePane title="Reference" subtitle="Frozen snapshot">
+            <ScenePane title="Reference" subtitle="Frozen snapshot" result={comparisonReference?.result ?? null}>
               <ErrorBoundary fallback={sceneFallback}>
                 <AntennaScene snapshot={comparisonReference} />
               </ErrorBoundary>
             </ScenePane>
-            <ScenePane title="Current" subtitle="Live controls">
+            <ScenePane title="Current" subtitle="Live controls" result={liveResult}>
               <ErrorBoundary fallback={sceneFallback}>
                 <AntennaScene />
               </ErrorBoundary>
@@ -53,7 +55,7 @@ export function App() {
             </ScenePane>
           </div>
         ) : (
-          <ScenePane title="Radiation Pattern" subtitle="Live view">
+          <ScenePane title="Radiation Pattern" subtitle="Live view" result={liveResult}>
             <ErrorBoundary fallback={sceneFallback}>
               <AntennaScene />
             </ErrorBoundary>
@@ -84,10 +86,12 @@ function ScenePane({
   title,
   subtitle,
   children,
+  result,
 }: {
   title: string;
   subtitle: string;
   children: ReactNode;
+  result: SimulationResult | null;
 }) {
   return (
     <div className="scene-pane">
@@ -95,6 +99,7 @@ function ScenePane({
         <div className="scene-pane-title">{title}</div>
         <div className="scene-pane-subtitle">{subtitle}</div>
       </div>
+      <ColormapLegend result={result} />
       {children}
     </div>
   );
