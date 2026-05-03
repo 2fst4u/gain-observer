@@ -32,17 +32,11 @@ export interface Excitation {
   readonly imag?: number;
 }
 
-export interface FeedlineParams {
-  readonly presetId: string;
-  readonly length: number;
-}
-
 export interface SimulationInput {
   readonly wires: readonly Wire[];
   readonly frequencyMHz: number;
   readonly ground: GroundParams;
   readonly excitation: Excitation;
-  readonly feedline?: FeedlineParams;
   /** Pattern resolution. Theta is elevation 0..180, phi is azimuth 0..360. */
   readonly patternResolution: {
     readonly thetaSteps: number;

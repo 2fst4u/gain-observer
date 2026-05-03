@@ -21,7 +21,6 @@ import {
   DEFAULT_WIRE_RADIUS_M,
   findGroundPreset,
   halfWaveLength,
-  DEFAULT_FEEDLINE_ID,
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
 
@@ -40,8 +39,6 @@ export interface ComparisonSnapshot {
   readonly groundId: string;
   readonly groundSigma: number;
   readonly groundEpsilon: number;
-  readonly feedlineId: string;
-  readonly feedlineLength: number;
   readonly result: SimulationResult;
   readonly sweep: SweepPoint[];
   readonly capturedAt: number;
@@ -60,10 +57,6 @@ export interface AntennaState {
   groundId: string;
   groundSigma: number;
   groundEpsilon: number;
-
-  // Feedline
-  feedlineId: string;
-  feedlineLength: number;
 
   // Display / UI
   theme: Theme;
@@ -94,8 +87,6 @@ export interface AntennaState {
   setSegments(n: number): void;
   setGround(id: string): void;
   setCustomGround(sigma: number, epsilon: number): void;
-  setFeedline(id: string): void;
-  setFeedlineLength(meters: number): void;
   setTheme(t: Theme): void;
   toggleTheme(): void;
   setUnits(u: UnitSystem): void;
@@ -134,9 +125,6 @@ export const useAntennaStore = create<AntennaState>()(
       groundId: DEFAULT_GROUND_ID,
       groundSigma: findGroundPreset(DEFAULT_GROUND_ID).sigma,
       groundEpsilon: findGroundPreset(DEFAULT_GROUND_ID).epsilon,
-
-      feedlineId: DEFAULT_FEEDLINE_ID,
-      feedlineLength: 0,
 
       theme: 'dark',
       units: 'metric',
@@ -184,11 +172,6 @@ export const useAntennaStore = create<AntennaState>()(
         s.groundId = 'custom';
         s.groundSigma = Math.max(0, sigma);
         s.groundEpsilon = Math.max(1, epsilon);
-      }),
-      setFeedline: (id) => set((s) => { s.feedlineId = id; }),
-      setFeedlineLength: (meters) => set((s) => {
-        if (!Number.isFinite(meters)) return;
-        s.feedlineLength = Math.max(0, meters);
       }),
       setTheme: (t) => set((s) => { s.theme = t; }),
       toggleTheme: () => set((s) => { s.theme = s.theme === 'dark' ? 'light' : 'dark'; }),
@@ -305,10 +288,6 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
       wireTag: 1,
       segment: Math.ceil(state.segments / 2),
     },
-    feedline: {
-      presetId: state.feedlineId,
-      length: state.feedlineLength,
-    },
     patternResolution: {
       thetaSteps: 37, // 5° steps (0..180)
       phiSteps: 72,   // 5° steps (0..360)
@@ -328,8 +307,6 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     groundId: state.groundId,
     groundSigma: state.groundSigma,
     groundEpsilon: state.groundEpsilon,
-    feedlineId: state.feedlineId,
-    feedlineLength: state.feedlineLength,
     result: state.result,
     sweep: [...state.sweep],
     capturedAt: Date.now(),
