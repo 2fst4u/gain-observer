@@ -91,17 +91,26 @@ export function PolarPlots() {
 
   const azData = useMemo(() => {
     if (!result) return null;
-    const cut = cutAzimuth(result.pattern, 90 - result.takeoffElevationDeg);
+    // 15 degrees elevation corresponds to theta = 75 degrees (from zenith)
+    const cut = cutAzimuth(result.pattern, 90 - 15);
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [result, dbRange]);
 
-  const elData = useMemo(() => {
+  const elDataNS = useMemo(() => {
     if (!result) return null;
-    const cut = cutElevation(result.pattern, result.takeoffAzimuthDeg);
+    // N/S cut is at azimuth 0 degrees
+    const cut = cutElevation(result.pattern, 0);
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [result, dbRange]);
 
-  if (!showPolarCuts || !result || !azData || !elData) return null;
+  const elDataEW = useMemo(() => {
+    if (!result) return null;
+    // E/W cut is at azimuth 90 degrees
+    const cut = cutElevation(result.pattern, 90);
+    return normaliseForPolar(cut, result.maxGainDbi, dbRange);
+  }, [result, dbRange]);
+
+  if (!showPolarCuts || !result || !azData || !elDataNS || !elDataEW) return null;
 
   const commonOpts = {
     responsive: true,
@@ -128,7 +137,7 @@ export function PolarPlots() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Azimuth @ {result.takeoffElevationDeg.toFixed(0)}° elev.
+            Azimuth @ 15° elev.
           </div>
           <div style={{ height: 160 }}>
             <Radar
@@ -150,14 +159,36 @@ export function PolarPlots() {
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Elevation @ {result.takeoffAzimuthDeg.toFixed(0)}° az.
+            Elevation (N/S cut)
           </div>
           <div style={{ height: 160 }}>
             <Radar
               data={{
                 labels: getElevationLabels(result.pattern),
                 datasets: [{
-                  data: elData,
+                  data: elDataNS,
+                  backgroundColor: color,
+                  borderColor: color,
+                  borderWidth: 1,
+                  pointRadius: 0,
+                  pointHoverRadius: 4,
+                  fill: true,
+                }],
+              }}
+              options={commonOpts}
+            />
+          </div>
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
+            Elevation (E/W cut)
+          </div>
+          <div style={{ height: 160 }}>
+            <Radar
+              data={{
+                labels: getElevationLabels(result.pattern),
+                datasets: [{
+                  data: elDataEW,
                   backgroundColor: color,
                   borderColor: color,
                   borderWidth: 1,
