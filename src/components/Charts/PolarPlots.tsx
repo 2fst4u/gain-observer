@@ -98,8 +98,9 @@ export function PolarPlots() {
 
   const azData = useMemo(() => {
     if (!result) return null;
-    // Horizon is at 0 degrees elevation, which corresponds to theta = 90 degrees (from zenith)
-    const cut = cutAzimuth(result.pattern, 90);
+    // NEC theta = 90 - elevation. 0 elevation (horizon) is 90 theta (from zenith).
+    const thetaDeg = 90 - result.takeoffElevationDeg;
+    const cut = cutAzimuth(result.pattern, thetaDeg);
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [result, dbRange]);
 
@@ -155,7 +156,7 @@ export function PolarPlots() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
-            Azimuth @ Horizon (0°)
+            Azimuth @ Peak ({result.takeoffElevationDeg.toFixed(0)}°)
           </div>
           <div style={{ height: 160 }}>
             <Radar
