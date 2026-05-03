@@ -14,23 +14,29 @@ export function GroundControl() {
     <div className="panel-section">
       <h3>
         Ground
-        <button style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => setExpanded((v) => !v)}>
+        <button
+          style={{ padding: '2px 8px', fontSize: 11 }}
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          title={expanded ? 'Hide custom settings' : 'Show custom settings'}
+        >
           {expanded ? 'Simple' : 'Custom'}
         </button>
       </h3>
-      <select value={groundId} onChange={(e) => setGround(e.target.value)}>
+      <select aria-label="Ground preset" value={groundId} onChange={(e) => setGround(e.target.value)}>
         {GROUND_PRESETS.map((g) => (
           <option key={g.id} value={g.id}>{g.label}</option>
         ))}
         <option value="custom">Custom…</option>
       </select>
-      <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+      <div aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         {GROUND_PRESETS.find((g) => g.id === groundId)?.hint ?? 'Custom ground parameters.'}
       </div>
       {(expanded || groundId === 'custom') && (
         <>
-          <label style={{ marginTop: 10 }}>Conductivity σ (S/m)</label>
+          <label htmlFor="custom-ground-sigma" style={{ marginTop: 10 }}>Conductivity σ (S/m)</label>
           <input
+            id="custom-ground-sigma"
             type="number"
             min={0}
             step={0.001}
@@ -40,8 +46,9 @@ export function GroundControl() {
               if (!isNaN(val)) setCustomGround(val, epsilon);
             }}
           />
-          <label style={{ marginTop: 6 }}>Permittivity εr</label>
+          <label htmlFor="custom-ground-epsilon" style={{ marginTop: 6 }}>Permittivity εr</label>
           <input
+            id="custom-ground-epsilon"
             type="number"
             min={1}
             step={0.5}
