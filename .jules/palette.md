@@ -1,11 +1,7 @@
-## 2024-05-15 - ARIA Labels and Tooltips
-**Learning:** Initial scan reveals many interactive elements and form controls missing accessible labels (e.g. `<button>`, `<input>`).
-**Action:** Add appropriate `aria-label`s to icon buttons and `htmlFor`/`id` associations to form labels.
+## 2024-05-03 - Missing Button Group Roles and Form Associations in Sidebar Panels
+**Learning:** Found a recurring pattern in the sidebar panels where `div`s with `className="button-group"` lacked the explicit `role="group"` and `aria-label`/`aria-labelledby` attributes, meaning screen readers wouldn't announce the options as part of a coherent group. Additionally, several inputs and dropdowns lacked proper implicit or explicit labels (`aria-label`, `htmlFor`).
+**Action:** Always ensure that visually grouped toggle buttons have a `role="group"` and `aria-pressed` states. Ensure standalone inputs without text labels have `aria-label`s, and ensure label tags properly associate with their inputs via `htmlFor` and `id`.
 
-## 2024-05-20 - Discrete External Links
-**Learning:** External links should be visually secondary to primary app controls to avoid cluttering the interface.
-**Action:** Place external links like GitHub source at the bottom of the control panel with muted colors and a subtle separator.
-
-## 2024-05-23 - Linking Labels and Inputs
-**Learning:** Orphaned labels and inputs in React components can cause screen readers to fail to announce the purpose of form controls.
-**Action:** Always link labels and inputs using explicit `htmlFor` and `id` attributes, even if they're visually adjacent, to ensure maximum compatibility with screen readers.
+## 2024-05-03 - Always Append to Journals
+**Learning:** Found that when writing to journal files like `.jules/palette.md` using shell commands (e.g., `cat << 'EOF' > ...`), it is crucial to use the append operator (`>>`) instead of the overwrite operator (`>`). Overwriting destroys historical context and previous critical learnings.
+**Action:** Always verify the existence of a journal file and explicitly use the append redirection operator (`>>`) when adding new entries to preserve history.

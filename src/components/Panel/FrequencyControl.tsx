@@ -16,13 +16,14 @@ export function FrequencyControl() {
           max={30}
           step={0.01}
           value={frequency}
+          aria-label="Frequency in MHz"
           onChange={(e) => {
             const val = parseFloat(e.target.value);
             if (!isNaN(val)) setFrequency(val);
           }}
         />
       </div>
-      <div style={{ marginTop: 8 }} className="button-group">
+      <div style={{ marginTop: 8 }} className="button-group" role="group" aria-label="Amateur Radio Bands">
         {HF_BAND_PRESETS.map((b) => (
           <button
             key={b.name}
@@ -33,6 +34,7 @@ export function FrequencyControl() {
               setLength(halfWaveLength(b.mhz));
             }}
             title={`${b.mhz.toFixed(3)} MHz`}
+            aria-pressed={Math.abs(b.mhz - frequency) < 0.05}
           >
             {b.name}
           </button>

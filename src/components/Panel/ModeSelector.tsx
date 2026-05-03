@@ -12,18 +12,19 @@ export function ModeSelector() {
   const setMode = useAntennaStore((s) => s.setMode);
   return (
     <div className="panel-section">
-      <h3>Mode</h3>
-      <div className="button-group">
+      <h3 id="mode-selector-heading">Mode</h3>
+      <div className="button-group" role="group" aria-labelledby="mode-selector-heading">
         {MODES.map((m) => (
           <button
             key={m.id}
             className={mode === m.id ? 'active' : ''}
             onClick={() => setMode(m.id)}
             title={m.hint}
+            aria-pressed={mode === m.id}
           >{m.label}</button>
         ))}
       </div>
-      <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+      <div aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         {MODES.find((m) => m.id === mode)!.hint}
       </div>
     </div>
