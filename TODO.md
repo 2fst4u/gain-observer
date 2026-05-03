@@ -1,4 +1,3 @@
-- add legend to rendering to understand the colours 
 - add balun calculations
 - add feedline calculations
 - add offset feed point calculations

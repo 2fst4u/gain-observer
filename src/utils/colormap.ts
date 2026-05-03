@@ -104,3 +104,21 @@ export function sampleColormapFast(table: readonly RGB[], t: number, out: Float3
   out[offset + 1] = a[1] + (b[1] - a[1]) * w;
   out[offset + 2] = a[2] + (b[2] - a[2]) * w;
 }
+
+/**
+ * Converts a colormap table into a CSS linear gradient string.
+ * Used for rendering a legend gradient that matches the 3D scene colors.
+ */
+export function getColormapCssGradient(name: ColormapName): string {
+  const table = pickTable(name);
+  const stops = table.map((rgb, index) => {
+    const percentage = (index / (table.length - 1)) * 100;
+    const r = Math.round(rgb[0] * 255);
+    const g = Math.round(rgb[1] * 255);
+    const b = Math.round(rgb[2] * 255);
+    return `rgb(${r}, ${g}, ${b}) ${percentage.toFixed(2)}%`;
+  });
+  // Draw the gradient from bottom (0%) to top (100%) so that
+  // the highest value is at the top of the element.
+  return `linear-gradient(to top, ${stops.join(', ')})`;
+}
