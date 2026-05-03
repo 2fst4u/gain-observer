@@ -29,7 +29,7 @@ describe('StatsReadout', () => {
         impedance: { R: 45, X: 10 },
         swr: 1.2,
         pattern: { data: new Float32Array([1, 2, 3]), phiSteps: 1, thetaSteps: 3 }
-      } as any,
+      } as unknown as import('../src/physics/types').SimulationResult,
     });
 
     const { getByText, container } = render(<StatsReadout />);
@@ -53,7 +53,7 @@ describe('StatsReadout', () => {
         computeTimeMs: 10,
         takeoffAzimuthDeg: 90,
         pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 }
-      } as any,
+      } as unknown as import('../src/physics/types').SimulationResult,
       comparisonReference: {
         result: {
           maxGainDbi: 4,
@@ -61,7 +61,7 @@ describe('StatsReadout', () => {
           swr: 2.0,
           impedance: { R: 40, X: -10 }
         }
-      } as any,
+      } as unknown as import('../src/store/antennaStore').ComparisonSnapshot,
     });
 
     const { getByText, getAllByText } = render(<StatsReadout />);
@@ -88,7 +88,7 @@ describe('StatsReadout', () => {
         takeoffAzimuthDeg: 0,
         impedance: { R: 50, X: 0 },
         swr: 1.0
-      } as any,
+      } as unknown as import('../src/physics/types').SimulationResult,
     });
 
     const { getByText } = render(<StatsReadout />);
