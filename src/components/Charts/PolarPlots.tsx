@@ -88,29 +88,38 @@ export function PolarPlots() {
   const result = useAntennaStore((s) => s.result);
   const dbRange = useAntennaStore((s) => s.dbRange);
   const showPolarCuts = useAntennaStore((s) => s.showPolarCuts);
+  const orientation = useAntennaStore((s) => s.orientation);
 
   const azData = useMemo(() => {
     if (!result) return null;
-    // 15 degrees elevation corresponds to theta = 75 degrees (from zenith)
-    const cut = cutAzimuth(result.pattern, 90 - 15);
+    // Horizon is at 0 degrees elevation, which corresponds to theta = 90 degrees (from zenith)
+    const cut = cutAzimuth(result.pattern, 90);
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [result, dbRange]);
 
-  const elDataNS = useMemo(() => {
+  const { broadsideAz, endOnAz } = useMemo(() => {
+    switch (orientation) {
+      case 'NS': return { broadsideAz: 90, endOnAz: 0 };
+      case 'EW': return { broadsideAz: 0, endOnAz: 90 };
+      case 'NE-SW': return { broadsideAz: 135, endOnAz: 45 };
+      case 'NW-SE': return { broadsideAz: 45, endOnAz: 135 };
+      default: return { broadsideAz: 0, endOnAz: 90 };
+    }
+  }, [orientation]);
+
+  const elDataBroadside = useMemo(() => {
     if (!result) return null;
-    // N/S cut is at azimuth 0 degrees
-    const cut = cutElevation(result.pattern, 0);
+    const cut = cutElevation(result.pattern, broadsideAz);
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
-  }, [result, dbRange]);
+  }, [result, dbRange, broadsideAz]);
 
-  const elDataEW = useMemo(() => {
+  const elDataEndOn = useMemo(() => {
     if (!result) return null;
-    // E/W cut is at azimuth 90 degrees
-    const cut = cutElevation(result.pattern, 90);
+    const cut = cutElevation(result.pattern, endOnAz);
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
-  }, [result, dbRange]);
+  }, [result, dbRange, endOnAz]);
 
-  if (!showPolarCuts || !result || !azData || !elDataNS || !elDataEW) return null;
+  if (!showPolarCuts || !result || !azData || !elDataBroadside || !elDataEndOn) return null;
 
   const commonOpts = {
     responsive: true,
@@ -137,7 +146,7 @@ export function PolarPlots() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Azimuth @ 15° elev.
+            Azimuth @ Horizon (0°)
           </div>
           <div style={{ height: 160 }}>
             <Radar
@@ -159,14 +168,14 @@ export function PolarPlots() {
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Elevation (N/S cut)
+            Elevation (Broadside)
           </div>
           <div style={{ height: 160 }}>
             <Radar
               data={{
                 labels: getElevationLabels(result.pattern),
                 datasets: [{
-                  data: elDataNS,
+                  data: elDataBroadside,
                   backgroundColor: color,
                   borderColor: color,
                   borderWidth: 1,
@@ -181,14 +190,14 @@ export function PolarPlots() {
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Elevation (E/W cut)
+            Elevation (End-on)
           </div>
           <div style={{ height: 160 }}>
             <Radar
               data={{
                 labels: getElevationLabels(result.pattern),
                 datasets: [{
-                  data: elDataEW,
+                  data: elDataEndOn,
                   backgroundColor: color,
                   borderColor: color,
                   borderWidth: 1,
