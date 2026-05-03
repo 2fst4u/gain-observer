@@ -76,3 +76,32 @@ export function findGroundPreset(id: string): GroundPreset {
   }
   return preset;
 }
+
+export interface FeedlinePreset {
+  readonly id: string;
+  readonly label: string;
+  readonly Z0: number;
+  readonly vf: number;
+  /** k1 coefficient for loss: loss_dB_per_100m = k1 * sqrt(f_MHz) + k2 * f_MHz */
+  readonly k1: number;
+  /** k2 coefficient for loss: loss_dB_per_100m = k1 * sqrt(f_MHz) + k2 * f_MHz */
+  readonly k2: number;
+}
+
+export const FEEDLINE_PRESETS: ReadonlyArray<FeedlinePreset> = [
+  { id: 'custom', label: 'None (Direct Feed)', Z0: 50, vf: 1, k1: 0, k2: 0 },
+  { id: 'rg58', label: 'RG-58 (Generic)', Z0: 50, vf: 0.66, k1: 1.3828, k2: 0.0227 },
+  { id: 'rg213', label: 'RG-213', Z0: 50, vf: 0.66, k1: 0.5920, k2: 0.0028 },
+  { id: 'lmr400', label: 'LMR-400', Z0: 50, vf: 0.85, k1: 0.4024, k2: 0.0028 },
+  { id: 'ladder450', label: '450Ω Ladder Line', Z0: 450, vf: 0.91, k1: 0.1, k2: 0.001 },
+];
+
+export const DEFAULT_FEEDLINE_ID = 'custom';
+
+export function findFeedlinePreset(id: string): FeedlinePreset {
+  const preset = FEEDLINE_PRESETS.find((f) => f.id === id);
+  if (!preset) {
+    throw new Error(`Unknown feedline preset id: ${id}`);
+  }
+  return preset;
+}
