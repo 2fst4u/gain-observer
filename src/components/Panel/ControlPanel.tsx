@@ -12,8 +12,10 @@ import { ComparisonControl } from './ComparisonControl';
 
 export function ControlPanel() {
   return (
-    <div className="app-controls">
-      <div style={{
+    <>
+      {/* SEO: Use <aside> for sidebar content instead of a generic <div> */}
+      <aside className="app-controls">
+        <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -21,7 +23,8 @@ export function ControlPanel() {
         gap: 8,
       }}>
         <div>
-          <div style={{ fontWeight: 700, letterSpacing: '0.04em' }}>HF GAIN VISUALIZER</div>
+          {/* SEO: Add a proper <h1> tag as the document's heading hierarchy root */}
+          <h1 style={{ margin: 0, fontSize: 'inherit', fontWeight: 700, letterSpacing: '0.04em' }}>HF GAIN VISUALIZER</h1>
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>NEC-2 · WebAssembly</div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -58,7 +61,8 @@ export function ControlPanel() {
         >
           View source on GitHub
         </a>
-      </div>
-    </div>
+        </div>
+      </aside>
+    </>
   );
 }
