@@ -1,4 +1,4 @@
-## 2026-05-02 - Client-Side Denial of Service via Unhandled NaN Inputs
-**Vulnerability:** Numerical form fields (`type="number"`) passed their parsed values (`parseFloat(e.target.value)`) directly to the application state without verifying if the result was a valid number (`NaN`). If a user cleared an input or entered invalid characters, `NaN` propagated to the store and into the physics engine's `necCard.ts` math generation, where calling `.toFixed()` on `NaN` intentionally throws an Error and crashes the app/solver.
-**Learning:** React form inputs returning `NaN` on `parseFloat("")` can cause silent data corruption or loud application crashes downstream if the core math engine strictly validates `Number.isFinite()`. The codebase properly validates output but failed to sanitize input at the UI boundaries.
-**Prevention:** Always check `!isNaN(parseFloat(value))` before dispatching numerical state updates from UI controls to the store, especially when those values drive math-heavy WebAssembly operations.
+## 2025-02-20 - [Security Headers via Cloudflare Pages _headers File]
+**Vulnerability:** Missing fundamental HTTP security headers (e.g., HSTS, X-Frame-Options, X-Content-Type-Options) in the production deployment.
+**Learning:** For Cloudflare Pages deployments built with Vite, security headers must be defined in `public/_headers` so they are copied to `dist/_headers` and served by Cloudflare.
+**Prevention:** Ensure any new security headers are appended to the `public/_headers` file.

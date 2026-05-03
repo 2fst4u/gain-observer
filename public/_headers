@@ -1,0 +1,11 @@
+/*
+  # Enforce HTTPS to prevent MITM attacks
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  # Protect against clickjacking attacks
+  X-Frame-Options: DENY
+  # Prevent MIME-sniffing attacks
+  X-Content-Type-Options: nosniff
+  # Protect sensitive information in the referrer header
+  Referrer-Policy: strict-origin-when-cross-origin
+  # Opt-out of FLoC and restricts sensitive APIs, acting as a defense-in-depth measure
+  Permissions-Policy: interest-cohort=()
