@@ -24,8 +24,11 @@ export function App() {
   const showComparison = mode === 'comparison' && comparisonReference;
 
   return (
-    <div className="app-shell">
-      <div className="app-viewport">
+    <>
+      {/* SEO: Use <main> instead of generic <div> to denote primary content area for crawlers */}
+      <main className="app-shell">
+      {/* SEO: Upgrade <div> to <section> for better document outlining */}
+      <section className="app-viewport">
         {showComparison ? (
           <div className="scene-compare-grid">
             <ScenePane title="Reference" subtitle="Frozen snapshot" result={comparisonReference?.result ?? null}>
@@ -76,9 +79,10 @@ export function App() {
             )}
           </ScenePane>
         )}
-      </div>
+      </section>
       <ControlPanel />
-    </div>
+      </main>
+    </>
   );
 }
 
