@@ -91,7 +91,7 @@ function ScenePane({
   title: string;
   subtitle: string;
   children: ReactNode;
-  result: SimulationResult | null;
+  result: import('./physics/types').SimulationResult | null;
 }) {
   return (
     <div className="scene-pane">
