@@ -26,10 +26,10 @@ Prerequisites:
 - Emscripten SDK (only required when rebuilding the Wasm binary)
 
 ```bash
-pnpm install
-pnpm run dev        # start Vite dev server
-pnpm test           # run unit + NEC-2 integration tests
-pnpm run build      # production build
+npm install
+npm run dev        # start Vite dev server
+npm test           # run unit + NEC-2 integration tests
+npm run build      # production build
 ```
 
 ## Rebuilding the NEC-2 WebAssembly binary
@@ -38,7 +38,7 @@ The compiled `public/nec2.js` / `public/nec2.wasm` are checked in so a `git clon
 
 ```bash
 source ~/emsdk/emsdk_env.sh
-pnpm run build:nec2
+npm run build:nec2
 ```
 
 Output goes to `public/nec2.{js,wasm}`.
