@@ -84,11 +84,17 @@ function normaliseForPolar(values: number[], maxDb: number, rangeDb: number): nu
   return values.map((v) => Math.max(0, v - min));
 }
 
+function getCssVar(name: string): string {
+  if (typeof window === 'undefined') return '';
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 export function PolarPlots() {
   const result = useAntennaStore((s) => s.result);
   const dbRange = useAntennaStore((s) => s.dbRange);
   const showPolarCuts = useAntennaStore((s) => s.showPolarCuts);
   const orientation = useAntennaStore((s) => s.orientation);
+  const theme = useAntennaStore((s) => s.theme); // Subscribe to theme to re-evaluate colors on toggle
 
   const azData = useMemo(() => {
     if (!result) return null;
@@ -121,6 +127,9 @@ export function PolarPlots() {
 
   if (!showPolarCuts || !result || !azData || !elDataBroadside || !elDataEndOn) return null;
 
+  const chartText = theme === 'dark' ? getCssVar('--chart-text') || '#c6cdd6' : getCssVar('--chart-text') || '#3a4250';
+  const chartGrid = theme === 'dark' ? getCssVar('--chart-grid') || 'rgba(255, 255, 255, 0.08)' : getCssVar('--chart-grid') || 'rgba(0, 0, 0, 0.08)';
+
   const commonOpts = {
     responsive: true,
     maintainAspectRatio: false,
@@ -131,9 +140,9 @@ export function PolarPlots() {
         suggestedMin: 0,
         suggestedMax: dbRange,
         ticks: { display: false },
-        grid: { color: 'rgba(128,128,128,0.2)', circular: true },
-        angleLines: { color: 'rgba(128,128,128,0.2)' },
-        pointLabels: { color: 'var(--text-muted)', font: { size: 10 } },
+        grid: { color: chartGrid, circular: true },
+        angleLines: { color: chartGrid },
+        pointLabels: { color: chartText, font: { size: 10 } },
       },
     },
   } as const;
@@ -145,7 +154,7 @@ export function PolarPlots() {
       <h3>Polar cuts</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
             Azimuth @ Horizon (0°)
           </div>
           <div style={{ height: 160 }}>
@@ -167,7 +176,7 @@ export function PolarPlots() {
           </div>
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
             Elevation (Broadside)
           </div>
           <div style={{ height: 160 }}>
@@ -189,7 +198,7 @@ export function PolarPlots() {
           </div>
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
             Elevation (End-on)
           </div>
           <div style={{ height: 160 }}>
