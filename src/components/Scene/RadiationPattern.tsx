@@ -10,6 +10,7 @@ interface Props {
   readonly result: SimulationResult | null;
   readonly patternScale: number;
   readonly dbRange: number;
+  readonly colorMaxDb: number;
   readonly colormap: Colormap;
   readonly mode: Mode;
 }
@@ -19,6 +20,7 @@ export function RadiationPattern({
   result,
   patternScale,
   dbRange,
+  colorMaxDb,
   colormap,
   mode,
 }: Props) {
@@ -122,14 +124,13 @@ export function RadiationPattern({
     if (!result || !vertexGains) return null;
     const { count, angles } = cachedGeo;
     const colors = new Float32Array(count * 4);
-    const maxDb = result.maxGainDbi;
 
     // Fetch the colormap table outside the hot loop
     const table = pickTable(colormap);
 
     for (let i = 0; i < count; i++) {
       const gainDb = vertexGains[i]!;
-      let t = gainToColorT(gainDb, maxDb, dbRange);
+      let t = gainToColorT(gainDb, colorMaxDb, dbRange);
       if (mode === 'nvis' && angles[i * 2]! < 30) {
         t = Math.min(1, t + 0.1);
       }
@@ -139,7 +140,7 @@ export function RadiationPattern({
       colors[idx + 3] = 1;
     }
     return colors;
-  }, [vertexGains, colormap, dbRange, mode, cachedGeo, result]);
+  }, [vertexGains, colormap, colorMaxDb, dbRange, mode, cachedGeo, result]);
 
   // 4. Cache the geometry with positions and normals.
   // This avoids recomputing normals when only colors change.
