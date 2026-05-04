@@ -6,7 +6,7 @@ A 3D, responsive, physics-accurate visualiser for HF antenna radiation patterns,
 
 While this repository is fully open source and developers are welcome to fork or clone it to run locally, the primary way to use the application is via the hosted URL at **[gain.observer](https://gain.observer)**.
 
-Current scope (Phase 1): horizontal dipoles, 1.8–30 MHz, real-ground support, NVIS and comparison modes, SWR/polar cut charts, dark/light theming, metric/imperial toggle.
+Current scope (Phase 1): horizontal dipoles, 1.8–30 MHz, real-ground support, offset feed points, feedlines & baluns, NVIS and comparison modes, SWR/polar cut charts, dark/light theming, metric/imperial toggle.
 
 ## Stack
 
@@ -28,6 +28,7 @@ Prerequisites:
 ```bash
 npm install
 npm run dev        # start Vite dev server
+npm run lint       # run ESLint
 npm test           # run unit + NEC-2 integration tests
 npm run build      # production build
 ```
