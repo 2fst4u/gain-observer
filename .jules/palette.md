@@ -5,3 +5,7 @@
 ## 2024-05-03 - Always Append to Journals
 **Learning:** Found that when writing to journal files like `.jules/palette.md` using shell commands (e.g., `cat << 'EOF' > ...`), it is crucial to use the append operator (`>>`) instead of the overwrite operator (`>`). Overwriting destroys historical context and previous critical learnings.
 **Action:** Always verify the existence of a journal file and explicitly use the append redirection operator (`>>`) when adding new entries to preserve history.
+
+## 2024-05-04 - Keyboard Navigation Focus Indicators
+**Learning:** Found that keyboard navigation was lacking explicit visual feedback (`:focus-visible`) across the UI, particularly for interactive elements like buttons, inputs, and selects. Adding global `:focus-visible` styles with a high-contrast accent color greatly improves keyboard accessibility without negatively impacting mouse users.
+**Action:** Always verify keyboard accessibility and add clear `:focus-visible` styles to interactive elements when building out new UIs or auditing existing ones.

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useAdaptiveLOD } from '../../hooks/useAdaptiveLOD';
 import type { SimulationResult } from '../../physics/types';
 import type { Colormap, Mode } from '../../store/antennaStore';
-import { gainToColorT, pickTable, sampleColormapFast } from '../../utils/colormap';
+import { pickTable, sampleColormapFast } from '../../utils/colormap';
 
 interface Props {
   originY?: number;
@@ -107,10 +107,13 @@ export function RadiationPattern({
     const positions = new Float32Array(count * 3);
     const linearRangeFactor = patternScale * 2.5;
 
+    // Pre-calculate scale factor for Math.exp optimization over Math.pow
+    // 10^(x/20) = exp(x * ln(10)/20)
+    const scaleFactor = Math.LN10 / 20;
+
     for (let i = 0; i < count; i++) {
       const gainDb = vertexGains[i]!;
-      const linear = Math.pow(10, gainDb / 20);
-      const radius = linear * linearRangeFactor;
+      const radius = Math.exp(gainDb * scaleFactor) * linearRangeFactor;
       const idx = i * 3;
       positions[idx] = basePositions[idx]! * radius;
       positions[idx + 1] = basePositions[idx + 1]! * radius;
@@ -128,11 +131,16 @@ export function RadiationPattern({
     // Fetch the colormap table outside the hot loop
     const table = pickTable(colormap);
 
+    // Pre-calculate color scale invariants for inline linear mapping
+    const minDb = colorMaxDb - dbRange;
+    const invRange = 1 / dbRange;
+    const isNvis = mode === 'nvis';
+
     for (let i = 0; i < count; i++) {
       const gainDb = vertexGains[i]!;
-      let t = gainToColorT(gainDb, colorMaxDb, dbRange);
-      if (mode === 'nvis' && angles[i * 2]! < 30) {
-        t = Math.min(1, t + 0.1);
+      let t = gainDb >= colorMaxDb ? 1 : (gainDb <= minDb ? 0 : (gainDb - minDb) * invRange);
+      if (isNvis && angles[i * 2]! < 30) {
+        t = t > 0.9 ? 1 : t + 0.1;
       }
 
       const idx = i * 4;
