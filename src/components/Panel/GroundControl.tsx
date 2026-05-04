@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import { GROUND_PRESETS } from '../../physics/constants';
 
@@ -15,17 +15,21 @@ export function GroundControl() {
   const [isSigmaFocused, setIsSigmaFocused] = useState(false);
   const [isEpsilonFocused, setIsEpsilonFocused] = useState(false);
 
-  useEffect(() => {
+  const [prevSigma, setPrevSigma] = useState(sigma);
+  if (sigma !== prevSigma) {
+    setPrevSigma(sigma);
     if (!isSigmaFocused) {
       setLocalSigma(sigma.toString());
     }
-  }, [sigma, isSigmaFocused]);
+  }
 
-  useEffect(() => {
+  const [prevEpsilon, setPrevEpsilon] = useState(epsilon);
+  if (epsilon !== prevEpsilon) {
+    setPrevEpsilon(epsilon);
     if (!isEpsilonFocused) {
       setLocalEpsilon(epsilon.toString());
     }
-  }, [epsilon, isEpsilonFocused]);
+  }
 
   return (
     <div className="panel-section">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import { HF_BAND_PRESETS, halfWaveLength } from '../../physics/constants';
 
@@ -9,16 +9,18 @@ export function FrequencyControl() {
 
   // Use local string state to allow natural typing (trailing dots/zeros)
   // without immediate snapping from the store's clamp logic.
-  const [localVal, setLocalVal] = useState(frequency.toString());
+  const [localVal, setLocalVal] = useState(frequency.toFixed(3));
   const [isFocused, setIsFocused] = useState(false);
 
   // Sync local state when the store value changes (e.g. via preset buttons),
   // but ONLY if the user isn't currently typing in the field.
-  useEffect(() => {
+  const [prevFrequency, setPrevFrequency] = useState(frequency);
+  if (frequency !== prevFrequency) {
+    setPrevFrequency(frequency);
     if (!isFocused) {
-      setLocalVal(frequency.toString());
+      setLocalVal(frequency.toFixed(3));
     }
-  }, [frequency, isFocused]);
+  }
 
   return (
     <div className="panel-section">
@@ -43,7 +45,7 @@ export function FrequencyControl() {
           onBlur={() => {
             setIsFocused(false);
             // On blur, ensure the local value matches the (possibly clamped) store value.
-            setLocalVal(frequency.toString());
+            setLocalVal(frequency.toFixed(3));
           }}
         />
       </div>

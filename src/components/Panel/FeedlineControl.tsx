@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import {
   FEEDLINE_PRESETS,
@@ -30,14 +30,16 @@ export function FeedlineControl() {
   const dispLen = toDisplayLength(feedlineLength, units);
   const dispOffset = toDisplayLength(feedlineOffset, units);
 
-  const [localLen, setLocalLen] = useState(dispLen.toString());
+  const [localLen, setLocalLen] = useState(dispLen.toFixed(2));
   const [isFocused, setIsFocused] = useState(false);
 
-  useEffect(() => {
+  const [prevDispLen, setPrevDispLen] = useState(dispLen);
+  if (dispLen !== prevDispLen) {
+    setPrevDispLen(dispLen);
     if (!isFocused) {
-      setLocalLen(dispLen.toString());
+      setLocalLen(dispLen.toFixed(2));
     }
-  }, [dispLen, isFocused]);
+  }
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
@@ -82,7 +84,7 @@ export function FeedlineControl() {
             }}
             onBlur={() => {
               setIsFocused(false);
-              setLocalLen(dispLen.toString());
+              setLocalLen(dispLen.toFixed(2));
             }}
           />
 

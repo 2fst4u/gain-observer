@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import {
   toDisplayLength,
@@ -21,14 +21,16 @@ export function DipoleControl() {
   const dispLen = toDisplayLength(length, units);
   const dispHeight = toDisplayLength(height, units);
 
-  const [localLen, setLocalLen] = useState(dispLen.toString());
+  const [localLen, setLocalLen] = useState(dispLen.toFixed(2));
   const [isFocused, setIsFocused] = useState(false);
 
-  useEffect(() => {
+  const [prevDispLen, setPrevDispLen] = useState(dispLen);
+  if (dispLen !== prevDispLen) {
+    setPrevDispLen(dispLen);
     if (!isFocused) {
-      setLocalLen(dispLen.toString());
+      setLocalLen(dispLen.toFixed(2));
     }
-  }, [dispLen, isFocused]);
+  }
   const maxHeight = units === 'metric' ? 40 : 131;
 
   const orientations: Orientation[] = ['EW', 'NS', 'NE-SW', 'NW-SE'];
@@ -56,7 +58,7 @@ export function DipoleControl() {
           }}
           onBlur={() => {
             setIsFocused(false);
-            setLocalLen(dispLen.toString());
+            setLocalLen(dispLen.toFixed(2));
           }}
         />
         <button
