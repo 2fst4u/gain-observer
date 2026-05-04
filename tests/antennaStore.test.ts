@@ -69,7 +69,7 @@ describe('antennaStore selectors', () => {
   });
 
   describe('selectSimulationInput', () => {
-    it('combines state into simulation input correctly', () => {
+    it('combines state into simulation input correctly (no feedline)', () => {
       // Arrange
       const state = useAntennaStore.getState();
       const testState = {
@@ -79,6 +79,8 @@ describe('antennaStore selectors', () => {
         height: 5,
         orientation: 'EW' as const,
         segments: 11,
+        feedlineId: 'none',
+        feedlineLength: 0,
       };
 
       // Act
@@ -92,6 +94,84 @@ describe('antennaStore selectors', () => {
       expect(input.excitation.segment).toBe(6); // Math.ceil(11 / 2)
       expect(input.patternResolution.thetaSteps).toBe(37);
       expect(input.patternResolution.phiSteps).toBe(72);
+      expect(input.transmissionLines).toBeUndefined();
+      expect(input.loads).toBeUndefined();
+    });
+
+    it('adds shield wire and TL card when a feedline is configured', () => {
+      const state = useAntennaStore.getState();
+      const testState = {
+        ...state,
+        frequency: 14.1,
+        height: 10,
+        segments: 11,
+        feedlineId: 'rg58',
+        feedlineLength: 8,
+        balunEnabled: false,
+      };
+
+      const input = selectSimulationInput(testState);
+
+      // Two wires: dipole (tag 1) + shield (tag 2).
+      expect(input.wires).toHaveLength(2);
+      expect(input.wires[0].tag).toBe(1);
+      expect(input.wires[1].tag).toBe(2);
+      // Shield should drop straight down from feedpoint at (0,0,h).
+      expect(input.wires[1].start).toEqual([0, 0, 10]);
+      expect(input.wires[1].end[2]).toBeCloseTo(2, 5);
+      // EX moves to bottom of shield (the rig).
+      expect(input.excitation.wireTag).toBe(2);
+      // TL card connects dipole feedpoint to bottom-of-shield.
+      expect(input.transmissionLines).toHaveLength(1);
+      const tl = input.transmissionLines![0];
+      expect(tl.fromTag).toBe(1);
+      expect(tl.toTag).toBe(2);
+      expect(tl.z0).toBe(50);
+      // Electrical length = physical / VF (RG-58 VF = 0.66).
+      expect(tl.lengthM).toBeCloseTo(8 / 0.66, 5);
+      // No balun => no load card.
+      expect(input.loads).toBeUndefined();
+    });
+
+    it('adds an LD choke balun on the shield when balun is enabled', () => {
+      const state = useAntennaStore.getState();
+      const testState = {
+        ...state,
+        height: 10,
+        feedlineId: 'rg213',
+        feedlineLength: 6,
+        balunEnabled: true,
+      };
+
+      const input = selectSimulationInput(testState);
+
+      expect(input.loads).toHaveLength(1);
+      const ld = input.loads![0];
+      expect(ld.type).toBe(4); // impedance load
+      expect(ld.wireTag).toBe(2); // shield wire
+      expect(ld.segmentStart).toBe(1); // top of shield (near feedpoint)
+      expect(ld.segmentEnd).toBe(1);
+      expect(ld.param1).toBeGreaterThan(500); // ~kΩ choke
+      expect(ld.param2).toBe(0);
+    });
+
+    it('clamps shield bottom above ground when feedline length exceeds height', () => {
+      const state = useAntennaStore.getState();
+      const testState = {
+        ...state,
+        height: 5,
+        feedlineId: 'rg213',
+        feedlineLength: 30, // would push bottom into the ground
+      };
+
+      const input = selectSimulationInput(testState);
+
+      const shield = input.wires.find((w) => w.tag === 2)!;
+      expect(shield).toBeDefined();
+      // Bottom must be safely above z=0.
+      expect(shield.end[2]).toBeGreaterThan(0);
+      // Top stays at the feedpoint.
+      expect(shield.start[2]).toBe(5);
     });
   });
 });
@@ -118,5 +198,38 @@ describe('antennaStore actions', () => {
 
     // Assert
     expect(useAntennaStore.getState().frequency).toBe(14.1);
+  });
+
+  describe('feedline', () => {
+    it('updates feedline preset id', () => {
+      const store = useAntennaStore.getState();
+      store.setFeedline('rg213');
+      expect(useAntennaStore.getState().feedlineId).toBe('rg213');
+      store.setFeedline('none');
+      expect(useAntennaStore.getState().feedlineId).toBe('none');
+    });
+
+    it('throws on unknown feedline id', () => {
+      const store = useAntennaStore.getState();
+      expect(() => store.setFeedline('not-a-real-cable')).toThrow();
+    });
+
+    it('clamps feedline length to a reasonable range', () => {
+      const store = useAntennaStore.getState();
+      store.setFeedlineLength(-5);
+      expect(useAntennaStore.getState().feedlineLength).toBe(0);
+      store.setFeedlineLength(500);
+      expect(useAntennaStore.getState().feedlineLength).toBe(200);
+      store.setFeedlineLength(15);
+      expect(useAntennaStore.getState().feedlineLength).toBe(15);
+    });
+
+    it('toggles balun enabled flag', () => {
+      const store = useAntennaStore.getState();
+      store.setBalunEnabled(true);
+      expect(useAntennaStore.getState().balunEnabled).toBe(true);
+      store.setBalunEnabled(false);
+      expect(useAntennaStore.getState().balunEnabled).toBe(false);
+    });
   });
 });

@@ -32,6 +32,62 @@ export interface Excitation {
   readonly imag?: number;
 }
 
+/**
+ * NEC-2 transmission line (TL) card.
+ *
+ * NEC's TL card models an ideal (lossless) two-port transmission line
+ * connected between two segments. It is a circuit element only — it does
+ * not radiate. We use it to represent the differential signal flowing
+ * inside the coaxial feedline, while the outside of the shield is modelled
+ * as a real radiating wire (so common-mode currents are physically
+ * captured).
+ *
+ * shuntAdmEnd1/shuntAdmEnd2 are optional shunt admittances (S = 1/Ω) added
+ * at each port — used to approximate dielectric loss when needed.
+ */
+export interface TransmissionLine {
+  readonly fromTag: number;
+  readonly fromSegment: number;
+  readonly toTag: number;
+  readonly toSegment: number;
+  /** Characteristic impedance, Ω. */
+  readonly z0: number;
+  /** Electrical length, metres (physical length × √εr_dielectric is NOT
+   *  required — NEC's TL card takes physical length directly and we encode
+   *  velocity factor via the lengthM value: see selectSimulationInput). */
+  readonly lengthM: number;
+  readonly shuntAdmEnd1Real?: number;
+  readonly shuntAdmEnd1Imag?: number;
+  readonly shuntAdmEnd2Real?: number;
+  readonly shuntAdmEnd2Imag?: number;
+}
+
+/**
+ * NEC-2 impedance loading (LD) card on a wire segment.
+ *
+ * type=0 → series RLC (R Ω, L H, C F).
+ * type=4 → impedance Z = R + jX placed in series with the segment.
+ * Other types exist but we only need 0 and 4.
+ *
+ * We use this to model a 1:1 current ("choke") balun: a high common-mode
+ * impedance placed near the antenna feedpoint on the coax shield wire.
+ */
+export interface SegmentLoad {
+  /** NEC LD type code. */
+  readonly type: 0 | 4;
+  readonly wireTag: number;
+  /** First segment in the load range (1-based). */
+  readonly segmentStart: number;
+  /** Last segment in the load range (1-based). */
+  readonly segmentEnd: number;
+  /** For type=0: resistance Ω. For type=4: real part of Z, Ω. */
+  readonly param1: number;
+  /** For type=0: inductance H. For type=4: imaginary part of Z, Ω. */
+  readonly param2: number;
+  /** For type=0: capacitance F. Ignored for type=4. */
+  readonly param3?: number;
+}
+
 export interface SimulationInput {
   readonly wires: readonly Wire[];
   readonly frequencyMHz: number;
@@ -42,6 +98,10 @@ export interface SimulationInput {
     readonly thetaSteps: number;
     readonly phiSteps: number;
   };
+  /** Optional NEC TL cards (e.g. coax differential mode). */
+  readonly transmissionLines?: readonly TransmissionLine[];
+  /** Optional NEC LD cards (e.g. choke balun, end-fed terminator). */
+  readonly loads?: readonly SegmentLoad[];
 }
 
 /**

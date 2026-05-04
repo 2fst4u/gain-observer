@@ -15,10 +15,16 @@ import type {
   GroundParams,
   SweepPoint,
   Wire,
+  TransmissionLine,
+  SegmentLoad,
 } from '../physics/types';
 import {
+  DEFAULT_BALUN_IMPEDANCE_OHMS,
+  DEFAULT_FEEDLINE_ID,
+  DEFAULT_FEEDLINE_LENGTH_M,
   DEFAULT_GROUND_ID,
   DEFAULT_WIRE_RADIUS_M,
+  findFeedlinePreset,
   findGroundPreset,
   halfWaveLength,
 } from '../physics/constants';
@@ -39,6 +45,9 @@ export interface ComparisonSnapshot {
   readonly groundId: string;
   readonly groundSigma: number;
   readonly groundEpsilon: number;
+  readonly feedlineId: string;
+  readonly feedlineLength: number;
+  readonly balunEnabled: boolean;
   readonly result: SimulationResult;
   readonly sweep: SweepPoint[];
   readonly capturedAt: number;
@@ -57,6 +66,13 @@ export interface AntennaState {
   groundId: string;
   groundSigma: number;
   groundEpsilon: number;
+
+  // Feedline (coax / parallel-line modelled as physical radiating shield
+  // wire + NEC TL card for the differential signal). When feedlineId is
+  // 'none' the legacy direct-feed behaviour is used.
+  feedlineId: string;
+  feedlineLength: number;
+  balunEnabled: boolean;
 
   // Display / UI
   theme: Theme;
@@ -87,6 +103,9 @@ export interface AntennaState {
   setSegments(n: number): void;
   setGround(id: string): void;
   setCustomGround(sigma: number, epsilon: number): void;
+  setFeedline(id: string): void;
+  setFeedlineLength(meters: number): void;
+  setBalunEnabled(enabled: boolean): void;
   setTheme(t: Theme): void;
   toggleTheme(): void;
   setUnits(u: UnitSystem): void;
@@ -125,6 +144,10 @@ export const useAntennaStore = create<AntennaState>()(
       groundId: DEFAULT_GROUND_ID,
       groundSigma: findGroundPreset(DEFAULT_GROUND_ID).sigma,
       groundEpsilon: findGroundPreset(DEFAULT_GROUND_ID).epsilon,
+
+      feedlineId: DEFAULT_FEEDLINE_ID,
+      feedlineLength: DEFAULT_FEEDLINE_LENGTH_M,
+      balunEnabled: false,
 
       theme: 'dark',
       units: 'metric',
@@ -173,6 +196,18 @@ export const useAntennaStore = create<AntennaState>()(
         s.groundSigma = Math.max(0, sigma);
         s.groundEpsilon = Math.max(1, epsilon);
       }),
+      setFeedline: (id) => set((s) => {
+        // Validate; throws on unknown id.
+        findFeedlinePreset(id);
+        s.feedlineId = id;
+      }),
+      setFeedlineLength: (meters) => set((s) => {
+        if (!Number.isFinite(meters)) return;
+        // Cap at 200 m (substantially longer than any practical HF feedline)
+        // to keep NEC matrices bounded.
+        s.feedlineLength = Math.max(0, Math.min(200, meters));
+      }),
+      setBalunEnabled: (enabled) => set((s) => { s.balunEnabled = !!enabled; }),
       setTheme: (t) => set((s) => { s.theme = t; }),
       toggleTheme: () => set((s) => { s.theme = s.theme === 'dark' ? 'light' : 'dark'; }),
       setUnits: (u) => set((s) => { s.units = u; }),
@@ -225,12 +260,37 @@ function clampSegments(n: number): number {
 
 // --------------- Selectors ---------------
 
+/** Tag identifiers for the built-in geometry. */
+export const DIPOLE_TAG = 1;
+export const FEEDLINE_SHIELD_TAG = 2;
+
+/**
+ * Number of segments on the coax shield wire. Odd so the middle segment
+ * is well-defined; small enough to keep NEC fast but large enough to
+ * resolve common-mode current variation along a multi-wavelength run.
+ */
+export const FEEDLINE_SHIELD_SEGMENTS = 11;
+
+/** Minimum gap (m) between the bottom of the shield wire and the ground
+ * plane, to avoid NEC's "wire touching ground" warning. */
+const FEEDLINE_GROUND_GAP_M = 0.1;
+
 /**
  * Build the geometry vector for the current state.
- * The dipole lies along the chosen orientation at the configured height.
+ *
+ * Geometry layout:
+ *   - Dipole (tag 1): along the chosen orientation at `height` metres,
+ *     centred on the origin in the X/Y plane.
+ *   - Optional coax-shield wire (tag 2): a vertical wire dropping from the
+ *     dipole feedpoint (which is at the origin in X/Y) toward the ground.
+ *     Its top end coincides with the dipole feedpoint (a 3-way junction
+ *     in NEC) so common-mode current can flow naturally onto it. The
+ *     bottom end is the rig location and is fed by an EX card; see
+ *     `selectSimulationInput`.
  */
 export function buildWires(
-  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'>,
+  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength'>>,
 ): Wire[] {
   const half = state.length / 2;
   const h = state.height;
@@ -261,12 +321,49 @@ export function buildWires(
       break;
     }
   }
-  return [{
+  const wires: Wire[] = [{
     start, end,
     radius: state.wireRadius,
     segments: state.segments,
-    tag: 1,
+    tag: DIPOLE_TAG,
   }];
+
+  // Add the coax shield wire when a feedline is configured.
+  const shield = buildFeedlineShieldWire(state);
+  if (shield) wires.push(shield);
+
+  return wires;
+}
+
+function buildFeedlineShieldWire(
+  state: Pick<AntennaState, 'height'> & Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength'>>,
+): Wire | null {
+  const id = state.feedlineId;
+  const len = state.feedlineLength;
+  if (!id || id === 'none') return null;
+  if (typeof len !== 'number' || !Number.isFinite(len) || len <= 0) return null;
+  const preset = findFeedlinePreset(id);
+  if (preset.id === 'none' || preset.shieldOuterRadiusM <= 0) return null;
+
+  // Top of the shield is the dipole feedpoint at (0, 0, height).
+  const topZ = state.height;
+  // Geometric drop is clamped so the bottom stays above the ground plane.
+  // The user's entered length is preserved as the *electrical* length used
+  // by the TL card and (any future) cable-loss calculation; only the
+  // visible/radiating geometry is clamped.
+  const minBottomZ = state.height > 0 ? FEEDLINE_GROUND_GAP_M : -len;
+  const desiredBottomZ = topZ - len;
+  const bottomZ = Math.max(minBottomZ, desiredBottomZ);
+  const drop = topZ - bottomZ;
+  if (drop < 0.05) return null; // not enough room for a meaningful wire
+
+  return {
+    start: [0, 0, topZ],
+    end: [0, 0, bottomZ],
+    radius: preset.shieldOuterRadiusM,
+    segments: FEEDLINE_SHIELD_SEGMENTS,
+    tag: FEEDLINE_SHIELD_TAG,
+  };
 }
 
 function buildGroundParams(state: AntennaState): GroundParams {
@@ -280,18 +377,71 @@ function buildGroundParams(state: AntennaState): GroundParams {
 }
 
 export function selectSimulationInput(state: AntennaState): SimulationInput {
+  const wires = buildWires(state);
+  const dipoleCentreSeg = Math.ceil(state.segments / 2);
+  const feedlineActive = state.feedlineId !== 'none'
+    && state.feedlineLength > 0
+    && wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
+
+  // When a feedline is active, the source is at the *rig* end of the
+  // coax — i.e. the bottom segment of the shield wire. Otherwise we feed
+  // the dipole directly at its centre (legacy behaviour).
+  const excitation = feedlineActive
+    ? { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS }
+    : { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
+
+  const transmissionLines: TransmissionLine[] = [];
+  const loads: SegmentLoad[] = [];
+
+  if (feedlineActive) {
+    const preset = findFeedlinePreset(state.feedlineId);
+    // NEC's TL card uses free-space propagation; to model a real cable
+    // with velocity factor < 1 we pass the *electrical* length, which is
+    // physical length / VF. (β·ℓ_phys / VF gives the correct phase shift.)
+    const electricalLength = state.feedlineLength / Math.max(0.05, preset.velocityFactor);
+    transmissionLines.push({
+      // Dipole feedpoint segment <-> bottom of shield (the rig location).
+      fromTag: DIPOLE_TAG,
+      fromSegment: dipoleCentreSeg,
+      toTag: FEEDLINE_SHIELD_TAG,
+      toSegment: FEEDLINE_SHIELD_SEGMENTS,
+      z0: preset.z0,
+      lengthM: electricalLength,
+      // Shunt admittances are left at zero; cable copper/dielectric loss
+      // is small for typical HF runs and is not the dominant effect we
+      // are trying to capture (which is common-mode radiation from the
+      // shield). A future enhancement may add a frequency-dependent
+      // shunt-G term derived from feedlineLossDb().
+    });
+
+    if (state.balunEnabled) {
+      // Place a 1:1 current ("choke") balun on the shield's TOP segment —
+      // i.e. immediately below the antenna feedpoint. The high common-mode
+      // impedance suppresses current on the outside of the shield without
+      // affecting the differential signal inside (which travels via the
+      // TL card and never sees this load).
+      loads.push({
+        type: 4, // impedance Z = R + jX
+        wireTag: FEEDLINE_SHIELD_TAG,
+        segmentStart: 1,
+        segmentEnd: 1,
+        param1: DEFAULT_BALUN_IMPEDANCE_OHMS, // R
+        param2: 0,                            // X
+      });
+    }
+  }
+
   return {
-    wires: buildWires(state),
+    wires,
     frequencyMHz: state.frequency,
     ground: buildGroundParams(state),
-    excitation: {
-      wireTag: 1,
-      segment: Math.ceil(state.segments / 2),
-    },
+    excitation,
     patternResolution: {
       thetaSteps: 37, // 5° steps (0..180)
       phiSteps: 72,   // 5° steps (0..360)
     },
+    transmissionLines: transmissionLines.length > 0 ? transmissionLines : undefined,
+    loads: loads.length > 0 ? loads : undefined,
   };
 }
 
@@ -307,6 +457,9 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     groundId: state.groundId,
     groundSigma: state.groundSigma,
     groundEpsilon: state.groundEpsilon,
+    feedlineId: state.feedlineId,
+    feedlineLength: state.feedlineLength,
+    balunEnabled: state.balunEnabled,
     result: state.result,
     sweep: [...state.sweep],
     capturedAt: Date.now(),

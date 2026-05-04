@@ -222,6 +222,145 @@ describe('Nec2Engine (real Wasm)', () => {
     expect(r2.computeTimeMs).toBeGreaterThan(0);
   }, 60_000);
 
+  it('feedline shield + TL card produces a physical solve and shifts the pattern', async () => {
+    // Compare a baseline directly-fed dipole against the same dipole with a
+    // long unchoked coax-shield wire dropping vertically to the rig. The
+    // shield should radiate (common-mode current) and visibly perturb the
+    // pattern. The simulation must still converge to a sensible R+jX at
+    // the rig end of the TL card.
+    const freq = 14.15;
+    const tip = halfWaveLength(freq, 0.95) / 2;
+    const h = 10;
+
+    const baseline: SimulationInput = {
+      wires: [
+        { start: [-tip, 0, h], end: [tip, 0, h], radius: 0.001, segments: 21, tag: 1 },
+      ],
+      frequencyMHz: freq,
+      ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+      excitation: { wireTag: 1, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+    };
+
+    const withFeedline: SimulationInput = {
+      wires: [
+        { start: [-tip, 0, h], end: [tip, 0, h], radius: 0.001, segments: 21, tag: 1 },
+        { start: [0, 0, h], end: [0, 0, 0.1], radius: 0.005, segments: 11, tag: 2 },
+      ],
+      frequencyMHz: freq,
+      ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+      excitation: { wireTag: 2, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+      transmissionLines: [{
+        fromTag: 1,
+        fromSegment: 11,
+        toTag: 2,
+        toSegment: 11,
+        z0: 50,
+        // Electrical length = physical (~9.9m) / VF (0.66) for RG-58.
+        lengthM: (h - 0.1) / 0.66,
+      }],
+    };
+
+    const rBase = await engine.simulate(baseline);
+    const rFeed = await engine.simulate(withFeedline);
+
+    // Sanity: both runs return finite numbers.
+    expect(Number.isFinite(rBase.maxGainDbi)).toBe(true);
+    expect(Number.isFinite(rFeed.maxGainDbi)).toBe(true);
+    expect(rFeed.impedance.R).toBeGreaterThan(0);
+
+    // Pattern should be different — common-mode shield current changes the
+    // pattern, especially near zenith and along the broadside.
+    const p1 = rBase.pattern.data;
+    const p2 = rFeed.pattern.data;
+    let totalDiff = 0;
+    let n = 0;
+    for (let i = 0; i < p1.length; i++) {
+      const a = p1[i] ?? 0;
+      const b = p2[i] ?? 0;
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        totalDiff += Math.abs(a - b);
+        n++;
+      }
+    }
+    const avgDiff = totalDiff / Math.max(1, n);
+    // We expect at least some perturbation from the radiating shield. The
+    // magnitude is geometry/frequency-dependent — at 14 MHz with a 10 m
+    // vertical shield it's small but non-zero. The choking-balun test
+    // below provides the more discriminating physical check.
+    expect(avgDiff).toBeGreaterThan(0.02);
+  }, 60_000);
+
+  it('balun (LD on shield) suppresses common-mode current vs unchoked', async () => {
+    // Identical geometry except for an LD high-impedance load on the top
+    // segment of the shield. The choked variant's pattern should be closer
+    // to the directly-fed baseline than the unchoked variant.
+    const freq = 14.15;
+    const tip = halfWaveLength(freq, 0.95) / 2;
+    const h = 10;
+
+    const wires = [
+      { start: [-tip, 0, h] as [number, number, number], end: [tip, 0, h] as [number, number, number], radius: 0.001, segments: 21, tag: 1 },
+      { start: [0, 0, h] as [number, number, number], end: [0, 0, 0.1] as [number, number, number], radius: 0.005, segments: 11, tag: 2 },
+    ];
+    const tl = [{
+      fromTag: 1,
+      fromSegment: 11,
+      toTag: 2,
+      toSegment: 11,
+      z0: 50,
+      lengthM: (h - 0.1) / 0.66,
+    }];
+    const common: SimulationInput = {
+      wires,
+      frequencyMHz: freq,
+      ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+      excitation: { wireTag: 2, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+      transmissionLines: tl,
+    };
+
+    const baseline: SimulationInput = {
+      wires: [wires[0]],
+      frequencyMHz: freq,
+      ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+      excitation: { wireTag: 1, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+    };
+
+    const rBase = await engine.simulate(baseline);
+    const rUnchoked = await engine.simulate(common);
+    const rChoked = await engine.simulate({
+      ...common,
+      loads: [
+        { type: 4, wireTag: 2, segmentStart: 1, segmentEnd: 1, param1: 5000, param2: 0 },
+      ],
+    });
+
+    function meanAbsDiff(a: Float32Array, b: Float32Array): number {
+      let s = 0;
+      let n = 0;
+      for (let i = 0; i < a.length; i++) {
+        const va = a[i] ?? 0;
+        const vb = b[i] ?? 0;
+        if (Number.isFinite(va) && Number.isFinite(vb)) {
+          s += Math.abs(va - vb);
+          n++;
+        }
+      }
+      return s / Math.max(1, n);
+    }
+
+    const dUnchoked = meanAbsDiff(rBase.pattern.data, rUnchoked.pattern.data);
+    const dChoked = meanAbsDiff(rBase.pattern.data, rChoked.pattern.data);
+
+    // The choked pattern must be at least slightly closer to the baseline
+    // than the unchoked pattern. Because the choke is finite (5 kΩ) it
+    // won't reach the baseline exactly.
+    expect(dChoked).toBeLessThan(dUnchoked);
+  }, 90_000);
+
   it('verifies azimuth wrapping consistency (phi 0 vs 360)', async () => {
     const freq = 7.1;
     const tip = halfWaveLength(freq, 1.0) / 2;

@@ -166,6 +166,79 @@ describe('buildNecCards', () => {
     });
   });
 
+  describe('feedline cards (TL / LD)', () => {
+    const inputWithFeedline: SimulationInput = {
+      ...defaultInput,
+      wires: [
+        { start: [-5, 0, 10], end: [5, 0, 10], radius: 0.001, segments: 21, tag: 1 },
+        { start: [0, 0, 10], end: [0, 0, 0.5], radius: 0.005, segments: 11, tag: 2 },
+      ],
+      excitation: { wireTag: 2, segment: 11 },
+      transmissionLines: [
+        {
+          fromTag: 1,
+          fromSegment: 11,
+          toTag: 2,
+          toSegment: 11,
+          z0: 50,
+          lengthM: 12.5,
+        },
+      ],
+      loads: [
+        {
+          type: 4,
+          wireTag: 2,
+          segmentStart: 1,
+          segmentEnd: 1,
+          param1: 2000,
+          param2: 0,
+        },
+      ],
+    };
+
+    it('emits an LD impedance load card', () => {
+      const out = buildNecCards(inputWithFeedline);
+      expect(out).toMatch(/^LD 4 2 1 1 2000\.\d+ 0\.\d+/m);
+    });
+
+    it('emits a TL transmission-line card with Z0 and length', () => {
+      const out = buildNecCards(inputWithFeedline);
+      expect(out).toMatch(/^TL 1 11 2 11 50\.\d+ 12\.5\d+ 0\.\d+ 0\.\d+ 0\.\d+ 0\.\d+/m);
+    });
+
+    it('emits LD before TL (NEC card ordering)', () => {
+      const out = buildNecCards(inputWithFeedline);
+      const ldIdx = out.indexOf('\nLD ');
+      const tlIdx = out.indexOf('\nTL ');
+      expect(ldIdx).toBeGreaterThan(0);
+      expect(tlIdx).toBeGreaterThan(ldIdx);
+    });
+
+    it('emits TL/LD before EX (NEC card ordering)', () => {
+      const out = buildNecCards(inputWithFeedline);
+      const tlIdx = out.indexOf('\nTL ');
+      const exIdx = out.indexOf('\nEX ');
+      expect(tlIdx).toBeGreaterThan(0);
+      expect(exIdx).toBeGreaterThan(tlIdx);
+    });
+
+    it('emits no LD/TL cards when arrays are absent', () => {
+      const out = buildNecCards(defaultInput);
+      expect(out).not.toContain('\nLD ');
+      expect(out).not.toContain('\nTL ');
+    });
+
+    it('emits a series-RLC LD card (type 0) when requested', () => {
+      const out = buildNecCards({
+        ...defaultInput,
+        loads: [
+          { type: 0, wireTag: 1, segmentStart: 5, segmentEnd: 5, param1: 100, param2: 1e-6, param3: 1e-12 },
+        ],
+      });
+      expect(out).toMatch(/^LD 0 1 5 5 100\./m);
+    });
+  });
+
   describe('error handling', () => {
     it('throws error for NaN coordinates', () => {
       const input: SimulationInput = {

@@ -76,3 +76,128 @@ export function findGroundPreset(id: string): GroundPreset {
   }
   return preset;
 }
+
+/**
+ * Common feedline (coaxial cable / parallel line) presets.
+ *
+ * The loss model is `loss(f_MHz) = k1·√f + k2·f` dB per 100 metres, which
+ * captures both copper (skin-effect, ∝ √f) and dielectric (∝ f) losses.
+ * Coefficients were fitted from manufacturer datasheets at 10 MHz and
+ * 100 MHz. shieldOuterRadiusM is the physical radius of the cable's outer
+ * shield — used to model the radiating "outside-of-coax" wire in NEC.
+ *
+ * `id: 'none'` is the sentinel for "no feedline" (default behaviour).
+ */
+export interface FeedlinePreset {
+  readonly id: string;
+  readonly label: string;
+  /** Characteristic impedance, Ω. 0 for the 'none' sentinel. */
+  readonly z0: number;
+  /** Velocity factor (0..1). 1 for the 'none' sentinel. */
+  readonly velocityFactor: number;
+  /** Loss coefficient: dB/100m at 1 MHz from skin effect (∝ √f). */
+  readonly lossK1: number;
+  /** Loss coefficient: dB/100m per MHz from dielectric loss (∝ f). */
+  readonly lossK2: number;
+  /** Outer-shield physical radius, metres. 0 for the 'none' sentinel. */
+  readonly shieldOuterRadiusM: number;
+  /** Short UI hint. */
+  readonly hint: string;
+}
+
+export const FEEDLINE_PRESETS: ReadonlyArray<FeedlinePreset> = [
+  {
+    id: 'none',
+    label: 'No feedline',
+    z0: 0,
+    velocityFactor: 1,
+    lossK1: 0,
+    lossK2: 0,
+    shieldOuterRadiusM: 0,
+    hint: 'Direct feed at the antenna terminals (idealised).',
+  },
+  {
+    id: 'rg58',
+    label: 'RG-58 (50 Ω, ~5 mm)',
+    z0: 50,
+    velocityFactor: 0.66,
+    // Datasheet: ~4.6 dB/100 m @ 10 MHz, ~16.1 @ 100 MHz.
+    lossK1: 1.3828,
+    lossK2: 0.0227,
+    shieldOuterRadiusM: 0.00248, // ~4.95 mm OD ÷ 2
+    hint: 'Common thin coax. Higher loss; flexible.',
+  },
+  {
+    id: 'rg213',
+    label: 'RG-213 (50 Ω, ~10 mm)',
+    z0: 50,
+    velocityFactor: 0.66,
+    // Datasheet: ~1.9 dB/100 m @ 10 MHz, ~6.2 @ 100 MHz.
+    lossK1: 0.5920,
+    lossK2: 0.0028,
+    shieldOuterRadiusM: 0.00515, // ~10.3 mm OD ÷ 2
+    hint: 'Standard low-loss coax for HF runs.',
+  },
+  {
+    id: 'lmr400',
+    label: 'LMR-400 (50 Ω, ~10 mm)',
+    z0: 50,
+    velocityFactor: 0.85,
+    // Datasheet: ~1.3 dB/100 m @ 10 MHz, ~4.3 @ 100 MHz.
+    lossK1: 0.4024,
+    lossK2: 0.0028,
+    shieldOuterRadiusM: 0.00515, // ~10.3 mm OD ÷ 2
+    hint: 'Low-loss foamed-PE coax. Stiffer than RG-213.',
+  },
+  {
+    id: 'rg8x',
+    label: 'RG-8X (50 Ω, ~6 mm)',
+    z0: 50,
+    velocityFactor: 0.78,
+    lossK1: 0.95,
+    lossK2: 0.012,
+    shieldOuterRadiusM: 0.0031, // ~6.2 mm OD ÷ 2
+    hint: 'Mini-8 coax. Compromise loss/flexibility.',
+  },
+  {
+    id: 'ladder450',
+    label: 'Ladder line (450 Ω)',
+    z0: 450,
+    velocityFactor: 0.91,
+    lossK1: 0.10,
+    lossK2: 0.0,
+    // Treated as a single-wire equivalent for shield modelling. The outer
+    // common-mode "radiator" radius approximates the spacing/geometry.
+    shieldOuterRadiusM: 0.0006,
+    hint: 'Open-wire / window line. Very low loss; needs balanced match.',
+  },
+];
+
+export const DEFAULT_FEEDLINE_ID = 'rg58';
+export const DEFAULT_FEEDLINE_LENGTH_M = 10;
+
+export function findFeedlinePreset(id: string): FeedlinePreset {
+  const preset = FEEDLINE_PRESETS.find((f) => f.id === id);
+  if (!preset) {
+    throw new Error(`Unknown feedline preset id: ${id}`);
+  }
+  return preset;
+}
+
+/**
+ * Total cable loss for a given feedline at a given frequency, dB.
+ * Uses the `k1·√f + k2·f` skin+dielectric model.
+ */
+export function feedlineLossDb(preset: FeedlinePreset, frequencyMHz: number, lengthM: number): number {
+  const lossPer100m = preset.lossK1 * Math.sqrt(frequencyMHz) + preset.lossK2 * frequencyMHz;
+  return lossPer100m * (lengthM / 100);
+}
+
+/**
+ * Default choke-balun common-mode impedance.
+ * Real-world current baluns (W2DU, ferrite-bead string) typically present
+ * 1 kΩ to 5 kΩ across HF. We use a moderate 2 kΩ resistive value as the
+ * "balun enabled" default — high enough to substantially suppress
+ * common-mode current, low enough to remain physical.
+ */
+export const DEFAULT_BALUN_IMPEDANCE_OHMS = 2000;
