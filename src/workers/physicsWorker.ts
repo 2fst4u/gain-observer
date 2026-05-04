@@ -38,7 +38,7 @@ const engine = new Nec2Engine({
 });
 
 const SWEEP_POINTS = 15;
-const SWEEP_SPAN_FRACTION = 0.1;
+const SWEEP_SPAN_FRACTION = 0.2;
 
 engine
   .init()
