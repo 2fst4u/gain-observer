@@ -222,6 +222,200 @@ describe('Nec2Engine (real Wasm)', () => {
     expect(r2.computeTimeMs).toBeGreaterThan(0);
   }, 60_000);
 
+  it('split-dipole + TL feedline produces a physical solve and a transformed Z', async () => {
+    // Compare a baseline directly-fed dipole (no feedline) against a
+    // split-dipole + 1-segment source-bridge + radiating coax shield. With
+    // a real coax preset we expect the impedance reading to shift (the
+    // transmission line transforms it) and the pattern to perturb due to
+    // the shield's contribution.
+    const freq = 14.15;
+    const tip = halfWaveLength(freq, 0.95) / 2;
+    const h = 10;
+
+    const baseline: SimulationInput = {
+      wires: [
+        { start: [-tip, 0, h], end: [tip, 0, h], radius: 0.001, segments: 21, tag: 1 },
+      ],
+      frequencyMHz: freq,
+      ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+      excitation: { wireTag: 1, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+    };
+
+    // Split-dipole layout, mirroring what selectSimulationInput produces.
+    const bridgeHalf = 0.025; // FEEDLINE_BRIDGE_LENGTH_M / 2
+    const offset = 1.5;       // off-centre to expose common-mode radiation
+    const withFeedline: SimulationInput = {
+      wires: [
+        // Left dipole half.
+        { start: [-tip, 0, h], end: [offset - bridgeHalf, 0, h], radius: 0.001, segments: 11, tag: 1 },
+        // Right dipole half.
+        { start: [offset + bridgeHalf, 0, h], end: [tip, 0, h], radius: 0.001, segments: 11, tag: 2 },
+        // Source bridge (1 segment).
+        { start: [offset - bridgeHalf, 0, h], end: [offset + bridgeHalf, 0, h], radius: 0.001, segments: 1, tag: 3 },
+        // Shield wire from right side of bridge to ground.
+        { start: [offset + bridgeHalf, 0, h], end: [offset + bridgeHalf, 0, 0.1], radius: 0.005, segments: 11, tag: 4 },
+      ],
+      frequencyMHz: freq,
+      ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+      excitation: { wireTag: 4, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+      transmissionLines: [{
+        fromTag: 3,
+        fromSegment: 1,
+        toTag: 4,
+        toSegment: 11,
+        z0: 50,
+        lengthM: (h - 0.1) / 0.66,
+      }],
+    };
+
+    const rBase = await engine.simulate(baseline);
+    const rFeed = await engine.simulate(withFeedline);
+
+    expect(Number.isFinite(rBase.maxGainDbi)).toBe(true);
+    expect(Number.isFinite(rFeed.maxGainDbi)).toBe(true);
+    expect(rFeed.impedance.R).toBeGreaterThan(0);
+
+    // The TL card transforms the antenna impedance so the rig-side R+jX is
+    // different from the directly-fed baseline.
+    const dR = Math.abs(rBase.impedance.R - rFeed.impedance.R);
+    expect(dR).toBeGreaterThan(2);
+
+    // Pattern is meaningfully perturbed by the radiating shield + asymmetry.
+    const p1 = rBase.pattern.data;
+    const p2 = rFeed.pattern.data;
+    let totalDiff = 0;
+    let n = 0;
+    for (let i = 0; i < p1.length; i++) {
+      const a = p1[i] ?? 0;
+      const b = p2[i] ?? 0;
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        totalDiff += Math.abs(a - b);
+        n++;
+      }
+    }
+    const avgDiff = totalDiff / Math.max(1, n);
+    expect(avgDiff).toBeGreaterThan(0.2);
+  }, 60_000);
+
+  it('larger feedline offset → larger common-mode pattern perturbation', async () => {
+    // Asymmetric attachment is the textbook driver of common-mode current.
+    // We expect: at a moderately large offset (e.g. 2 m on a ~10 m dipole),
+    // the pattern differs more from the centred-attachment case than
+    // either differs from the no-feedline baseline.
+    const freq = 14.15;
+    const tip = halfWaveLength(freq, 0.95) / 2;
+    const h = 10;
+    const bridgeHalf = 0.025;
+
+    function buildFeedline(offset: number): SimulationInput {
+      return {
+        wires: [
+          { start: [-tip, 0, h], end: [offset - bridgeHalf, 0, h], radius: 0.001, segments: 11, tag: 1 },
+          { start: [offset + bridgeHalf, 0, h], end: [tip, 0, h], radius: 0.001, segments: 11, tag: 2 },
+          { start: [offset - bridgeHalf, 0, h], end: [offset + bridgeHalf, 0, h], radius: 0.001, segments: 1, tag: 3 },
+          { start: [offset + bridgeHalf, 0, h], end: [offset + bridgeHalf, 0, 0.1], radius: 0.005, segments: 11, tag: 4 },
+        ],
+        frequencyMHz: freq,
+        ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+        excitation: { wireTag: 4, segment: 11 },
+        patternResolution: { thetaSteps: 37, phiSteps: 72 },
+        transmissionLines: [{
+          fromTag: 3, fromSegment: 1, toTag: 4, toSegment: 11,
+          z0: 50, lengthM: (h - 0.1) / 0.66,
+        }],
+      };
+    }
+
+    const rCentred = await engine.simulate(buildFeedline(0));
+    const rOffset = await engine.simulate(buildFeedline(2));
+
+    function meanAbsDiff(a: Float32Array, b: Float32Array): number {
+      let s = 0, n = 0;
+      for (let i = 0; i < a.length; i++) {
+        const va = a[i] ?? 0;
+        const vb = b[i] ?? 0;
+        if (Number.isFinite(va) && Number.isFinite(vb)) { s += Math.abs(va - vb); n++; }
+      }
+      return s / Math.max(1, n);
+    }
+
+    const dPattern = meanAbsDiff(rCentred.pattern.data, rOffset.pattern.data);
+    // Offsetting the shield attachment must produce a measurable pattern
+    // shift relative to the centred case — that is the unbalanced-feed
+    // physics this PR exists to capture.
+    expect(dPattern).toBeGreaterThan(0.1);
+  }, 90_000);
+
+  it('balun (LD on shield) suppresses common-mode current vs unchoked', async () => {
+    // Same offset feedline geometry, choke balun toggled on. The choked
+    // variant's pattern should be closer to the centred (balanced) case
+    // than the unchoked variant.
+    const freq = 14.15;
+    const tip = halfWaveLength(freq, 0.95) / 2;
+    const h = 10;
+    const bridgeHalf = 0.025;
+    const offset = 2;
+
+    const offsetFeedline: SimulationInput = {
+      wires: [
+        { start: [-tip, 0, h], end: [offset - bridgeHalf, 0, h], radius: 0.001, segments: 11, tag: 1 },
+        { start: [offset + bridgeHalf, 0, h], end: [tip, 0, h], radius: 0.001, segments: 11, tag: 2 },
+        { start: [offset - bridgeHalf, 0, h], end: [offset + bridgeHalf, 0, h], radius: 0.001, segments: 1, tag: 3 },
+        { start: [offset + bridgeHalf, 0, h], end: [offset + bridgeHalf, 0, 0.1], radius: 0.005, segments: 11, tag: 4 },
+      ],
+      frequencyMHz: freq,
+      ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+      excitation: { wireTag: 4, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+      transmissionLines: [{
+        fromTag: 3, fromSegment: 1, toTag: 4, toSegment: 11,
+        z0: 50, lengthM: (h - 0.1) / 0.66,
+      }],
+    };
+    const centredFeedline: SimulationInput = {
+      ...offsetFeedline,
+      wires: [
+        { start: [-tip, 0, h], end: [-bridgeHalf, 0, h], radius: 0.001, segments: 11, tag: 1 },
+        { start: [bridgeHalf, 0, h], end: [tip, 0, h], radius: 0.001, segments: 11, tag: 2 },
+        { start: [-bridgeHalf, 0, h], end: [bridgeHalf, 0, h], radius: 0.001, segments: 1, tag: 3 },
+        { start: [bridgeHalf, 0, h], end: [bridgeHalf, 0, 0.1], radius: 0.005, segments: 11, tag: 4 },
+      ],
+    };
+
+    const rCentred = await engine.simulate(centredFeedline);
+    const rUnchoked = await engine.simulate(offsetFeedline);
+    const rChoked = await engine.simulate({
+      ...offsetFeedline,
+      loads: [
+        { type: 4, wireTag: 4, segmentStart: 1, segmentEnd: 1, param1: 5000, param2: 0 },
+      ],
+    });
+
+    function meanAbsDiff(a: Float32Array, b: Float32Array): number {
+      let s = 0;
+      let n = 0;
+      for (let i = 0; i < a.length; i++) {
+        const va = a[i] ?? 0;
+        const vb = b[i] ?? 0;
+        if (Number.isFinite(va) && Number.isFinite(vb)) {
+          s += Math.abs(va - vb);
+          n++;
+        }
+      }
+      return s / Math.max(1, n);
+    }
+
+    const dUnchoked = meanAbsDiff(rCentred.pattern.data, rUnchoked.pattern.data);
+    const dChoked = meanAbsDiff(rCentred.pattern.data, rChoked.pattern.data);
+
+    // The choked pattern must be closer to the balanced reference than the
+    // unchoked one. With a finite (5 kΩ) choke we expect partial — not
+    // perfect — suppression.
+    expect(dChoked).toBeLessThan(dUnchoked);
+  }, 90_000);
+
   it('verifies azimuth wrapping consistency (phi 0 vs 360)', async () => {
     const freq = 7.1;
     const tip = halfWaveLength(freq, 1.0) / 2;

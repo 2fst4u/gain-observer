@@ -16,11 +16,18 @@
 //       type=0 finite ground w/ reflection coef
 //       type=1 perfectly conducting
 //       type=2 finite ground w/ Sommerfeld-Norton
+//   LD type, tag, seg_start, seg_end, P1, P2, P3 — segment loading:
+//       type=0 series RLC (R Ω, L H, C F)
+//       type=4 impedance Z = R + jX (P1=R, P2=X)
+//   TL tag1, seg1, tag2, seg2, Z0, length, Y1r, Y1i, Y2r, Y2i — transmission line:
+//       Lossless ideal TL between two segments. Length in metres. Negative
+//       Z0 indicates a crossover (balanced-line phase reversal).
 //   RP 0, ntheta, nphi, xnda, theta0, phi0, dtheta, dphi — far-field pattern
 //   XQ       — execute (run matrix solve without far-field pattern)
 //   EN       — end of run
 //
-// We generate minimal cards for a single-frequency excitation + RP sweep.
+// We generate minimal cards for a single-frequency excitation + RP sweep,
+// with optional LD/TL cards for feedline modelling.
 
 import type { SimulationInput } from './types';
 
@@ -84,6 +91,34 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
     // GN 2 uses Sommerfeld-Norton (more accurate, slower).
     // Params: type, _, _, _, epsilon_r, sigma
     lines.push(`GN 2 0 0 0 ${n(eps, 3)} ${n(sig, 5)}`);
+  }
+
+  // Loading cards (LD): segment loads such as a choke balun.
+  for (const ld of input.loads ?? []) {
+    if (ld.type === 0) {
+      // Series RLC: P1=R Ω, P2=L H, P3=C F.
+      const p3 = ld.param3 ?? 0;
+      lines.push(
+        `LD 0 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 8)} ${n(p3, 12)}`,
+      );
+    } else {
+      // Impedance load: P1=R Ω, P2=X Ω.
+      lines.push(
+        `LD 4 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 5)}`,
+      );
+    }
+  }
+
+  // Transmission-line cards (TL): differential signal in coax/parallel
+  // line. NEC's TL card is lossless and non-radiating by definition.
+  for (const tl of input.transmissionLines ?? []) {
+    const y1r = tl.shuntAdmEnd1Real ?? 0;
+    const y1i = tl.shuntAdmEnd1Imag ?? 0;
+    const y2r = tl.shuntAdmEnd2Real ?? 0;
+    const y2i = tl.shuntAdmEnd2Imag ?? 0;
+    lines.push(
+      `TL ${tl.fromTag} ${tl.fromSegment} ${tl.toTag} ${tl.toSegment} ${n(tl.z0, 4)} ${n(tl.lengthM, 5)} ${n(y1r, 6)} ${n(y1i, 6)} ${n(y2r, 6)} ${n(y2i, 6)}`,
+    );
   }
 
   // Excitation: EX 0 tag seg 0 Vr Vi

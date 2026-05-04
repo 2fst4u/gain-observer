@@ -1,6 +1,7 @@
 import { FrequencyControl } from './FrequencyControl';
 import { DipoleControl } from './DipoleControl';
 import { GroundControl } from './GroundControl';
+import { FeedlineControl } from './FeedlineControl';
 import { ModeSelector } from './ModeSelector';
 import { StatsReadout } from './StatsReadout';
 import { DisplayControl } from './DisplayControl';
@@ -38,6 +39,7 @@ export function ControlPanel() {
       <FrequencyControl />
       <DipoleControl />
       <GroundControl />
+      <FeedlineControl />
       <StatsReadout />
       <SWRChart />
       <PolarPlots />
