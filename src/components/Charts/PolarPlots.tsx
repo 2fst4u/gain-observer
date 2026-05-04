@@ -105,13 +105,23 @@ export function PolarPlots() {
   }, [result, dbRange]);
 
   const { broadsideAz, endOnAz } = useMemo(() => {
-    switch (orientation) {
-      case 'NS': return { broadsideAz: 90, endOnAz: 0 };
-      case 'EW': return { broadsideAz: 0, endOnAz: 90 };
-      case 'NE-SW': return { broadsideAz: 135, endOnAz: 45 };
-      case 'NW-SE': return { broadsideAz: 45, endOnAz: 135 };
-      default: return { broadsideAz: 0, endOnAz: 90 };
+    let azimuth = 0;
+    if (typeof orientation === 'number') {
+      azimuth = orientation;
+    } else {
+      switch (orientation) {
+        case 'NS': azimuth = 0; break;
+        case 'EW': azimuth = 90; break;
+        case 'NE-SW': azimuth = 45; break;
+        case 'NW-SE': azimuth = 315; break;
+      }
     }
+    // "End-on" is along the wire axis (phi = azimuth).
+    // "Broadside" is perpendicular to the wire axis (azimuth + 90).
+    return {
+      endOnAz: azimuth % 360,
+      broadsideAz: (azimuth + 90) % 360,
+    };
   }, [orientation]);
 
   const elDataBroadside = useMemo(() => {

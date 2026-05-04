@@ -30,7 +30,8 @@ import {
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
 
-export type Orientation = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
+export type OrientationPreset = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
+export type Orientation = OrientationPreset | number;
 export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
@@ -201,7 +202,17 @@ export const useAntennaStore = create<AntennaState>()(
         if (!Number.isFinite(meters)) return;
         s.height = Math.max(0, meters);
       }),
-      setOrientation: (o) => set((s) => { s.orientation = o; }),
+      setOrientation: (o) => set((s) => {
+        if (typeof o === 'number') {
+          if (!Number.isFinite(o)) return;
+          // Normalize to [0, 360)
+          let normalized = o % 360;
+          if (normalized < 0) normalized += 360;
+          s.orientation = normalized;
+        } else {
+          s.orientation = o;
+        }
+      }),
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
         s.wireRadius = Math.max(0.0001, r);
@@ -333,14 +344,29 @@ export const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
  * plane, to avoid NEC's "wire touching ground" warning. */
 const FEEDLINE_GROUND_GAP_M = 0.1;
 
-/** Build a unit-vector along the chosen dipole orientation in the XY plane. */
+/**
+ * Build a unit-vector along the chosen dipole orientation in the XY plane.
+ *
+ * Convention: 0° is North (+Y / NS), 90° is East (+X / EW).
+ * Radio convention: 0 is North, clockwise increasing.
+ */
 function orientationVector(o: Orientation): [number, number] {
-  switch (o) {
-    case 'EW': return [1, 0];
-    case 'NS': return [0, 1];
-    case 'NE-SW': return [Math.SQRT1_2, Math.SQRT1_2];
-    case 'NW-SE': return [Math.SQRT1_2, -Math.SQRT1_2];
+  let deg = 0;
+  if (typeof o === 'number') {
+    deg = o;
+  } else {
+    switch (o) {
+      case 'NS': deg = 0; break;
+      case 'EW': deg = 90; break;
+      case 'NE-SW': deg = 45; break;
+      case 'NW-SE': deg = 315; break;
+    }
   }
+
+  // To map radio degrees (0=N, 90=E) to unit circle (0=E, 90=N):
+  // unit_angle = 90 - radio_angle
+  const rad = ((90 - deg) * Math.PI) / 180;
+  return [Math.cos(rad), Math.sin(rad)];
 }
 
 /**

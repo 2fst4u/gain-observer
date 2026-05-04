@@ -5,7 +5,9 @@ import {
   fromDisplayLength,
   displayLengthUnit,
 } from '../../physics/units';
-import type { Orientation } from '../../store/antennaStore';
+import {
+  type OrientationPreset,
+} from '../../store/antennaStore';
 
 export function DipoleControl() {
   const units = useAntennaStore((s) => s.units);
@@ -31,9 +33,28 @@ export function DipoleControl() {
       setLocalLen(dispLen.toFixed(2));
     }
   }
-  const maxHeight = units === 'metric' ? 40 : 131;
 
-  const orientations: Orientation[] = ['EW', 'NS', 'NE-SW', 'NW-SE'];
+  const orientations: OrientationPreset[] = ['NS', 'EW', 'NE-SW', 'NW-SE'];
+  const PRESET_DEGREES: Record<OrientationPreset, number> = {
+    'NS': 0,
+    'EW': 90,
+    'NE-SW': 45,
+    'NW-SE': 315,
+  };
+
+  const currentDegrees = typeof orientation === 'number' ? orientation : PRESET_DEGREES[orientation];
+  const [localOrient, setLocalOrient] = useState(currentDegrees.toString());
+  const [isOrientFocused, setIsOrientFocused] = useState(false);
+
+  const [prevOrient, setPrevOrient] = useState(orientation);
+  if (orientation !== prevOrient) {
+    setPrevOrient(orientation);
+    if (!isOrientFocused) {
+      setLocalOrient(currentDegrees.toString());
+    }
+  }
+
+  const maxHeight = units === 'metric' ? 40 : 131;
 
   return (
     <div className="panel-section">
@@ -84,8 +105,32 @@ export function DipoleControl() {
         }}
       />
 
-      <label id="dipole-orientation" style={{ marginTop: 10 }}>Orientation</label>
-      <div className="button-group" role="group" aria-labelledby="dipole-orientation">
+      <label htmlFor="dipole-orientation" style={{ marginTop: 10 }}>Orientation (°)</label>
+      <div className="row">
+        <input
+          id="dipole-orientation"
+          type="number"
+          min={0}
+          max={359}
+          step={1}
+          value={localOrient}
+          onFocus={() => setIsOrientFocused(true)}
+          onChange={(e) => {
+            const s = e.target.value;
+            setLocalOrient(s);
+            const val = parseFloat(s);
+            if (!isNaN(val)) {
+              setOrientation(val);
+            }
+          }}
+          onBlur={() => {
+            setIsOrientFocused(false);
+            setLocalOrient(currentDegrees.toString());
+          }}
+        />
+      </div>
+
+      <div className="button-group" role="group" aria-label="Orientation presets">
         {orientations.map((o) => (
           <button
             key={o}
