@@ -104,11 +104,10 @@ export function RadiationPattern({
     const { count, basePositions } = cachedGeo;
     const positions = new Float32Array(count * 3);
     const linearRangeFactor = patternScale * 5;
-    const maxDb = result.maxGainDbi;
 
     for (let i = 0; i < count; i++) {
       const gainDb = vertexGains[i]!;
-      const linear = Math.pow(10, (gainDb - maxDb) / 20);
+      const linear = Math.pow(10, gainDb / 20);
       const radius = linear * linearRangeFactor;
       const idx = i * 3;
       positions[idx] = basePositions[idx]! * radius;
