@@ -1,6 +1,6 @@
+import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import { GROUND_PRESETS } from '../../physics/constants';
-import { useState } from 'react';
 
 export function GroundControl() {
   const groundId = useAntennaStore((s) => s.groundId);
@@ -9,6 +9,27 @@ export function GroundControl() {
   const setGround = useAntennaStore((s) => s.setGround);
   const setCustomGround = useAntennaStore((s) => s.setCustomGround);
   const [expanded, setExpanded] = useState(false);
+
+  const [localSigma, setLocalSigma] = useState(sigma.toString());
+  const [localEpsilon, setLocalEpsilon] = useState(epsilon.toString());
+  const [isSigmaFocused, setIsSigmaFocused] = useState(false);
+  const [isEpsilonFocused, setIsEpsilonFocused] = useState(false);
+
+  const [prevSigma, setPrevSigma] = useState(sigma);
+  if (sigma !== prevSigma) {
+    setPrevSigma(sigma);
+    if (!isSigmaFocused) {
+      setLocalSigma(sigma.toString());
+    }
+  }
+
+  const [prevEpsilon, setPrevEpsilon] = useState(epsilon);
+  if (epsilon !== prevEpsilon) {
+    setPrevEpsilon(epsilon);
+    if (!isEpsilonFocused) {
+      setLocalEpsilon(epsilon.toString());
+    }
+  }
 
   return (
     <div className="panel-section">
@@ -40,10 +61,19 @@ export function GroundControl() {
             type="number"
             min={0}
             step={0.001}
-            value={sigma}
+            value={localSigma}
+            onFocus={() => setIsSigmaFocused(true)}
             onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val)) setCustomGround(val, epsilon);
+              const s = e.target.value;
+              setLocalSigma(s);
+              const val = parseFloat(s);
+              if (!isNaN(val)) {
+                setCustomGround(val, epsilon);
+              }
+            }}
+            onBlur={() => {
+              setIsSigmaFocused(false);
+              setLocalSigma(sigma.toString());
             }}
           />
           <label htmlFor="custom-ground-epsilon" style={{ marginTop: 6 }}>Permittivity εr</label>
@@ -52,10 +82,19 @@ export function GroundControl() {
             type="number"
             min={1}
             step={0.5}
-            value={epsilon}
+            value={localEpsilon}
+            onFocus={() => setIsEpsilonFocused(true)}
             onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val)) setCustomGround(sigma, val);
+              const s = e.target.value;
+              setLocalEpsilon(s);
+              const val = parseFloat(s);
+              if (!isNaN(val)) {
+                setCustomGround(sigma, val);
+              }
+            }}
+            onBlur={() => {
+              setIsEpsilonFocused(false);
+              setLocalEpsilon(epsilon.toString());
             }}
           />
         </>

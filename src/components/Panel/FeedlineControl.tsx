@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import {
   FEEDLINE_PRESETS,
@@ -28,6 +29,17 @@ export function FeedlineControl() {
   const unit = displayLengthUnit(units);
   const dispLen = toDisplayLength(feedlineLength, units);
   const dispOffset = toDisplayLength(feedlineOffset, units);
+
+  const [localLen, setLocalLen] = useState(dispLen.toFixed(2));
+  const [isFocused, setIsFocused] = useState(false);
+
+  const [prevDispLen, setPrevDispLen] = useState(dispLen);
+  if (dispLen !== prevDispLen) {
+    setPrevDispLen(dispLen);
+    if (!isFocused) {
+      setLocalLen(dispLen.toFixed(2));
+    }
+  }
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
@@ -60,10 +72,19 @@ export function FeedlineControl() {
             min={0}
             max={units === 'metric' ? 200 : 656}
             step={units === 'metric' ? 0.5 : 1}
-            value={dispLen.toFixed(2)}
+            value={localLen}
+            onFocus={() => setIsFocused(true)}
             onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val)) setFeedlineLength(fromDisplayLength(val, units));
+              const s = e.target.value;
+              setLocalLen(s);
+              const val = parseFloat(s);
+              if (!isNaN(val)) {
+                setFeedlineLength(fromDisplayLength(val, units));
+              }
+            }}
+            onBlur={() => {
+              setIsFocused(false);
+              setLocalLen(dispLen.toFixed(2));
             }}
           />
 
