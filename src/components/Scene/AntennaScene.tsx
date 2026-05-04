@@ -33,6 +33,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const showAxes = useAntennaStore((s) => s.showAxes);
   const patternScale = useAntennaStore((s) => s.patternScale);
   const dbRange = useAntennaStore((s) => s.dbRange);
+  const colorMaxDb = useAntennaStore((s) => s.colorMaxDb);
   const colormap = useAntennaStore((s) => s.colormap);
   const mode = useAntennaStore((s) => s.mode);
   const theme = useAntennaStore((s) => s.theme);
@@ -77,6 +78,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
           originY={height}
           patternScale={patternScale}
           dbRange={dbRange}
+          colorMaxDb={colorMaxDb}
           colormap={colormap}
           mode={mode}
         />

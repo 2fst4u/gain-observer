@@ -10,6 +10,7 @@ interface Props {
   readonly result: SimulationResult | null;
   readonly patternScale: number;
   readonly dbRange: number;
+  readonly colorMaxDb: number;
   readonly colormap: Colormap;
   readonly mode: Mode;
 }
@@ -19,6 +20,7 @@ export function RadiationPattern({
   result,
   patternScale,
   dbRange,
+  colorMaxDb,
   colormap,
   mode,
 }: Props) {
@@ -103,8 +105,7 @@ export function RadiationPattern({
     if (!result || !vertexGains) return null;
     const { count, basePositions } = cachedGeo;
     const positions = new Float32Array(count * 3);
-    const linearRangeFactor = patternScale * 5;
-    const maxDb = result.maxGainDbi;
+    const linearRangeFactor = patternScale * 2.5;
 
     // Pre-calculate scale factor for Math.exp optimization over Math.pow
     // 10^(x/20) = exp(x * ln(10)/20)
@@ -112,7 +113,7 @@ export function RadiationPattern({
 
     for (let i = 0; i < count; i++) {
       const gainDb = vertexGains[i]!;
-      const radius = Math.exp((gainDb - maxDb) * scaleFactor) * linearRangeFactor;
+      const radius = Math.exp(gainDb * scaleFactor) * linearRangeFactor;
       const idx = i * 3;
       positions[idx] = basePositions[idx]! * radius;
       positions[idx + 1] = basePositions[idx + 1]! * radius;
@@ -126,19 +127,18 @@ export function RadiationPattern({
     if (!result || !vertexGains) return null;
     const { count, angles } = cachedGeo;
     const colors = new Float32Array(count * 4);
-    const maxDb = result.maxGainDbi;
 
     // Fetch the colormap table outside the hot loop
     const table = pickTable(colormap);
 
     // Pre-calculate color scale invariants for inline linear mapping
-    const minDb = maxDb - dbRange;
+    const minDb = colorMaxDb - dbRange;
     const invRange = 1 / dbRange;
     const isNvis = mode === 'nvis';
 
     for (let i = 0; i < count; i++) {
       const gainDb = vertexGains[i]!;
-      let t = gainDb >= maxDb ? 1 : (gainDb <= minDb ? 0 : (gainDb - minDb) * invRange);
+      let t = gainDb >= colorMaxDb ? 1 : (gainDb <= minDb ? 0 : (gainDb - minDb) * invRange);
       if (isNvis && angles[i * 2]! < 30) {
         t = t > 0.9 ? 1 : t + 0.1;
       }
@@ -148,7 +148,7 @@ export function RadiationPattern({
       colors[idx + 3] = 1;
     }
     return colors;
-  }, [vertexGains, colormap, dbRange, mode, cachedGeo, result]);
+  }, [vertexGains, colormap, colorMaxDb, dbRange, mode, cachedGeo, result]);
 
   // 4. Cache the geometry with positions and normals.
   // This avoids recomputing normals when only colors change.

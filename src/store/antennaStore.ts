@@ -92,6 +92,7 @@ export interface AntennaState {
   colormap: Colormap;
   patternScale: number;
   dbRange: number;
+  colorMaxDb: number;
   showGrid: boolean;
   showAxes: boolean;
   showPolarCuts: boolean;
@@ -126,6 +127,7 @@ export interface AntennaState {
   setColormap(c: Colormap): void;
   setPatternScale(s: number): void;
   setDbRange(db: number): void;
+  setColorMaxDb: (db: number) => void;
   setShowGrid(v: boolean): void;
   setShowAxes(v: boolean): void;
   setShowPolarCuts(v: boolean): void;
@@ -168,6 +170,7 @@ export const useAntennaStore = create<AntennaState>()(
       colormap: 'viridis',
       patternScale: 1,
       dbRange: 30,
+      colorMaxDb: 10,
       showGrid: true,
       showAxes: true,
       showPolarCuts: true,
@@ -250,6 +253,7 @@ export const useAntennaStore = create<AntennaState>()(
       setColormap: (c) => set((s) => { s.colormap = c; }),
       setPatternScale: (v) => set((s) => { s.patternScale = Math.max(0.1, v); }),
       setDbRange: (db) => set((s) => { s.dbRange = Math.max(5, Math.min(60, db)); }),
+      setColorMaxDb: (db) => set((s) => { s.colorMaxDb = Math.max(-20, Math.min(30, db)); }),
       setShowGrid: (v) => set((s) => { s.showGrid = v; }),
       setShowAxes: (v) => set((s) => { s.showAxes = v; }),
       setShowPolarCuts: (v) => set((s) => { s.showPolarCuts = v; }),

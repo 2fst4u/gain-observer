@@ -6,12 +6,14 @@ const COLORMAPS: Colormap[] = ['viridis', 'turbo', 'jet'];
 export function DisplayControl() {
   const colormap = useAntennaStore((s) => s.colormap);
   const dbRange = useAntennaStore((s) => s.dbRange);
+  const colorMaxDb = useAntennaStore((s) => s.colorMaxDb);
   const patternScale = useAntennaStore((s) => s.patternScale);
   const showGrid = useAntennaStore((s) => s.showGrid);
   const showAxes = useAntennaStore((s) => s.showAxes);
   const showPolarCuts = useAntennaStore((s) => s.showPolarCuts);
   const setColormap = useAntennaStore((s) => s.setColormap);
   const setDbRange = useAntennaStore((s) => s.setDbRange);
+  const setColorMaxDb = useAntennaStore((s) => s.setColorMaxDb);
   const setPatternScale = useAntennaStore((s) => s.setPatternScale);
   const setShowGrid = useAntennaStore((s) => s.setShowGrid);
   const setShowAxes = useAntennaStore((s) => s.setShowAxes);
@@ -38,6 +40,14 @@ export function DisplayControl() {
         type="range" min={10} max={50} step={1}
         value={dbRange}
         onChange={(e) => setDbRange(parseInt(e.target.value))}
+      />
+
+      <label htmlFor="color-max" style={{ marginTop: 8 }}>Color max — {colorMaxDb} dBi</label>
+      <input
+        id="color-max"
+        type="range" min={-20} max={30} step={1}
+        value={colorMaxDb}
+        onChange={(e) => setColorMaxDb(parseInt(e.target.value))}
       />
 
       <label htmlFor="pattern-scale" style={{ marginTop: 8 }}>Pattern scale — {patternScale.toFixed(2)}×</label>
