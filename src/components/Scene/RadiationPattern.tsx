@@ -103,7 +103,7 @@ export function RadiationPattern({
     if (!result || !vertexGains) return null;
     const { count, basePositions } = cachedGeo;
     const positions = new Float32Array(count * 3);
-    const linearRangeFactor = patternScale * 5;
+    const linearRangeFactor = patternScale * 2.5;
 
     for (let i = 0; i < count; i++) {
       const gainDb = vertexGains[i]!;
