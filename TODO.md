@@ -1,6 +1,3 @@
-- add balun calculations
-- add feedline calculations
-- add offset feed point calculations
 - add terminating resistor calculations
 - add different antenna designs, namely delta loop, terminated delta loop (and inverted) sloping V, inverted V, terminated V, and other common designs
 - add gain value annotations to renders and indicate optimal take off angle
