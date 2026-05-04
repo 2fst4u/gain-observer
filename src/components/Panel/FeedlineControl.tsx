@@ -13,17 +13,23 @@ import {
 export function FeedlineControl() {
   const units = useAntennaStore((s) => s.units);
   const frequency = useAntennaStore((s) => s.frequency);
+  const dipoleLength = useAntennaStore((s) => s.length);
   const feedlineId = useAntennaStore((s) => s.feedlineId);
   const feedlineLength = useAntennaStore((s) => s.feedlineLength);
+  const feedlineOffset = useAntennaStore((s) => s.feedlineOffset);
   const balunEnabled = useAntennaStore((s) => s.balunEnabled);
   const setFeedline = useAntennaStore((s) => s.setFeedline);
   const setFeedlineLength = useAntennaStore((s) => s.setFeedlineLength);
+  const setFeedlineOffset = useAntennaStore((s) => s.setFeedlineOffset);
   const setBalunEnabled = useAntennaStore((s) => s.setBalunEnabled);
 
   const preset = findFeedlinePreset(feedlineId);
   const enabled = preset.id !== 'none';
   const unit = displayLengthUnit(units);
   const dispLen = toDisplayLength(feedlineLength, units);
+  const dispOffset = toDisplayLength(feedlineOffset, units);
+  const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
+  const dispOffsetLimit = toDisplayLength(offsetLimit, units);
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
 
   return (
@@ -60,6 +66,27 @@ export function FeedlineControl() {
               if (!isNaN(val)) setFeedlineLength(fromDisplayLength(val, units));
             }}
           />
+
+          <label htmlFor="feedline-offset" style={{ marginTop: 10 }}>
+            Attachment offset from centre ({unit}) — {dispOffset.toFixed(2)}
+          </label>
+          <input
+            id="feedline-offset"
+            type="range"
+            min={-dispOffsetLimit}
+            max={dispOffsetLimit}
+            step={units === 'metric' ? 0.05 : 0.25}
+            value={dispOffset}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
+            }}
+          />
+          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+            {Math.abs(feedlineOffset) < 1e-6
+              ? 'Centred (perfectly balanced — no common-mode current).'
+              : `Shifted ${Math.abs(dispOffset).toFixed(2)} ${unit} ${feedlineOffset > 0 ? '+ axis' : '− axis'}; common-mode current will flow on the shield.`}
+          </div>
 
           <label
             htmlFor="balun-toggle"

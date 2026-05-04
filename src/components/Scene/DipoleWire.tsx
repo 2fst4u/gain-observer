@@ -1,6 +1,6 @@
 // The physical antenna wires (dipole + optional coax-shield feedline),
 // rendered as thin cylinders between endpoints with a feed-point sphere at
-// the centre of the dipole. Converts from the NEC-style coordinate system
+// the antenna terminals. Converts from the NEC-style coordinate system
 // (Z-up) used in the store to the R3F Y-up scene:
 //   scene.x = nec.x
 //   scene.y = nec.z
@@ -19,6 +19,9 @@ import {
   useAntennaStore,
   buildWires,
   DIPOLE_TAG,
+  DIPOLE_LEFT_TAG,
+  DIPOLE_RIGHT_TAG,
+  FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   type Orientation,
 } from '../../store/antennaStore';
@@ -32,6 +35,7 @@ interface DipoleWireProps {
   readonly segments: number;
   readonly feedlineId: string;
   readonly feedlineLength: number;
+  readonly feedlineOffset: number;
 }
 
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
@@ -46,13 +50,12 @@ export function DipoleWire({
   segments,
   feedlineId,
   feedlineLength,
+  feedlineOffset,
 }: DipoleWireProps) {
   const theme = useAntennaStore((s) => s.theme);
   const balunEnabled = useAntennaStore((s) => s.balunEnabled);
 
   const rendered = useMemo(() => {
-    // Build synthetic state just for the wire geometry. We reuse buildWires()
-    // to keep the coordinate convention in one place.
     const wires = buildWires({
       length,
       height,
@@ -61,6 +64,7 @@ export function DipoleWire({
       segments,
       feedlineId,
       feedlineLength,
+      feedlineOffset,
     });
 
     return wires.map((w, idx) => {
@@ -69,32 +73,45 @@ export function DipoleWire({
       const mid = a.clone().add(b).multiplyScalar(0.5);
       const dir = b.clone().sub(a);
       const lengthScene = dir.length();
-      // Guard against zero-length wires that would produce NaN quaternions.
       if (lengthScene < 1e-6) return null;
       const q = new THREE.Quaternion();
       q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-      const isFeedlineShield = w.tag === FEEDLINE_SHIELD_TAG;
+      const tag = w.tag ?? DIPOLE_TAG;
+      const isShield = tag === FEEDLINE_SHIELD_TAG;
+      const isBridge = tag === FEED_BRIDGE_TAG;
+      const isDipoleHalf = tag === DIPOLE_LEFT_TAG || tag === DIPOLE_RIGHT_TAG || tag === DIPOLE_TAG;
+      // Visual radius: keep the bridge nearly invisible (it's a 5cm
+      // electrical token), the shield slightly slimmer than the dipole,
+      // and the dipole at the original visibility scale.
+      let radius: number;
+      if (isShield) radius = Math.max(w.radius * 6, 0.025);
+      else if (isBridge) radius = Math.max(w.radius * 4, 0.018);
+      else radius = Math.max(w.radius * 8, 0.03);
       return {
         key: idx,
-        tag: w.tag ?? DIPOLE_TAG,
+        tag,
         position: [mid.x, mid.y, mid.z] as [number, number, number],
         quaternion: q,
         length: lengthScene,
-        // The shield is rendered slightly slimmer than the dipole so the
-        // user can visually distinguish them. Both still get the cosmetic
-        // scale-up that keeps them visible at any zoom level.
-        radius: Math.max(w.radius * (isFeedlineShield ? 6 : 8), isFeedlineShield ? 0.025 : 0.03),
-        // Endpoints in scene coordinates, used for the rig marker.
+        radius,
         sceneStart: [a.x, a.y, a.z] as [number, number, number],
         sceneEnd: [b.x, b.y, b.z] as [number, number, number],
         feedMid: [mid.x, mid.y, mid.z] as [number, number, number],
-        isFeedlineShield,
+        isShield,
+        isBridge,
+        isDipoleHalf,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [length, height, orientation, wireRadius, segments, feedlineId, feedlineLength]);
+  }, [length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset]);
 
-  const dipole = rendered.find((s) => s.tag === DIPOLE_TAG);
-  const shield = rendered.find((s) => s.tag === FEEDLINE_SHIELD_TAG);
+  // Locate elements we want to decorate.
+  const bridge = rendered.find((s) => s.isBridge);
+  const dipoleSingle = rendered.find((s) => s.tag === DIPOLE_TAG && !bridge);
+  const shield = rendered.find((s) => s.isShield);
+
+  // The feedpoint is at the bridge midpoint when split, else at the dipole
+  // wire's midpoint (legacy single-wire layout).
+  const feedpoint = bridge?.feedMid ?? dipoleSingle?.feedMid ?? null;
 
   return (
     <group>
@@ -104,14 +121,14 @@ export function DipoleWire({
           <meshStandardMaterial
             color={THEME_COLORS[theme].wire}
             emissive={THEME_COLORS[theme].wire}
-            emissiveIntensity={s.isFeedlineShield ? 0.08 : 0.15}
+            emissiveIntensity={s.isShield ? 0.08 : s.isBridge ? 0.05 : 0.15}
             metalness={0.85}
-            roughness={s.isFeedlineShield ? 0.55 : 0.35}
+            roughness={s.isShield ? 0.55 : s.isBridge ? 0.7 : 0.35}
           />
         </mesh>
       ))}
-      {dipole && (
-        <mesh position={dipole.feedMid}>
+      {feedpoint && (
+        <mesh position={feedpoint}>
           <sphereGeometry args={[0.22, 16, 16]} />
           <meshStandardMaterial
             color={THEME_COLORS[theme].feedpoint}

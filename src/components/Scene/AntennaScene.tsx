@@ -28,6 +28,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const liveResult = useAntennaStore((s) => s.result);
   const liveFeedlineId = useAntennaStore((s) => s.feedlineId);
   const liveFeedlineLength = useAntennaStore((s) => s.feedlineLength);
+  const liveFeedlineOffset = useAntennaStore((s) => s.feedlineOffset);
   const showGrid = useAntennaStore((s) => s.showGrid);
   const showAxes = useAntennaStore((s) => s.showAxes);
   const patternScale = useAntennaStore((s) => s.patternScale);
@@ -45,6 +46,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const result = snapshot?.result ?? liveResult;
   const feedlineId = snapshot?.feedlineId ?? liveFeedlineId;
   const feedlineLength = snapshot?.feedlineLength ?? liveFeedlineLength;
+  const feedlineOffset = snapshot?.feedlineOffset ?? liveFeedlineOffset;
 
   return (
     <Canvas
@@ -68,6 +70,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
           segments={segments}
           feedlineId={feedlineId}
           feedlineLength={feedlineLength}
+          feedlineOffset={feedlineOffset}
         />
         <RadiationPattern
           result={result}
