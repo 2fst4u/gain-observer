@@ -39,6 +39,12 @@ function statusFill(status: 'open' | 'marginal' | 'closed'): string {
   return 'var(--danger)';
 }
 
+function qualityOpacity(quality: 'useful' | 'weak' | 'unusable'): number {
+  if (quality === 'useful') return 0.16;
+  if (quality === 'weak') return 0.08;
+  return 0.035;
+}
+
 export function PropagationRadar({
   prediction,
   units,
@@ -77,6 +83,7 @@ export function PropagationRadar({
     rangeKm: h.rangeKm,
     rPx: h.rangeKm * kmToPx,
     status: h.status,
+    linkQuality: h.linkQuality,
   }));
 
 
@@ -118,8 +125,7 @@ export function PropagationRadar({
               const rKm = az.rangeKm[ring.n - 1] ?? 0;
               const rPx = rKm * kmToPx;
               const azDeg = ((az.phiDeg % 360) + 360) % 360;
-              const compass = ((90 - azDeg) + 360) % 360;
-              const rad = compass * Math.PI / 180;
+              const rad = azDeg * Math.PI / 180;
               return `${cx + rPx * Math.sin(rad)},${cy - rPx * Math.cos(rad)}`;
             }).join(' ');
 
@@ -128,10 +134,11 @@ export function PropagationRadar({
                 key={ring.n}
                 points={points}
                 fill={statusFill(ring.status)}
-                fillOpacity={ring.status === 'open' ? 0.16 : ring.status === 'marginal' ? 0.16 : 0.12}
+                fillOpacity={qualityOpacity(ring.linkQuality)}
                 stroke={statusFill(ring.status)}
-                strokeOpacity={0.85}
+                strokeOpacity={ring.linkQuality === 'unusable' ? 0.35 : 0.85}
                 strokeWidth={2}
+                strokeDasharray={ring.linkQuality === 'unusable' ? '4 3' : undefined}
               />
             );
           }
@@ -143,10 +150,11 @@ export function PropagationRadar({
               cy={cy}
               r={ring.rPx}
               fill={statusFill(ring.status)}
-              fillOpacity={ring.status === 'open' ? 0.16 : ring.status === 'marginal' ? 0.16 : 0.12}
+              fillOpacity={qualityOpacity(ring.linkQuality)}
               stroke={statusFill(ring.status)}
-              strokeOpacity={0.85}
+              strokeOpacity={ring.linkQuality === 'unusable' ? 0.35 : 0.85}
               strokeWidth={2}
+              strokeDasharray={ring.linkQuality === 'unusable' ? '4 3' : undefined}
             />
           );
         })}
@@ -192,6 +200,7 @@ export function PropagationRadar({
         <LegendSwatch color="var(--success)" label="Open" />
         <LegendSwatch color="var(--warning)" label="Marginal" />
         <LegendSwatch color="var(--danger)" label="Closed" />
+        <span>Faint/dashed = weak signal</span>
       </div>
     </div>
   );

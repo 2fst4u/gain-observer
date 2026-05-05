@@ -252,7 +252,7 @@ describe('predictPropagation', () => {
     // Set a peak at 60 deg elevation (theta=30, index 6) for phi=1 (5 deg)
     pattern.data[6 * 72 + 1] = 10;
 
-    const p = predictPropagation({ ...baseInput, pattern });
+    const p = predictPropagation({ ...baseInput, frequencyMHz: 7.1, pattern });
     expect(p.azimuthalHops).toBeDefined();
     expect(p.azimuthalHops?.length).toBeGreaterThan(0);
 
@@ -267,7 +267,7 @@ describe('predictPropagation', () => {
     expect(hop1!.rangeKm[0]).toBeLessThan(hop0!.rangeKm[0]);
   });
 
-  it('uses effective elevation (useful gain threshold) for range', () => {
+  it('uses antenna support to choose a relevant ray without changing hop geometry', () => {
     const pattern = {
       data: new Float32Array(37 * 72).fill(-20),
       thetaSteps: 37,
@@ -293,7 +293,7 @@ describe('predictPropagation', () => {
     expect(pPattern.hops[0].rangeKm).toBeGreaterThan(500);
   });
 
-  it('accounts for SWR mismatch loss in range calculation', () => {
+  it('reports SWR mismatch as link quality without changing geometric range', () => {
     const pattern = {
       data: new Float32Array(37 * 72).fill(-20),
       thetaSteps: 37,
@@ -307,15 +307,19 @@ describe('predictPropagation', () => {
     // Normal case (SWR=1): useful (0 >= -5)
     const pGood = predictPropagation({ ...baseInput, pattern, swr: 1 });
     expect(pGood.hops[0].rangeKm).toBeGreaterThan(0);
+    expect(pGood.hops[0].linkQuality).toBe('useful');
 
     // High SWR (e.g. 10:1): mismatch loss ≈ 4.8 dB.
     // 0 - 4.8 = -4.8 >= -5. Still useful.
     const pBad = predictPropagation({ ...baseInput, pattern, swr: 10 });
-    expect(pBad.hops[0].rangeKm).toBeGreaterThan(0);
+    expect(pBad.hops[0].rangeKm).toBeCloseTo(pGood.hops[0].rangeKm);
+    expect(pBad.hops[0].linkQuality).toBe('useful');
 
     // Extremely high SWR (e.g. 20:1): mismatch loss ≈ 8.3 dB.
-    // 0 - 8.3 = -8.3 < -5. Unusable.
+    // 0 - 8.3 = -8.3 < -5. The path geometry remains the same, but the
+    // signal quality degrades instead of forcing the skip distance to zero.
     const pTerrible = predictPropagation({ ...baseInput, pattern, swr: 20 });
-    expect(pTerrible.hops[0].rangeKm).toBe(0);
+    expect(pTerrible.hops[0].rangeKm).toBeCloseTo(pGood.hops[0].rangeKm);
+    expect(pTerrible.hops[0].linkQuality).toBe('weak');
   });
 });
