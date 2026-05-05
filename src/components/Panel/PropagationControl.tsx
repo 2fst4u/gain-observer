@@ -194,8 +194,6 @@ export function PropagationControl() {
         <PropagationRadar
           prediction={prediction}
           units={units}
-          azimuthDeg={takeoffAzimuthDeg}
-          elevationDeg={takeoffElevationDeg}
           isNvis={mode === 'nvis'}
         />
       ) : (

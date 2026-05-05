@@ -17,12 +17,6 @@ import type { UnitSystem } from '../../physics/units';
 interface PropagationRadarProps {
   readonly prediction: PropagationPrediction;
   readonly units: UnitSystem;
-  /** Antenna take-off azimuth in degrees (0 = +x = East in the scene
-   *  convention). Used to draw a directional indicator. */
-  readonly azimuthDeg?: number;
-  /** Antenna take-off elevation in degrees (0 = horizon, 90 = zenith).
-   *  Used to hide the indicator for NVIS (vertical) patterns. */
-  readonly elevationDeg?: number;
   /** Is NVIS mode active? */
   readonly isNvis?: boolean;
   /** Pixel size (square). */
@@ -50,8 +44,6 @@ function statusFill(status: 'open' | 'marginal' | 'closed'): string {
 export function PropagationRadar({
   prediction,
   units,
-  azimuthDeg,
-  elevationDeg,
   isNvis,
   size = 280,
 }: PropagationRadarProps) {
@@ -90,24 +82,6 @@ export function PropagationRadar({
     status: h.status,
   }));
 
-  // Optional pointer toward the take-off azimuth.
-  // Hide if NVIS mode is active or elevation is near vertical (> 80°).
-  let pointer: { x: number; y: number } | null = null;
-  const hidePointer = isNvis || (typeof elevationDeg === 'number' && elevationDeg > 80);
-
-  if (!hidePointer && typeof azimuthDeg === 'number' && Number.isFinite(azimuthDeg)) {
-    const az = ((azimuthDeg % 360) + 360) % 360;
-    // Scene: 0=E, 90=N, 180=W, 270=S. Compass: 0=N, 90=E, 180=S, 270=W.
-    // Convert scene azimuth to screen-space angle (clockwise from north):
-    //   compassDeg = (90 - sceneAz) mod 360
-    const compass = ((90 - az) + 360) % 360;
-    const rad = compass * Math.PI / 180;
-    const r = maxRadiusPx;
-    pointer = {
-      x: cx + r * Math.sin(rad),
-      y: cy - r * Math.cos(rad),
-    };
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -180,21 +154,6 @@ export function PropagationRadar({
           );
         })}
 
-        {/* Direction-of-peak pointer */}
-        {pointer && (
-          <g>
-            <line
-              x1={cx}
-              y1={cy}
-              x2={pointer.x}
-              y2={pointer.y}
-              stroke="var(--accent)"
-              strokeWidth={2}
-              strokeDasharray="4 3"
-            />
-            <circle cx={pointer.x} cy={pointer.y} r={4} fill="var(--accent)" />
-          </g>
-        )}
 
         {/* Centre dot = antenna location */}
         <circle cx={cx} cy={cy} r={4} fill="var(--accent)" />
