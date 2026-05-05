@@ -4,6 +4,7 @@ import { GroundControl } from './GroundControl';
 import { FeedlineControl } from './FeedlineControl';
 import { ModeSelector } from './ModeSelector';
 import { StatsReadout } from './StatsReadout';
+import { PropagationControl } from './PropagationControl';
 import { DisplayControl } from './DisplayControl';
 import { SWRChart } from '../Charts/SWRChart';
 import { PolarPlots } from '../Charts/PolarPlots';
@@ -41,6 +42,7 @@ export function ControlPanel() {
       <GroundControl />
       <FeedlineControl />
       <StatsReadout />
+      <PropagationControl />
       <SWRChart />
       <PolarPlots />
       <DisplayControl />

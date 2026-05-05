@@ -98,6 +98,25 @@ export interface AntennaState {
   showAxes: boolean;
   showPolarCuts: boolean;
 
+  // Propagation (HF sky-wave estimator inputs).
+  //
+  // tIndex is the Australian IPS / BOM ionospheric T-index (dimensionless,
+  // typically -50..+200). It is entered manually — the app does not
+  // currently fetch it from any service.
+  //
+  // latitudeDeg is the path-midpoint latitude. Defaults to null (we treat
+  // null as 0° for predictions but the UI shows it as "not set"). The
+  // browser geolocation API may populate it on user request.
+  //
+  // monthOverride / utcHourOverride let the user explore conditions at a
+  // different time. When null, the UI auto-fills from the browser clock.
+  tIndex: number;
+  latitudeDeg: number | null;
+  longitudeDeg: number | null;
+  monthOverride: number | null;
+  utcHourOverride: number | null;
+  geolocationStatus: 'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported' | 'error';
+
   // Solver output
   result: SimulationResult | null;
   sweep: SweepPoint[];
@@ -134,6 +153,14 @@ export interface AntennaState {
   setShowPolarCuts(v: boolean): void;
   captureComparisonReference(): void;
   clearComparisonReference(): void;
+
+  // Propagation actions
+  setTIndex(v: number): void;
+  setLatitude(deg: number | null): void;
+  setLongitude(deg: number | null): void;
+  setMonthOverride(month: number | null): void;
+  setUtcHourOverride(hour: number | null): void;
+  setGeolocationStatus(s: AntennaState['geolocationStatus']): void;
 
   // Actions — internal (used by hooks/workers only, prefixed with _)
   _setSimulationData(r: SimulationResult, sweep: readonly SweepPoint[]): void;
@@ -175,6 +202,15 @@ export const useAntennaStore = create<AntennaState>()(
       showGrid: true,
       showAxes: true,
       showPolarCuts: true,
+
+      // Propagation defaults: T=30 (~quiet sun, plausible long-term median),
+      // no location until user requests it, no time override.
+      tIndex: 30,
+      latitudeDeg: null,
+      longitudeDeg: null,
+      monthOverride: null,
+      utcHourOverride: null,
+      geolocationStatus: 'idle',
 
       result: null,
       sweep: [],
@@ -272,6 +308,38 @@ export const useAntennaStore = create<AntennaState>()(
         s.comparisonReference = createComparisonSnapshot(s);
       }),
       clearComparisonReference: () => set((s) => { s.comparisonReference = null; }),
+
+      setTIndex: (v) => set((s) => {
+        if (!Number.isFinite(v)) return;
+        // Clamp to the practical range. Anything outside this is unphysical.
+        s.tIndex = Math.max(-100, Math.min(250, v));
+      }),
+      setLatitude: (deg) => set((s) => {
+        if (deg === null) { s.latitudeDeg = null; return; }
+        if (!Number.isFinite(deg)) return;
+        s.latitudeDeg = Math.max(-90, Math.min(90, deg));
+      }),
+      setLongitude: (deg) => set((s) => {
+        if (deg === null) { s.longitudeDeg = null; return; }
+        if (!Number.isFinite(deg)) return;
+        // Wrap into -180..+180.
+        let v = deg;
+        while (v > 180) v -= 360;
+        while (v < -180) v += 360;
+        s.longitudeDeg = v;
+      }),
+      setMonthOverride: (m) => set((s) => {
+        if (m === null) { s.monthOverride = null; return; }
+        if (!Number.isFinite(m)) return;
+        const i = Math.round(m);
+        s.monthOverride = Math.max(1, Math.min(12, i));
+      }),
+      setUtcHourOverride: (h) => set((s) => {
+        if (h === null) { s.utcHourOverride = null; return; }
+        if (!Number.isFinite(h)) return;
+        s.utcHourOverride = Math.max(0, Math.min(23.99, h));
+      }),
+      setGeolocationStatus: (st) => set((s) => { s.geolocationStatus = st; }),
 
       _setSimulationData: (r, sweep) => set((s) => {
         s.result = r;

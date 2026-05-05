@@ -392,4 +392,68 @@ describe('antennaStore actions', () => {
       expect(offsetAfter).toBeLessThanOrEqual(1.95);
     });
   });
+
+  describe('propagation', () => {
+    it('clamps T-index to the practical range', () => {
+      const store = useAntennaStore.getState();
+      store.setTIndex(99999);
+      expect(useAntennaStore.getState().tIndex).toBe(250);
+      store.setTIndex(-99999);
+      expect(useAntennaStore.getState().tIndex).toBe(-100);
+      store.setTIndex(75);
+      expect(useAntennaStore.getState().tIndex).toBe(75);
+    });
+
+    it('accepts and clears latitude', () => {
+      const store = useAntennaStore.getState();
+      store.setLatitude(51.5);
+      expect(useAntennaStore.getState().latitudeDeg).toBe(51.5);
+      store.setLatitude(null);
+      expect(useAntennaStore.getState().latitudeDeg).toBeNull();
+    });
+
+    it('clamps latitude to ±90', () => {
+      const store = useAntennaStore.getState();
+      store.setLatitude(120);
+      expect(useAntennaStore.getState().latitudeDeg).toBe(90);
+      store.setLatitude(-120);
+      expect(useAntennaStore.getState().latitudeDeg).toBe(-90);
+    });
+
+    it('wraps longitude into ±180', () => {
+      const store = useAntennaStore.getState();
+      store.setLongitude(200);
+      expect(useAntennaStore.getState().longitudeDeg).toBeCloseTo(-160, 5);
+      store.setLongitude(-200);
+      expect(useAntennaStore.getState().longitudeDeg).toBeCloseTo(160, 5);
+    });
+
+    it('clamps month override and accepts null', () => {
+      const store = useAntennaStore.getState();
+      store.setMonthOverride(15);
+      expect(useAntennaStore.getState().monthOverride).toBe(12);
+      store.setMonthOverride(0);
+      expect(useAntennaStore.getState().monthOverride).toBe(1);
+      store.setMonthOverride(null);
+      expect(useAntennaStore.getState().monthOverride).toBeNull();
+    });
+
+    it('clamps UTC hour override and accepts null', () => {
+      const store = useAntennaStore.getState();
+      store.setUtcHourOverride(50);
+      expect(useAntennaStore.getState().utcHourOverride).toBe(23.99);
+      store.setUtcHourOverride(-5);
+      expect(useAntennaStore.getState().utcHourOverride).toBe(0);
+      store.setUtcHourOverride(null);
+      expect(useAntennaStore.getState().utcHourOverride).toBeNull();
+    });
+
+    it('updates geolocation status', () => {
+      const store = useAntennaStore.getState();
+      store.setGeolocationStatus('requesting');
+      expect(useAntennaStore.getState().geolocationStatus).toBe('requesting');
+      store.setGeolocationStatus('denied');
+      expect(useAntennaStore.getState().geolocationStatus).toBe('denied');
+    });
+  });
 });
