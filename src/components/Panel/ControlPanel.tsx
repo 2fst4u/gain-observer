@@ -42,9 +42,9 @@ export function ControlPanel() {
       <GroundControl />
       <FeedlineControl />
       <StatsReadout />
-      <PropagationControl />
       <SWRChart />
       <PolarPlots />
+      <PropagationControl />
       <DisplayControl />
 
       <div style={{
