@@ -8,6 +8,7 @@ import {
   LineElement,
   Filler,
   Tooltip,
+  type ChartOptions,
 } from 'chart.js';
 import { useAntennaStore } from '../../store/antennaStore';
 import { useMemo } from 'react';
@@ -71,9 +72,9 @@ function getElevationLabels(p: GainPattern): string[] {
   const labels = new Array<string>(numPoints).fill('');
   for (let i = 0; i < numPoints; i++) {
     const deg = i * p.dTheta;
-    if (deg === 0) labels[i] = 'Zenith';
-    else if (deg === 90 || deg === 270) labels[i] = 'Horizon';
-    else if (deg === 180) labels[i] = 'Down';
+    if (deg === 0) labels[i] = 'Zen';
+    else if (deg === 90 || deg === 270) labels[i] = 'Hor';
+    else if (deg === 180) labels[i] = 'Dwn';
   }
   return labels;
 }
@@ -136,12 +137,10 @@ export function PolarPlots() {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [result, dbRange, endOnAz]);
 
-  if (!showPolarCuts || !result || !azData || !elDataBroadside || !elDataEndOn) return null;
-
   const chartText = theme === 'dark' ? getCssVar('--chart-text') || '#c6cdd6' : getCssVar('--chart-text') || '#3a4250';
   const chartGrid = theme === 'dark' ? getCssVar('--chart-grid') || 'rgba(255, 255, 255, 0.08)' : getCssVar('--chart-grid') || 'rgba(0, 0, 0, 0.08)';
 
-  const commonOpts = {
+  const options = useMemo<ChartOptions<'radar'>>(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false }, tooltip: { enabled: true } },
@@ -150,15 +149,28 @@ export function PolarPlots() {
         startAngle: 0, // 0 degrees at top
         suggestedMin: 0,
         suggestedMax: dbRange,
-        ticks: { display: false },
+        ticks: {
+          display: true,
+          color: chartText,
+          backdropColor: 'transparent',
+          font: { size: 9 },
+          z: 10,
+          count: 5,
+          callback: (val) => {
+            if (!result) return '';
+            return `${(Number(val) + (result.maxGainDbi - dbRange)).toFixed(0)} dBi`;
+          },
+        },
         grid: { color: chartGrid, circular: true },
         angleLines: { color: chartGrid },
-        pointLabels: { color: chartText, font: { size: 10 } },
+        pointLabels: { color: chartText, font: { size: 10 }, padding: 0 },
       },
     },
-  } as const;
+  }), [dbRange, chartText, chartGrid, result]);
 
   const color = 'rgba(79, 179, 255, 0.55)';
+
+  if (!showPolarCuts || !result || !azData || !elDataBroadside || !elDataEndOn) return null;
 
   return (
     <div className="panel-section">
@@ -183,7 +195,7 @@ export function PolarPlots() {
                   fill: true,
                 }],
               }}
-              options={commonOpts}
+              options={options}
             />
           </div>
         </div>
@@ -205,7 +217,7 @@ export function PolarPlots() {
                   fill: true,
                 }],
               }}
-              options={commonOpts}
+              options={options}
             />
           </div>
         </div>
@@ -227,7 +239,7 @@ export function PolarPlots() {
                   fill: true,
                 }],
               }}
-              options={commonOpts}
+              options={options}
             />
           </div>
         </div>
