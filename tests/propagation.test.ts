@@ -125,12 +125,13 @@ describe('estimateMUFMHz', () => {
   it('MUF approaches foF2 at near-vertical take-off', () => {
     const fof2 = 8;
     const muf = estimateMUFMHz(fof2, 89, 300);
-    expect(muf).toBeLessThan(fof2 * 1.2);
+    expect(muf).toBeLessThan(fof2 * 1.05);
   });
   it('MUF is much higher than foF2 at low take-off', () => {
     const fof2 = 8;
     const muf = estimateMUFMHz(fof2, 5, 300);
-    expect(muf).toBeGreaterThan(fof2 * 2);
+    // At 5° take-off and 300 km, phi_i is around 70° and sec is around 3.
+    expect(muf).toBeGreaterThan(fof2 * 2.5);
   });
 });
 
