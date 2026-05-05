@@ -22,8 +22,11 @@ describe('antennaStore selectors', () => {
 
       // Assert
       expect(wires).toHaveLength(1);
-      expect(wires[0].start).toEqual([-10, 0, 10]);
-      expect(wires[0].end).toEqual([10, 0, 10]);
+      // EW is 90 deg -> [1, 0]
+      expect(wires[0].start[0]).toBeCloseTo(-10, 5);
+      expect(wires[0].start[1]).toBeCloseTo(0, 5);
+      expect(wires[0].end[0]).toBeCloseTo(10, 5);
+      expect(wires[0].end[1]).toBeCloseTo(0, 5);
       expect(wires[0].radius).toBe(0.001);
       expect(wires[0].segments).toBe(21);
     });
@@ -41,8 +44,34 @@ describe('antennaStore selectors', () => {
       };
       const wires = buildWires(state);
       expect(wires).toHaveLength(1);
-      expect(wires[0].start).toEqual([0, -10, 15]);
-      expect(wires[0].end).toEqual([0, 10, 15]);
+      // NS is 0 deg -> [0, 1]
+      expect(wires[0].start[0]).toBeCloseTo(0, 5);
+      expect(wires[0].start[1]).toBeCloseTo(-10, 5);
+      expect(wires[0].end[0]).toBeCloseTo(0, 5);
+      expect(wires[0].end[1]).toBeCloseTo(10, 5);
+    });
+
+    it('generates correct wire coordinates for numeric orientation (45 deg)', () => {
+      const state = {
+        length: 10,
+        height: 5,
+        orientation: 45,
+        wireRadius: 0.001,
+        segments: 11,
+        feedlineId: 'none',
+        feedlineLength: 0,
+        feedlineOffset: 0,
+      };
+      const wires = buildWires(state);
+      expect(wires).toHaveLength(1);
+      const half = 5;
+      // 45 deg radio -> unit circle 45 deg [cos45, sin45]
+      const cos45 = Math.SQRT1_2;
+      const sin45 = Math.SQRT1_2;
+      expect(wires[0].start[0]).toBeCloseTo(-half * cos45, 5);
+      expect(wires[0].start[1]).toBeCloseTo(-half * sin45, 5);
+      expect(wires[0].end[0]).toBeCloseTo(half * cos45, 5);
+      expect(wires[0].end[1]).toBeCloseTo(half * sin45, 5);
     });
 
     it('builds split-dipole + bridge + shield when feedline is configured', () => {
@@ -272,6 +301,19 @@ describe('antennaStore selectors', () => {
 });
 
 describe('antennaStore actions', () => {
+  it('updates orientation and normalizes correctly', () => {
+    const store = useAntennaStore.getState();
+
+    store.setOrientation(370);
+    expect(useAntennaStore.getState().orientation).toBe(10);
+
+    store.setOrientation(-10);
+    expect(useAntennaStore.getState().orientation).toBe(350);
+
+    store.setOrientation('NS');
+    expect(useAntennaStore.getState().orientation).toBe('NS');
+  });
+
   it('updates frequency and clamps correctly', () => {
     // Arrange
     const store = useAntennaStore.getState();
@@ -348,6 +390,70 @@ describe('antennaStore actions', () => {
       const offsetAfter = useAntennaStore.getState().feedlineOffset;
       // New limit is 4/2 - 0.05 = 1.95.
       expect(offsetAfter).toBeLessThanOrEqual(1.95);
+    });
+  });
+
+  describe('propagation', () => {
+    it('clamps T-index to the practical range', () => {
+      const store = useAntennaStore.getState();
+      store.setTIndex(99999);
+      expect(useAntennaStore.getState().tIndex).toBe(250);
+      store.setTIndex(-99999);
+      expect(useAntennaStore.getState().tIndex).toBe(-100);
+      store.setTIndex(75);
+      expect(useAntennaStore.getState().tIndex).toBe(75);
+    });
+
+    it('accepts and clears latitude', () => {
+      const store = useAntennaStore.getState();
+      store.setLatitude(51.5);
+      expect(useAntennaStore.getState().latitudeDeg).toBe(51.5);
+      store.setLatitude(null);
+      expect(useAntennaStore.getState().latitudeDeg).toBeNull();
+    });
+
+    it('clamps latitude to ±90', () => {
+      const store = useAntennaStore.getState();
+      store.setLatitude(120);
+      expect(useAntennaStore.getState().latitudeDeg).toBe(90);
+      store.setLatitude(-120);
+      expect(useAntennaStore.getState().latitudeDeg).toBe(-90);
+    });
+
+    it('wraps longitude into ±180', () => {
+      const store = useAntennaStore.getState();
+      store.setLongitude(200);
+      expect(useAntennaStore.getState().longitudeDeg).toBeCloseTo(-160, 5);
+      store.setLongitude(-200);
+      expect(useAntennaStore.getState().longitudeDeg).toBeCloseTo(160, 5);
+    });
+
+    it('clamps month override and accepts null', () => {
+      const store = useAntennaStore.getState();
+      store.setMonthOverride(15);
+      expect(useAntennaStore.getState().monthOverride).toBe(12);
+      store.setMonthOverride(0);
+      expect(useAntennaStore.getState().monthOverride).toBe(1);
+      store.setMonthOverride(null);
+      expect(useAntennaStore.getState().monthOverride).toBeNull();
+    });
+
+    it('clamps UTC hour override and accepts null', () => {
+      const store = useAntennaStore.getState();
+      store.setUtcHourOverride(50);
+      expect(useAntennaStore.getState().utcHourOverride).toBe(23.99);
+      store.setUtcHourOverride(-5);
+      expect(useAntennaStore.getState().utcHourOverride).toBe(0);
+      store.setUtcHourOverride(null);
+      expect(useAntennaStore.getState().utcHourOverride).toBeNull();
+    });
+
+    it('updates geolocation status', () => {
+      const store = useAntennaStore.getState();
+      store.setGeolocationStatus('requesting');
+      expect(useAntennaStore.getState().geolocationStatus).toBe('requesting');
+      store.setGeolocationStatus('denied');
+      expect(useAntennaStore.getState().geolocationStatus).toBe('denied');
     });
   });
 });

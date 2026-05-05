@@ -30,7 +30,8 @@ import {
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
 
-export type Orientation = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
+export type OrientationPreset = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
+export type Orientation = OrientationPreset | number;
 export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
@@ -97,6 +98,25 @@ export interface AntennaState {
   showAxes: boolean;
   showPolarCuts: boolean;
 
+  // Propagation (HF sky-wave estimator inputs).
+  //
+  // tIndex is the Australian IPS / BOM ionospheric T-index (dimensionless,
+  // typically -50..+200). It is entered manually — the app does not
+  // currently fetch it from any service.
+  //
+  // latitudeDeg is the path-midpoint latitude. Defaults to null (we treat
+  // null as 0° for predictions but the UI shows it as "not set"). The
+  // browser geolocation API may populate it on user request.
+  //
+  // monthOverride / utcHourOverride let the user explore conditions at a
+  // different time. When null, the UI auto-fills from the browser clock.
+  tIndex: number;
+  latitudeDeg: number | null;
+  longitudeDeg: number | null;
+  monthOverride: number | null;
+  utcHourOverride: number | null;
+  geolocationStatus: 'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported' | 'error';
+
   // Solver output
   result: SimulationResult | null;
   sweep: SweepPoint[];
@@ -133,6 +153,14 @@ export interface AntennaState {
   setShowPolarCuts(v: boolean): void;
   captureComparisonReference(): void;
   clearComparisonReference(): void;
+
+  // Propagation actions
+  setTIndex(v: number): void;
+  setLatitude(deg: number | null): void;
+  setLongitude(deg: number | null): void;
+  setMonthOverride(month: number | null): void;
+  setUtcHourOverride(hour: number | null): void;
+  setGeolocationStatus(s: AntennaState['geolocationStatus']): void;
 
   // Actions — internal (used by hooks/workers only, prefixed with _)
   _setSimulationData(r: SimulationResult, sweep: readonly SweepPoint[]): void;
@@ -175,6 +203,15 @@ export const useAntennaStore = create<AntennaState>()(
       showAxes: true,
       showPolarCuts: true,
 
+      // Propagation defaults: T=30 (~quiet sun, plausible long-term median),
+      // no location until user requests it, no time override.
+      tIndex: 30,
+      latitudeDeg: null,
+      longitudeDeg: null,
+      monthOverride: null,
+      utcHourOverride: null,
+      geolocationStatus: 'idle',
+
       result: null,
       sweep: [],
       error: null,
@@ -201,7 +238,17 @@ export const useAntennaStore = create<AntennaState>()(
         if (!Number.isFinite(meters)) return;
         s.height = Math.max(0, meters);
       }),
-      setOrientation: (o) => set((s) => { s.orientation = o; }),
+      setOrientation: (o) => set((s) => {
+        if (typeof o === 'number') {
+          if (!Number.isFinite(o)) return;
+          // Normalize to [0, 360)
+          let normalized = o % 360;
+          if (normalized < 0) normalized += 360;
+          s.orientation = normalized;
+        } else {
+          s.orientation = o;
+        }
+      }),
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
         s.wireRadius = Math.max(0.0001, r);
@@ -261,6 +308,38 @@ export const useAntennaStore = create<AntennaState>()(
         s.comparisonReference = createComparisonSnapshot(s);
       }),
       clearComparisonReference: () => set((s) => { s.comparisonReference = null; }),
+
+      setTIndex: (v) => set((s) => {
+        if (!Number.isFinite(v)) return;
+        // Clamp to the practical range. Anything outside this is unphysical.
+        s.tIndex = Math.max(-100, Math.min(250, v));
+      }),
+      setLatitude: (deg) => set((s) => {
+        if (deg === null) { s.latitudeDeg = null; return; }
+        if (!Number.isFinite(deg)) return;
+        s.latitudeDeg = Math.max(-90, Math.min(90, deg));
+      }),
+      setLongitude: (deg) => set((s) => {
+        if (deg === null) { s.longitudeDeg = null; return; }
+        if (!Number.isFinite(deg)) return;
+        // Wrap into -180..+180.
+        let v = deg;
+        while (v > 180) v -= 360;
+        while (v < -180) v += 360;
+        s.longitudeDeg = v;
+      }),
+      setMonthOverride: (m) => set((s) => {
+        if (m === null) { s.monthOverride = null; return; }
+        if (!Number.isFinite(m)) return;
+        const i = Math.round(m);
+        s.monthOverride = Math.max(1, Math.min(12, i));
+      }),
+      setUtcHourOverride: (h) => set((s) => {
+        if (h === null) { s.utcHourOverride = null; return; }
+        if (!Number.isFinite(h)) return;
+        s.utcHourOverride = Math.max(0, Math.min(23.99, h));
+      }),
+      setGeolocationStatus: (st) => set((s) => { s.geolocationStatus = st; }),
 
       _setSimulationData: (r, sweep) => set((s) => {
         s.result = r;
@@ -333,14 +412,29 @@ export const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
  * plane, to avoid NEC's "wire touching ground" warning. */
 const FEEDLINE_GROUND_GAP_M = 0.1;
 
-/** Build a unit-vector along the chosen dipole orientation in the XY plane. */
+/**
+ * Build a unit-vector along the chosen dipole orientation in the XY plane.
+ *
+ * Convention: 0° is North (+Y / NS), 90° is East (+X / EW).
+ * Radio convention: 0 is North, clockwise increasing.
+ */
 function orientationVector(o: Orientation): [number, number] {
-  switch (o) {
-    case 'EW': return [1, 0];
-    case 'NS': return [0, 1];
-    case 'NE-SW': return [Math.SQRT1_2, Math.SQRT1_2];
-    case 'NW-SE': return [Math.SQRT1_2, -Math.SQRT1_2];
+  let deg = 0;
+  if (typeof o === 'number') {
+    deg = o;
+  } else {
+    switch (o) {
+      case 'NS': deg = 0; break;
+      case 'EW': deg = 90; break;
+      case 'NE-SW': deg = 45; break;
+      case 'NW-SE': deg = 315; break;
+    }
   }
+
+  // To map radio degrees (0=N, 90=E) to unit circle (0=E, 90=N):
+  // unit_angle = 90 - radio_angle
+  const rad = ((90 - deg) * Math.PI) / 180;
+  return [Math.cos(rad), Math.sin(rad)];
 }
 
 /**

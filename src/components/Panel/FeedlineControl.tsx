@@ -91,18 +91,28 @@ export function FeedlineControl() {
           <label htmlFor="feedline-offset" style={{ marginTop: 10 }}>
             Attachment offset from centre ({unit}) — {dispOffset.toFixed(2)}
           </label>
-          <input
-            id="feedline-offset"
-            type="range"
-            min={-dispOffsetLimit}
-            max={dispOffsetLimit}
-            step={units === 'metric' ? 0.05 : 0.25}
-            value={dispOffset}
-            onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
-            }}
-          />
+          <div className="row">
+            <input
+              id="feedline-offset"
+              type="range"
+              min={-dispOffsetLimit}
+              max={dispOffsetLimit}
+              step={units === 'metric' ? 0.05 : 0.25}
+              value={dispOffset}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
+              }}
+            />
+            <button
+              onClick={() => setFeedlineOffset(0)}
+              title="Centre feedpoint"
+              aria-label="Centre feedpoint"
+              style={{ flex: '0 0 auto' }}
+            >
+              Centre
+            </button>
+          </div>
           <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
             {Math.abs(feedlineOffset) < 1e-6
               ? 'Centred (perfectly balanced — no common-mode current).'

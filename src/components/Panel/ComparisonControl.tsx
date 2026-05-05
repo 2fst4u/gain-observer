@@ -50,7 +50,11 @@ export function ComparisonControl() {
           </div>
           <div className="stat">
             <span className="stat-label">Orientation</span>
-            <span className="stat-value">{reference.orientation}</span>
+            <span className="stat-value">
+              {typeof reference.orientation === 'number'
+                ? `${reference.orientation.toFixed(0)}°`
+                : reference.orientation}
+            </span>
           </div>
           <div className="stat">
             <span className="stat-label">Ground</span>
