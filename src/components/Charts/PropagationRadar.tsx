@@ -45,6 +45,16 @@ function qualityOpacity(quality: 'useful' | 'weak' | 'unusable'): number {
   return 0.035;
 }
 
+function worseStatus(a: 'open' | 'marginal' | 'closed', b: 'open' | 'marginal' | 'closed'): 'open' | 'marginal' | 'closed' {
+  const rank = { open: 2, marginal: 1, closed: 0 } as const;
+  return rank[a] <= rank[b] ? a : b;
+}
+
+function worseQuality(a: 'useful' | 'weak' | 'unusable', b: 'useful' | 'weak' | 'unusable'): 'useful' | 'weak' | 'unusable' {
+  const rank = { useful: 2, weak: 1, unusable: 0 } as const;
+  return rank[a] <= rank[b] ? a : b;
+}
+
 export function PropagationRadar({
   prediction,
   units,
@@ -118,29 +128,42 @@ export function PropagationRadar({
         <line x1={margin} y1={cy} x2={size - margin} y2={cy} stroke="var(--border)" opacity={0.5} />
 
         {/* Hop rings: rendered from outermost to innermost so labels stay readable.
-            If azimuthalHops are available, draw non-circular rings. */}
+            If azimuthalHops are available, the ring is a sequence of per-azimuth
+            wedges so the colour reflects each bearing's own status / link
+            quality, not a single global "best-bearing" colour. */}
         {rings.slice().reverse().map((ring) => {
-          if (prediction.azimuthalHops) {
-            const points = prediction.azimuthalHops.map((az) => {
-              const rKm = az.rangeKm[ring.n - 1] ?? 0;
-              const rPx = rKm * kmToPx;
-              const azDeg = ((az.phiDeg % 360) + 360) % 360;
-              const rad = azDeg * Math.PI / 180;
-              return `${cx + rPx * Math.sin(rad)},${cy - rPx * Math.cos(rad)}`;
-            }).join(' ');
-
-            return (
-              <polygon
-                key={ring.n}
-                points={points}
-                fill={statusFill(ring.status)}
-                fillOpacity={qualityOpacity(ring.linkQuality)}
-                stroke={statusFill(ring.status)}
-                strokeOpacity={ring.linkQuality === 'unusable' ? 0.35 : 0.85}
-                strokeWidth={2}
-                strokeDasharray={ring.linkQuality === 'unusable' ? '4 3' : undefined}
-              />
-            );
+          if (prediction.azimuthalHops && prediction.azimuthalHops.length > 1) {
+            const az = prediction.azimuthalHops;
+            const wedges = az.map((aPoint, i) => {
+              const bPoint = az[(i + 1) % az.length]!;
+              const rA = (aPoint.rangeKm[ring.n - 1] ?? 0) * kmToPx;
+              const rB = (bPoint.rangeKm[ring.n - 1] ?? 0) * kmToPx;
+              const aRad = ((aPoint.phiDeg % 360) + 360) % 360 * Math.PI / 180;
+              const bRad = ((bPoint.phiDeg % 360) + 360) % 360 * Math.PI / 180;
+              const ax = cx + rA * Math.sin(aRad);
+              const ay = cy - rA * Math.cos(aRad);
+              const bx = cx + rB * Math.sin(bRad);
+              const by = cy - rB * Math.cos(bRad);
+              // Colour the wedge by the worse status / quality of its two
+              // bounding radials, so a closed bearing visually pulls the
+              // wedge into "closed" rather than borrowing colour from a
+              // neighbouring open bearing.
+              const status = worseStatus(aPoint.status, bPoint.status);
+              const linkQuality = worseQuality(aPoint.linkQuality, bPoint.linkQuality);
+              return (
+                <polygon
+                  key={`${ring.n}-${i}`}
+                  points={`${cx},${cy} ${ax},${ay} ${bx},${by}`}
+                  fill={statusFill(status)}
+                  fillOpacity={qualityOpacity(linkQuality)}
+                  stroke={statusFill(status)}
+                  strokeOpacity={linkQuality === 'unusable' ? 0.25 : 0.6}
+                  strokeWidth={1}
+                  strokeDasharray={linkQuality === 'unusable' ? '4 3' : undefined}
+                />
+              );
+            });
+            return <g key={ring.n}>{wedges}</g>;
           }
 
           return (
