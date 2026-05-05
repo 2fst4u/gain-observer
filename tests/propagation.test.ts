@@ -241,7 +241,7 @@ describe('predictPropagation', () => {
 
   it('calculates azimuthalHops when a pattern is provided', () => {
     const pattern = {
-      data: new Float32Array(37 * 72),
+      data: new Float32Array(37 * 72).fill(-20),
       thetaSteps: 37,
       phiSteps: 72,
       dTheta: 5,
@@ -267,30 +267,55 @@ describe('predictPropagation', () => {
     expect(hop1!.rangeKm[0]).toBeLessThan(hop0!.rangeKm[0]);
   });
 
-  it('uses effective elevation (6dB beamwidth) for range', () => {
+  it('uses effective elevation (useful gain threshold) for range', () => {
     const pattern = {
-      data: new Float32Array(37 * 72),
+      data: new Float32Array(37 * 72).fill(-20),
       thetaSteps: 37,
       phiSteps: 72,
       dTheta: 5,
       dPhi: 5,
     };
-    // Fill with a broad NVIS-like lobe: peak at zenith (index 0)
-    // and stays within 6dB down to 45 deg elevation (theta=45, index 9).
+    // Peak at zenith (10 dBi), drops to USEFUL_SIGNAL_DBI (-5) at 45 deg (ti=9)
+    // and stays below USEFUL_SIGNAL_DBI after that.
     for (let ti = 0; ti <= 9; ti++) {
       for (let pi = 0; pi < 72; pi++) {
-        pattern.data[ti * 72 + pi] = 10 - (ti * 0.5); // 0dB at zenith, -4.5dB at index 9
+        pattern.data[ti * 72 + pi] = 10 - (ti * (15 / 9));
       }
     }
 
     // Global takeoff is zenith (90)
     const pZenith = predictPropagation({ ...baseInput, takeoffElevationDeg: 90 });
-    // With pattern, effective elevation should be 90 - 9*5 = 45 deg
+    // With pattern, best elevation should be 45 deg (ti=9)
     const pPattern = predictPropagation({ ...baseInput, takeoffElevationDeg: 90, pattern });
 
     expect(pPattern.hops[0].rangeKm).toBeGreaterThan(pZenith.hops[0].rangeKm);
-    // 45 deg hop range is approx Re * 2 * (pi - (pi/2 + 45deg) - gamma)
-    // Just verify it's significantly larger than the vertical hop (< 15km)
+    // 45 deg hop range is significantly larger than vertical hop (< 15km)
     expect(pPattern.hops[0].rangeKm).toBeGreaterThan(500);
+  });
+
+  it('accounts for SWR mismatch loss in range calculation', () => {
+    const pattern = {
+      data: new Float32Array(37 * 72).fill(-20),
+      thetaSteps: 37,
+      phiSteps: 72,
+      dTheta: 5,
+      dPhi: 5,
+    };
+    // Only one useful spot at 15 deg elevation: 0 dBi
+    pattern.data[15 * 72 + 0] = 0;
+
+    // Normal case (SWR=1): useful (0 >= -5)
+    const pGood = predictPropagation({ ...baseInput, pattern, swr: 1 });
+    expect(pGood.hops[0].rangeKm).toBeGreaterThan(0);
+
+    // High SWR (e.g. 10:1): mismatch loss ≈ 4.8 dB.
+    // 0 - 4.8 = -4.8 >= -5. Still useful.
+    const pBad = predictPropagation({ ...baseInput, pattern, swr: 10 });
+    expect(pBad.hops[0].rangeKm).toBeGreaterThan(0);
+
+    // Extremely high SWR (e.g. 20:1): mismatch loss ≈ 8.3 dB.
+    // 0 - 8.3 = -8.3 < -5. Unusable.
+    const pTerrible = predictPropagation({ ...baseInput, pattern, swr: 20 });
+    expect(pTerrible.hops[0].rangeKm).toBe(0);
   });
 });

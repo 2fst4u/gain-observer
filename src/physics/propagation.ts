@@ -72,6 +72,8 @@ export interface PropagationInputs {
   readonly longitudeDeg?: number;
   /** Optional full gain pattern to allow directional range calculations. */
   readonly pattern?: GainPattern;
+  /** Operating SWR (to account for mismatch loss). */
+  readonly swr?: number;
 }
 
 export type HopStatus = 'open' | 'marginal' | 'closed';
@@ -110,6 +112,10 @@ const MAX_HOPS = 3;
 
 /** "Marginal" margin around MUF/LUF as a fraction (10%). */
 const MARGIN_FRAC = 0.10;
+
+/** Absolute threshold for "useful" effective gain (dBi) to consider a signal
+ *  as propagating effectively. Signals below this are treated as unusable. */
+const USEFUL_SIGNAL_DBI = -5;
 
 const DEG = Math.PI / 180;
 
@@ -343,43 +349,54 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
   const hmF2 = estimateHmF2Km(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
   const chi = solarZenithDeg(input.latitudeDeg, lon, input.month, input.utcHour);
 
-  // For broad-beam antennas (like NVIS dipoles), the "peak gain" elevation
-  // might be near 90°, but substantial energy is radiated at lower angles
-  // which reach much further. We find the "effective" takeoff elevation:
-  // the lowest elevation angle within the main lobe (defined as within 6dB
-  // of the peak) to better reflect the antenna's actual reach.
-  let effectiveElevation = input.takeoffElevationDeg;
+  // Account for mismatch loss if SWR is provided.
+  const s = input.swr ?? 1;
+  const mismatchLossDb = s > 1 ? -10 * Math.log10(1 - Math.pow((s - 1) / (s + 1), 2)) : 0;
+
+  // We find the "best" takeoff elevation: the lowest angle (yielding max
+  // range) that is both physically open (f < MUF) and has "useful"
+  // absolute gain.
+  let bestElevation = input.takeoffElevationDeg;
   if (input.pattern) {
     const p = input.pattern;
-    // Find the global peak gain to define the 6dB-down beamwidth.
-    let maxG = -Infinity;
-    for (let i = 0; i < p.data.length; i++) {
-      if (p.data[i]! > maxG) maxG = p.data[i]!;
-    }
+    let maxRange = -1;
 
-    // Find the lowest elevation (largest theta) across ALL azimuths
-    // that is within 6dB of this global peak.
-    let maxThetaIdx = 0;
     for (let ti = 0; ti < p.thetaSteps; ti++) {
+      const thetaDeg = ti * p.dTheta;
+      const elevationDeg = 90 - thetaDeg;
+      if (elevationDeg < 0.5) continue; // skip below horizon
+
+      // Find peak gain at this elevation across all azimuths.
       let tiMaxG = -Infinity;
       for (let pi = 0; pi < p.phiSteps; pi++) {
         const g = p.data[ti * p.phiSteps + pi]!;
         if (g > tiMaxG) tiMaxG = g;
       }
-      if (tiMaxG >= maxG - 6) {
-        if (ti > maxThetaIdx) maxThetaIdx = ti;
+
+      const effectiveG = tiMaxG - mismatchLossDb;
+      const muf = estimateMUFMHz(fof2, elevationDeg, hmF2);
+
+      // Criteria: must be above LUF (heuristic), below MUF, and have enough power.
+      // We check f < MUF * (1 + margin) to allow "marginal" signals.
+      if (input.frequencyMHz < muf * (1 + MARGIN_FRAC) && effectiveG >= USEFUL_SIGNAL_DBI) {
+        const range = hopRangeKm(elevationDeg, hmF2);
+        if (range > maxRange) {
+          maxRange = range;
+          bestElevation = elevationDeg;
+        }
       }
     }
-    // Effective elevation is the lowest one (largest theta).
-    effectiveElevation = 90 - maxThetaIdx * p.dTheta;
   }
 
-  // Use effective elevation for MUF and range to account for the broad
-  // beam's propagation potential.
-  const muf = estimateMUFMHz(fof2, effectiveElevation, hmF2);
+  // Final MUF/LUF for the "best" geometry found.
+  const muf = estimateMUFMHz(fof2, bestElevation, hmF2);
   const luf = estimateLUFMHz(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
 
-  const oneHop = hopRangeKm(effectiveElevation, hmF2);
+  // If we have a pattern and couldn't find ANY useful signal, the antenna
+  // is effectively dead in terms of skywave.
+  const oneHop = (input.pattern && bestElevation === input.takeoffElevationDeg && !isUseful(input.pattern, bestElevation, mismatchLossDb))
+    ? 0
+    : hopRangeKm(bestElevation, hmF2);
 
   const f = input.frequencyMHz;
   const aboveMuf = f > muf;
@@ -421,37 +438,32 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
     // We sample at most 72 radials (5° steps) to keep radar rendering fast.
     const phiStride = Math.max(1, Math.floor(p.phiSteps / 72));
     for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
-      // Find peak elevation for this azimuth.
-      let maxG = -Infinity;
-      let peakThetaIdx = 0;
-      for (let ti = 0; ti < p.thetaSteps; ti++) {
-        const g = p.data[ti * p.phiSteps + pi];
-        if (g > maxG) {
-          maxG = g;
-          peakThetaIdx = ti;
-        }
-      }
-      // Find the "effective" elevation for this specific radial (lowest
-      // angle within 6dB of the LOCAL peak for this azimuth).
-      let effectiveThetaIdx = peakThetaIdx;
-      for (let ti = peakThetaIdx + 1; ti < p.thetaSteps; ti++) {
-        const g = p.data[ti * p.phiSteps + pi]!;
-        if (g >= maxG - 6) {
-          effectiveThetaIdx = ti;
-        } else {
-          // Once we're out of the 6dB beam, stop.
-          break;
-        }
-      }
+      // For this radial, find the lowest elevation angle that is "Open"
+      // and has "Useful" signal strength.
+      let maxRadialRange = 0;
+      let radialElevation = 0;
 
-      const thetaDeg = effectiveThetaIdx * p.dTheta;
-      const elevationDeg = 90 - thetaDeg;
-      const range1 = hopRangeKm(elevationDeg, hmF2);
+      for (let ti = 0; ti < p.thetaSteps; ti++) {
+        const elevationDeg = 90 - ti * p.dTheta;
+        if (elevationDeg < 0.5) continue;
+
+        const g = p.data[ti * p.phiSteps + pi]!;
+        const effectiveG = g - mismatchLossDb;
+        const muf = estimateMUFMHz(fof2, elevationDeg, hmF2);
+
+        if (input.frequencyMHz < muf * (1 + MARGIN_FRAC) && effectiveG >= USEFUL_SIGNAL_DBI) {
+          const range = hopRangeKm(elevationDeg, hmF2);
+          if (range > maxRadialRange) {
+            maxRadialRange = range;
+            radialElevation = elevationDeg;
+          }
+        }
+      }
 
       azimuthalHops.push({
         phiDeg: pi * p.dPhi,
-        takeoffElevationDeg: elevationDeg,
-        rangeKm: [range1, range1 * 2, range1 * 3],
+        takeoffElevationDeg: radialElevation,
+        rangeKm: maxRadialRange > 0 ? [maxRadialRange, maxRadialRange * 2, maxRadialRange * 3] : [0, 0, 0],
       });
     }
   }
@@ -474,4 +486,15 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
 function clamp(v: number, min: number, max: number): number {
   if (!Number.isFinite(v)) return min;
   return Math.max(min, Math.min(max, v));
+}
+
+function isUseful(p: GainPattern, elevationDeg: number, mismatchLossDb: number): boolean {
+  const ti = Math.round((90 - elevationDeg) / p.dTheta);
+  const clampedTi = Math.max(0, Math.min(p.thetaSteps - 1, ti));
+  let tiMaxG = -Infinity;
+  for (let pi = 0; pi < p.phiSteps; pi++) {
+    const g = p.data[clampedTi * p.phiSteps + pi]!;
+    if (g > tiMaxG) tiMaxG = g;
+  }
+  return (tiMaxG - mismatchLossDb) >= USEFUL_SIGNAL_DBI;
 }

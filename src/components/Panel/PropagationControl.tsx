@@ -51,8 +51,9 @@ export function PropagationControl() {
       latitudeDeg: latitudeDeg ?? 0,
       longitudeDeg: longitudeDeg ?? 0,
       pattern: result?.pattern,
+      swr: result?.swr,
     });
-  }, [frequency, tIndex, takeoffElevationDeg, month, utcHour, latitudeDeg, longitudeDeg, result?.pattern]);
+  }, [frequency, tIndex, takeoffElevationDeg, month, utcHour, latitudeDeg, longitudeDeg, result?.pattern, result?.swr]);
 
   const haveTakeoff = result !== null;
 
