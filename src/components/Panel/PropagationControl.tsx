@@ -31,6 +31,41 @@ export function PropagationControl() {
   const [showAssumptions, setShowAssumptions] = useState(false);
   const [showTimeOverride, setShowTimeOverride] = useState(false);
 
+  // Local buffers for numeric inputs to allow natural typing.
+  const [localTIndex, setLocalTIndex] = useState(tIndex.toString());
+  const [isTIndexFocused, setIsTIndexFocused] = useState(false);
+
+  const [prevTIndex, setPrevTIndex] = useState(tIndex);
+  if (tIndex !== prevTIndex) {
+    setPrevTIndex(tIndex);
+    if (!isTIndexFocused) {
+      setLocalTIndex(tIndex.toString());
+    }
+  }
+
+  const [localLat, setLocalLat] = useState(latitudeDeg?.toString() ?? '');
+  const [isLatFocused, setIsLatFocused] = useState(false);
+
+  const [prevLat, setPrevLat] = useState(latitudeDeg);
+  if (latitudeDeg !== prevLat) {
+    setPrevLat(latitudeDeg);
+    if (!isLatFocused) {
+      setLocalLat(latitudeDeg?.toString() ?? '');
+    }
+  }
+
+
+  const [localUtcHour, setLocalUtcHour] = useState(utcHourOverride?.toString() ?? '');
+  const [isUtcHourFocused, setIsUtcHourFocused] = useState(false);
+
+  const [prevUtcHour, setPrevUtcHour] = useState(utcHourOverride);
+  if (utcHourOverride !== prevUtcHour) {
+    setPrevUtcHour(utcHourOverride);
+    if (!isUtcHourFocused) {
+      setLocalUtcHour(utcHourOverride?.toString() ?? '');
+    }
+  }
+
   // Resolve "now" once per render. We deliberately don't memoise on a
   // ticking clock — propagation conditions change on the order of minutes,
   // so the panel just refreshes on the next render trigger (e.g. user
@@ -73,11 +108,18 @@ export function PropagationControl() {
           min={-100}
           max={250}
           step={1}
-          value={tIndex}
+          value={localTIndex}
           aria-label="Ionospheric T-index"
+          onFocus={() => setIsTIndexFocused(true)}
           onChange={(e) => {
-            const v = parseFloat(e.target.value);
+            const s = e.target.value;
+            setLocalTIndex(s);
+            const v = parseFloat(s);
             if (!isNaN(v)) setTIndex(v);
+          }}
+          onBlur={() => {
+            setIsTIndexFocused(false);
+            setLocalTIndex(tIndex.toString());
           }}
         />
       </div>
@@ -95,12 +137,19 @@ export function PropagationControl() {
           min={-90}
           max={90}
           step={0.1}
-          value={latitudeDeg ?? ''}
+          value={localLat}
           placeholder="0.0"
           aria-label="Latitude in degrees"
+          onFocus={() => setIsLatFocused(true)}
           onChange={(e) => {
-            const v = parseFloat(e.target.value);
+            const s = e.target.value;
+            setLocalLat(s);
+            const v = parseFloat(s);
             setLatitude(isNaN(v) ? null : v);
+          }}
+          onBlur={() => {
+            setIsLatFocused(false);
+            setLocalLat(latitudeDeg?.toString() ?? '');
           }}
         />
         <button
@@ -156,11 +205,18 @@ export function PropagationControl() {
             max={23.99}
             step={0.5}
             placeholder="UTC hour"
-            value={utcHourOverride ?? ''}
+            value={localUtcHour}
             aria-label="UTC hour override"
+            onFocus={() => setIsUtcHourFocused(true)}
             onChange={(e) => {
-              const v = parseFloat(e.target.value);
+              const s = e.target.value;
+              setLocalUtcHour(s);
+              const v = parseFloat(s);
               setUtcHourOverride(isNaN(v) ? null : v);
+            }}
+            onBlur={() => {
+              setIsUtcHourFocused(false);
+              setLocalUtcHour(utcHourOverride?.toString() ?? '');
             }}
           />
         </div>
