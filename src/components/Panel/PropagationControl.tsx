@@ -29,7 +29,6 @@ export function PropagationControl() {
   const { status: geoStatus, requestLocation } = useGeolocation();
 
   const [showAssumptions, setShowAssumptions] = useState(false);
-  const [showTimeOverride, setShowTimeOverride] = useState(false);
 
   // Local buffers for numeric inputs to allow natural typing.
   const [localTIndex, setLocalTIndex] = useState(tIndex.toString());
@@ -54,25 +53,28 @@ export function PropagationControl() {
     }
   }
 
-
-  const [localUtcHour, setLocalUtcHour] = useState(utcHourOverride?.toString() ?? '');
-  const [isUtcHourFocused, setIsUtcHourFocused] = useState(false);
-
-  const [prevUtcHour, setPrevUtcHour] = useState(utcHourOverride);
-  if (utcHourOverride !== prevUtcHour) {
-    setPrevUtcHour(utcHourOverride);
-    if (!isUtcHourFocused) {
-      setLocalUtcHour(utcHourOverride?.toString() ?? '');
-    }
-  }
-
   // Resolve "now" once per render. We deliberately don't memoise on a
   // ticking clock — propagation conditions change on the order of minutes,
   // so the panel just refreshes on the next render trigger (e.g. user
   // input). Adding a 60s ticker is easy if needed later.
   const now = new Date();
-  const month = monthOverride ?? (now.getUTCMonth() + 1);
-  const utcHour = utcHourOverride ?? (now.getUTCHours() + now.getUTCMinutes() / 60);
+  const autoMonth = now.getUTCMonth() + 1;
+  const autoUtcHour = now.getUTCHours() + now.getUTCMinutes() / 60;
+
+  const month = monthOverride ?? autoMonth;
+  const utcHour = utcHourOverride ?? autoUtcHour;
+
+  // Local buffer for UTC hour input so typing isn't fought by the auto clock.
+  const [localUtcHour, setLocalUtcHour] = useState(utcHour.toFixed(1));
+  const [isUtcHourFocused, setIsUtcHourFocused] = useState(false);
+
+  const [prevUtcHour, setPrevUtcHour] = useState(utcHour);
+  if (utcHour !== prevUtcHour) {
+    setPrevUtcHour(utcHour);
+    if (!isUtcHourFocused) {
+      setLocalUtcHour(utcHour.toFixed(1));
+    }
+  }
 
   const takeoffElevationDeg = result?.takeoffElevationDeg ?? 30;
 
@@ -167,61 +169,61 @@ export function PropagationControl() {
         {geoStatusMessage(geoStatus, latitudeDeg)}
       </p>
 
-      {/* Time / month — auto-filled from browser clock unless overridden */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          {monthOverride === null && utcHourOverride === null
-            ? `Auto: ${MONTH_NAMES[month - 1]}, ${formatUtcHour(utcHour)} UTC`
-            : `Override: ${MONTH_NAMES[month - 1]}, ${formatUtcHour(utcHour)} UTC`}
-        </span>
+      {/* Time & Month — always visible, auto-filled from browser clock unless overridden */}
+      <label htmlFor="month-select" style={{ marginTop: 10 }}>Month</label>
+      <div className="row">
+        <select
+          id="month-select"
+          value={monthOverride ?? ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            setMonthOverride(v === '' ? null : parseInt(v, 10));
+          }}
+          aria-label="Month override"
+        >
+          <option value="">Auto ({MONTH_NAMES[autoMonth - 1]})</option>
+          {MONTH_NAMES.map((n, i) => (
+            <option key={n} value={i + 1}>{n}</option>
+          ))}
+        </select>
+      </div>
+
+      <label htmlFor="utc-hour-input" style={{ marginTop: 10 }}>
+        UTC Hour — {formatUtcHour(utcHour)}
+      </label>
+      <div className="row">
+        <input
+          id="utc-hour-input"
+          type="number"
+          min={0}
+          max={23.99}
+          step={0.1}
+          value={localUtcHour}
+          onFocus={() => setIsUtcHourFocused(true)}
+          aria-label="UTC hour override"
+          onChange={(e) => {
+            const s = e.target.value;
+            setLocalUtcHour(s);
+            const val = parseFloat(s);
+            if (!isNaN(val)) {
+              setUtcHourOverride(val);
+            }
+          }}
+          onBlur={() => {
+            setIsUtcHourFocused(false);
+            setLocalUtcHour(utcHour.toFixed(1));
+          }}
+        />
         <button
           type="button"
-          onClick={() => setShowTimeOverride((v) => !v)}
-          style={{
-            background: 'transparent', border: 'none', color: 'var(--accent)',
-            padding: 0, fontSize: 11, cursor: 'pointer',
-          }}
+          onClick={() => setUtcHourOverride(null)}
+          disabled={utcHourOverride === null}
+          style={{ flex: '0 0 auto' }}
+          title="Reset to current UTC time"
         >
-          {showTimeOverride ? 'Hide time override' : 'Override time'}
+          Auto
         </button>
       </div>
-      {showTimeOverride && (
-        <div className="row" style={{ marginTop: 6, gap: 6 }}>
-          <select
-            value={monthOverride ?? ''}
-            onChange={(e) => {
-              const v = e.target.value;
-              setMonthOverride(v === '' ? null : parseInt(v, 10));
-            }}
-            aria-label="Month override"
-          >
-            <option value="">Auto month</option>
-            {MONTH_NAMES.map((n, i) => (
-              <option key={n} value={i + 1}>{n}</option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min={0}
-            max={23.99}
-            step={0.5}
-            placeholder="UTC hour"
-            value={localUtcHour}
-            aria-label="UTC hour override"
-            onFocus={() => setIsUtcHourFocused(true)}
-            onChange={(e) => {
-              const s = e.target.value;
-              setLocalUtcHour(s);
-              const v = parseFloat(s);
-              setUtcHourOverride(isNaN(v) ? null : v);
-            }}
-            onBlur={() => {
-              setIsUtcHourFocused(false);
-              setLocalUtcHour(utcHourOverride?.toString() ?? '');
-            }}
-          />
-        </div>
-      )}
 
       {/* Conditions readout */}
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
