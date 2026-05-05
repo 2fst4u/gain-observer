@@ -170,13 +170,13 @@ export function PropagationRadar({
           </text>
         ))}
 
-        {/* Range label on each hop ring (placed along the +x axis to stay
-            clear of the direction pointer when present) */}
+        {/* Range label on each hop ring (placed along the +y axis but offset
+            to the right to avoid the 'N' cardinal and prevent overlap) */}
         {rings.map((ring) => (
           <text
             key={ring.n}
-            x={cx + ring.rPx + 4}
-            y={cy - 4}
+            x={cx + 24}
+            y={cy - ring.rPx - 4}
             fontSize={10}
             fill="var(--text-dim)"
             fontFamily="system-ui, sans-serif"
