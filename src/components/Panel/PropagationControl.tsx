@@ -341,12 +341,6 @@ function qualityLabel(quality: 'useful' | 'weak' | 'unusable'): string {
   return 'very weak signal';
 }
 
-function formatUtcHour(h: number): string {
-  const hours = Math.floor(h);
-  const minutes = Math.round((h - hours) * 60);
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
-
 /** Converts fractional UTC hour to HH:mm string format. */
 function hourToHHmm(h: number): string {
   const hours = Math.floor(h);
