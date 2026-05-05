@@ -9,3 +9,7 @@
 ## 2024-05-04 - Keyboard Navigation Focus Indicators
 **Learning:** Found that keyboard navigation was lacking explicit visual feedback (`:focus-visible`) across the UI, particularly for interactive elements like buttons, inputs, and selects. Adding global `:focus-visible` styles with a high-contrast accent color greatly improves keyboard accessibility without negatively impacting mouse users.
 **Action:** Always verify keyboard accessibility and add clear `:focus-visible` styles to interactive elements when building out new UIs or auditing existing ones.
+
+## 2024-05-05 - Propagation Control ARIA Additions
+**Learning:** In complex control panels, async UI state (like geolocation requesting) requires explicit `aria-live` and `aria-busy` announcements so screen readers know a background action is pending and eventually completed. Furthermore, supplementary help text near inputs must be explicitly linked via `aria-describedby` so it isn't skipped when users tab directly to the input field.
+**Action:** Always verify `aria-busy` and `aria-live` are present for async button interactions, and link form hints to their associated inputs using matching `id` and `aria-describedby` attributes.
