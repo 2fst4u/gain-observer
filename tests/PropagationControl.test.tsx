@@ -17,22 +17,33 @@ vi.mock('../src/components/Charts/PropagationRadar', () => ({
   PropagationRadar: () => <div data-testid="radar" />,
 }));
 
+interface MockPropagationState {
+  frequency: number;
+  tIndex: number;
+  setTIndex: (v: number) => void;
+  latitudeDeg: number | null;
+  longitudeDeg: number | null;
+  setLatitude: (v: number | null) => void;
+  monthOverride: number | null;
+  utcHourOverride: number | null;
+  setMonthOverride: (v: number | null) => void;
+  setUtcHourOverride: (v: number | null) => void;
+  result: unknown | null;
+  units: 'metric' | 'imperial';
+}
+
 describe('PropagationControl - T-index Input Bug', () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
   });
 
-  it('fails to allow clearing the T-index input when directly bound', () => {
+  it('allows clearing the T-index input (via local buffer)', () => {
     const setTIndex = vi.fn();
     let currentTIndex = 30;
 
-    // We simulate the store behavior: when setTIndex is called, the component re-renders with the new value.
-    // If the input is directly bound to `tIndex`, and `parseFloat('')` is NaN,
-    // then `setTIndex` might not be called, and the input `value={tIndex}` will still show '30'.
-
-    vi.mocked(useAntennaStore).mockImplementation((selector: any) => {
-      const state = {
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockPropagationState) => unknown) => {
+      const state: MockPropagationState = {
         frequency: 7.1,
         tIndex: currentTIndex,
         setTIndex: (v: number) => {
@@ -52,64 +63,15 @@ describe('PropagationControl - T-index Input Bug', () => {
       return selector(state);
     });
 
-    const { rerender } = render(<PropagationControl />);
-    const tInput = document.getElementById('t-index-input') as HTMLInputElement;
+    const { getByLabelText } = render(<PropagationControl />);
+    const tInput = getByLabelText('Ionospheric T-index') as HTMLInputElement;
 
     expect(tInput.value).toBe('30');
 
-    // Simulate user backspacing to clear the input
-    fireEvent.change(tInput, { target: { value: '' } });
-
-    // In the current broken implementation, if the input is value={tIndex},
-    // and onChange does nothing for empty string (isNaN(v) is true),
-    // then the input value remains '30' because of the value={tIndex} binding.
-    // Wait, if fireEvent.change is called, does the DOM element value update before React re-render?
-    // In a controlled component, it should stick to the prop value.
-
-    // Actually, if it's value={tIndex}, and we do fireEvent.change(tInput, { target: { value: '' } }),
-    // Now with the fix, it SHOULD be empty because we use a local buffer.
+    // Focus and clear
     fireEvent.focus(tInput);
     fireEvent.change(tInput, { target: { value: '' } });
 
-    expect(tInput.value).toBe('');
-  });
-
-  it('allows clearing the T-index input with the local buffer pattern', () => {
-    const setTIndex = vi.fn();
-    let currentTIndex = 30;
-
-    vi.mocked(useAntennaStore).mockImplementation((selector: any) => {
-      const state = {
-        frequency: 7.1,
-        tIndex: currentTIndex,
-        setTIndex: (v: number) => {
-          currentTIndex = v;
-          setTIndex(v);
-        },
-        latitudeDeg: null,
-        longitudeDeg: null,
-        setLatitude: vi.fn(),
-        monthOverride: null,
-        utcHourOverride: null,
-        setMonthOverride: vi.fn(),
-        setUtcHourOverride: vi.fn(),
-        result: null,
-        units: 'metric',
-      };
-      return selector(state);
-    });
-
-    render(<PropagationControl />);
-    const tInput = document.getElementById('t-index-input') as HTMLInputElement;
-
-    expect(tInput.value).toBe('30');
-
-    // Focus first
-    fireEvent.focus(tInput);
-    // Simulate user backspacing to clear the input
-    fireEvent.change(tInput, { target: { value: '' } });
-
-    // Now it should be empty
     expect(tInput.value).toBe('');
 
     // Store should not have been updated with NaN
@@ -118,5 +80,38 @@ describe('PropagationControl - T-index Input Bug', () => {
     // On blur, it should snap back to the store value
     fireEvent.blur(tInput);
     expect(tInput.value).toBe('30');
+  });
+
+  it('syncs local buffer with store when store changes externally (and not focused)', () => {
+    const setTIndex = vi.fn();
+    let currentTIndex = 30;
+
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockPropagationState) => unknown) => {
+      const state: MockPropagationState = {
+        frequency: 7.1,
+        tIndex: currentTIndex,
+        setTIndex,
+        latitudeDeg: null,
+        longitudeDeg: null,
+        setLatitude: vi.fn(),
+        monthOverride: null,
+        utcHourOverride: null,
+        setMonthOverride: vi.fn(),
+        setUtcHourOverride: vi.fn(),
+        result: null,
+        units: 'metric',
+      };
+      return selector(state);
+    });
+
+    const { getByLabelText, rerender } = render(<PropagationControl />);
+    const tInput = getByLabelText('Ionospheric T-index') as HTMLInputElement;
+    expect(tInput.value).toBe('30');
+
+    // Simulate external store update
+    currentTIndex = 45;
+    rerender(<PropagationControl />);
+
+    expect(tInput.value).toBe('45');
   });
 });
