@@ -266,4 +266,31 @@ describe('predictPropagation', () => {
     // Higher elevation should have shorter range
     expect(hop1!.rangeKm[0]).toBeLessThan(hop0!.rangeKm[0]);
   });
+
+  it('uses effective elevation (6dB beamwidth) for range', () => {
+    const pattern = {
+      data: new Float32Array(37 * 72),
+      thetaSteps: 37,
+      phiSteps: 72,
+      dTheta: 5,
+      dPhi: 5,
+    };
+    // Fill with a broad NVIS-like lobe: peak at zenith (index 0)
+    // and stays within 6dB down to 45 deg elevation (theta=45, index 9).
+    for (let ti = 0; ti <= 9; ti++) {
+      for (let pi = 0; pi < 72; pi++) {
+        pattern.data[ti * 72 + pi] = 10 - (ti * 0.5); // 0dB at zenith, -4.5dB at index 9
+      }
+    }
+
+    // Global takeoff is zenith (90)
+    const pZenith = predictPropagation({ ...baseInput, takeoffElevationDeg: 90 });
+    // With pattern, effective elevation should be 90 - 9*5 = 45 deg
+    const pPattern = predictPropagation({ ...baseInput, takeoffElevationDeg: 90, pattern });
+
+    expect(pPattern.hops[0].rangeKm).toBeGreaterThan(pZenith.hops[0].rangeKm);
+    // 45 deg hop range is approx Re * 2 * (pi - (pi/2 + 45deg) - gamma)
+    // Just verify it's significantly larger than the vertical hop (< 15km)
+    expect(pPattern.hops[0].rangeKm).toBeGreaterThan(500);
+  });
 });

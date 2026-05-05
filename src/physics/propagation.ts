@@ -341,11 +341,45 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
   const lon = input.longitudeDeg ?? 0;
   const fof2 = estimateFoF2MHz(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
   const hmF2 = estimateHmF2Km(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
-  const muf = estimateMUFMHz(fof2, input.takeoffElevationDeg, hmF2);
-  const luf = estimateLUFMHz(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
   const chi = solarZenithDeg(input.latitudeDeg, lon, input.month, input.utcHour);
 
-  const oneHop = hopRangeKm(input.takeoffElevationDeg, hmF2);
+  // For broad-beam antennas (like NVIS dipoles), the "peak gain" elevation
+  // might be near 90°, but substantial energy is radiated at lower angles
+  // which reach much further. We find the "effective" takeoff elevation:
+  // the lowest elevation angle within the main lobe (defined as within 6dB
+  // of the peak) to better reflect the antenna's actual reach.
+  let effectiveElevation = input.takeoffElevationDeg;
+  if (input.pattern) {
+    const p = input.pattern;
+    // Find the global peak gain to define the 6dB-down beamwidth.
+    let maxG = -Infinity;
+    for (let i = 0; i < p.data.length; i++) {
+      if (p.data[i]! > maxG) maxG = p.data[i]!;
+    }
+
+    // Find the lowest elevation (largest theta) across ALL azimuths
+    // that is within 6dB of this global peak.
+    let maxThetaIdx = 0;
+    for (let ti = 0; ti < p.thetaSteps; ti++) {
+      let tiMaxG = -Infinity;
+      for (let pi = 0; pi < p.phiSteps; pi++) {
+        const g = p.data[ti * p.phiSteps + pi]!;
+        if (g > tiMaxG) tiMaxG = g;
+      }
+      if (tiMaxG >= maxG - 6) {
+        if (ti > maxThetaIdx) maxThetaIdx = ti;
+      }
+    }
+    // Effective elevation is the lowest one (largest theta).
+    effectiveElevation = 90 - maxThetaIdx * p.dTheta;
+  }
+
+  // Use effective elevation for MUF and range to account for the broad
+  // beam's propagation potential.
+  const muf = estimateMUFMHz(fof2, effectiveElevation, hmF2);
+  const luf = estimateLUFMHz(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
+
+  const oneHop = hopRangeKm(effectiveElevation, hmF2);
 
   const f = input.frequencyMHz;
   const aboveMuf = f > muf;
@@ -397,7 +431,20 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
           peakThetaIdx = ti;
         }
       }
-      const thetaDeg = peakThetaIdx * p.dTheta;
+      // Find the "effective" elevation for this specific radial (lowest
+      // angle within 6dB of the LOCAL peak for this azimuth).
+      let effectiveThetaIdx = peakThetaIdx;
+      for (let ti = peakThetaIdx + 1; ti < p.thetaSteps; ti++) {
+        const g = p.data[ti * p.phiSteps + pi]!;
+        if (g >= maxG - 6) {
+          effectiveThetaIdx = ti;
+        } else {
+          // Once we're out of the 6dB beam, stop.
+          break;
+        }
+      }
+
+      const thetaDeg = effectiveThetaIdx * p.dTheta;
       const elevationDeg = 90 - thetaDeg;
       const range1 = hopRangeKm(elevationDeg, hmF2);
 
