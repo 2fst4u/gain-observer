@@ -46,7 +46,8 @@ export function FeedlineControl() {
 
   return (
     <div className="panel-section">
-      <h3>Feedline</h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>Feedline</h2>
       <label htmlFor="feedline-preset">Cable</label>
       <select
         id="feedline-preset"

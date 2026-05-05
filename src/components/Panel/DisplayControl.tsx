@@ -21,7 +21,8 @@ export function DisplayControl() {
 
   return (
     <div className="panel-section">
-      <h3>Display</h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>Display</h2>
       <label id="colormap-label">Colormap</label>
       <div className="button-group" role="group" aria-labelledby="colormap-label">
         {COLORMAPS.map((c) => (

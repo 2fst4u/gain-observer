@@ -7,14 +7,16 @@ export function StatsReadout() {
   if (!result) {
     return (
       <div className="panel-section">
-        <h3>Results</h3>
+        {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+        <h2>Results</h2>
         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Computing…</div>
       </div>
     );
   }
   return (
     <div className="panel-section">
-      <h3>Results <span className="badge">{result.computeTimeMs.toFixed(0)} ms</span></h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>Results <span className="badge">{result.computeTimeMs.toFixed(0)} ms</span></h2>
       <div className="stat">
         <span className="stat-label">Max gain</span>
         <span className="stat-value accent">{result.maxGainDbi.toFixed(2)} dBi</span>

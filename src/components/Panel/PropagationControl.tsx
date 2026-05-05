@@ -30,6 +30,29 @@ export function PropagationControl() {
 
   const [showAssumptions, setShowAssumptions] = useState(false);
 
+  // Local buffers for numeric inputs to allow natural typing.
+  const [localTIndex, setLocalTIndex] = useState(tIndex.toString());
+  const [isTIndexFocused, setIsTIndexFocused] = useState(false);
+
+  const [prevTIndex, setPrevTIndex] = useState(tIndex);
+  if (tIndex !== prevTIndex) {
+    setPrevTIndex(tIndex);
+    if (!isTIndexFocused) {
+      setLocalTIndex(tIndex.toString());
+    }
+  }
+
+  const [localLat, setLocalLat] = useState(latitudeDeg?.toString() ?? '');
+  const [isLatFocused, setIsLatFocused] = useState(false);
+
+  const [prevLat, setPrevLat] = useState(latitudeDeg);
+  if (latitudeDeg !== prevLat) {
+    setPrevLat(latitudeDeg);
+    if (!isLatFocused) {
+      setLocalLat(latitudeDeg?.toString() ?? '');
+    }
+  }
+
   // Resolve "now" once per render. We deliberately don't memoise on a
   // ticking clock — propagation conditions change on the order of minutes,
   // so the panel just refreshes on the next render trigger (e.g. user
@@ -41,14 +64,14 @@ export function PropagationControl() {
   const month = monthOverride ?? autoMonth;
   const utcHour = utcHourOverride ?? autoUtcHour;
 
-  // Local state for UTC hour input (controlled local buffer pattern)
+  // Local buffer for UTC hour input so typing isn't fought by the auto clock.
   const [localUtcHour, setLocalUtcHour] = useState(utcHour.toFixed(1));
-  const [isHourFocused, setIsHourFocused] = useState(false);
-  const [prevUtcHour, setPrevUtcHour] = useState(utcHour);
+  const [isUtcHourFocused, setIsUtcHourFocused] = useState(false);
 
+  const [prevUtcHour, setPrevUtcHour] = useState(utcHour);
   if (utcHour !== prevUtcHour) {
     setPrevUtcHour(utcHour);
-    if (!isHourFocused) {
+    if (!isUtcHourFocused) {
       setLocalUtcHour(utcHour.toFixed(1));
     }
   }
@@ -73,10 +96,11 @@ export function PropagationControl() {
 
   return (
     <div className="panel-section">
-      <h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>
         Propagation
         <span className="badge">T = {tIndex.toFixed(0)}</span>
-      </h3>
+      </h2>
 
       {/* T-index input */}
       <label htmlFor="t-index-input">T-index</label>
@@ -87,11 +111,18 @@ export function PropagationControl() {
           min={-100}
           max={250}
           step={1}
-          value={tIndex}
+          value={localTIndex}
           aria-label="Ionospheric T-index"
+          onFocus={() => setIsTIndexFocused(true)}
           onChange={(e) => {
-            const v = parseFloat(e.target.value);
+            const s = e.target.value;
+            setLocalTIndex(s);
+            const v = parseFloat(s);
             if (!isNaN(v)) setTIndex(v);
+          }}
+          onBlur={() => {
+            setIsTIndexFocused(false);
+            setLocalTIndex(tIndex.toString());
           }}
         />
       </div>
@@ -109,12 +140,19 @@ export function PropagationControl() {
           min={-90}
           max={90}
           step={0.1}
-          value={latitudeDeg ?? ''}
+          value={localLat}
           placeholder="0.0"
           aria-label="Latitude in degrees"
+          onFocus={() => setIsLatFocused(true)}
           onChange={(e) => {
-            const v = parseFloat(e.target.value);
+            const s = e.target.value;
+            setLocalLat(s);
+            const v = parseFloat(s);
             setLatitude(isNaN(v) ? null : v);
+          }}
+          onBlur={() => {
+            setIsLatFocused(false);
+            setLocalLat(latitudeDeg?.toString() ?? '');
           }}
         />
         <button
@@ -131,7 +169,7 @@ export function PropagationControl() {
         {geoStatusMessage(geoStatus, latitudeDeg)}
       </p>
 
-      {/* Time & Month — auto-filled from browser clock unless overridden */}
+      {/* Time & Month — always visible, auto-filled from browser clock unless overridden */}
       <label htmlFor="month-select" style={{ marginTop: 10 }}>Month</label>
       <div className="row">
         <select
@@ -161,7 +199,7 @@ export function PropagationControl() {
           max={23.99}
           step={0.1}
           value={localUtcHour}
-          onFocus={() => setIsHourFocused(true)}
+          onFocus={() => setIsUtcHourFocused(true)}
           aria-label="UTC hour override"
           onChange={(e) => {
             const s = e.target.value;
@@ -172,7 +210,7 @@ export function PropagationControl() {
             }
           }}
           onBlur={() => {
-            setIsHourFocused(false);
+            setIsUtcHourFocused(false);
             setLocalUtcHour(utcHour.toFixed(1));
           }}
         />

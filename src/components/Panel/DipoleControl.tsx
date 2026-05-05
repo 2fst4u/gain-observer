@@ -58,7 +58,8 @@ export function DipoleControl() {
 
   return (
     <div className="panel-section">
-      <h3>Dipole</h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>Dipole</h2>
 
       <label htmlFor="dipole-length">Length ({unit})</label>
       <div className="row">
