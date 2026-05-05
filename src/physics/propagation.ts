@@ -49,6 +49,8 @@
 //   • IPS Radio & Space Services (Australia): definition of T-index.
 //   • Davies, K. (1990), Ionospheric Radio: zenith-angle absorption model.
 
+import type { GainPattern } from './types';
+
 /**
  * Inputs to a hop prediction.
  */
@@ -68,9 +70,14 @@ export interface PropagationInputs {
   /** Path-midpoint longitude, degrees (-180..+180). Optional; defaults to 0
    *  (Greenwich) if omitted, which collapses local-noon to UTC noon. */
   readonly longitudeDeg?: number;
+  /** Optional full gain pattern to allow directional range calculations. */
+  readonly pattern?: GainPattern;
+  /** Operating SWR (to account for mismatch loss). */
+  readonly swr?: number;
 }
 
 export type HopStatus = 'open' | 'marginal' | 'closed';
+export type LinkQuality = 'useful' | 'weak' | 'unusable';
 
 export interface HopPrediction {
   /** Hop number, 1-based. */
@@ -80,6 +87,12 @@ export interface HopPrediction {
   readonly status: HopStatus;
   /** Human-readable reason ('f > MUF', 'f < LUF', 'within MUF margin', …). */
   readonly reason: string;
+  /** Antenna/link quality for this selected ray. This does not alter range geometry. */
+  readonly linkQuality: LinkQuality;
+  /** Effective antenna gain after mismatch loss, if pattern data is available. */
+  readonly effectiveGainDbi?: number;
+  /** Elevation angle used for this hop's geometry. */
+  readonly takeoffElevationDeg: number;
 }
 
 export interface PropagationPrediction {
@@ -88,8 +101,22 @@ export interface PropagationPrediction {
   readonly mufMHz: number;
   readonly lufMHz: number;
   readonly hops: readonly HopPrediction[];
+  /** Elevation used for the scalar/best-bearing hop readout. */
+  readonly selectedTakeoffElevationDeg: number;
+  /** SWR mismatch loss, dB. Reported separately from path geometry. */
+  readonly mismatchLossDb: number;
   /** Solar zenith angle at path midpoint, degrees (0=overhead, 90=horizon, >90=below horizon). */
   readonly solarZenithDeg: number;
+  /** Ranges for each azimuth, if a pattern was provided. */
+  readonly azimuthalHops?: {
+    readonly phiDeg: number;
+    readonly takeoffElevationDeg: number;
+    readonly rangeKm: number[];
+    readonly status: HopStatus;
+    readonly reason: string;
+    readonly linkQuality: LinkQuality;
+    readonly effectiveGainDbi?: number;
+  }[];
 }
 
 /** Earth's mean radius, km. */
@@ -100,6 +127,10 @@ const MAX_HOPS = 3;
 
 /** "Marginal" margin around MUF/LUF as a fraction (10%). */
 const MARGIN_FRAC = 0.10;
+
+/** Display thresholds for link quality. These do not change hop geometry. */
+const USEFUL_SIGNAL_DBI = -5;
+const WEAK_SIGNAL_DBI = -15;
 
 const DEG = Math.PI / 180;
 
@@ -168,10 +199,10 @@ export function solarZenithDeg(
  *   approximately the long-term ionospheric median; positive values raise
  *   foF2, negative values depress it. We use a smooth scaling that covers
  *   the practical range:
- *     T =  -50 → factor ≈ 0.55 (badly disturbed; foF2 floor)
+ *     T =  -50 → factor ≈ 0.72 (badly disturbed; foF2 floor)
  *     T =    0 → factor ≈ 1.00 (median)
- *     T =  100 → factor ≈ 1.55
- *     T =  200 → factor ≈ 1.90 (very active conditions)
+ *     T =  100 → factor ≈ 1.46
+ *     T =  200 → factor ≈ 1.58 (very active conditions)
  *
  *   latitudeFactor(lat) — equatorial enhancement and polar depression.
  *   ~1.10 at the geomagnetic equator, ~0.85 at high latitudes.
@@ -269,9 +300,8 @@ export function hopRangeKm(takeoffElevationDeg: number, hmF2Km: number): number 
  *   MUF = foF2 · sec(φ_i)
  * where φ_i is the angle of incidence at the reflection point.
  *
- * For a flat earth, φ_i = 90° − ε (take-off elevation). Curved earth makes
- * φ_i larger for a given ε because the path arrives at the layer more
- * obliquely; we account for that in the geometry below.
+ * For a flat earth, φ_i = 90° − ε (take-off elevation). The finite shell
+ * height changes this angle for a given ε; we account for that below.
  */
 export function estimateMUFMHz(
   foF2MHz: number,
@@ -336,44 +366,73 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
   const lon = input.longitudeDeg ?? 0;
   const fof2 = estimateFoF2MHz(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
   const hmF2 = estimateHmF2Km(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
-  const muf = estimateMUFMHz(fof2, input.takeoffElevationDeg, hmF2);
-  const luf = estimateLUFMHz(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
   const chi = solarZenithDeg(input.latitudeDeg, lon, input.month, input.utcHour);
 
-  const oneHop = hopRangeKm(input.takeoffElevationDeg, hmF2);
+  // Account for mismatch loss if SWR is provided.
+  const s = input.swr ?? 1;
+  const mismatchLossDb = Number.isFinite(s) && s > 1
+    ? -10 * Math.log10(1 - Math.pow((s - 1) / (s + 1), 2))
+    : 0;
+  const luf = estimateLUFMHz(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
 
-  const f = input.frequencyMHz;
-  const aboveMuf = f > muf;
-  const belowLuf = f < luf;
-  const closeToMuf = !aboveMuf && f > muf * (1 - MARGIN_FRAC);
-  const closeToLuf = !belowLuf && f < luf * (1 + MARGIN_FRAC);
+  const azimuthalHops: PropagationPrediction['azimuthalHops'] = [];
+  if (input.pattern) {
+    const p = input.pattern;
+    // We sample at most 72 radials (5° steps) to keep radar rendering fast.
+    const phiStride = Math.max(1, Math.floor(p.phiSteps / 72));
+    for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
+      let bestRay: RayPrediction | null = null;
 
-  let status: HopStatus;
-  let reason: string;
-  if (aboveMuf) {
-    status = 'closed';
-    reason = `f (${f.toFixed(2)} MHz) > MUF (${muf.toFixed(2)} MHz)`;
-  } else if (belowLuf) {
-    status = 'closed';
-    reason = `f (${f.toFixed(2)} MHz) < LUF (${luf.toFixed(2)} MHz)`;
-  } else if (closeToMuf) {
-    status = 'marginal';
-    reason = `within ${(MARGIN_FRAC * 100).toFixed(0)}% of MUF`;
-  } else if (closeToLuf) {
-    status = 'marginal';
-    reason = `within ${(MARGIN_FRAC * 100).toFixed(0)}% of LUF`;
-  } else {
-    status = 'open';
-    reason = 'between LUF and MUF';
+      for (let ti = 0; ti < p.thetaSteps; ti++) {
+        const elevationDeg = 90 - ti * p.dTheta;
+        if (elevationDeg < 0.5) continue;
+
+        const gainDbi = p.data[ti * p.phiSteps + pi] ?? -Infinity;
+        const ray = predictRay(input.frequencyMHz, fof2, luf, hmF2, elevationDeg, gainDbi - mismatchLossDb);
+        if (!bestRay || compareRays(ray, bestRay) > 0) bestRay = ray;
+      }
+
+      if (bestRay) {
+        azimuthalHops.push({
+          phiDeg: pi * p.dPhi,
+          takeoffElevationDeg: bestRay.takeoffElevationDeg,
+          rangeKm: [bestRay.rangeKm, bestRay.rangeKm * 2, bestRay.rangeKm * 3],
+          status: bestRay.status,
+          reason: bestRay.reason,
+          linkQuality: bestRay.linkQuality,
+          effectiveGainDbi: bestRay.effectiveGainDbi,
+        });
+      }
+    }
   }
 
-  // Each subsequent hop adds the same single-hop ground range. The status
-  // logic above is path-shape independent (it only depends on the user's
-  // operating frequency vs MUF/LUF for the take-off geometry), so all
-  // hops share the same status. Range scales linearly with hop count.
+  const selectedRay = azimuthalHops.length > 0
+    ? selectBestAzimuthalRay(azimuthalHops)
+    : predictRay(
+      input.frequencyMHz,
+      fof2,
+      luf,
+      hmF2,
+      input.takeoffElevationDeg,
+      effectiveGainForElevation(input.pattern, input.takeoffElevationDeg, mismatchLossDb),
+    );
+
+  const muf = estimateMUFMHz(fof2, selectedRay.takeoffElevationDeg, hmF2);
+
+  // Each subsequent hop adds the same single-hop ground range for the selected
+  // ray. Link quality is reported alongside the path status; it never changes
+  // the geometric skip distance.
   const hops: HopPrediction[] = [];
   for (let n = 1; n <= MAX_HOPS; n++) {
-    hops.push({ n, rangeKm: oneHop * n, status, reason });
+    hops.push({
+      n,
+      rangeKm: selectedRay.rangeKm * n,
+      status: selectedRay.status,
+      reason: selectedRay.reason,
+      linkQuality: selectedRay.linkQuality,
+      effectiveGainDbi: selectedRay.effectiveGainDbi,
+      takeoffElevationDeg: selectedRay.takeoffElevationDeg,
+    });
   }
 
   return {
@@ -381,8 +440,11 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
     hmF2Km: hmF2,
     mufMHz: muf,
     lufMHz: luf,
+    selectedTakeoffElevationDeg: selectedRay.takeoffElevationDeg,
+    mismatchLossDb,
     solarZenithDeg: chi,
     hops,
+    azimuthalHops: azimuthalHops.length > 0 ? azimuthalHops : undefined,
   };
 }
 
@@ -393,4 +455,121 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
 function clamp(v: number, min: number, max: number): number {
   if (!Number.isFinite(v)) return min;
   return Math.max(min, Math.min(max, v));
+}
+
+interface RayPrediction {
+  readonly takeoffElevationDeg: number;
+  readonly rangeKm: number;
+  readonly status: HopStatus;
+  readonly reason: string;
+  readonly linkQuality: LinkQuality;
+  readonly effectiveGainDbi?: number;
+}
+
+function predictRay(
+  frequencyMHz: number,
+  foF2MHz: number,
+  lufMHz: number,
+  hmF2Km: number,
+  takeoffElevationDeg: number,
+  effectiveGainDbi?: number,
+): RayPrediction {
+  const mufMHz = estimateMUFMHz(foF2MHz, takeoffElevationDeg, hmF2Km);
+  const { status, reason } = classifyPath(frequencyMHz, mufMHz, lufMHz);
+  return {
+    takeoffElevationDeg: clamp(takeoffElevationDeg, 0.5, 89.5),
+    rangeKm: hopRangeKm(takeoffElevationDeg, hmF2Km),
+    status,
+    reason,
+    linkQuality: classifyLinkQuality(effectiveGainDbi),
+    effectiveGainDbi,
+  };
+}
+
+function classifyPath(frequencyMHz: number, mufMHz: number, lufMHz: number): Pick<RayPrediction, 'status' | 'reason'> {
+  if (frequencyMHz > mufMHz) {
+    return { status: 'closed', reason: `f (${frequencyMHz.toFixed(2)} MHz) > MUF (${mufMHz.toFixed(2)} MHz)` };
+  }
+  if (frequencyMHz < lufMHz) {
+    return { status: 'closed', reason: `f (${frequencyMHz.toFixed(2)} MHz) < LUF (${lufMHz.toFixed(2)} MHz)` };
+  }
+  if (frequencyMHz > mufMHz * (1 - MARGIN_FRAC)) {
+    return { status: 'marginal', reason: `within ${(MARGIN_FRAC * 100).toFixed(0)}% of MUF` };
+  }
+  if (frequencyMHz < lufMHz * (1 + MARGIN_FRAC)) {
+    return { status: 'marginal', reason: `within ${(MARGIN_FRAC * 100).toFixed(0)}% of LUF` };
+  }
+  return { status: 'open', reason: 'between LUF and MUF' };
+}
+
+function classifyLinkQuality(effectiveGainDbi?: number): LinkQuality {
+  if (effectiveGainDbi === undefined || !Number.isFinite(effectiveGainDbi)) return 'useful';
+  if (effectiveGainDbi >= USEFUL_SIGNAL_DBI) return 'useful';
+  if (effectiveGainDbi >= WEAK_SIGNAL_DBI) return 'weak';
+  return 'unusable';
+}
+
+function compareRays(a: RayPrediction, b: RayPrediction): number {
+  const statusDelta = statusRank(a.status) - statusRank(b.status);
+  if (statusDelta !== 0) return statusDelta;
+
+  const qualityDelta = qualityRank(a.linkQuality) - qualityRank(b.linkQuality);
+  if (qualityDelta !== 0) return qualityDelta;
+
+  return a.rangeKm - b.rangeKm;
+}
+
+function statusRank(status: HopStatus): number {
+  if (status === 'open') return 2;
+  if (status === 'marginal') return 1;
+  return 0;
+}
+
+function qualityRank(quality: LinkQuality): number {
+  if (quality === 'useful') return 2;
+  if (quality === 'weak') return 1;
+  return 0;
+}
+
+function selectBestAzimuthalRay(azimuthal: NonNullable<PropagationPrediction['azimuthalHops']>): RayPrediction {
+  let best = azimuthal[0]!;
+  for (const ray of azimuthal.slice(1)) {
+    const candidate: RayPrediction = {
+      takeoffElevationDeg: ray.takeoffElevationDeg,
+      rangeKm: ray.rangeKm[0] ?? 0,
+      status: ray.status,
+      reason: ray.reason,
+      linkQuality: ray.linkQuality,
+      effectiveGainDbi: ray.effectiveGainDbi,
+    };
+    const current: RayPrediction = {
+      takeoffElevationDeg: best.takeoffElevationDeg,
+      rangeKm: best.rangeKm[0] ?? 0,
+      status: best.status,
+      reason: best.reason,
+      linkQuality: best.linkQuality,
+      effectiveGainDbi: best.effectiveGainDbi,
+    };
+    if (compareRays(candidate, current) > 0) best = ray;
+  }
+  return {
+    takeoffElevationDeg: best.takeoffElevationDeg,
+    rangeKm: best.rangeKm[0] ?? 0,
+    status: best.status,
+    reason: best.reason,
+    linkQuality: best.linkQuality,
+    effectiveGainDbi: best.effectiveGainDbi,
+  };
+}
+
+function effectiveGainForElevation(p: GainPattern | undefined, elevationDeg: number, mismatchLossDb: number): number | undefined {
+  if (!p) return undefined;
+  const ti = Math.round((90 - elevationDeg) / p.dTheta);
+  const clampedTi = Math.max(0, Math.min(p.thetaSteps - 1, ti));
+  let tiMaxG = -Infinity;
+  for (let pi = 0; pi < p.phiSteps; pi++) {
+    const g = p.data[clampedTi * p.phiSteps + pi]!;
+    if (g > tiMaxG) tiMaxG = g;
+  }
+  return tiMaxG - mismatchLossDb;
 }

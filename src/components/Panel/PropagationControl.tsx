@@ -40,7 +40,6 @@ export function PropagationControl() {
   const utcHour = utcHourOverride ?? (now.getUTCHours() + now.getUTCMinutes() / 60);
 
   const takeoffElevationDeg = result?.takeoffElevationDeg ?? 30;
-  const takeoffAzimuthDeg = result?.takeoffAzimuthDeg;
 
   const prediction = useMemo(() => {
     return predictPropagation({
@@ -51,8 +50,10 @@ export function PropagationControl() {
       utcHour,
       latitudeDeg: latitudeDeg ?? 0,
       longitudeDeg: longitudeDeg ?? 0,
+      pattern: result?.pattern,
+      swr: result?.swr,
     });
-  }, [frequency, tIndex, takeoffElevationDeg, month, utcHour, latitudeDeg, longitudeDeg]);
+  }, [frequency, tIndex, takeoffElevationDeg, month, utcHour, latitudeDeg, longitudeDeg, result?.pattern, result?.swr]);
 
   const haveTakeoff = result !== null;
 
@@ -176,9 +177,19 @@ export function PropagationControl() {
         <span className="stat-value">{prediction.hmF2Km.toFixed(0)} km</span>
       </div>
       <div className="stat">
-        <span className="stat-label">MUF (this take-off)</span>
+        <span className="stat-label">MUF (selected ray)</span>
         <span className="stat-value">{prediction.mufMHz.toFixed(2)} MHz</span>
       </div>
+      <div className="stat">
+        <span className="stat-label">Selected elevation</span>
+        <span className="stat-value">{prediction.selectedTakeoffElevationDeg.toFixed(0)}°</span>
+      </div>
+      {prediction.mismatchLossDb > 0.01 && (
+        <div className="stat">
+          <span className="stat-label">SWR mismatch loss</span>
+          <span className="stat-value">{prediction.mismatchLossDb.toFixed(1)} dB</span>
+        </div>
+      )}
       <div className="stat" title="Lower usable frequency: D-layer absorption estimate. Least reliable part of the model — see assumptions.">
         <span className="stat-label">
           LUF <span style={{ color: 'var(--warning)', cursor: 'help' }} aria-label="LUF is the least reliable part of the model">ⓘ</span>
@@ -192,7 +203,6 @@ export function PropagationControl() {
         <PropagationRadar
           prediction={prediction}
           units={units}
-          azimuthDeg={takeoffAzimuthDeg}
         />
       ) : (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>
@@ -211,7 +221,7 @@ export function PropagationControl() {
               style={{ color: hopColor(h.status) }}
               title={h.reason}
             >
-              {formatRange(h.rangeKm, units)} · {h.status}
+              {formatRange(h.rangeKm, units)} · {h.status} · {qualityLabel(h.linkQuality)}
             </span>
           </div>
         ))}
@@ -240,6 +250,7 @@ export function PropagationControl() {
             <li>foF2 from T-index, solar zenith angle, latitude (no URSI/CCIR maps).</li>
             <li>hmF2 from a simple day/night sinusoid centred on canonical values.</li>
             <li>MUF: secant law with curved-Earth correction.</li>
+            <li>Range is ray geometry from elevation and hmF2. Gain and SWR affect signal quality, not skip distance.</li>
             <li>
               <strong>LUF: heuristic from D-layer absorption.</strong> Treat with caution
               — least reliable part of the model, especially near sunrise/sunset.
@@ -264,6 +275,12 @@ function hopColor(status: 'open' | 'marginal' | 'closed'): string {
   if (status === 'open') return 'var(--success)';
   if (status === 'marginal') return 'var(--warning)';
   return 'var(--danger)';
+}
+
+function qualityLabel(quality: 'useful' | 'weak' | 'unusable'): string {
+  if (quality === 'useful') return 'usable signal';
+  if (quality === 'weak') return 'weak signal';
+  return 'very weak signal';
 }
 
 function formatUtcHour(h: number): string {

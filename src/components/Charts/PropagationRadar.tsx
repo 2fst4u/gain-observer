@@ -17,9 +17,6 @@ import type { UnitSystem } from '../../physics/units';
 interface PropagationRadarProps {
   readonly prediction: PropagationPrediction;
   readonly units: UnitSystem;
-  /** Antenna take-off azimuth in degrees (0 = +x = East in the scene
-   *  convention). Used to draw a directional indicator. */
-  readonly azimuthDeg?: number;
   /** Pixel size (square). */
   readonly size?: number;
 }
@@ -42,17 +39,43 @@ function statusFill(status: 'open' | 'marginal' | 'closed'): string {
   return 'var(--danger)';
 }
 
+function qualityOpacity(quality: 'useful' | 'weak' | 'unusable'): number {
+  if (quality === 'useful') return 0.16;
+  if (quality === 'weak') return 0.08;
+  return 0.035;
+}
+
+function worseStatus(a: 'open' | 'marginal' | 'closed', b: 'open' | 'marginal' | 'closed'): 'open' | 'marginal' | 'closed' {
+  const rank = { open: 2, marginal: 1, closed: 0 } as const;
+  return rank[a] <= rank[b] ? a : b;
+}
+
+function worseQuality(a: 'useful' | 'weak' | 'unusable', b: 'useful' | 'weak' | 'unusable'): 'useful' | 'weak' | 'unusable' {
+  const rank = { useful: 2, weak: 1, unusable: 0 } as const;
+  return rank[a] <= rank[b] ? a : b;
+}
+
 export function PropagationRadar({
   prediction,
   units,
-  azimuthDeg,
   size = 280,
 }: PropagationRadarProps) {
   const cx = size / 2;
   const cy = size / 2;
   // Leave a margin for axis labels.
   const margin = 24;
-  const maxRangeKm = prediction.hops[prediction.hops.length - 1]?.rangeKm ?? 1;
+
+  // Find overall maximum range to scale the radar.
+  let maxRangeKm = prediction.hops[prediction.hops.length - 1]?.rangeKm ?? 1;
+  if (prediction.azimuthalHops) {
+    for (const az of prediction.azimuthalHops) {
+      const lastRange = az.rangeKm[az.rangeKm.length - 1];
+      if (lastRange && lastRange > maxRangeKm) {
+        maxRangeKm = lastRange;
+      }
+    }
+  }
+
   const maxRadiusPx = (size / 2) - margin;
   const kmToPx = maxRadiusPx / Math.max(1, maxRangeKm);
 
@@ -70,26 +93,9 @@ export function PropagationRadar({
     rangeKm: h.rangeKm,
     rPx: h.rangeKm * kmToPx,
     status: h.status,
+    linkQuality: h.linkQuality,
   }));
 
-  // Optional pointer toward the take-off azimuth. Scene convention: 0° = +x
-  // (East). Compass north (top of the radar) is +y in screen coords. We map
-  // azimuth → angle measured clockwise from north (the conventional compass
-  // sense). Pre-rotate by -90° so 0° azimuth points east on the radar.
-  let pointer: { x: number; y: number } | null = null;
-  if (typeof azimuthDeg === 'number' && Number.isFinite(azimuthDeg)) {
-    const az = ((azimuthDeg % 360) + 360) % 360;
-    // Scene: 0=E, 90=N, 180=W, 270=S. Compass: 0=N, 90=E, 180=S, 270=W.
-    // Convert scene azimuth to screen-space angle (clockwise from north):
-    //   compassDeg = (90 - sceneAz) mod 360
-    const compass = ((90 - az) + 360) % 360;
-    const rad = compass * Math.PI / 180;
-    const r = maxRadiusPx;
-    pointer = {
-      x: cx + r * Math.sin(rad),
-      y: cy - r * Math.cos(rad),
-    };
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -121,36 +127,61 @@ export function PropagationRadar({
         <line x1={cx} y1={margin} x2={cx} y2={size - margin} stroke="var(--border)" opacity={0.5} />
         <line x1={margin} y1={cy} x2={size - margin} y2={cy} stroke="var(--border)" opacity={0.5} />
 
-        {/* Hop rings: stroked from outermost to innermost so labels stay readable */}
-        {rings.slice().reverse().map((ring) => (
-          <circle
-            key={ring.n}
-            cx={cx}
-            cy={cy}
-            r={ring.rPx}
-            fill={statusFill(ring.status)}
-            fillOpacity={ring.status === 'open' ? 0.16 : ring.status === 'marginal' ? 0.16 : 0.12}
-            stroke={statusFill(ring.status)}
-            strokeOpacity={0.85}
-            strokeWidth={2}
-          />
-        ))}
+        {/* Hop rings: rendered from outermost to innermost so labels stay readable.
+            If azimuthalHops are available, the ring is a sequence of per-azimuth
+            wedges so the colour reflects each bearing's own status / link
+            quality, not a single global "best-bearing" colour. */}
+        {rings.slice().reverse().map((ring) => {
+          if (prediction.azimuthalHops && prediction.azimuthalHops.length > 1) {
+            const az = prediction.azimuthalHops;
+            const wedges = az.map((aPoint, i) => {
+              const bPoint = az[(i + 1) % az.length]!;
+              const rA = (aPoint.rangeKm[ring.n - 1] ?? 0) * kmToPx;
+              const rB = (bPoint.rangeKm[ring.n - 1] ?? 0) * kmToPx;
+              const aRad = ((aPoint.phiDeg % 360) + 360) % 360 * Math.PI / 180;
+              const bRad = ((bPoint.phiDeg % 360) + 360) % 360 * Math.PI / 180;
+              const ax = cx + rA * Math.sin(aRad);
+              const ay = cy - rA * Math.cos(aRad);
+              const bx = cx + rB * Math.sin(bRad);
+              const by = cy - rB * Math.cos(bRad);
+              // Colour the wedge by the worse status / quality of its two
+              // bounding radials, so a closed bearing visually pulls the
+              // wedge into "closed" rather than borrowing colour from a
+              // neighbouring open bearing.
+              const status = worseStatus(aPoint.status, bPoint.status);
+              const linkQuality = worseQuality(aPoint.linkQuality, bPoint.linkQuality);
+              return (
+                <polygon
+                  key={`${ring.n}-${i}`}
+                  points={`${cx},${cy} ${ax},${ay} ${bx},${by}`}
+                  fill={statusFill(status)}
+                  fillOpacity={qualityOpacity(linkQuality)}
+                  stroke={statusFill(status)}
+                  strokeOpacity={linkQuality === 'unusable' ? 0.25 : 0.6}
+                  strokeWidth={1}
+                  strokeDasharray={linkQuality === 'unusable' ? '4 3' : undefined}
+                />
+              );
+            });
+            return <g key={ring.n}>{wedges}</g>;
+          }
 
-        {/* Direction-of-peak pointer */}
-        {pointer && (
-          <g>
-            <line
-              x1={cx}
-              y1={cy}
-              x2={pointer.x}
-              y2={pointer.y}
-              stroke="var(--accent)"
+          return (
+            <circle
+              key={ring.n}
+              cx={cx}
+              cy={cy}
+              r={ring.rPx}
+              fill={statusFill(ring.status)}
+              fillOpacity={qualityOpacity(ring.linkQuality)}
+              stroke={statusFill(ring.status)}
+              strokeOpacity={ring.linkQuality === 'unusable' ? 0.35 : 0.85}
               strokeWidth={2}
-              strokeDasharray="4 3"
+              strokeDasharray={ring.linkQuality === 'unusable' ? '4 3' : undefined}
             />
-            <circle cx={pointer.x} cy={pointer.y} r={4} fill="var(--accent)" />
-          </g>
-        )}
+          );
+        })}
+
 
         {/* Centre dot = antenna location */}
         <circle cx={cx} cy={cy} r={4} fill="var(--accent)" />
@@ -170,13 +201,13 @@ export function PropagationRadar({
           </text>
         ))}
 
-        {/* Range label on each hop ring (placed along the +x axis to stay
-            clear of the direction pointer when present) */}
+        {/* Range label on each hop ring (placed along the +y axis but offset
+            to the right to avoid the 'N' cardinal and prevent overlap) */}
         {rings.map((ring) => (
           <text
             key={ring.n}
-            x={cx + ring.rPx + 4}
-            y={cy - 4}
+            x={cx + 24}
+            y={cy - ring.rPx - 4}
             fontSize={10}
             fill="var(--text-dim)"
             fontFamily="system-ui, sans-serif"
@@ -192,6 +223,7 @@ export function PropagationRadar({
         <LegendSwatch color="var(--success)" label="Open" />
         <LegendSwatch color="var(--warning)" label="Marginal" />
         <LegendSwatch color="var(--danger)" label="Closed" />
+        <span>Faint/dashed = weak signal</span>
       </div>
     </div>
   );
