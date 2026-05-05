@@ -247,7 +247,8 @@ export function SWRChart() {
   if (!result || sweep.length === 0) {
     return (
       <div className="panel-section" style={{ minHeight: 220 }}>
-        <h3>SWR sweep</h3>
+        {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+        <h2>SWR sweep</h2>
         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Computing frequency sweep…</div>
       </div>
     );
@@ -255,7 +256,8 @@ export function SWRChart() {
 
   return (
     <div className="panel-section" style={{ minHeight: 220 }}>
-      <h3>SWR sweep</h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>SWR sweep</h2>
       <div style={{ height: 130 }}>
         <Line data={data} options={options} />
       </div>
