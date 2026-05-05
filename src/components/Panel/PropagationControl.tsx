@@ -14,6 +14,7 @@ const MONTH_NAMES = [
 
 export function PropagationControl() {
   const frequency = useAntennaStore((s) => s.frequency);
+  const mode = useAntennaStore((s) => s.mode);
   const tIndex = useAntennaStore((s) => s.tIndex);
   const setTIndex = useAntennaStore((s) => s.setTIndex);
   const latitudeDeg = useAntennaStore((s) => s.latitudeDeg);
@@ -51,8 +52,9 @@ export function PropagationControl() {
       utcHour,
       latitudeDeg: latitudeDeg ?? 0,
       longitudeDeg: longitudeDeg ?? 0,
+      pattern: result?.pattern,
     });
-  }, [frequency, tIndex, takeoffElevationDeg, month, utcHour, latitudeDeg, longitudeDeg]);
+  }, [frequency, tIndex, takeoffElevationDeg, month, utcHour, latitudeDeg, longitudeDeg, result?.pattern]);
 
   const haveTakeoff = result !== null;
 
@@ -193,6 +195,8 @@ export function PropagationControl() {
           prediction={prediction}
           units={units}
           azimuthDeg={takeoffAzimuthDeg}
+          elevationDeg={takeoffElevationDeg}
+          isNvis={mode === 'nvis'}
         />
       ) : (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>

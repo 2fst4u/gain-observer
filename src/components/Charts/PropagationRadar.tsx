@@ -20,6 +20,11 @@ interface PropagationRadarProps {
   /** Antenna take-off azimuth in degrees (0 = +x = East in the scene
    *  convention). Used to draw a directional indicator. */
   readonly azimuthDeg?: number;
+  /** Antenna take-off elevation in degrees (0 = horizon, 90 = zenith).
+   *  Used to hide the indicator for NVIS (vertical) patterns. */
+  readonly elevationDeg?: number;
+  /** Is NVIS mode active? */
+  readonly isNvis?: boolean;
   /** Pixel size (square). */
   readonly size?: number;
 }
@@ -46,13 +51,26 @@ export function PropagationRadar({
   prediction,
   units,
   azimuthDeg,
+  elevationDeg,
+  isNvis,
   size = 280,
 }: PropagationRadarProps) {
   const cx = size / 2;
   const cy = size / 2;
   // Leave a margin for axis labels.
   const margin = 24;
-  const maxRangeKm = prediction.hops[prediction.hops.length - 1]?.rangeKm ?? 1;
+
+  // Find overall maximum range to scale the radar.
+  let maxRangeKm = prediction.hops[prediction.hops.length - 1]?.rangeKm ?? 1;
+  if (prediction.azimuthalHops) {
+    for (const az of prediction.azimuthalHops) {
+      const lastRange = az.rangeKm[az.rangeKm.length - 1];
+      if (lastRange && lastRange > maxRangeKm) {
+        maxRangeKm = lastRange;
+      }
+    }
+  }
+
   const maxRadiusPx = (size / 2) - margin;
   const kmToPx = maxRadiusPx / Math.max(1, maxRangeKm);
 
@@ -72,12 +90,12 @@ export function PropagationRadar({
     status: h.status,
   }));
 
-  // Optional pointer toward the take-off azimuth. Scene convention: 0° = +x
-  // (East). Compass north (top of the radar) is +y in screen coords. We map
-  // azimuth → angle measured clockwise from north (the conventional compass
-  // sense). Pre-rotate by -90° so 0° azimuth points east on the radar.
+  // Optional pointer toward the take-off azimuth.
+  // Hide if NVIS mode is active or elevation is near vertical (> 80°).
   let pointer: { x: number; y: number } | null = null;
-  if (typeof azimuthDeg === 'number' && Number.isFinite(azimuthDeg)) {
+  const hidePointer = isNvis || (typeof elevationDeg === 'number' && elevationDeg > 80);
+
+  if (!hidePointer && typeof azimuthDeg === 'number' && Number.isFinite(azimuthDeg)) {
     const az = ((azimuthDeg % 360) + 360) % 360;
     // Scene: 0=E, 90=N, 180=W, 270=S. Compass: 0=N, 90=E, 180=S, 270=W.
     // Convert scene azimuth to screen-space angle (clockwise from north):
@@ -121,20 +139,46 @@ export function PropagationRadar({
         <line x1={cx} y1={margin} x2={cx} y2={size - margin} stroke="var(--border)" opacity={0.5} />
         <line x1={margin} y1={cy} x2={size - margin} y2={cy} stroke="var(--border)" opacity={0.5} />
 
-        {/* Hop rings: stroked from outermost to innermost so labels stay readable */}
-        {rings.slice().reverse().map((ring) => (
-          <circle
-            key={ring.n}
-            cx={cx}
-            cy={cy}
-            r={ring.rPx}
-            fill={statusFill(ring.status)}
-            fillOpacity={ring.status === 'open' ? 0.16 : ring.status === 'marginal' ? 0.16 : 0.12}
-            stroke={statusFill(ring.status)}
-            strokeOpacity={0.85}
-            strokeWidth={2}
-          />
-        ))}
+        {/* Hop rings: rendered from outermost to innermost so labels stay readable.
+            If azimuthalHops are available, draw non-circular rings. */}
+        {rings.slice().reverse().map((ring) => {
+          if (prediction.azimuthalHops) {
+            const points = prediction.azimuthalHops.map((az) => {
+              const rKm = az.rangeKm[ring.n - 1] ?? 0;
+              const rPx = rKm * kmToPx;
+              const azDeg = ((az.phiDeg % 360) + 360) % 360;
+              const compass = ((90 - azDeg) + 360) % 360;
+              const rad = compass * Math.PI / 180;
+              return `${cx + rPx * Math.sin(rad)},${cy - rPx * Math.cos(rad)}`;
+            }).join(' ');
+
+            return (
+              <polygon
+                key={ring.n}
+                points={points}
+                fill={statusFill(ring.status)}
+                fillOpacity={ring.status === 'open' ? 0.16 : ring.status === 'marginal' ? 0.16 : 0.12}
+                stroke={statusFill(ring.status)}
+                strokeOpacity={0.85}
+                strokeWidth={2}
+              />
+            );
+          }
+
+          return (
+            <circle
+              key={ring.n}
+              cx={cx}
+              cy={cy}
+              r={ring.rPx}
+              fill={statusFill(ring.status)}
+              fillOpacity={ring.status === 'open' ? 0.16 : ring.status === 'marginal' ? 0.16 : 0.12}
+              stroke={statusFill(ring.status)}
+              strokeOpacity={0.85}
+              strokeWidth={2}
+            />
+          );
+        })}
 
         {/* Direction-of-peak pointer */}
         {pointer && (

@@ -111,7 +111,7 @@ describe('hopRangeKm', () => {
   it('grazing (0.5°) gives a long but finite range', () => {
     const r = hopRangeKm(0.5, 300);
     expect(r).toBeGreaterThan(3500);
-    expect(r).toBeFinite();
+    expect(Number.isFinite(r)).toBe(true);
   });
 });
 
@@ -237,5 +237,33 @@ describe('predictPropagation', () => {
         expect(h.rangeKm).toBeGreaterThan(0);
       }
     }
+  });
+
+  it('calculates azimuthalHops when a pattern is provided', () => {
+    const pattern = {
+      data: new Float32Array(37 * 72),
+      thetaSteps: 37,
+      phiSteps: 72,
+      dTheta: 5,
+      dPhi: 5,
+    };
+    // Set a peak at 30 deg elevation (theta=60, index 12) for phi=0
+    pattern.data[12 * 72 + 0] = 10;
+    // Set a peak at 60 deg elevation (theta=30, index 6) for phi=1 (5 deg)
+    pattern.data[6 * 72 + 1] = 10;
+
+    const p = predictPropagation({ ...baseInput, pattern });
+    expect(p.azimuthalHops).toBeDefined();
+    expect(p.azimuthalHops?.length).toBeGreaterThan(0);
+
+    const hop0 = p.azimuthalHops?.[0];
+    expect(hop0?.phiDeg).toBe(0);
+    expect(hop0?.takeoffElevationDeg).toBeCloseTo(30);
+
+    const hop1 = p.azimuthalHops?.[1];
+    expect(hop1?.phiDeg).toBe(5);
+    expect(hop1?.takeoffElevationDeg).toBeCloseTo(60);
+    // Higher elevation should have shorter range
+    expect(hop1!.rangeKm[0]).toBeLessThan(hop0!.rangeKm[0]);
   });
 });

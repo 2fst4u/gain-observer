@@ -49,6 +49,8 @@
 //   • IPS Radio & Space Services (Australia): definition of T-index.
 //   • Davies, K. (1990), Ionospheric Radio: zenith-angle absorption model.
 
+import type { GainPattern } from './types';
+
 /**
  * Inputs to a hop prediction.
  */
@@ -68,6 +70,8 @@ export interface PropagationInputs {
   /** Path-midpoint longitude, degrees (-180..+180). Optional; defaults to 0
    *  (Greenwich) if omitted, which collapses local-noon to UTC noon. */
   readonly longitudeDeg?: number;
+  /** Optional full gain pattern to allow directional range calculations. */
+  readonly pattern?: GainPattern;
 }
 
 export type HopStatus = 'open' | 'marginal' | 'closed';
@@ -90,6 +94,12 @@ export interface PropagationPrediction {
   readonly hops: readonly HopPrediction[];
   /** Solar zenith angle at path midpoint, degrees (0=overhead, 90=horizon, >90=below horizon). */
   readonly solarZenithDeg: number;
+  /** Ranges for each azimuth, if a pattern was provided. */
+  readonly azimuthalHops?: {
+    readonly phiDeg: number;
+    readonly takeoffElevationDeg: number;
+    readonly rangeKm: number[];
+  }[];
 }
 
 /** Earth's mean radius, km. */
@@ -283,7 +293,7 @@ export function estimateMUFMHz(
   const h = clamp(hmF2Km, 50, 1000);
   // Angle of incidence at the layer: from triangle geometry.
   const sinGamma = (Re * Math.cos(eps)) / (Re + h);
-  const phi_i = Math.PI / 2 - Math.asin(clamp(sinGamma, -1, 1));
+  const phi_i = Math.asin(clamp(sinGamma, -1, 1));
   // sec(φ_i) clamped — at vertical incidence MUF = foF2.
   const sec = 1 / Math.max(0.05, Math.cos(phi_i));
   return foF2MHz * sec;
@@ -371,6 +381,34 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
     hops.push({ n, rangeKm: oneHop * n, status, reason });
   }
 
+  const azimuthalHops: PropagationPrediction['azimuthalHops'] = [];
+  if (input.pattern) {
+    const p = input.pattern;
+    // We sample at most 72 radials (5° steps) to keep radar rendering fast.
+    const phiStride = Math.max(1, Math.floor(p.phiSteps / 72));
+    for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
+      // Find peak elevation for this azimuth.
+      let maxG = -Infinity;
+      let peakThetaIdx = 0;
+      for (let ti = 0; ti < p.thetaSteps; ti++) {
+        const g = p.data[ti * p.phiSteps + pi];
+        if (g > maxG) {
+          maxG = g;
+          peakThetaIdx = ti;
+        }
+      }
+      const thetaDeg = peakThetaIdx * p.dTheta;
+      const elevationDeg = 90 - thetaDeg;
+      const range1 = hopRangeKm(elevationDeg, hmF2);
+
+      azimuthalHops.push({
+        phiDeg: pi * p.dPhi,
+        takeoffElevationDeg: elevationDeg,
+        rangeKm: [range1, range1 * 2, range1 * 3],
+      });
+    }
+  }
+
   return {
     foF2MHz: fof2,
     hmF2Km: hmF2,
@@ -378,6 +416,7 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
     lufMHz: luf,
     solarZenithDeg: chi,
     hops,
+    azimuthalHops: azimuthalHops.length > 0 ? azimuthalHops : undefined,
   };
 }
 
