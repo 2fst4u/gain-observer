@@ -12,8 +12,8 @@ function reflectionCoefficientMag(z: ImpedanceResult, z0: number = Z0_SYSTEM): n
   const numX = z.X;
   const denR = z.R + z0;
   const denX = z.X;
-  const num = Math.hypot(numR, numX);
-  const den = Math.hypot(denR, denX);
+  const num = Math.sqrt(numR * numR + numX * numX);
+  const den = Math.sqrt(denR * denR + denX * denX);
   if (den === 0) return 1;
   return num / den;
 }

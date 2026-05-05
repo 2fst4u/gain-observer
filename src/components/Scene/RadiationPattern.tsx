@@ -42,7 +42,7 @@ export function RadiationPattern({
       const necZ = y;
       const necX = x;
       const necY = -z;
-      const r = Math.hypot(necX, necY, necZ);
+      const r = Math.sqrt(necX * necX + necY * necY + necZ * necZ);
       const thetaDeg = (Math.acos(necZ / r) * 180) / Math.PI;
       let phiDeg = (Math.atan2(necY, necX) * 180) / Math.PI;
       if (phiDeg < 0) phiDeg += 360;
