@@ -65,14 +65,14 @@ export function PropagationControl() {
   const utcHour = utcHourOverride ?? autoUtcHour;
 
   // Local buffer for UTC hour input so typing isn't fought by the auto clock.
-  const [localUtcHour, setLocalUtcHour] = useState(utcHour.toFixed(1));
+  const [localUtcHour, setLocalUtcHour] = useState(hourToHHmm(utcHour));
   const [isUtcHourFocused, setIsUtcHourFocused] = useState(false);
 
   const [prevUtcHour, setPrevUtcHour] = useState(utcHour);
   if (utcHour !== prevUtcHour) {
     setPrevUtcHour(utcHour);
     if (!isUtcHourFocused) {
-      setLocalUtcHour(utcHour.toFixed(1));
+      setLocalUtcHour(hourToHHmm(utcHour));
     }
   }
 
@@ -189,29 +189,28 @@ export function PropagationControl() {
       </div>
 
       <label htmlFor="utc-hour-input" style={{ marginTop: 10 }}>
-        UTC Hour — {formatUtcHour(utcHour)}
+        UTC Hour
       </label>
       <div className="row">
         <input
           id="utc-hour-input"
-          type="number"
-          min={0}
-          max={23.99}
-          step={0.1}
+          type="text"
+          maxLength={5}
+          placeholder="HH:mm"
           value={localUtcHour}
           onFocus={() => setIsUtcHourFocused(true)}
           aria-label="UTC hour override"
           onChange={(e) => {
             const s = e.target.value;
             setLocalUtcHour(s);
-            const val = parseFloat(s);
-            if (!isNaN(val)) {
+            const val = HHmmToHour(s);
+            if (val !== null) {
               setUtcHourOverride(val);
             }
           }}
           onBlur={() => {
             setIsUtcHourFocused(false);
-            setLocalUtcHour(utcHour.toFixed(1));
+            setLocalUtcHour(hourToHHmm(utcHour));
           }}
         />
         <button
@@ -342,10 +341,23 @@ function qualityLabel(quality: 'useful' | 'weak' | 'unusable'): string {
   return 'very weak signal';
 }
 
-function formatUtcHour(h: number): string {
+/** Converts fractional UTC hour to HH:mm string format. */
+function hourToHHmm(h: number): string {
   const hours = Math.floor(h);
   const minutes = Math.round((h - hours) * 60);
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+/** Converts HH:mm or HHmm string format back to fractional UTC hour, or null if invalid. */
+function HHmmToHour(s: string): number | null {
+  const digits = s.replace(/[^0-9]/g, '');
+  if (digits.length !== 4) return null;
+  const h = parseInt(digits.substring(0, 2), 10);
+  const m = parseInt(digits.substring(2, 4), 10);
+  if (h >= 0 && h < 24 && m >= 0 && m < 60) {
+    return h + m / 60;
+  }
+  return null;
 }
 
 function geoStatusMessage(

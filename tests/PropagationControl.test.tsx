@@ -83,14 +83,58 @@ describe('PropagationControl - time override visibility', () => {
     expect(mockSetMonthOverride).toHaveBeenCalledWith(5);
   });
 
-  it('updates UTC hour override when input changes', () => {
+  it('updates UTC hour override when input changes to HH:mm format', () => {
     setupMockStore();
     render(<PropagationControl />);
 
     const hourInput = screen.getByLabelText('UTC hour override') as HTMLInputElement;
-    fireEvent.change(hourInput, { target: { value: '14.5' } });
+    fireEvent.change(hourInput, { target: { value: '14:30' } });
 
     expect(mockSetUtcHourOverride).toHaveBeenCalledWith(14.5);
+  });
+
+  it('updates UTC hour override when input changes to HHmm format (no colon)', () => {
+    setupMockStore();
+    render(<PropagationControl />);
+
+    const hourInput = screen.getByLabelText('UTC hour override') as HTMLInputElement;
+    fireEvent.change(hourInput, { target: { value: '1430' } });
+
+    expect(mockSetUtcHourOverride).toHaveBeenCalledWith(14.5);
+  });
+
+  it('ignores invalid HH:mm inputs', () => {
+    setupMockStore();
+    render(<PropagationControl />);
+
+    const hourInput = screen.getByLabelText('UTC hour override') as HTMLInputElement;
+
+    // Incomplete
+    fireEvent.change(hourInput, { target: { value: '14' } });
+    expect(mockSetUtcHourOverride).not.toHaveBeenCalled();
+
+    // Invalid minutes
+    fireEvent.change(hourInput, { target: { value: '14:60' } });
+    expect(mockSetUtcHourOverride).not.toHaveBeenCalled();
+
+    // Invalid hours
+    fireEvent.change(hourInput, { target: { value: '24:00' } });
+    expect(mockSetUtcHourOverride).not.toHaveBeenCalled();
+  });
+
+  it('snaps back to formatted store value on blur', () => {
+    setupMockStore({ utcHourOverride: 22.5 });
+    render(<PropagationControl />);
+
+    const hourInput = screen.getByLabelText('UTC hour override') as HTMLInputElement;
+    expect(hourInput.value).toBe('22:30');
+
+    fireEvent.focus(hourInput);
+    fireEvent.change(hourInput, { target: { value: '12' } });
+    expect(hourInput.value).toBe('12');
+
+    fireEvent.blur(hourInput);
+    expect(hourInput.value).toBe('22:30');
   });
 
   it('resets UTC hour override when Auto button is clicked', () => {
