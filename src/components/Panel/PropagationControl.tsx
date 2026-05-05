@@ -14,7 +14,6 @@ const MONTH_NAMES = [
 
 export function PropagationControl() {
   const frequency = useAntennaStore((s) => s.frequency);
-  const mode = useAntennaStore((s) => s.mode);
   const tIndex = useAntennaStore((s) => s.tIndex);
   const setTIndex = useAntennaStore((s) => s.setTIndex);
   const latitudeDeg = useAntennaStore((s) => s.latitudeDeg);
@@ -41,7 +40,6 @@ export function PropagationControl() {
   const utcHour = utcHourOverride ?? (now.getUTCHours() + now.getUTCMinutes() / 60);
 
   const takeoffElevationDeg = result?.takeoffElevationDeg ?? 30;
-  const takeoffAzimuthDeg = result?.takeoffAzimuthDeg;
 
   const prediction = useMemo(() => {
     return predictPropagation({
@@ -194,7 +192,6 @@ export function PropagationControl() {
         <PropagationRadar
           prediction={prediction}
           units={units}
-          isNvis={mode === 'nvis'}
         />
       ) : (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>

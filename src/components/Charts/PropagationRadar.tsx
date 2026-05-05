@@ -17,8 +17,6 @@ import type { UnitSystem } from '../../physics/units';
 interface PropagationRadarProps {
   readonly prediction: PropagationPrediction;
   readonly units: UnitSystem;
-  /** Is NVIS mode active? */
-  readonly isNvis?: boolean;
   /** Pixel size (square). */
   readonly size?: number;
 }
@@ -44,7 +42,6 @@ function statusFill(status: 'open' | 'marginal' | 'closed'): string {
 export function PropagationRadar({
   prediction,
   units,
-  isNvis,
   size = 280,
 }: PropagationRadarProps) {
   const cx = size / 2;
