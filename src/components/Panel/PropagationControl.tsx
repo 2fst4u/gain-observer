@@ -59,10 +59,11 @@ export function PropagationControl() {
 
   return (
     <div className="panel-section">
-      <h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>
         Propagation
         <span className="badge">T = {tIndex.toFixed(0)}</span>
-      </h3>
+      </h2>
 
       {/* T-index input */}
       <label htmlFor="t-index-input">T-index</label>

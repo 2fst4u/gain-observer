@@ -12,7 +12,8 @@ export function ModeSelector() {
   const setMode = useAntennaStore((s) => s.setMode);
   return (
     <div className="panel-section">
-      <h3 id="mode-selector-heading">Mode</h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2 id="mode-selector-heading">Mode</h2>
       <div className="button-group" role="group" aria-labelledby="mode-selector-heading">
         {MODES.map((m) => (
           <button

@@ -162,7 +162,8 @@ export function PolarPlots() {
 
   return (
     <div className="panel-section">
-      <h3>Polar cuts</h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>Polar cuts</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>

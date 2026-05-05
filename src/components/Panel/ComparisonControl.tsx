@@ -18,7 +18,8 @@ export function ComparisonControl() {
 
   return (
     <div className="panel-section">
-      <h3>Comparison</h3>
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>Comparison</h2>
       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
         Freeze the current antenna as the left-hand reference, then change the live controls to compare against it.
       </div>
