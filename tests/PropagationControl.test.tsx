@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { PropagationControl } from '../src/components/Panel/PropagationControl';
 import { useAntennaStore } from '../src/store/antennaStore';
+import type { SimulationResult } from '../src/physics/types';
 
 // Mock the store
 vi.mock('../src/store/antennaStore', async () => {
@@ -25,7 +26,7 @@ interface MockState {
   monthOverride: number | null;
   utcHourOverride: number | null;
   units: 'metric' | 'imperial';
-  result: any;
+  result: SimulationResult | null;
   setTIndex: (v: number) => void;
   setLatitude: (v: number | null) => void;
   setMonthOverride: (v: number | null) => void;
