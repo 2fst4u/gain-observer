@@ -113,6 +113,7 @@ export function PropagationControl() {
           step={1}
           value={localTIndex}
           aria-label="Ionospheric T-index"
+          aria-describedby="t-index-hint"
           onFocus={() => setIsTIndexFocused(true)}
           onChange={(e) => {
             const s = e.target.value;
@@ -126,7 +127,7 @@ export function PropagationControl() {
           }}
         />
       </div>
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
+      <p id="t-index-hint" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
         Australian IPS T-index. ~30 = quiet, ~100 = active. Look up today&apos;s
         value from your usual space-weather source.
       </p>
@@ -143,6 +144,7 @@ export function PropagationControl() {
           value={localLat}
           placeholder="0.0"
           aria-label="Latitude in degrees"
+          aria-describedby="lat-hint"
           onFocus={() => setIsLatFocused(true)}
           onChange={(e) => {
             const s = e.target.value;
@@ -159,13 +161,14 @@ export function PropagationControl() {
           type="button"
           onClick={() => { void requestLocation(); }}
           disabled={geoStatus === 'requesting'}
+          aria-busy={geoStatus === 'requesting'}
           style={{ flex: '0 0 auto' }}
           title="Use the browser geolocation API to populate latitude. Asks for permission only when clicked."
         >
           {geoStatus === 'requesting' ? 'Locating…' : 'Use my location'}
         </button>
       </div>
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
+      <p id="lat-hint" aria-live="polite" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
         {geoStatusMessage(geoStatus, latitudeDeg)}
       </p>
 
@@ -289,6 +292,8 @@ export function PropagationControl() {
       <button
         type="button"
         onClick={() => setShowAssumptions((v) => !v)}
+        aria-expanded={showAssumptions}
+        aria-controls="assumptions-panel"
         style={{
           marginTop: 10, background: 'transparent', border: 'none',
           color: 'var(--accent)', padding: 0, fontSize: 11, cursor: 'pointer',
@@ -297,7 +302,7 @@ export function PropagationControl() {
         {showAssumptions ? 'Hide model assumptions' : 'Model & assumptions'}
       </button>
       {showAssumptions && (
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
+        <div id="assumptions-panel" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
           <p style={{ marginTop: 0 }}>
             This is a closed-form approximation, not IRI / ASAPS / VOACAP.
             It captures the right monotonic behaviours (foF2 rises with
