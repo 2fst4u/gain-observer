@@ -147,9 +147,9 @@ export function SWRChart() {
     const anyBelow2 = values.some((v) => v <= 2);
 
     if (!anyBelow2) {
-      // Entire graph is above 2:1. Show it relative to a fixed reasonable cap
-      // so we don't scale to 1000 and squash everything.
-      return Math.min(maxVal * 1.1, 10);
+      // Entire graph is above 2:1. Show it relative to a reasonable cap,
+      // but ensure we can actually see the line.
+      return Math.max(10, Math.min(maxVal * 1.1, 999));
     }
 
     // If we have some points below 2:1, we want to see the 2:1 crossing context.
