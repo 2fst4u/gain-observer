@@ -16,7 +16,17 @@ describe('SWRChart Bandwidth Calculation', () => {
         swr: 1.5,
         computeTimeMs: 10,
         impedance: { R: 50, X: 0 },
-      } as any,
+        maxGainDbi: 0,
+        takeoffElevationDeg: 0,
+        takeoffAzimuthDeg: 0,
+        pattern: {
+          data: new Float32Array(0),
+          thetaSteps: 0,
+          phiSteps: 0,
+          dTheta: 0,
+          dPhi: 0,
+        },
+      },
       sweep: [],
       frequency: 7.1,
     });
