@@ -282,10 +282,15 @@ export function estimateMUFMHz(
   const Re = EARTH_RADIUS_KM;
   const h = clamp(hmF2Km, 50, 1000);
   // Angle of incidence at the layer: from triangle geometry.
-  const sinGamma = (Re * Math.cos(eps)) / (Re + h);
-  const phi_i = Math.PI / 2 - Math.asin(clamp(sinGamma, -1, 1));
-  // sec(φ_i) clamped — at vertical incidence MUF = foF2.
-  const sec = 1 / Math.max(0.05, Math.cos(phi_i));
+  // Using the law of sines in the triangle (Earth centre, antenna, reflection point):
+  //   (Re + h) / sin(90° + eps) = Re / sin(phi_i)
+  //   sin(phi_i) = Re * cos(eps) / (Re + h)
+  // The angle of incidence phi_i is the angle at the reflection point,
+  // measured from the local zenith there (i.e. the layer normal).
+  const sinPhiI = (Re * Math.cos(eps)) / (Re + h);
+  const phi_i = Math.asin(clamp(sinPhiI, -1, 1));
+  // sec(φ_i) — at vertical incidence eps=90°, cos(eps)=0, phi_i=0, sec=1, MUF=foF2.
+  const sec = 1 / Math.max(0.1, Math.cos(phi_i));
   return foF2MHz * sec;
 }
 

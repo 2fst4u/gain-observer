@@ -126,7 +126,14 @@ export function SWRChart() {
         fHigh = p1.frequencyMHz + t * (p2.frequencyMHz - p1.frequencyMHz);
       }
     }
-    return { minSWR, minFreq, fLow, fHigh };
+
+    const lowClipped = fLow === null && sweep[0].swr <= 2;
+    const highClipped = fHigh === null && sweep[sweep.length - 1].swr <= 2;
+
+    if (lowClipped) fLow = sweep[0].frequencyMHz;
+    if (highClipped) fHigh = sweep[sweep.length - 1].frequencyMHz;
+
+    return { minSWR, minFreq, fLow, fHigh, lowClipped, highClipped };
   }, [sweep]);
 
   const yMax = useMemo(() => {
@@ -135,7 +142,18 @@ export function SWRChart() {
       ...(comparisonActive && reference ? reference.sweep.map((point) => point.swr) : []),
     ];
     if (values.length === 0) return 5;
-    return Math.min(999, Math.max(5, Math.ceil(Math.max(...values) * 1.1)));
+
+    const maxVal = Math.max(...values);
+    const anyBelow2 = values.some((v) => v <= 2);
+
+    if (!anyBelow2) {
+      // Entire graph is above 2:1. Show it relative to a reasonable cap,
+      // but ensure we can actually see the line.
+      return Math.max(10, Math.min(maxVal * 1.1, 999));
+    }
+
+    // If we have some points below 2:1, we want to see the 2:1 crossing context.
+    return Math.min(999, Math.max(5, Math.ceil(maxVal * 1.1)));
   }, [comparisonActive, reference, sweep]);
 
   const options = useMemo<ChartOptions<'line'>>(() => {
@@ -251,6 +269,7 @@ export function SWRChart() {
             <span className="stat-label" style={{ textTransform: 'none' }}>2:1 BW</span>
             {stats.fLow !== null && stats.fHigh !== null ? (
               <span className="stat-value">
+                {(stats.lowClipped || stats.highClipped) && '>'}
                 {((stats.fHigh - stats.fLow) * 1000).toFixed(0)} kHz
                 <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontWeight: 'normal' }}>
                   ({stats.fLow.toFixed(3)} - {stats.fHigh.toFixed(3)} MHz)
