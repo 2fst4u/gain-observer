@@ -41,7 +41,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const mode = useAntennaStore((s) => s.mode);
   const theme = useAntennaStore((s) => s.theme);
 
-  const type = (snapshot as any)?.type ?? liveType;
+  const type = snapshot?.type ?? liveType;
   const length = snapshot?.length ?? liveLength;
   const height = snapshot?.height ?? liveHeight;
   const orientation = snapshot?.orientation ?? liveOrientation;
@@ -52,8 +52,8 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const feedlineId = snapshot?.feedlineId ?? liveFeedlineId;
   const feedlineLength = snapshot?.feedlineLength ?? liveFeedlineLength;
   const feedlineOffset = snapshot?.feedlineOffset ?? liveFeedlineOffset;
-  const vAngle = (snapshot as any)?.vAngle ?? liveVAngle;
-  const legSlope = (snapshot as any)?.legSlope ?? liveLegSlope;
+  const vAngle = snapshot?.vAngle ?? liveVAngle;
+  const legSlope = snapshot?.legSlope ?? liveLegSlope;
 
   return (
     <Canvas

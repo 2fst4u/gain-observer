@@ -36,13 +36,18 @@ export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
+export type AntennaType = 'dipole' | 'inverted-v' | 'sloping-v' | 'delta-loop';
+
 export interface ComparisonSnapshot {
+  readonly type: AntennaType;
   readonly frequency: number;
   readonly length: number;
   readonly height: number;
   readonly orientation: Orientation;
   readonly wireRadius: number;
   readonly segments: number;
+  readonly vAngle: number;
+  readonly legSlope: number;
   readonly groundId: string;
   readonly groundSigma: number;
   readonly groundEpsilon: number;
@@ -54,8 +59,6 @@ export interface ComparisonSnapshot {
   readonly sweep: SweepPoint[];
   readonly capturedAt: number;
 }
-
-export type AntennaType = 'dipole' | 'inverted-v' | 'sloping-v' | 'delta-loop';
 
 export interface AntennaState {
   // Antenna geometry (metres, MHz)
@@ -869,12 +872,15 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | null {
   if (!state.result || state.sweep.length === 0) return null;
   return {
+    type: state.type,
     frequency: state.frequency,
     length: state.length,
     height: state.height,
     orientation: state.orientation,
     wireRadius: state.wireRadius,
     segments: state.segments,
+    vAngle: state.vAngle,
+    legSlope: state.legSlope,
     groundId: state.groundId,
     groundSigma: state.groundSigma,
     groundEpsilon: state.groundEpsilon,

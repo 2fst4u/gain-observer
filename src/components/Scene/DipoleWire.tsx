@@ -24,6 +24,7 @@ import {
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   type Orientation,
+  type AntennaType,
 } from '../../store/antennaStore';
 import { THEME_COLORS } from '../../utils/themeColors';
 
@@ -63,7 +64,7 @@ export function DipoleWire({
 
   const rendered = useMemo(() => {
     const wires = buildWires({
-      type: type as any,
+      type: type as AntennaType,
       length,
       height,
       orientation,
@@ -111,7 +112,7 @@ export function DipoleWire({
         isDipoleHalf,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset]);
+  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope]);
 
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);
