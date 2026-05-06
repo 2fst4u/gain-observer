@@ -28,6 +28,7 @@ import {
 import { THEME_COLORS } from '../../utils/themeColors';
 
 interface DipoleWireProps {
+  readonly type: string;
   readonly length: number;
   readonly height: number;
   readonly orientation: Orientation;
@@ -36,6 +37,8 @@ interface DipoleWireProps {
   readonly feedlineId: string;
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
+  readonly vAngle?: number;
+  readonly legSlope?: number;
 }
 
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
@@ -43,6 +46,7 @@ function necToScene(p: readonly [number, number, number]): [number, number, numb
 }
 
 export function DipoleWire({
+  type,
   length,
   height,
   orientation,
@@ -51,12 +55,15 @@ export function DipoleWire({
   feedlineId,
   feedlineLength,
   feedlineOffset,
+  vAngle,
+  legSlope,
 }: DipoleWireProps) {
   const theme = useAntennaStore((s) => s.theme);
   const balunEnabled = useAntennaStore((s) => s.balunEnabled);
 
   const rendered = useMemo(() => {
     const wires = buildWires({
+      type: type as any,
       length,
       height,
       orientation,
@@ -65,6 +72,8 @@ export function DipoleWire({
       feedlineId,
       feedlineLength,
       feedlineOffset,
+      vAngle,
+      legSlope,
     });
 
     return wires.map((w, idx) => {

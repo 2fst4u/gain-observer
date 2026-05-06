@@ -19,6 +19,7 @@ interface AntennaSceneProps {
 }
 
 export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
+  const liveType = useAntennaStore((s) => s.type);
   const liveLength = useAntennaStore((s) => s.length);
   const liveHeight = useAntennaStore((s) => s.height);
   const liveOrientation = useAntennaStore((s) => s.orientation);
@@ -29,6 +30,8 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const liveFeedlineId = useAntennaStore((s) => s.feedlineId);
   const liveFeedlineLength = useAntennaStore((s) => s.feedlineLength);
   const liveFeedlineOffset = useAntennaStore((s) => s.feedlineOffset);
+  const liveVAngle = useAntennaStore((s) => s.vAngle);
+  const liveLegSlope = useAntennaStore((s) => s.legSlope);
   const showGrid = useAntennaStore((s) => s.showGrid);
   const showAxes = useAntennaStore((s) => s.showAxes);
   const patternScale = useAntennaStore((s) => s.patternScale);
@@ -38,6 +41,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const mode = useAntennaStore((s) => s.mode);
   const theme = useAntennaStore((s) => s.theme);
 
+  const type = (snapshot as any)?.type ?? liveType;
   const length = snapshot?.length ?? liveLength;
   const height = snapshot?.height ?? liveHeight;
   const orientation = snapshot?.orientation ?? liveOrientation;
@@ -48,6 +52,8 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const feedlineId = snapshot?.feedlineId ?? liveFeedlineId;
   const feedlineLength = snapshot?.feedlineLength ?? liveFeedlineLength;
   const feedlineOffset = snapshot?.feedlineOffset ?? liveFeedlineOffset;
+  const vAngle = (snapshot as any)?.vAngle ?? liveVAngle;
+  const legSlope = (snapshot as any)?.legSlope ?? liveLegSlope;
 
   return (
     <Canvas
@@ -64,11 +70,14 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
       <Suspense fallback={null}>
         <GroundPlane groundId={groundId} height={height} showGrid={showGrid} />
         <DipoleWire
+          type={type}
           length={length}
           height={height}
           orientation={orientation}
           wireRadius={wireRadius}
           segments={segments}
+          vAngle={vAngle}
+          legSlope={legSlope}
           feedlineId={feedlineId}
           feedlineLength={feedlineLength}
           feedlineOffset={feedlineOffset}
