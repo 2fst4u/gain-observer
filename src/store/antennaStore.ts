@@ -55,14 +55,19 @@ export interface ComparisonSnapshot {
   readonly capturedAt: number;
 }
 
+export type AntennaType = 'dipole' | 'inverted-v' | 'sloping-v' | 'delta-loop';
+
 export interface AntennaState {
   // Antenna geometry (metres, MHz)
+  type: AntennaType;
   frequency: number;
   length: number;
   height: number;
   orientation: Orientation;
   wireRadius: number;
   segments: number;
+  vAngle: number;
+  legSlope: number;
 
   // Environment
   groundId: string;
@@ -85,6 +90,8 @@ export interface AntennaState {
   feedlineLength: number;
   feedlineOffset: number;
   balunEnabled: boolean;
+  terminatedEnabled: boolean;
+  terminatingResistor: number;
 
   // Display / UI
   theme: Theme;
@@ -126,11 +133,14 @@ export interface AntennaState {
   comparisonReference: ComparisonSnapshot | null;
 
   // Actions — user-facing
+  setType(t: AntennaType): void;
   setFrequency(mhz: number): void;
   setLength(meters: number): void;
   setHalfWaveLength(): void;
   setHeight(meters: number): void;
   setOrientation(o: Orientation): void;
+  setVAngle(degrees: number): void;
+  setLegSlope(degrees: number): void;
   setWireRadius(meters: number): void;
   setSegments(n: number): void;
   setGround(id: string): void;
@@ -139,6 +149,8 @@ export interface AntennaState {
   setFeedlineLength(meters: number): void;
   setFeedlineOffset(meters: number): void;
   setBalunEnabled(enabled: boolean): void;
+  setTerminatedEnabled(enabled: boolean): void;
+  setTerminatingResistor(ohms: number): void;
   setTheme(t: Theme): void;
   toggleTheme(): void;
   setUnits(u: UnitSystem): void;
@@ -176,12 +188,15 @@ const INITIAL_LENGTH = halfWaveLength(INITIAL_FREQ); // resonant ½λ
 export const useAntennaStore = create<AntennaState>()(
   subscribeWithSelector(
     immer((set) => ({
+      type: 'dipole',
       frequency: INITIAL_FREQ,
       length: INITIAL_LENGTH,
       height: INITIAL_HEIGHT,
       orientation: 'EW',
       wireRadius: DEFAULT_WIRE_RADIUS_M,
       segments: 21,
+      vAngle: 120,
+      legSlope: 45,
 
       groundId: DEFAULT_GROUND_ID,
       groundSigma: findGroundPreset(DEFAULT_GROUND_ID).sigma,
@@ -191,6 +206,8 @@ export const useAntennaStore = create<AntennaState>()(
       feedlineLength: DEFAULT_FEEDLINE_LENGTH_M,
       feedlineOffset: 0,
       balunEnabled: false,
+      terminatedEnabled: false,
+      terminatingResistor: 450,
 
       theme: 'dark',
       units: 'metric',
@@ -238,6 +255,7 @@ export const useAntennaStore = create<AntennaState>()(
         if (!Number.isFinite(meters)) return;
         s.height = Math.max(0, meters);
       }),
+      setType: (t) => set((s) => { s.type = t; }),
       setOrientation: (o) => set((s) => {
         if (typeof o === 'number') {
           if (!Number.isFinite(o)) return;
@@ -249,6 +267,8 @@ export const useAntennaStore = create<AntennaState>()(
           s.orientation = o;
         }
       }),
+      setVAngle: (v) => set((s) => { s.vAngle = Math.max(10, Math.min(180, v)); }),
+      setLegSlope: (l) => set((s) => { s.legSlope = Math.max(0, Math.min(90, l)); }),
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
         s.wireRadius = Math.max(0.0001, r);
@@ -287,6 +307,8 @@ export const useAntennaStore = create<AntennaState>()(
         s.feedlineOffset = Math.max(-limit, Math.min(limit, meters));
       }),
       setBalunEnabled: (enabled) => set((s) => { s.balunEnabled = !!enabled; }),
+      setTerminatedEnabled: (enabled) => set((s) => { s.terminatedEnabled = enabled; }),
+      setTerminatingResistor: (ohms) => set((s) => { s.terminatingResistor = Math.max(1, ohms); }),
       setTheme: (t) => set((s) => { s.theme = t; }),
       toggleTheme: () => set((s) => { s.theme = s.theme === 'dark' ? 'light' : 'dark'; }),
       setUnits: (u) => set((s) => { s.units = u; }),
@@ -397,7 +419,7 @@ export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
  * is well-defined; small enough to keep NEC fast but large enough to
  * resolve common-mode current variation along a multi-wavelength run.
  */
-export const FEEDLINE_SHIELD_SEGMENTS = 11;
+const FEEDLINE_SHIELD_SEGMENTS = 11;
 
 /**
  * Physical length of the source bridge — the small wire segment that
@@ -406,7 +428,7 @@ export const FEEDLINE_SHIELD_SEGMENTS = 11;
  * but long enough to satisfy NEC's segment-vs-radius geometry rules at
  * typical HF wire radii (≤ ~5 mm).
  */
-export const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
+const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
 
 /** Minimum gap (m) between the bottom of the shield wire and the ground
  * plane, to avoid NEC's "wire touching ground" warning. */
@@ -460,6 +482,107 @@ function orientationVector(o: Orientation): [number, number] {
  *      radiation.
  */
 export function buildWires(
+  state: Pick<AntennaState, 'type' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
+    Partial<Pick<AntennaState, 'vAngle' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+): Wire[] {
+  if (state.type === 'delta-loop') {
+    return buildDeltaLoopWires(state);
+  } else if (state.type === 'inverted-v' || state.type === 'sloping-v') {
+    return buildVWires(state);
+  }
+  return buildDipoleWires(state);
+}
+
+function buildDeltaLoopWires(
+  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'>
+): Wire[] {
+  const L = state.length;
+  const h = state.height;
+  const [dx, dy] = orientationVector(state.orientation);
+
+  // Apex at top, fed at center of bottom wire
+  const apexZ = h;
+  const apex = [0, 0, apexZ];
+
+  // Equilateral triangle
+  const side = L / 3;
+  const heightTri = side * Math.sqrt(3) / 2;
+  const baseZ = Math.max(0.1, h - heightTri); // Keep above ground
+
+  const halfBase = side / 2;
+  const left = [-halfBase * dx, -halfBase * dy, baseZ];
+  const right = [halfBase * dx, halfBase * dy, baseZ];
+
+  const segPerSide = Math.max(3, oddRound(state.segments / 3));
+
+  return [
+    {
+      start: apex as [number, number, number], end: left as [number, number, number],
+      radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_LEFT_TAG
+    },
+    {
+      start: left as [number, number, number], end: right as [number, number, number],
+      radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_TAG // feed wire
+    },
+    {
+      start: right as [number, number, number], end: apex as [number, number, number],
+      radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_RIGHT_TAG
+    }
+  ];
+}
+
+function buildVWires(
+  state: Pick<AntennaState, 'type' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
+    Partial<Pick<AntennaState, 'vAngle' | 'legSlope'>>
+): Wire[] {
+  const half = state.length / 2;
+  const h = state.height;
+  const [dx, dy] = orientationVector(state.orientation);
+
+  const vAngleRad = ((state.vAngle || 120) * Math.PI) / 180;
+  const halfAngle = vAngleRad / 2;
+
+  let slopeRad = 0;
+  if (state.type === 'sloping-v') {
+    slopeRad = ((state.legSlope || 45) * Math.PI) / 180;
+  }
+
+  // Apex is the center
+  const apex: [number, number, number] = [0, 0, h];
+
+  // Calculate leg endpoints based on angle and slope
+  // Projection on XY plane
+  const projLen = half * Math.cos(slopeRad);
+  const zDrop = half * Math.sin(slopeRad);
+
+  // Rotate legs by halfAngle around Z axis relative to orientation
+  const leg1DirX = dx * Math.cos(halfAngle) - dy * Math.sin(halfAngle);
+  const leg1DirY = dx * Math.sin(halfAngle) + dy * Math.cos(halfAngle);
+
+  const leg2DirX = dx * Math.cos(-halfAngle) - dy * Math.sin(-halfAngle);
+  const leg2DirY = dx * Math.sin(-halfAngle) + dy * Math.cos(-halfAngle);
+
+  const end1Z = Math.max(0.1, h - zDrop);
+  const end2Z = Math.max(0.1, h - zDrop);
+
+  const end1: [number, number, number] = [projLen * leg1DirX, projLen * leg1DirY, end1Z];
+  const end2: [number, number, number] = [projLen * leg2DirX, projLen * leg2DirY, end2Z];
+
+  const halfSeg = Math.max(3, Math.floor(state.segments / 2));
+
+  return [
+    {
+      start: end1, end: apex,
+      radius: state.wireRadius, segments: halfSeg, tag: DIPOLE_LEFT_TAG
+    },
+    {
+      start: apex, end: end2,
+      radius: state.wireRadius, segments: halfSeg, tag: DIPOLE_RIGHT_TAG
+    }
+  ];
+}
+
+function buildDipoleWires(
   state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): Wire[] {
@@ -666,6 +789,66 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
         param1: DEFAULT_BALUN_IMPEDANCE_OHMS, // R
         param2: 0,                            // X
       });
+    }
+  }
+
+  if (state.terminatedEnabled && state.terminatingResistor) {
+    if (state.type === 'delta-loop') {
+      // Delta loop: terminated opposite feedpoint (apex)
+      const apexWire = wires.find(w => w.tag === DIPOLE_RIGHT_TAG);
+      if (apexWire) {
+        loads.push({
+          type: 4,
+          wireTag: DIPOLE_RIGHT_TAG,
+          segmentStart: apexWire.segments,
+          segmentEnd: apexWire.segments,
+          param1: state.terminatingResistor,
+          param2: 0
+        });
+      }
+    } else {
+      // For dipole, inverted V, and sloping V
+      const leftWire = wires.find(w => w.tag === DIPOLE_LEFT_TAG);
+      const rightWire = wires.find(w => w.tag === DIPOLE_RIGHT_TAG);
+      const mainWire = wires.find(w => w.tag === DIPOLE_TAG);
+
+      if (leftWire && rightWire) {
+        // Split topology (feedline active or V-shape)
+        loads.push({
+          type: 4,
+          wireTag: DIPOLE_LEFT_TAG,
+          segmentStart: 1,
+          segmentEnd: 1,
+          param1: state.terminatingResistor,
+          param2: 0
+        });
+        loads.push({
+          type: 4,
+          wireTag: DIPOLE_RIGHT_TAG,
+          segmentStart: rightWire.segments,
+          segmentEnd: rightWire.segments,
+          param1: state.terminatingResistor,
+          param2: 0
+        });
+      } else if (mainWire) {
+        // Single wire topology (standard dipole, no feedline)
+        loads.push({
+          type: 4,
+          wireTag: DIPOLE_TAG,
+          segmentStart: 1,
+          segmentEnd: 1,
+          param1: state.terminatingResistor,
+          param2: 0
+        });
+        loads.push({
+          type: 4,
+          wireTag: DIPOLE_TAG,
+          segmentStart: mainWire.segments,
+          segmentEnd: mainWire.segments,
+          param1: state.terminatingResistor,
+          param2: 0
+        });
+      }
     }
   }
 

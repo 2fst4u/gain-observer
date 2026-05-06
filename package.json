@@ -12,7 +12,6 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui",
     "build:nec2": "bash nec2-build/build.sh"
   },
   "dependencies": {

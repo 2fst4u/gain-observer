@@ -1,5 +1,5 @@
 import { FrequencyControl } from './FrequencyControl';
-import { DipoleControl } from './DipoleControl';
+import { AntennaControl } from './AntennaControl';
 import { GroundControl } from './GroundControl';
 import { FeedlineControl } from './FeedlineControl';
 import { ModeSelector } from './ModeSelector';
@@ -38,7 +38,7 @@ export function ControlPanel() {
       <ModeSelector />
       <ComparisonControl />
       <FrequencyControl />
-      <DipoleControl />
+      <AntennaControl />
       <GroundControl />
       <FeedlineControl />
       <StatsReadout />
