@@ -503,7 +503,7 @@ function buildDeltaLoopWires(
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
 
-  // Apex at top, fed at center of bottom wire
+  // Apex at top, fed at the apex
   const apexZ = h;
   const apex = [0, 0, apexZ];
 
@@ -520,16 +520,16 @@ function buildDeltaLoopWires(
 
   return [
     {
-      start: apex as [number, number, number], end: left as [number, number, number],
+      start: left as [number, number, number], end: apex as [number, number, number],
       radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_LEFT_TAG
     },
     {
-      start: left as [number, number, number], end: right as [number, number, number],
-      radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_TAG // feed wire
+      start: apex as [number, number, number], end: right as [number, number, number],
+      radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_RIGHT_TAG
     },
     {
-      start: right as [number, number, number], end: apex as [number, number, number],
-      radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_RIGHT_TAG
+      start: right as [number, number, number], end: left as [number, number, number],
+      radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_TAG
     }
   ];
 }
@@ -543,18 +543,27 @@ function buildVWires(
   const [dx, dy] = orientationVector(state.orientation);
 
   const vAngleRad = ((state.vAngle || 120) * Math.PI) / 180;
-  const halfAngle = vAngleRad / 2;
 
   let slopeRad = 0;
-  if (state.type === 'sloping-v') {
+  let halfAngle = vAngleRad / 2;
+
+  if (state.type === 'inverted-v') {
+    // For an inverted V, the angle is in the vertical plane.
+    // The legs go in opposite directions in the XY plane.
+    // So horizontal angle is 180 deg (straight line from above).
+    halfAngle = Math.PI / 2; // 90 deg rotation gives 180 deg spread
+
+    // The angle between the legs is vAngle.
+    // So the drop angle for each leg from horizontal is (180 - vAngle) / 2.
+    slopeRad = ((180 - (state.vAngle || 120)) / 2) * Math.PI / 180;
+  } else if (state.type === 'sloping-v') {
     slopeRad = ((state.legSlope || 45) * Math.PI) / 180;
   }
 
   // Apex is the center
   const apex: [number, number, number] = [0, 0, h];
 
-  // Calculate leg endpoints based on angle and slope
-  // Projection on XY plane
+  // Projection on XY plane and Z drop
   const projLen = half * Math.cos(slopeRad);
   const zDrop = half * Math.sin(slopeRad);
 
@@ -748,11 +757,32 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   //     (the source bridge).
   //   - No feedline: legacy single-wire dipole, fed at its centre segment.
   const dipoleCentreSeg = Math.ceil(state.segments / 2);
-  const excitation = feedlineActive && hasShield
-    ? { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS }
-    : feedlineActive
-      ? { wireTag: FEED_BRIDGE_TAG, segment: 1 } // shield clipped (very short feedline)
-      : { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
+  let excitationWire = DIPOLE_TAG;
+  let excitationSeg = dipoleCentreSeg;
+
+  if (feedlineActive && hasShield) {
+    excitationWire = FEEDLINE_SHIELD_TAG;
+    excitationSeg = FEEDLINE_SHIELD_SEGMENTS;
+  } else if (feedlineActive) {
+    excitationWire = FEED_BRIDGE_TAG;
+    excitationSeg = 1;
+  } else if (state.type === 'inverted-v' || state.type === 'sloping-v') {
+    // Fed at the apex, which is the end of the left leg (or start of right leg)
+    const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
+    if (leftWire) {
+      excitationWire = DIPOLE_LEFT_TAG;
+      excitationSeg = leftWire.segments; // The end closest to apex
+    }
+  } else if (state.type === 'delta-loop') {
+    // Fed at the apex
+    const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
+    if (leftWire) {
+      excitationWire = DIPOLE_LEFT_TAG;
+      excitationSeg = leftWire.segments; // The end closest to apex
+    }
+  }
+
+  const excitation = { wireTag: excitationWire, segment: excitationSeg };
 
   const transmissionLines: TransmissionLine[] = [];
   const loads: SegmentLoad[] = [];
@@ -797,14 +827,15 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 
   if (state.terminatedEnabled && state.terminatingResistor) {
     if (state.type === 'delta-loop') {
-      // Delta loop: terminated opposite feedpoint (apex)
-      const apexWire = wires.find(w => w.tag === DIPOLE_RIGHT_TAG);
-      if (apexWire) {
+      // Delta loop: fed at apex, so terminated opposite feedpoint (bottom center, DIPOLE_TAG)
+      const bottomWire = wires.find(w => w.tag === DIPOLE_TAG);
+      if (bottomWire) {
+        const midSeg = Math.ceil(bottomWire.segments / 2);
         loads.push({
           type: 4,
-          wireTag: DIPOLE_RIGHT_TAG,
-          segmentStart: apexWire.segments,
-          segmentEnd: apexWire.segments,
+          wireTag: DIPOLE_TAG,
+          segmentStart: midSeg,
+          segmentEnd: midSeg,
           param1: state.terminatingResistor,
           param2: 0
         });
