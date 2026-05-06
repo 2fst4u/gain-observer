@@ -14,7 +14,7 @@ export function ModeSelector() {
     <div className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2 id="mode-selector-heading">Mode</h2>
-      <div className="button-group" role="group" aria-labelledby="mode-selector-heading">
+      <div className="button-group" role="group" aria-labelledby="mode-selector-heading" aria-describedby="mode-hint">
         {MODES.map((m) => (
           <button
             key={m.id}
@@ -25,7 +25,7 @@ export function ModeSelector() {
           >{m.label}</button>
         ))}
       </div>
-      <div aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+      <div id="mode-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         {MODES.find((m) => m.id === mode)!.hint}
       </div>
     </div>
