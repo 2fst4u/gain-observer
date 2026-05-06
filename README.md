@@ -26,7 +26,7 @@ Prerequisites:
 - Emscripten SDK (only required when rebuilding the Wasm binary)
 
 ```bash
-npm install
+npm ci             # install dependencies strictly from lockfile
 npm run dev        # start Vite dev server
 npm run lint       # run ESLint
 npm test           # run unit + NEC-2 integration tests
