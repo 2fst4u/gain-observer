@@ -397,7 +397,7 @@ export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
  * is well-defined; small enough to keep NEC fast but large enough to
  * resolve common-mode current variation along a multi-wavelength run.
  */
-export const FEEDLINE_SHIELD_SEGMENTS = 11;
+const FEEDLINE_SHIELD_SEGMENTS = 11;
 
 /**
  * Physical length of the source bridge — the small wire segment that
@@ -406,7 +406,7 @@ export const FEEDLINE_SHIELD_SEGMENTS = 11;
  * but long enough to satisfy NEC's segment-vs-radius geometry rules at
  * typical HF wire radii (≤ ~5 mm).
  */
-export const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
+const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
 
 /** Minimum gap (m) between the bottom of the shield wire and the ground
  * plane, to avoid NEC's "wire touching ground" warning. */
