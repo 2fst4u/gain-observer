@@ -45,13 +45,13 @@ export function GroundControl() {
           {expanded ? 'Simple' : 'Custom'}
         </button>
       </h2>
-      <select aria-label="Ground preset" value={groundId} onChange={(e) => setGround(e.target.value)}>
+      <select aria-label="Ground preset" value={groundId} onChange={(e) => setGround(e.target.value)} aria-describedby="ground-hint">
         {GROUND_PRESETS.map((g) => (
           <option key={g.id} value={g.id}>{g.label}</option>
         ))}
         <option value="custom">Custom…</option>
       </select>
-      <div aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+      <div id="ground-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         {GROUND_PRESETS.find((g) => g.id === groundId)?.hint ?? 'Custom ground parameters.'}
       </div>
       {(expanded || groundId === 'custom') && (

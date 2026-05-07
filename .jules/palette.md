@@ -13,3 +13,6 @@
 ## 2024-05-05 - Propagation Control ARIA Additions
 **Learning:** In complex control panels, async UI state (like geolocation requesting) requires explicit `aria-live` and `aria-busy` announcements so screen readers know a background action is pending and eventually completed. Furthermore, supplementary help text near inputs must be explicitly linked via `aria-describedby` so it isn't skipped when users tab directly to the input field.
 **Action:** Always verify `aria-busy` and `aria-live` are present for async button interactions, and link form hints to their associated inputs using matching `id` and `aria-describedby` attributes.
+## 2024-05-06 - Dynamic Form Hints and ARIA describedby
+**Learning:** Adding dynamic, contextual helper text below form controls (like `<select>` dropdowns or `<input>` ranges) is a common pattern in the side panels. However, without an explicit `aria-describedby` mapping, screen reader users miss this critical context when they navigate directly to the input via keyboard tabbing.
+**Action:** Always wrap supplementary helper text in a `div` or `span` with a unique `id`, and link it to the associated interactive control using the `aria-describedby` attribute. This ensures screen readers announce the helper text alongside the input label.
