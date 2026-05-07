@@ -221,7 +221,7 @@ export function PropagationControl() {
           onClick={() => setUtcHourOverride(null)}
           disabled={utcHourOverride === null}
           style={{ flex: '0 0 auto' }}
-          title="Reset to current UTC time"
+          title={utcHourOverride === null ? 'Already using current UTC time' : 'Reset to current UTC time'}
         >
           Auto
         </button>
