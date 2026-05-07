@@ -21,6 +21,8 @@ export function useTheme(): void {
   // Apply + persist.
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem(STORAGE_KEY, theme);
+    if (theme === 'dark' || theme === 'light') {
+      window.localStorage.setItem(STORAGE_KEY, theme);
+    }
   }, [theme]);
 }

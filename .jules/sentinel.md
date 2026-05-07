@@ -10,3 +10,7 @@
 **Vulnerability:** Weak default Permissions-Policy and missing Cross-Origin-Opener-Policy in public/_headers
 **Learning:** Adding a more comprehensive Permissions-Policy restricting sensitive APIs (camera, microphone, payment) and ensuring geolocation is restricted to (self), as well as adding Cross-Origin-Opener-Policy, creates strong defense-in-depth against unauthorized API access and side-channel attacks for WASM apps.
 **Prevention:** Always verify if new device APIs need explicit opt-out in Permissions-Policy, especially for applications dealing with WASM execution, and ensure strong process isolation.
+## 2026-05-07 - Add Input Validation to LocalStorage Writes
+**Vulnerability:** Unvalidated state was being written to `localStorage` via `window.localStorage.setItem` using the Zustand store state. If an attacker managed to poison the store state, they could write excessively large payloads or malicious strings into `localStorage`.
+**Learning:** React hooks orchestrating persistence (`useTheme.ts`, `useUnits.ts`) validated data read from `localStorage`, but trusted internal state blindly when writing. This breaks the defense-in-depth security principle that all input boundaries, including internal ones persisting state, should be validated.
+**Prevention:** Always validate all data being serialized to `localStorage` even if it originates from an internal store. Enforce exact type or allowed-value checks before calling `setItem`.

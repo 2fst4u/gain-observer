@@ -15,6 +15,8 @@ export function useUnitsPersistence(): void {
   }, [setUnits]);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, units);
+    if (units === 'metric' || units === 'imperial') {
+      window.localStorage.setItem(STORAGE_KEY, units);
+    }
   }, [units]);
 }
