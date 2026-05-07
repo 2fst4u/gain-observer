@@ -27,6 +27,7 @@ import {
   findFeedlinePreset,
   findGroundPreset,
   halfWaveLength,
+  wavelengthMeters,
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
 
@@ -250,7 +251,20 @@ export const useAntennaStore = create<AntennaState>()(
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
       setHalfWaveLength: () => set((s) => {
-        s.length = halfWaveLength(s.frequency);
+        // "Resonant length" depends on antenna topology:
+        //   - Dipole / inverted-V / sloping-V: total wire length is one
+        //     half-wavelength (with the standard ~0.95 end-effect factor),
+        //     so each leg is roughly λ/4.
+        //   - Delta loop: the perimeter is one full wavelength for the
+        //     fundamental loop resonance. We use the un-corrected
+        //     wavelength here because closed-loop antennas don't suffer
+        //     the open-end capacitive shortening that the 0.95 factor
+        //     compensates for.
+        if (s.type === 'delta-loop') {
+          s.length = wavelengthMeters(s.frequency);
+        } else {
+          s.length = halfWaveLength(s.frequency);
+        }
         const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
@@ -260,6 +274,7 @@ export const useAntennaStore = create<AntennaState>()(
         s.height = Math.max(0, meters);
       }),
       setType: (t) => set((s) => {
+        const previousType = s.type;
         s.type = t;
         // Reset dependent state that does not apply to the new type, to
         // avoid stale values silently affecting the simulation:
@@ -272,6 +287,17 @@ export const useAntennaStore = create<AntennaState>()(
           s.feedlineId = 'none';
         }
         s.terminatedEnabled = false;
+
+        // Auto-resize length when switching between topologies with very
+        // different resonant lengths so the user doesn't get a wildly
+        // off-resonance antenna on type change. We only do this when
+        // crossing the loop / wire boundary, since within a category the
+        // user's chosen length is usually still meaningful.
+        if (t === 'delta-loop' && previousType !== 'delta-loop') {
+          s.length = wavelengthMeters(s.frequency);
+        } else if (t !== 'delta-loop' && previousType === 'delta-loop') {
+          s.length = halfWaveLength(s.frequency);
+        }
       }),
       setOrientation: (o) => set((s) => {
         if (typeof o === 'number') {

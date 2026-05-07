@@ -475,6 +475,59 @@ describe('antennaStore actions', () => {
       store.setType('delta-loop');
       expect(useAntennaStore.getState().terminatedEnabled).toBe(false);
     });
+
+    it('auto-resizes length to ~1λ when switching to delta loop', () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(7.1);
+      store.setType('dipole');
+      store.setLength(20); // some wire length
+      store.setType('delta-loop');
+      const state = useAntennaStore.getState();
+      // c/f at 7.1 MHz ≈ 42.224 m. Delta loop perimeter = 1λ.
+      expect(state.length).toBeGreaterThan(40);
+      expect(state.length).toBeLessThan(45);
+    });
+
+    it('auto-resizes length back to ~½λ when leaving delta loop', () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(7.1);
+      store.setType('delta-loop');
+      // length is now ~42 m
+      store.setType('inverted-v');
+      const state = useAntennaStore.getState();
+      // ½λ at 7.1 MHz with 0.95 end-effect ≈ 20.06 m.
+      expect(state.length).toBeGreaterThan(18);
+      expect(state.length).toBeLessThan(22);
+    });
+
+    it('does not resize length when switching between non-loop types', () => {
+      const store = useAntennaStore.getState();
+      store.setType('dipole');
+      store.setLength(15.5); // user-chosen
+      store.setType('inverted-v');
+      expect(useAntennaStore.getState().length).toBe(15.5);
+      store.setType('sloping-v');
+      expect(useAntennaStore.getState().length).toBe(15.5);
+    });
+
+    it('setHalfWaveLength is topology-aware: ½λ for dipole/V, 1λ for delta-loop', () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(7.1);
+
+      store.setType('dipole');
+      store.setHalfWaveLength();
+      const dipoleLen = useAntennaStore.getState().length;
+      expect(dipoleLen).toBeGreaterThan(18);
+      expect(dipoleLen).toBeLessThan(22); // ~20.06 m
+
+      store.setType('delta-loop');
+      store.setHalfWaveLength();
+      const loopLen = useAntennaStore.getState().length;
+      // Loop perimeter = 1λ, roughly 2× the dipole's ½λ × 0.95 factor.
+      expect(loopLen).toBeGreaterThan(40);
+      expect(loopLen).toBeLessThan(45); // ~42.22 m
+      expect(loopLen).toBeGreaterThan(dipoleLen);
+    });
   });
 });
 

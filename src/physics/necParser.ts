@@ -111,7 +111,14 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
   const rowRe = /^\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)/;
 
   const expected = thetaSteps * phiSteps;
+  // Initialise to the same "no field" sentinel we use for NEC's -999.99
+  // marker. Crucially, this makes any unfilled cell render as a tiny
+  // (essentially invisible) radius rather than a 0 dB sphere. nec2c with
+  // a real / perfect ground often omits rows for theta > 90° entirely —
+  // those cells must not default to 0 dB or the lower hemisphere will
+  // render as a spurious uniform-size dome.
   const data = new Float32Array(expected);
+  data.fill(-100);
   let count = 0;
 
   // Track the order we see (theta, phi) so we can verify NEC emitted in the

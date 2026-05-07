@@ -123,4 +123,25 @@ RADIATION PATTERNS
     const parsed = parseNecOutput(mockOutput, 1, 1);
     expect(parsed.pattern).toBeNull();
   });
+
+  it('initialises unfilled pattern cells to a low-dB sentinel (not 0 dB)', () => {
+    // Mimics what nec2c emits when GE 1 / GN 2 are in effect and the
+    // engine omits sub-horizon (theta > 90°) rows entirely. Only the
+    // upper-hemisphere row should populate the data array; the lower
+    // hemisphere must NOT default to 0 dB, otherwise the renderer would
+    // produce a uniform-radius hemisphere below the antenna regardless
+    // of the actual antenna configuration.
+    const mockOutput = `
+RADIATION PATTERNS
+  0.00     0.00  3.0  3.0  3.0
+    `;
+    // 2 theta rows expected (0° and 180°), 1 phi.
+    const parsed = parseNecOutput(mockOutput, 2, 1);
+    expect(parsed.pattern).not.toBeNull();
+    // theta=0° row populated.
+    expect(parsed.pattern!.data[0]).toBeCloseTo(3.0, 5);
+    // theta=180° row not populated by NEC; must read as the low-dB
+    // sentinel so the renderer collapses it to ~zero radius.
+    expect(parsed.pattern!.data[1]).toBe(-100);
+  });
 });

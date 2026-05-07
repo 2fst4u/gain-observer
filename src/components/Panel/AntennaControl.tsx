@@ -107,7 +107,9 @@ export function AntennaControl() {
         <option value="delta-loop">Delta Loop</option>
       </select>
 
-      <label htmlFor="dipole-length" style={{ marginTop: 10 }}>Length ({unit})</label>
+      <label htmlFor="dipole-length" style={{ marginTop: 10 }}>
+        {type === 'delta-loop' ? `Perimeter (${unit})` : `Length (${unit})`}
+      </label>
       <div className="row">
         <input
           id="dipole-length"
@@ -131,10 +133,18 @@ export function AntennaControl() {
         />
         <button
           onClick={setHalfWaveLength}
-          title="Set length to resonant ½λ"
-          aria-label="Set length to resonant half wavelength"
+          title={
+            type === 'delta-loop'
+              ? 'Set perimeter to one full wavelength (resonant 1λ loop)'
+              : 'Set length to resonant ½λ'
+          }
+          aria-label={
+            type === 'delta-loop'
+              ? 'Set perimeter to one wavelength'
+              : 'Set length to resonant half wavelength'
+          }
         >
-          ½λ
+          {type === 'delta-loop' ? '1λ' : '½λ'}
         </button>
       </div>
 
