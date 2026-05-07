@@ -17,6 +17,7 @@ export function FeedlineControl() {
   const dipoleLength = useAntennaStore((s) => s.length);
   const feedlineId = useAntennaStore((s) => s.feedlineId);
   const feedlineLength = useAntennaStore((s) => s.feedlineLength);
+  const antennaType = useAntennaStore((s) => s.type);
   const feedlineOffset = useAntennaStore((s) => s.feedlineOffset);
   const balunEnabled = useAntennaStore((s) => s.balunEnabled);
   const setFeedline = useAntennaStore((s) => s.setFeedline);
@@ -43,6 +44,10 @@ export function FeedlineControl() {
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
+
+  if (antennaType !== 'dipole') {
+    return null;
+  }
 
   return (
     <div className="panel-section">

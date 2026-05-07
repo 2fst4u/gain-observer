@@ -23,6 +23,8 @@ import {
   DIPOLE_RIGHT_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
+  TERM_LEFT_TAG,
+  TERM_RIGHT_TAG,
   type Orientation,
   type AntennaType,
 } from '../../store/antennaStore';
@@ -40,6 +42,7 @@ interface DipoleWireProps {
   readonly feedlineOffset: number;
   readonly vAngle?: number;
   readonly legSlope?: number;
+  readonly terminatedEnabled?: boolean;
 }
 
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
@@ -58,6 +61,7 @@ export function DipoleWire({
   feedlineOffset,
   vAngle,
   legSlope,
+  terminatedEnabled,
 }: DipoleWireProps) {
   const theme = useAntennaStore((s) => s.theme);
   const balunEnabled = useAntennaStore((s) => s.balunEnabled);
@@ -75,6 +79,7 @@ export function DipoleWire({
       feedlineOffset,
       vAngle,
       legSlope,
+      terminatedEnabled: terminatedEnabled ?? false,
     });
 
     return wires.map((w, idx) => {
@@ -94,8 +99,10 @@ export function DipoleWire({
       // electrical token), the shield slightly slimmer than the dipole,
       // and the dipole at the original visibility scale.
       let radius: number;
+      const isTerm = tag === TERM_LEFT_TAG || tag === TERM_RIGHT_TAG;
       if (isShield) radius = Math.max(w.radius * 6, 0.025);
       else if (isBridge) radius = Math.max(w.radius * 4, 0.018);
+      else if (isTerm) radius = Math.max(w.radius * 3, 0.015);
       else radius = Math.max(w.radius * 8, 0.03);
       return {
         key: idx,
@@ -110,9 +117,10 @@ export function DipoleWire({
         isShield,
         isBridge,
         isDipoleHalf,
+        isTerm,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope]);
+  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, terminatedEnabled]);
 
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);
@@ -131,9 +139,9 @@ export function DipoleWire({
           <meshStandardMaterial
             color={THEME_COLORS[theme].wire}
             emissive={THEME_COLORS[theme].wire}
-            emissiveIntensity={s.isShield ? 0.08 : s.isBridge ? 0.05 : 0.15}
+            emissiveIntensity={s.isShield ? 0.08 : s.isBridge ? 0.05 : s.isTerm ? 0.05 : 0.15}
             metalness={0.85}
-            roughness={s.isShield ? 0.55 : s.isBridge ? 0.7 : 0.35}
+            roughness={s.isShield ? 0.55 : s.isBridge ? 0.7 : s.isTerm ? 0.8 : 0.35}
           />
         </mesh>
       ))}

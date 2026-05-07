@@ -48,6 +48,7 @@ export interface ComparisonSnapshot {
   readonly segments: number;
   readonly vAngle: number;
   readonly legSlope: number;
+  readonly terminatedEnabled?: boolean;
   readonly groundId: string;
   readonly groundSigma: number;
   readonly groundEpsilon: number;
@@ -416,6 +417,8 @@ export const DIPOLE_LEFT_TAG = 1;     // left half of split dipole
 export const DIPOLE_RIGHT_TAG = 2;    // right half of split dipole
 export const FEED_BRIDGE_TAG = 3;     // 1-segment source bridge
 export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
+export const TERM_LEFT_TAG = 10;
+export const TERM_RIGHT_TAG = 11;
 
 /**
  * Number of segments on the coax shield wire. Odd so the middle segment
@@ -486,7 +489,7 @@ function orientationVector(o: Orientation): [number, number] {
  */
 export function buildWires(
   state: Pick<AntennaState, 'type' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'vAngle' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'vAngle' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'terminatedEnabled'>>,
 ): Wire[] {
   if (state.type === 'delta-loop') {
     return buildDeltaLoopWires(state);
@@ -841,44 +844,26 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
         });
       }
     } else {
-      // For dipole, inverted V, and sloping V
-      const leftWire = wires.find(w => w.tag === DIPOLE_LEFT_TAG);
-      const rightWire = wires.find(w => w.tag === DIPOLE_RIGHT_TAG);
-      const mainWire = wires.find(w => w.tag === DIPOLE_TAG);
+      // For dipole, inverted V, and sloping V, the load should be on the termination wires connecting to ground!
+      const termLeft = wires.find(w => w.tag === TERM_LEFT_TAG);
+      const termRight = wires.find(w => w.tag === TERM_RIGHT_TAG);
 
-      if (leftWire && rightWire) {
-        // Split topology (feedline active or V-shape)
+      if (termLeft) {
         loads.push({
           type: 4,
-          wireTag: DIPOLE_LEFT_TAG,
-          segmentStart: 1,
-          segmentEnd: 1,
+          wireTag: TERM_LEFT_TAG,
+          segmentStart: termLeft.segments, // bottom segment near ground
+          segmentEnd: termLeft.segments,
           param1: state.terminatingResistor,
           param2: 0
         });
+      }
+      if (termRight) {
         loads.push({
           type: 4,
-          wireTag: DIPOLE_RIGHT_TAG,
-          segmentStart: rightWire.segments,
-          segmentEnd: rightWire.segments,
-          param1: state.terminatingResistor,
-          param2: 0
-        });
-      } else if (mainWire) {
-        // Single wire topology (standard dipole, no feedline)
-        loads.push({
-          type: 4,
-          wireTag: DIPOLE_TAG,
-          segmentStart: 1,
-          segmentEnd: 1,
-          param1: state.terminatingResistor,
-          param2: 0
-        });
-        loads.push({
-          type: 4,
-          wireTag: DIPOLE_TAG,
-          segmentStart: mainWire.segments,
-          segmentEnd: mainWire.segments,
+          wireTag: TERM_RIGHT_TAG,
+          segmentStart: termRight.segments, // bottom segment near ground
+          segmentEnd: termRight.segments,
           param1: state.terminatingResistor,
           param2: 0
         });
@@ -912,6 +897,7 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     segments: state.segments,
     vAngle: state.vAngle,
     legSlope: state.legSlope,
+    terminatedEnabled: state.terminatedEnabled,
     groundId: state.groundId,
     groundSigma: state.groundSigma,
     groundEpsilon: state.groundEpsilon,
