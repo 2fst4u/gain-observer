@@ -13,3 +13,6 @@
 **Learning:** Testing component behaviour interacting directly with Zustand state via `useAntennaStore.setState()` ensures we evaluate application effects rather than isolated mocks. Also, it might be necessary to reset state with `cleanup()` or `afterEach()` hooks when doing continuous updates to components to prevent pollution of consecutive tests.
 
 **Action:** Write test scenarios mapping closely user flows (like toggling an option off and verifying the opposite behaviour occurs and the classname reflects this correctly) instead of internal behaviour.
+## 2026-05-07 - useGeolocation Coverage Bump
+**Learning:** Testing custom React hooks that interact directly with browser APIs like `navigator.geolocation` in Vitest requires mocking global objects. Also, the hooks can be successfully tested by using `renderHook` and `act` from `@testing-library/react`.
+**Action:** Added tests covering successful cases, permission denied, timeouts, and unhandled errors for the geolocation API hook and ensured store state updates align correctly.
