@@ -58,12 +58,13 @@ export function FeedlineControl() {
         id="feedline-preset"
         value={feedlineId}
         onChange={(e) => setFeedline(e.target.value)}
+        aria-describedby="feedline-hint"
       >
         {FEEDLINE_PRESETS.map((f) => (
           <option key={f.id} value={f.id}>{f.label}</option>
         ))}
       </select>
-      <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+      <div id="feedline-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         {preset.hint}
       </div>
 
@@ -105,6 +106,7 @@ export function FeedlineControl() {
               max={dispOffsetLimit}
               step={units === 'metric' ? 0.05 : 0.25}
               value={dispOffset}
+              aria-describedby="feedline-offset-hint"
               onChange={(e) => {
                 const val = parseFloat(e.target.value);
                 if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
@@ -119,7 +121,7 @@ export function FeedlineControl() {
               Centre
             </button>
           </div>
-          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+          <div id="feedline-offset-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
             {Math.abs(feedlineOffset) < 1e-6
               ? 'Centred (perfectly balanced — no common-mode current).'
               : `Shifted ${Math.abs(dispOffset).toFixed(2)} ${unit} ${feedlineOffset > 0 ? '+ axis' : '− axis'}; common-mode current will flow on the shield.`}
@@ -140,11 +142,12 @@ export function FeedlineControl() {
               type="checkbox"
               checked={balunEnabled}
               onChange={(e) => setBalunEnabled(e.target.checked)}
+              aria-describedby="balun-hint"
               style={{ width: 'auto' }}
             />
             <span>1:1 current (choke) balun at feedpoint</span>
           </label>
-          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+          <div id="balun-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
             {balunEnabled
               ? 'Suppresses common-mode current on shield (~2 kΩ choke).'
               : 'Unchoked: shield can radiate. Pattern may distort.'}
