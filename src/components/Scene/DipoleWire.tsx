@@ -127,9 +127,19 @@ export function DipoleWire({
   const dipoleSingle = rendered.find((s) => s.tag === DIPOLE_TAG && !bridge);
   const shield = rendered.find((s) => s.isShield);
 
+  const apexWire = rendered.find((s) => s.tag === DIPOLE_LEFT_TAG);
+
   // The feedpoint is at the bridge midpoint when split, else at the dipole
   // wire's midpoint (legacy single-wire layout).
-  const feedpoint = bridge?.feedMid ?? dipoleSingle?.feedMid ?? null;
+  let feedpoint = bridge?.feedMid ?? dipoleSingle?.feedMid ?? null;
+
+  if (type !== 'dipole' && apexWire) {
+    // For V-shapes and Delta loop, the feedpoint is at the apex, which connects
+    // to the end of the DIPOLE_LEFT_TAG wire (or start of DIPOLE_RIGHT_TAG).
+    // The visual wire component has `sceneEnd` calculated for its 3D geometry end point.
+    // So we use sceneEnd of the left wire.
+    feedpoint = apexWire.sceneEnd;
+  }
 
   return (
     <group>

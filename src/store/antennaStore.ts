@@ -539,7 +539,7 @@ function buildDeltaLoopWires(
 
 function buildVWires(
   state: Pick<AntennaState, 'type' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'vAngle' | 'legSlope'>>
+    Partial<Pick<AntennaState, 'vAngle' | 'legSlope' | 'terminatedEnabled'>>
 ): Wire[] {
   const half = state.length / 2;
   const h = state.height;
@@ -585,7 +585,7 @@ function buildVWires(
 
   const halfSeg = Math.max(3, Math.floor(state.segments / 2));
 
-  return [
+  const wires: Wire[] = [
     {
       start: end1, end: apex,
       radius: state.wireRadius, segments: halfSeg, tag: DIPOLE_LEFT_TAG
@@ -595,6 +595,19 @@ function buildVWires(
       radius: state.wireRadius, segments: halfSeg, tag: DIPOLE_RIGHT_TAG
     }
   ];
+
+  if (state.terminatedEnabled) {
+    wires.push({
+      start: [end1[0], end1[1], FEEDLINE_GROUND_GAP_M], end: end1,
+      radius: state.wireRadius, segments: 10, tag: TERM_LEFT_TAG
+    });
+    wires.push({
+      start: [end2[0], end2[1], FEEDLINE_GROUND_GAP_M], end: end2,
+      radius: state.wireRadius, segments: 10, tag: TERM_RIGHT_TAG
+    });
+  }
+
+  return wires;
 }
 
 function buildDipoleWires(
