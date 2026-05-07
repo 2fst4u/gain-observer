@@ -500,17 +500,27 @@ describe('antennaStore actions', () => {
       expect(state.length).toBeLessThan(22);
     });
 
-    it('does not resize length when switching between non-loop types', () => {
+    it('preserves length when switching between resonant wire types', () => {
       const store = useAntennaStore.getState();
       store.setType('dipole');
       store.setLength(15.5); // user-chosen
       store.setType('inverted-v');
       expect(useAntennaStore.getState().length).toBe(15.5);
-      store.setType('sloping-v');
-      expect(useAntennaStore.getState().length).toBe(15.5);
     });
 
-    it('setHalfWaveLength is topology-aware: ½λ for dipole/V, 1λ for delta-loop', () => {
+    it('auto-resizes sloping V to ~2λ total length', () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(7.1);
+      store.setType('dipole');
+      store.setLength(20);
+      store.setType('sloping-v');
+      const state = useAntennaStore.getState();
+      // Directional vee-beam default: about one wavelength per leg.
+      expect(state.length).toBeGreaterThan(80);
+      expect(state.length).toBeLessThan(90);
+    });
+
+    it('setHalfWaveLength is topology-aware: ½λ for dipole/V, 2λ for sloping V, 1λ for delta-loop', () => {
       const store = useAntennaStore.getState();
       store.setFrequency(7.1);
 
@@ -527,6 +537,13 @@ describe('antennaStore actions', () => {
       expect(loopLen).toBeGreaterThan(40);
       expect(loopLen).toBeLessThan(45); // ~42.22 m
       expect(loopLen).toBeGreaterThan(dipoleLen);
+
+      store.setType('sloping-v');
+      store.setHalfWaveLength();
+      const slopingVLen = useAntennaStore.getState().length;
+      expect(slopingVLen).toBeGreaterThan(80);
+      expect(slopingVLen).toBeLessThan(90); // ~84.45 m
+      expect(slopingVLen).toBeGreaterThan(loopLen);
     });
   });
 });
@@ -611,7 +628,7 @@ describe('termination loading', () => {
     expect(leg2Load!.segmentStart).not.toBe(1);
   });
 
-  it('sloping V: same tip-loading topology as inverted V', () => {
+  it('sloping V: terminates each leg through a grounded drop wire', () => {
     const state = useAntennaStore.getState();
     const input = selectSimulationInput({
       ...state,
@@ -625,11 +642,16 @@ describe('termination loading', () => {
       terminatedEnabled: true,
       terminatingResistor: 500,
     });
+    const termLeft = input.wires.find((w) => w.tag === 10)!;
+    const termRight = input.wires.find((w) => w.tag === 11)!;
+    expect(termLeft).toBeDefined();
+    expect(termRight).toBeDefined();
+    expect(termLeft.end[2]).toBe(0);
+    expect(termRight.end[2]).toBe(0);
     expect(input.loads).toBeDefined();
     expect(input.loads).toHaveLength(2);
-    expect(input.loads!.some((l) => l.wireTag === 1 && l.segmentStart === 1)).toBe(true);
-    const leg2 = input.wires.find((w) => w.tag === 2)!;
-    expect(input.loads!.some((l) => l.wireTag === 2 && l.segmentStart === leg2.segments)).toBe(true);
+    expect(input.loads!.some((l) => l.wireTag === 10 && l.segmentStart === 1)).toBe(true);
+    expect(input.loads!.some((l) => l.wireTag === 11 && l.segmentStart === 1)).toBe(true);
   });
 
   it('delta loop: a single LD card at the centre of the bottom (base) wire', () => {

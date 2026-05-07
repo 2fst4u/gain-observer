@@ -251,10 +251,14 @@ export const useAntennaStore = create<AntennaState>()(
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
       setHalfWaveLength: () => set((s) => {
-        // "Resonant length" depends on antenna topology:
-        //   - Dipole / inverted-V / sloping-V: total wire length is one
+        // "Reference length" depends on antenna topology:
+        //   - Dipole / inverted-V: total wire length is one
         //     half-wavelength (with the standard ~0.95 end-effect factor),
         //     so each leg is roughly λ/4.
+        //   - Sloping V: this is a travelling-wave vee-beam, not a resonant
+        //     half-wave antenna. Use two wavelengths total (about one
+        //     wavelength per leg) so the default shape can actually develop
+        //     directionality.
         //   - Delta loop: the perimeter is one full wavelength for the
         //     fundamental loop resonance. We use the un-corrected
         //     wavelength here because closed-loop antennas don't suffer
@@ -262,6 +266,8 @@ export const useAntennaStore = create<AntennaState>()(
         //     compensates for.
         if (s.type === 'delta-loop') {
           s.length = wavelengthMeters(s.frequency);
+        } else if (s.type === 'sloping-v') {
+          s.length = wavelengthMeters(s.frequency) * 2;
         } else {
           s.length = halfWaveLength(s.frequency);
         }
@@ -289,13 +295,15 @@ export const useAntennaStore = create<AntennaState>()(
         s.terminatedEnabled = false;
 
         // Auto-resize length when switching between topologies with very
-        // different resonant lengths so the user doesn't get a wildly
-        // off-resonance antenna on type change. We only do this when
-        // crossing the loop / wire boundary, since within a category the
-        // user's chosen length is usually still meaningful.
+        // different useful lengths so the user doesn't get a model that
+        // cannot show the advertised behaviour on type change.
         if (t === 'delta-loop' && previousType !== 'delta-loop') {
           s.length = wavelengthMeters(s.frequency);
+        } else if (t === 'sloping-v' && previousType !== 'sloping-v') {
+          s.length = wavelengthMeters(s.frequency) * 2;
         } else if (t !== 'delta-loop' && previousType === 'delta-loop') {
+          s.length = halfWaveLength(s.frequency);
+        } else if (t !== 'sloping-v' && previousType === 'sloping-v') {
           s.length = halfWaveLength(s.frequency);
         }
       }),
@@ -462,12 +470,13 @@ export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
  * to find the base wire unambiguously in selectSimulationInput.
  */
 export const DELTA_BASE_TAG = 5;
-/** @deprecated kept for binary-compat with earlier termination prototype.
- *  No wire is built with this tag any more — termination is now implemented
- *  via LD cards on existing tip segments rather than dedicated drop wires.
+/**
+ * Sloping-V termination drop wires. These are only generated when the
+ * sloping V is explicitly terminated; the corresponding LD cards sit on
+ * segment 1 so the resistor is directly at the leg tip before the ground
+ * return path.
  */
 export const TERM_LEFT_TAG = 10;
-/** @deprecated see {@link TERM_LEFT_TAG}. */
 export const TERM_RIGHT_TAG = 11;
 
 /**
@@ -653,16 +662,31 @@ function buildVWires(
     }
   ];
 
-  // Termination is modelled as an LD card on the outermost tip segment of
-  // each leg (see selectSimulationInput). No additional geometry is needed —
-  // an extra "drop to ground" wire was previously inserted here, but it is
-  // not physical: a real terminated V / rhombic places the resistor across
-  // the open leg ends (often to a counterpoise / radial system not modelled
-  // here), not as a floating vertical 10 cm above an unrelated ground
-  // surface. Keeping the antenna geometry minimal also avoids NEC warnings
-  // about wires very close to ground without a proper bond.
+  if (state.type === 'sloping-v' && state.terminatedEnabled) {
+    const leftDropSegments = terminationDropSegments(end1[2], halfSeg);
+    const rightDropSegments = terminationDropSegments(end2[2], halfSeg);
+    wires.push({
+      start: end1,
+      end: [end1[0], end1[1], 0],
+      radius: state.wireRadius,
+      segments: leftDropSegments,
+      tag: TERM_LEFT_TAG,
+    });
+    wires.push({
+      start: end2,
+      end: [end2[0], end2[1], 0],
+      radius: state.wireRadius,
+      segments: rightDropSegments,
+      tag: TERM_RIGHT_TAG,
+    });
+  }
 
   return wires;
+}
+
+function terminationDropSegments(dropMeters: number, referenceSegments: number): number {
+  if (dropMeters <= 0.25) return 1;
+  return Math.max(3, Math.min(21, oddRound(referenceSegments)));
 }
 
 function buildDipoleWires(
@@ -912,20 +936,38 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
           param2: 0
         });
       }
-    } else if (state.type === 'inverted-v' || state.type === 'sloping-v') {
-      // V-shapes: tag 1 wire runs end1 -> apex (so segment 1 is the leg
-      // tip, the open end). Tag 2 wire runs apex -> end2 (so segment N is
-      // the open end). Place the resistor on the tip segment of each leg —
-      // this is the textbook treatment of a terminated V / rhombic, where
-      // the load absorbs the leg's traveling-wave current at the open end.
-      //
-      // Caveat: with a real ground this is still an idealisation — a real
-      // terminated V grounds the far side of the resistor through a
-      // counterpoise or radial system that NEC must see as a wire bond.
-      // Without that, the load behaves more like a series end-resistor
-      // than a true matched termination. This is documented in the UI
-      // hint and is sufficient to demonstrate the qualitative pattern
-      // change.
+    } else if (state.type === 'sloping-v') {
+      // Terminated vee-beam: each leg's far end is loaded to the ground
+      // plane through a short vertical drop wire. This gives the resistor a
+      // real return path, so the leg current can become travelling-wave
+      // rather than a mostly standing-wave open-ended conductor.
+      const leftTerm = wires.find(w => w.tag === TERM_LEFT_TAG);
+      const rightTerm = wires.find(w => w.tag === TERM_RIGHT_TAG);
+      if (leftTerm) {
+        loads.push({
+          type: 4,
+          wireTag: TERM_LEFT_TAG,
+          segmentStart: 1,
+          segmentEnd: 1,
+          param1: state.terminatingResistor,
+          param2: 0,
+        });
+      }
+      if (rightTerm) {
+        loads.push({
+          type: 4,
+          wireTag: TERM_RIGHT_TAG,
+          segmentStart: 1,
+          segmentEnd: 1,
+          param1: state.terminatingResistor,
+          param2: 0,
+        });
+      }
+    } else if (state.type === 'inverted-v') {
+      // Inverted V: tag 1 wire runs end1 -> apex (so segment 1 is the leg
+      // tip). Tag 2 wire runs apex -> end2 (so segment N is the other tip).
+      // There is no meaningful directional terminated-V model here; this
+      // remains end-loading rather than a grounded travelling-wave antenna.
       const leftLeg = wires.find(w => w.tag === DIPOLE_LEFT_TAG);
       const rightLeg = wires.find(w => w.tag === DIPOLE_RIGHT_TAG);
       if (leftLeg) {

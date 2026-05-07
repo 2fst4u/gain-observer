@@ -108,7 +108,7 @@ export function AntennaControl() {
       </select>
 
       <label htmlFor="dipole-length" style={{ marginTop: 10 }}>
-        {type === 'delta-loop' ? `Perimeter (${unit})` : `Length (${unit})`}
+        {type === 'delta-loop' ? `Perimeter (${unit})` : `Total wire length (${unit})`}
       </label>
       <div className="row">
         <input
@@ -136,15 +136,19 @@ export function AntennaControl() {
           title={
             type === 'delta-loop'
               ? 'Set perimeter to one full wavelength (resonant 1λ loop)'
+              : type === 'sloping-v'
+                ? 'Set total wire length to two wavelengths (about 1λ per leg for vee-beam directionality)'
               : 'Set length to resonant ½λ'
           }
           aria-label={
             type === 'delta-loop'
               ? 'Set perimeter to one wavelength'
+              : type === 'sloping-v'
+                ? 'Set total wire length to two wavelengths'
               : 'Set length to resonant half wavelength'
           }
         >
-          {type === 'delta-loop' ? '1λ' : '½λ'}
+          {type === 'delta-loop' ? '1λ' : type === 'sloping-v' ? '2λ' : '½λ'}
         </button>
       </div>
 
