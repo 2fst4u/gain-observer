@@ -32,6 +32,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const liveFeedlineOffset = useAntennaStore((s) => s.feedlineOffset);
   const liveVAngle = useAntennaStore((s) => s.vAngle);
   const liveLegSlope = useAntennaStore((s) => s.legSlope);
+  const liveTerminatedEnabled = useAntennaStore((s) => s.terminatedEnabled);
   const showGrid = useAntennaStore((s) => s.showGrid);
   const showAxes = useAntennaStore((s) => s.showAxes);
   const patternScale = useAntennaStore((s) => s.patternScale);
@@ -54,6 +55,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const feedlineOffset = snapshot?.feedlineOffset ?? liveFeedlineOffset;
   const vAngle = snapshot?.vAngle ?? liveVAngle;
   const legSlope = snapshot?.legSlope ?? liveLegSlope;
+  const terminatedEnabled = snapshot?.terminatedEnabled ?? liveTerminatedEnabled;
 
   return (
     <Canvas
@@ -81,6 +83,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
           feedlineId={feedlineId}
           feedlineLength={feedlineLength}
           feedlineOffset={feedlineOffset}
+          terminatedEnabled={terminatedEnabled}
         />
         <RadiationPattern
           result={result}

@@ -259,7 +259,20 @@ export const useAntennaStore = create<AntennaState>()(
         if (!Number.isFinite(meters)) return;
         s.height = Math.max(0, meters);
       }),
-      setType: (t) => set((s) => { s.type = t; }),
+      setType: (t) => set((s) => {
+        s.type = t;
+        // Reset dependent state that does not apply to the new type, to
+        // avoid stale values silently affecting the simulation:
+        //   - Feedline only models a coax run on a plain horizontal dipole.
+        //     For V-shapes / loops we force 'none' so a stale shield wire
+        //     can't poison the geometry next time the user switches back.
+        //   - Termination has different physical meanings per type and the
+        //     UI should reflect the new context, so we clear it on change.
+        if (t !== 'dipole') {
+          s.feedlineId = 'none';
+        }
+        s.terminatedEnabled = false;
+      }),
       setOrientation: (o) => set((s) => {
         if (typeof o === 'number') {
           if (!Number.isFinite(o)) return;
@@ -417,7 +430,18 @@ export const DIPOLE_LEFT_TAG = 1;     // left half of split dipole
 export const DIPOLE_RIGHT_TAG = 2;    // right half of split dipole
 export const FEED_BRIDGE_TAG = 3;     // 1-segment source bridge
 export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
+/**
+ * Base (closing) wire of a delta loop. Distinct from DIPOLE_TAG (=1)
+ * because the loop's left leg already uses tag 1 and we need to be able
+ * to find the base wire unambiguously in selectSimulationInput.
+ */
+export const DELTA_BASE_TAG = 5;
+/** @deprecated kept for binary-compat with earlier termination prototype.
+ *  No wire is built with this tag any more — termination is now implemented
+ *  via LD cards on existing tip segments rather than dedicated drop wires.
+ */
 export const TERM_LEFT_TAG = 10;
+/** @deprecated see {@link TERM_LEFT_TAG}. */
 export const TERM_RIGHT_TAG = 11;
 
 /**
@@ -532,7 +556,7 @@ function buildDeltaLoopWires(
     },
     {
       start: right as [number, number, number], end: left as [number, number, number],
-      radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_TAG
+      radius: state.wireRadius, segments: segPerSide, tag: DELTA_BASE_TAG
     }
   ];
 }
@@ -545,45 +569,52 @@ function buildVWires(
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
 
-  const vAngleRad = ((state.vAngle || 120) * Math.PI) / 180;
+  const apex: [number, number, number] = [0, 0, h];
+  const halfSeg = Math.max(3, Math.floor(state.segments / 2));
 
-  let slopeRad = 0;
-  let halfAngle = vAngleRad / 2;
+  let end1: [number, number, number];
+  let end2: [number, number, number];
 
   if (state.type === 'inverted-v') {
-    // For an inverted V, the angle is in the vertical plane.
-    // The legs go in opposite directions in the XY plane.
-    // So horizontal angle is 180 deg (straight line from above).
-    halfAngle = Math.PI / 2; // 90 deg rotation gives 180 deg spread
+    // Classic inverted V. Both legs lie in the SAME vertical plane that
+    // contains the orientation axis (so for orientation='EW' the V sits in
+    // the X-Z plane). The legs go in OPPOSITE horizontal directions along
+    // the orientation axis, both drooping below the apex.
+    //
+    // `vAngle` is the included angle between the two legs measured in that
+    // vertical plane (i.e. the apex angle). Each leg therefore drops below
+    // horizontal by (180° - vAngle) / 2.
+    const slopeRad = ((180 - (state.vAngle ?? 120)) / 2) * Math.PI / 180;
+    const projLen = half * Math.cos(slopeRad);
+    const zDrop = half * Math.sin(slopeRad);
+    const tipZ = Math.max(0.1, h - zDrop);
+    end1 = [-projLen * dx, -projLen * dy, tipZ];
+    end2 = [+projLen * dx, +projLen * dy, tipZ];
+  } else {
+    // Sloping V (a.k.a. drooping V / vee-beam, fed at the apex). The two
+    // legs share the apex, splay outward by ±halfAngle around the
+    // orientation axis (so the V opens in the +orientation direction),
+    // and droop downward by `legSlope`.
+    //
+    // NOTE: this geometry is necessarily symmetric about the orientation
+    // axis. A symmetric V cannot exhibit the asymmetric travelling-wave
+    // forward-gain pattern of a true terminated rhombic / asymmetric V —
+    // see the PR-101 review for the deeper discussion.
+    const vAngleRad = ((state.vAngle ?? 120) * Math.PI) / 180;
+    const halfAngle = vAngleRad / 2;
+    const slopeRad = ((state.legSlope ?? 45) * Math.PI) / 180;
+    const projLen = half * Math.cos(slopeRad);
+    const zDrop = half * Math.sin(slopeRad);
+    const tipZ = Math.max(0.1, h - zDrop);
 
-    // The angle between the legs is vAngle.
-    // So the drop angle for each leg from horizontal is (180 - vAngle) / 2.
-    slopeRad = ((180 - (state.vAngle || 120)) / 2) * Math.PI / 180;
-  } else if (state.type === 'sloping-v') {
-    slopeRad = ((state.legSlope || 45) * Math.PI) / 180;
+    const leg1DirX = dx * Math.cos(halfAngle) - dy * Math.sin(halfAngle);
+    const leg1DirY = dx * Math.sin(halfAngle) + dy * Math.cos(halfAngle);
+    const leg2DirX = dx * Math.cos(-halfAngle) - dy * Math.sin(-halfAngle);
+    const leg2DirY = dx * Math.sin(-halfAngle) + dy * Math.cos(-halfAngle);
+
+    end1 = [projLen * leg1DirX, projLen * leg1DirY, tipZ];
+    end2 = [projLen * leg2DirX, projLen * leg2DirY, tipZ];
   }
-
-  // Apex is the center
-  const apex: [number, number, number] = [0, 0, h];
-
-  // Projection on XY plane and Z drop
-  const projLen = half * Math.cos(slopeRad);
-  const zDrop = half * Math.sin(slopeRad);
-
-  // Rotate legs by halfAngle around Z axis relative to orientation
-  const leg1DirX = dx * Math.cos(halfAngle) - dy * Math.sin(halfAngle);
-  const leg1DirY = dx * Math.sin(halfAngle) + dy * Math.cos(halfAngle);
-
-  const leg2DirX = dx * Math.cos(-halfAngle) - dy * Math.sin(-halfAngle);
-  const leg2DirY = dx * Math.sin(-halfAngle) + dy * Math.cos(-halfAngle);
-
-  const end1Z = Math.max(0.1, h - zDrop);
-  const end2Z = Math.max(0.1, h - zDrop);
-
-  const end1: [number, number, number] = [projLen * leg1DirX, projLen * leg1DirY, end1Z];
-  const end2: [number, number, number] = [projLen * leg2DirX, projLen * leg2DirY, end2Z];
-
-  const halfSeg = Math.max(3, Math.floor(state.segments / 2));
 
   const wires: Wire[] = [
     {
@@ -596,16 +627,14 @@ function buildVWires(
     }
   ];
 
-  if (state.terminatedEnabled) {
-    wires.push({
-      start: [end1[0], end1[1], FEEDLINE_GROUND_GAP_M], end: end1,
-      radius: state.wireRadius, segments: 10, tag: TERM_LEFT_TAG
-    });
-    wires.push({
-      start: [end2[0], end2[1], FEEDLINE_GROUND_GAP_M], end: end2,
-      radius: state.wireRadius, segments: 10, tag: TERM_RIGHT_TAG
-    });
-  }
+  // Termination is modelled as an LD card on the outermost tip segment of
+  // each leg (see selectSimulationInput). No additional geometry is needed —
+  // an extra "drop to ground" wire was previously inserted here, but it is
+  // not physical: a real terminated V / rhombic places the resistor across
+  // the open leg ends (often to a counterpoise / radial system not modelled
+  // here), not as a floating vertical 10 cm above an unrelated ground
+  // surface. Keeping the antenna geometry minimal also avoids NEC warnings
+  // about wires very close to ground without a proper bond.
 
   return wires;
 }
@@ -843,43 +872,104 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 
   if (state.terminatedEnabled && state.terminatingResistor) {
     if (state.type === 'delta-loop') {
-      // Delta loop: fed at apex, so terminated opposite feedpoint (bottom center, DIPOLE_TAG)
-      const bottomWire = wires.find(w => w.tag === DIPOLE_TAG);
+      // Delta loop: fed at apex, so terminated opposite feedpoint (centre
+      // of the base wire, which is its own DELTA_BASE_TAG).
+      const bottomWire = wires.find(w => w.tag === DELTA_BASE_TAG);
       if (bottomWire) {
         const midSeg = Math.ceil(bottomWire.segments / 2);
         loads.push({
           type: 4,
-          wireTag: DIPOLE_TAG,
+          wireTag: DELTA_BASE_TAG,
           segmentStart: midSeg,
           segmentEnd: midSeg,
           param1: state.terminatingResistor,
           param2: 0
         });
       }
-    } else {
-      // For dipole, inverted V, and sloping V, the load should be on the termination wires connecting to ground!
-      const termLeft = wires.find(w => w.tag === TERM_LEFT_TAG);
-      const termRight = wires.find(w => w.tag === TERM_RIGHT_TAG);
-
-      if (termLeft) {
+    } else if (state.type === 'inverted-v' || state.type === 'sloping-v') {
+      // V-shapes: tag 1 wire runs end1 -> apex (so segment 1 is the leg
+      // tip, the open end). Tag 2 wire runs apex -> end2 (so segment N is
+      // the open end). Place the resistor on the tip segment of each leg —
+      // this is the textbook treatment of a terminated V / rhombic, where
+      // the load absorbs the leg's traveling-wave current at the open end.
+      //
+      // Caveat: with a real ground this is still an idealisation — a real
+      // terminated V grounds the far side of the resistor through a
+      // counterpoise or radial system that NEC must see as a wire bond.
+      // Without that, the load behaves more like a series end-resistor
+      // than a true matched termination. This is documented in the UI
+      // hint and is sufficient to demonstrate the qualitative pattern
+      // change.
+      const leftLeg = wires.find(w => w.tag === DIPOLE_LEFT_TAG);
+      const rightLeg = wires.find(w => w.tag === DIPOLE_RIGHT_TAG);
+      if (leftLeg) {
         loads.push({
           type: 4,
-          wireTag: TERM_LEFT_TAG,
-          segmentStart: termLeft.segments, // bottom segment near ground
-          segmentEnd: termLeft.segments,
+          wireTag: DIPOLE_LEFT_TAG,
+          segmentStart: 1,
+          segmentEnd: 1,
           param1: state.terminatingResistor,
-          param2: 0
+          param2: 0,
         });
       }
-      if (termRight) {
+      if (rightLeg) {
         loads.push({
           type: 4,
-          wireTag: TERM_RIGHT_TAG,
-          segmentStart: termRight.segments, // bottom segment near ground
-          segmentEnd: termRight.segments,
+          wireTag: DIPOLE_RIGHT_TAG,
+          segmentStart: rightLeg.segments,
+          segmentEnd: rightLeg.segments,
           param1: state.terminatingResistor,
-          param2: 0
+          param2: 0,
         });
+      }
+    } else {
+      // Dipole (T2FD-style end loading). Two cases:
+      //   - Single-wire dipole (no feedline): one wire tagged DIPOLE_TAG;
+      //     load segment 1 and segment N (the two tips).
+      //   - Split dipole (feedline active): tag 1 = left half, tag 2 =
+      //     right half. The outer tip of the left half is segment 1 of
+      //     tag 1; the outer tip of the right half is segment N of tag 2.
+      const single = wires.find(w => w.tag === DIPOLE_TAG && !hasBridge);
+      if (single) {
+        loads.push({
+          type: 4,
+          wireTag: DIPOLE_TAG,
+          segmentStart: 1,
+          segmentEnd: 1,
+          param1: state.terminatingResistor,
+          param2: 0,
+        });
+        loads.push({
+          type: 4,
+          wireTag: DIPOLE_TAG,
+          segmentStart: single.segments,
+          segmentEnd: single.segments,
+          param1: state.terminatingResistor,
+          param2: 0,
+        });
+      } else {
+        const leftHalf = wires.find(w => w.tag === DIPOLE_LEFT_TAG);
+        const rightHalf = wires.find(w => w.tag === DIPOLE_RIGHT_TAG);
+        if (leftHalf) {
+          loads.push({
+            type: 4,
+            wireTag: DIPOLE_LEFT_TAG,
+            segmentStart: 1, // outer (leftmost) tip
+            segmentEnd: 1,
+            param1: state.terminatingResistor,
+            param2: 0,
+          });
+        }
+        if (rightHalf) {
+          loads.push({
+            type: 4,
+            wireTag: DIPOLE_RIGHT_TAG,
+            segmentStart: rightHalf.segments, // outer (rightmost) tip
+            segmentEnd: rightHalf.segments,
+            param1: state.terminatingResistor,
+            param2: 0,
+          });
+        }
       }
     }
   }

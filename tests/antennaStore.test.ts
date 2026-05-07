@@ -456,4 +456,242 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().geolocationStatus).toBe('denied');
     });
   });
+
+  describe('type changes reset dependent state', () => {
+    it('clears stale feedlineId when switching to a non-dipole type', () => {
+      const store = useAntennaStore.getState();
+      store.setType('dipole');
+      store.setFeedline('rg58');
+      expect(useAntennaStore.getState().feedlineId).toBe('rg58');
+      store.setType('inverted-v');
+      expect(useAntennaStore.getState().feedlineId).toBe('none');
+    });
+
+    it('clears terminatedEnabled when antenna type changes', () => {
+      const store = useAntennaStore.getState();
+      store.setType('dipole');
+      store.setTerminatedEnabled(true);
+      expect(useAntennaStore.getState().terminatedEnabled).toBe(true);
+      store.setType('delta-loop');
+      expect(useAntennaStore.getState().terminatedEnabled).toBe(false);
+    });
+  });
+});
+
+describe('termination loading', () => {
+  it('plain dipole: emits two LD cards on the tips of the single wire', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'dipole',
+      length: 20,
+      height: 10,
+      segments: 21,
+      feedlineId: 'none',
+      terminatedEnabled: true,
+      terminatingResistor: 600,
+    });
+    expect(input.loads).toBeDefined();
+    expect(input.loads).toHaveLength(2);
+    // Both loads are on the single dipole wire (tag 1).
+    expect(input.loads!.every((l) => l.wireTag === 1)).toBe(true);
+    const segs = input.loads!.map((l) => l.segmentStart).sort((a, b) => a - b);
+    expect(segs[0]).toBe(1); // outer tip 1
+    expect(segs[1]).toBe(21); // outer tip N
+    expect(input.loads!.every((l) => l.param1 === 600 && l.param2 === 0)).toBe(true);
+  });
+
+  it('split dipole (with feedline): LD on outer tip of each half, not on the bridge', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'dipole',
+      length: 20,
+      height: 10,
+      segments: 21,
+      feedlineId: 'rg58',
+      feedlineLength: 8,
+      feedlineOffset: 0,
+      balunEnabled: false,
+      terminatedEnabled: true,
+      terminatingResistor: 450,
+    });
+    // We expect exactly 2 termination LD cards (no balun since balun=false).
+    expect(input.loads).toBeDefined();
+    expect(input.loads).toHaveLength(2);
+    const leftTagLoad = input.loads!.find((l) => l.wireTag === 1);
+    const rightTagLoad = input.loads!.find((l) => l.wireTag === 2);
+    expect(leftTagLoad).toBeDefined();
+    expect(rightTagLoad).toBeDefined();
+    expect(leftTagLoad!.segmentStart).toBe(1); // outermost (left tip)
+    const rightHalf = input.wires.find((w) => w.tag === 2)!;
+    expect(rightTagLoad!.segmentStart).toBe(rightHalf.segments); // outermost (right tip)
+  });
+
+  it('inverted V: LD on the open tip of each leg (tag 1 seg 1, tag 2 seg N)', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'inverted-v',
+      length: 20,
+      height: 10,
+      segments: 21,
+      vAngle: 120,
+      feedlineId: 'none',
+      terminatedEnabled: true,
+      terminatingResistor: 800,
+    });
+    expect(input.loads).toBeDefined();
+    expect(input.loads).toHaveLength(2);
+    const leg1Wire = input.wires.find((w) => w.tag === 1)!;
+    const leg2Wire = input.wires.find((w) => w.tag === 2)!;
+    const leg1Load = input.loads!.find((l) => l.wireTag === 1);
+    const leg2Load = input.loads!.find((l) => l.wireTag === 2);
+    expect(leg1Load).toBeDefined();
+    expect(leg2Load).toBeDefined();
+    // Leg 1 wire goes end1 -> apex; segment 1 is the leg tip (open end).
+    expect(leg1Load!.segmentStart).toBe(1);
+    // Leg 2 wire goes apex -> end2; segment N is the leg tip.
+    expect(leg2Load!.segmentStart).toBe(leg2Wire.segments);
+    // Sanity: not on apex segments.
+    expect(leg1Load!.segmentStart).not.toBe(leg1Wire.segments);
+    expect(leg2Load!.segmentStart).not.toBe(1);
+  });
+
+  it('sloping V: same tip-loading topology as inverted V', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'sloping-v',
+      length: 30,
+      height: 12,
+      segments: 21,
+      vAngle: 90,
+      legSlope: 30,
+      feedlineId: 'none',
+      terminatedEnabled: true,
+      terminatingResistor: 500,
+    });
+    expect(input.loads).toBeDefined();
+    expect(input.loads).toHaveLength(2);
+    expect(input.loads!.some((l) => l.wireTag === 1 && l.segmentStart === 1)).toBe(true);
+    const leg2 = input.wires.find((w) => w.tag === 2)!;
+    expect(input.loads!.some((l) => l.wireTag === 2 && l.segmentStart === leg2.segments)).toBe(true);
+  });
+
+  it('delta loop: a single LD card at the centre of the bottom (base) wire', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'delta-loop',
+      length: 42,
+      height: 15,
+      segments: 21,
+      feedlineId: 'none',
+      terminatedEnabled: true,
+      terminatingResistor: 800,
+    });
+    expect(input.loads).toBeDefined();
+    expect(input.loads).toHaveLength(1);
+    const ld = input.loads![0];
+    // Base wire has its own tag (DELTA_BASE_TAG=5) to avoid clashing
+    // with the left leg, which also conventionally uses tag 1.
+    expect(ld.wireTag).toBe(5);
+    const bottomWire = input.wires.find((w) => w.tag === 5)!;
+    expect(ld.segmentStart).toBe(Math.ceil(bottomWire.segments / 2));
+    expect(ld.param1).toBe(800);
+  });
+
+  it('terminated=false produces no LD cards', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'dipole',
+      feedlineId: 'none',
+      terminatedEnabled: false,
+    });
+    expect(input.loads).toBeUndefined();
+  });
+
+  it('V geometry no longer adds floating drop-to-ground wires', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'inverted-v',
+      length: 20,
+      height: 10,
+      segments: 21,
+      vAngle: 120,
+      feedlineId: 'none',
+      terminatedEnabled: true,
+      terminatingResistor: 600,
+    });
+    // Expect only the two leg wires (tags 1 and 2). No TERM_LEFT_TAG=10 /
+    // TERM_RIGHT_TAG=11 floaters.
+    expect(input.wires).toHaveLength(2);
+    const tags = input.wires.map((w) => w.tag).sort();
+    expect(tags).toEqual([1, 2]);
+  });
+});
+
+describe('V geometry (sanity-only checks for current implementation)', () => {
+  // These tests pin down the *current* behaviour of buildVWires after the
+  // PR-101 follow-ups so future changes don't silently regress it. They do
+  // NOT validate that the antenna is electrically correct (in particular,
+  // the sloping V remains symmetric about its bisector — see PR review).
+  it('inverted V: legs lie in a single vertical plane along the orientation axis', () => {
+    const wires = buildWires({
+      type: 'inverted-v',
+      length: 20,
+      height: 10,
+      orientation: 'EW',
+      wireRadius: 0.001,
+      segments: 21,
+      vAngle: 120,
+    });
+    expect(wires).toHaveLength(2);
+    const left = wires.find((w) => w.tag === 1)!;
+    const right = wires.find((w) => w.tag === 2)!;
+    // Leg endpoints lie on the X axis (Y=0) for EW orientation.
+    expect(left.start[1]).toBeCloseTo(0, 5);
+    expect(right.end[1]).toBeCloseTo(0, 5);
+    // Apex is at z=10 with x=y=0; both wires share that vertex.
+    expect(left.end).toEqual(right.start);
+    expect(left.end[2]).toBe(10);
+    // Leg tips drop below apex by length/2 * sin((180-120)/2 deg).
+    const expectedDrop = 10 * Math.sin((30 * Math.PI) / 180);
+    expect(left.start[2]).toBeCloseTo(10 - expectedDrop, 5);
+    expect(right.end[2]).toBeCloseTo(10 - expectedDrop, 5);
+  });
+
+  it('delta loop: equilateral triangle with apex up and base = side length', () => {
+    const wires = buildWires({
+      type: 'delta-loop',
+      length: 30, // perimeter
+      height: 15,
+      orientation: 'EW',
+      wireRadius: 0.001,
+      segments: 21,
+    });
+    expect(wires).toHaveLength(3);
+    const expectedSide = 30 / 3;
+    // The base wire (DIPOLE_TAG=1, bottom) endpoints have z = baseZ < apex.
+    const leftLeg = wires.find((w) => w.tag === 1)!; // left -> apex (DIPOLE_LEFT_TAG=1 ?? clash)
+    // Note: DIPOLE_TAG and DIPOLE_LEFT_TAG share the value 1 in this codebase.
+    // The base wire is the one whose segment runs purely horizontally.
+    const baseWire = wires.find((w) => Math.abs(w.start[2] - w.end[2]) < 1e-6)!;
+    const baseLen = Math.hypot(
+      baseWire.end[0] - baseWire.start[0],
+      baseWire.end[1] - baseWire.start[1],
+    );
+    expect(baseLen).toBeCloseTo(expectedSide, 4);
+    // Apex above the midpoint of the base, at full height.
+    void leftLeg;
+    const apexCandidates = wires
+      .flatMap((w) => [w.start, w.end])
+      .filter((p) => p[2] > baseWire.start[2] + 1e-6);
+    // Several wire endpoints may coincide at the apex; just check the highest.
+    const apexZ = Math.max(...apexCandidates.map((p) => p[2]));
+    expect(apexZ).toBe(15);
+  });
 });
