@@ -45,7 +45,7 @@ describe('useGeolocation', () => {
 
   it('handles successful geolocation', async () => {
     const mockGeolocation = {
-      getCurrentPosition: vi.fn().mockImplementation((success, error, options) => {
+      getCurrentPosition: vi.fn().mockImplementation((success) => {
         success({
           coords: {
             latitude: 51.5074,
@@ -76,7 +76,7 @@ describe('useGeolocation', () => {
 
   it('handles permission denied', async () => {
     const mockGeolocation = {
-      getCurrentPosition: vi.fn().mockImplementation((success, error, options) => {
+      getCurrentPosition: vi.fn().mockImplementation((_success, error) => {
         error({ code: 1, message: 'User denied geolocation prompt' });
       }),
     };
@@ -100,7 +100,7 @@ describe('useGeolocation', () => {
 
   it('handles timeout error', async () => {
     const mockGeolocation = {
-      getCurrentPosition: vi.fn().mockImplementation((success, error, options) => {
+      getCurrentPosition: vi.fn().mockImplementation((_success, error) => {
         error({ code: 3, message: 'Timeout' });
       }),
     };
@@ -124,7 +124,7 @@ describe('useGeolocation', () => {
 
   it('handles unknown/other error', async () => {
     const mockGeolocation = {
-      getCurrentPosition: vi.fn().mockImplementation((success, error, options) => {
+      getCurrentPosition: vi.fn().mockImplementation((_success, error) => {
         error({ code: 2, message: 'Position unavailable' });
       }),
     };
