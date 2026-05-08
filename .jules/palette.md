@@ -16,3 +16,6 @@
 ## 2024-05-06 - Dynamic Form Hints and ARIA describedby
 **Learning:** Adding dynamic, contextual helper text below form controls (like `<select>` dropdowns or `<input>` ranges) is a common pattern in the side panels. However, without an explicit `aria-describedby` mapping, screen reader users miss this critical context when they navigate directly to the input via keyboard tabbing.
 **Action:** Always wrap supplementary helper text in a `div` or `span` with a unique `id`, and link it to the associated interactive control using the `aria-describedby` attribute. This ensures screen readers announce the helper text alongside the input label.
+## 2024-05-08 - Dynamic Tooltips for Disabled States
+**Learning:** In dense control panels (like this app), disabling utility buttons without explanation causes user friction. Users often cannot tell why an action (like "Capture Reference" or "Centre Feedline") is unavailable. Providing dynamic tooltips on disabled buttons significantly improves discoverability and clarifies system state.
+**Action:** Always add dynamic `title` or `aria-label` properties that change when a button is `disabled`, clearly explaining the constraint.

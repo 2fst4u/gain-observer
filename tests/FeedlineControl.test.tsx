@@ -20,14 +20,14 @@ describe('FeedlineControl', () => {
 
   it('renders the Centre button when feedline is enabled', () => {
     render(<FeedlineControl />);
-    const centreButton = screen.getByRole('button', { name: 'Centre feedpoint' });
+    const centreButton = screen.getByRole('button', { name: 'Centre' });
     expect(centreButton).toBeDefined();
     expect(centreButton.textContent).toBe('Centre');
   });
 
   it('resets feedline offset to 0 when Centre button is clicked', () => {
     render(<FeedlineControl />);
-    const centreButton = screen.getByRole('button', { name: 'Centre feedpoint' });
+    const centreButton = screen.getByRole('button', { name: 'Centre' });
 
     fireEvent.click(centreButton);
 
@@ -40,6 +40,6 @@ describe('FeedlineControl', () => {
 
     expect(screen.queryByLabelText(/Length/)).toBeNull();
     expect(screen.queryByLabelText(/Attachment offset/)).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Centre feedpoint' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Centre' })).toBeNull();
   });
 });

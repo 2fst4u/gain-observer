@@ -24,10 +24,19 @@ export function ComparisonControl() {
         Freeze the current antenna as the left-hand reference, then change the live controls to compare against it.
       </div>
       <div className="button-group" style={{ marginTop: 10 }}>
-        <button className="primary" onClick={captureReference} disabled={!canCapture}>
+        <button
+          className="primary"
+          onClick={captureReference}
+          disabled={!canCapture}
+          title={!canCapture ? 'Wait for antenna calculation to complete' : 'Capture current settings as reference'}
+        >
           Use current as reference
         </button>
-        <button onClick={clearReference} disabled={!reference}>
+        <button
+          onClick={clearReference}
+          disabled={!reference}
+          title={!reference ? 'No reference captured' : 'Clear the captured reference'}
+        >
           Clear reference
         </button>
       </div>
