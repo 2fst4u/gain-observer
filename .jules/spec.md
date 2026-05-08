@@ -16,3 +16,6 @@
 ## 2026-05-07 - useGeolocation Coverage Bump
 **Learning:** Testing custom React hooks that interact directly with browser APIs like `navigator.geolocation` in Vitest requires mocking global objects. Also, the hooks can be successfully tested by using `renderHook` and `act` from `@testing-library/react`.
 **Action:** Added tests covering successful cases, permission denied, timeouts, and unhandled errors for the geolocation API hook and ensured store state updates align correctly.
+## 2025-02-12 - Local string buffer synchronization test failure
+**Learning:** In `FrequencyControl.tsx`, typing an invalid value like 'abc' keeps the local string state as 'abc' but doesn't update the numeric store value. Our test asserted the input reverted to the store value, but our component's onBlur correctly synchronizes the store value which turns an invalid number to `''` or `NaN`, because `toFixed(3)` on the existing store value makes it revert to `14.150` but the test was checking for 'abc'.
+**Action:** Fixed the assertion to check that the local input reverts to the valid store value on blur.
