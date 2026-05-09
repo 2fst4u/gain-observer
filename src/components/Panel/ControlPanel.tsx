@@ -17,7 +17,8 @@ export function ControlPanel() {
     <>
       {/* SEO: Use <aside> for sidebar content instead of a generic <div> */}
       <aside className="app-controls">
-        <div style={{
+        {/* SEO: Use <header> for structural grouping of introductory content */}
+        <header style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -33,7 +34,7 @@ export function ControlPanel() {
           <UnitToggle />
           <ThemeToggle />
         </div>
-      </div>
+      </header>
 
       <ModeSelector />
       <ComparisonControl />
@@ -47,7 +48,8 @@ export function ControlPanel() {
       <PropagationControl />
       <DisplayControl />
 
-      <div style={{
+      {/* SEO: Use <footer> for secondary links and metadata at the end of a section */}
+      <footer style={{
         marginTop: 20,
         paddingTop: 12,
         borderTop: '1px solid var(--border)',
@@ -65,7 +67,7 @@ export function ControlPanel() {
         >
           View source on GitHub
         </a>
-        </div>
+        </footer>
       </aside>
     </>
   );
