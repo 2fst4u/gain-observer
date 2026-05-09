@@ -19,3 +19,9 @@
 ## 2025-02-12 - Local string buffer synchronization test failure
 **Learning:** In `FrequencyControl.tsx`, typing an invalid value like 'abc' keeps the local string state as 'abc' but doesn't update the numeric store value. Our test asserted the input reverted to the store value, but our component's onBlur correctly synchronizes the store value which turns an invalid number to `''` or `NaN`, because `toFixed(3)` on the existing store value makes it revert to `14.150` but the test was checking for 'abc'.
 **Action:** Fixed the assertion to check that the local input reverts to the valid store value on blur.
+## 2025-02-12 - Missing tests for GroundControl.tsx
+**Learning:** Component test files must cover interactions like expanding custom ground menus and changing nested field inputs (, ) when 'custom' ground preset is active.
+**Action:** Created  and increased  and  test coverage limits in .
+## 2025-02-12 - Missing tests for GroundControl.tsx
+**Learning:** Component test files must cover interactions like expanding custom ground menus and changing nested field inputs (groundSigma, groundEpsilon) when 'custom' ground preset is active.
+**Action:** Created tests/GroundControl.test.tsx and increased branches and functions test coverage limits in vitest.config.ts.
