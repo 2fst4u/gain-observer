@@ -19,3 +19,7 @@
 ## 2024-05-08 - Dynamic Tooltips for Disabled States
 **Learning:** In dense control panels (like this app), disabling utility buttons without explanation causes user friction. Users often cannot tell why an action (like "Capture Reference" or "Centre Feedline") is unavailable. Providing dynamic tooltips on disabled buttons significantly improves discoverability and clarifies system state.
 **Action:** Always add dynamic `title` or `aria-label` properties that change when a button is `disabled`, clearly explaining the constraint.
+
+## 2024-05-18 - Missing Button Group Roles
+**Learning:** The `ComparisonControl.tsx` had a `.button-group` component lacking the `role="group"` and `aria-label` attribute, which prevented screen readers from correctly announcing the options as part of a coherent group.
+**Action:** Always ensure `.button-group` elements have the required ARIA grouping attributes.
