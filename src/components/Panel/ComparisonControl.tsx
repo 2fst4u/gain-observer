@@ -23,7 +23,7 @@ export function ComparisonControl() {
       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
         Freeze the current antenna as the left-hand reference, then change the live controls to compare against it.
       </div>
-      <div className="button-group" style={{ marginTop: 10 }}>
+      <div className="button-group" role="group" aria-label="Comparison Actions" style={{ marginTop: 10 }}>
         <button
           className="primary"
           onClick={captureReference}
