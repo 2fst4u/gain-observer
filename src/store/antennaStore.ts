@@ -569,6 +569,7 @@ export function buildWires(
   return buildDipoleWires(state);
 }
 
+function buildDeltaLoopWires(
   state: Pick<AntennaState, 'type' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>
 ): Wire[] {
