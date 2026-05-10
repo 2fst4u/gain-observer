@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
-import { HF_BAND_PRESETS, halfWaveLength } from '../../physics/constants';
+import { HF_BAND_PRESETS } from '../../physics/constants';
 
 export function FrequencyControl() {
   const frequency = useAntennaStore((s) => s.frequency);
   const setFrequency = useAntennaStore((s) => s.setFrequency);
-  const setLength = useAntennaStore((s) => s.setLength);
+
   const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
 
   // Use local string state to allow natural typing (trailing dots/zeros)
