@@ -927,6 +927,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
   const layout = computeFeedlineLayout(state);
   const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
+  const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
   const feedlineActive = layout !== null;
 
   // Determine feedpoint geometry mapping
