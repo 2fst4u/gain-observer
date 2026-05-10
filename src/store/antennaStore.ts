@@ -644,7 +644,8 @@ function buildVWires(
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
   const layout = computeFeedlineLayout(state);
-  const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
+  // Always use a central bridge to ensure symmetric feed for V-antennas.
+  const bridgeHalf = FEEDLINE_BRIDGE_LENGTH_M / 2;
 
   const apexZ = h;
   let end1: [number, number, number];
@@ -679,11 +680,9 @@ function buildVWires(
   // NEC-2 limitation: Adjacent segments at a bend cannot exceed a 5:1 length ratio.
   // The feed bridge is 0.05m. So adjacent leg segments must be <= 0.25m.
   let effectiveSegments = state.segments;
-  if (layout) {
-    const minSegs = Math.ceil(state.length / (FEEDLINE_BRIDGE_LENGTH_M * 5));
-    if (effectiveSegments < minSegs) {
-      effectiveSegments = minSegs;
-    }
+  const minSegs = Math.ceil(state.length / (FEEDLINE_BRIDGE_LENGTH_M * 5));
+  if (effectiveSegments < minSegs) {
+    effectiveSegments = minSegs;
   }
 
   const segDensity = effectiveSegments / state.length;
@@ -701,17 +700,15 @@ function buildVWires(
 
   const wires: Wire[] = [
     { start: end1, end: apexLeft, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_LEFT_TAG },
-    { start: apexRight, end: end2, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_RIGHT_TAG }
+    { start: apexRight, end: end2, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_RIGHT_TAG },
+    { start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG }
   ];
 
-  if (layout) {
-    wires.push({ start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
-    if (layout.shield) {
-      wires.push({
-        start: apexRight, end: [apexRight[0], apexRight[1], layout.shield.bottomZ],
-        radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
-      });
-    }
+  if (layout && layout.shield) {
+    wires.push({
+      start: apexRight, end: [apexRight[0], apexRight[1], layout.shield.bottomZ],
+      radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
+    });
   }
 
   // Sloping V termination: add vertical drop wires from each leg tip to
