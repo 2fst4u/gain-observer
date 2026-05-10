@@ -27,6 +27,24 @@
     <meta name="twitter:image" content="https://www.gain.observer/favicon.svg" />
 
     <title>HF Gain Visualiser</title>
+
+    <!-- SEO: Add JSON-LD structured data to help search engines understand the application type and core features -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "HF Gain Visualiser",
+        "url": "https://www.gain.observer/",
+        "description": "HF antenna gain visualiser — 3D radiation patterns powered by NEC-2 WebAssembly.",
+        "applicationCategory": "DeveloperApplication",
+        "browserRequirements": "Requires WebAssembly support",
+        "softwareHelp": "https://github.com/2fst4u/gain-observer",
+        "offers": {
+          "@type": "Offer",
+          "price": "0"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
