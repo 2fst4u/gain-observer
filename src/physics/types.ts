@@ -102,6 +102,8 @@ export interface SimulationInput {
   readonly transmissionLines?: readonly TransmissionLine[];
   /** Optional NEC LD cards (e.g. choke balun, end-fed terminator). */
   readonly loads?: readonly SegmentLoad[];
+  /** Reference impedance for SWR calculation (e.g. 50, 450, 600). Defaults to 50 if omitted. */
+  readonly systemZ0?: number;
 }
 
 /**

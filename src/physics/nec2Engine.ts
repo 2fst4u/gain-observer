@@ -222,7 +222,7 @@ export class Nec2Engine implements Engine {
         takeoffElevationDeg: elevationDeg,
         takeoffAzimuthDeg: phiDeg,
         impedance: parsed.impedance,
-        swr: swr(parsed.impedance),
+        swr: swr(parsed.impedance, input.systemZ0),
         computeTimeMs,
       };
     } finally {
@@ -248,7 +248,7 @@ export class Nec2Engine implements Engine {
       }
       sweep.push({
         frequencyMHz,
-        swr: swr(parsed.impedance),
+        swr: swr(parsed.impedance, input.systemZ0),
         R: parsed.impedance.R,
         X: parsed.impedance.X,
       });

@@ -20,10 +20,12 @@ export function FeedlineControl() {
   const antennaType = useAntennaStore((s) => s.type);
   const feedlineOffset = useAntennaStore((s) => s.feedlineOffset);
   const balunEnabled = useAntennaStore((s) => s.balunEnabled);
+  const matchingTransformer = useAntennaStore((s) => s.matchingTransformer);
   const setFeedline = useAntennaStore((s) => s.setFeedline);
   const setFeedlineLength = useAntennaStore((s) => s.setFeedlineLength);
   const setFeedlineOffset = useAntennaStore((s) => s.setFeedlineOffset);
   const setBalunEnabled = useAntennaStore((s) => s.setBalunEnabled);
+  const setMatchingTransformer = useAntennaStore((s) => s.setMatchingTransformer);
 
   const preset = findFeedlinePreset(feedlineId);
   const enabled = preset.id !== 'none';
@@ -165,6 +167,27 @@ export function FeedlineControl() {
           </div>
         </>
       )}
+
+      <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
+
+      <label htmlFor="matching-transformer" style={{ marginTop: 10 }}>
+        Matching Transformer (Radio End)
+      </label>
+      <select
+        id="matching-transformer"
+        value={matchingTransformer}
+        onChange={(e) => setMatchingTransformer(parseFloat(e.target.value))}
+        aria-describedby="transformer-hint"
+      >
+        <option value={1}>None (1:1 / 50 Ω)</option>
+        <option value={4}>4:1 Balun (200 Ω)</option>
+        <option value={9}>9:1 Balun (450 Ω)</option>
+        <option value={12}>12:1 Balun (600 Ω)</option>
+        <option value={16}>16:1 Balun (800 Ω)</option>
+      </select>
+      <div id="transformer-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+        Steps down the antenna impedance to 50 Ω. Use 12:1 or 9:1 for Terminated V-Beams.
+      </div>
     </div>
   );
 }

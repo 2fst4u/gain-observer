@@ -97,6 +97,7 @@ export interface AntennaState {
   balunEnabled: boolean;
   terminatedEnabled: boolean;
   terminatingResistor: number;
+  matchingTransformer: number;
 
   // Display / UI
   theme: Theme;
@@ -153,9 +154,10 @@ export interface AntennaState {
   setFeedline(id: string): void;
   setFeedlineLength(meters: number): void;
   setFeedlineOffset(meters: number): void;
-  setBalunEnabled(enabled: boolean): void;
-  setTerminatedEnabled(enabled: boolean): void;
+  setBalunEnabled(v: boolean): void;
+  setTerminatedEnabled(v: boolean): void;
   setTerminatingResistor(ohms: number): void;
+  setMatchingTransformer(ratio: number): void;
   setTheme(t: Theme): void;
   toggleTheme(): void;
   setUnits(u: UnitSystem): void;
@@ -213,6 +215,7 @@ export const useAntennaStore = create<AntennaState>()(
       balunEnabled: false,
       terminatedEnabled: false,
       terminatingResistor: 450,
+      matchingTransformer: 1,
 
       theme: 'dark',
       units: 'metric',
@@ -364,6 +367,7 @@ export const useAntennaStore = create<AntennaState>()(
         s.terminatedEnabled = supportsTermination(s.type) ? enabled : false;
       }),
       setTerminatingResistor: (ohms) => set((s) => { s.terminatingResistor = Math.max(1, ohms); }),
+      setMatchingTransformer: (ratio) => set((s) => { s.matchingTransformer = Math.max(1, ratio); }),
       setTheme: (t) => set((s) => { s.theme = t; }),
       toggleTheme: () => set((s) => { s.theme = s.theme === 'dark' ? 'light' : 'dark'; }),
       setUnits: (u) => set((s) => { s.units = u; }),
@@ -1182,6 +1186,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     },
     transmissionLines: transmissionLines.length > 0 ? transmissionLines : undefined,
     loads: loads.length > 0 ? loads : undefined,
+    systemZ0: 50 * (state.matchingTransformer || 1),
   };
 }
 
