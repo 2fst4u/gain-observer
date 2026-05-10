@@ -640,9 +640,8 @@ function buildVWires(
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
   const layout = computeFeedlineLayout(state);
-  const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
 
-  const apexZ = h;
+  const apex: [number, number, number] = [0, 0, h];
   let end1: [number, number, number];
   let end2: [number, number, number];
 
@@ -671,33 +670,20 @@ function buildVWires(
   }
 
   // Calculate actual lengths to allocate segments correctly
-  const legActualLen = Math.hypot(end1[0], end1[1], end1[2] - apexZ);
+  const legActualLen = Math.hypot(end1[0], end1[1], end1[2] - h);
   const segDensity = state.segments / state.length;
-  const legSegs = Math.max(3, oddRound((legActualLen - bridgeHalf) * segDensity));
-
-  const dx1 = end1[0] / legActualLen;
-  const dy1 = end1[1] / legActualLen;
-  const dz1 = (end1[2] - apexZ) / legActualLen;
-  const apexLeft: [number, number, number] = [bridgeHalf * dx1, bridgeHalf * dy1, apexZ + bridgeHalf * dz1];
-  
-  const dx2 = end2[0] / legActualLen;
-  const dy2 = end2[1] / legActualLen;
-  const dz2 = (end2[2] - apexZ) / legActualLen;
-  const apexRight: [number, number, number] = [bridgeHalf * dx2, bridgeHalf * dy2, apexZ + bridgeHalf * dz2];
+  const legSegs = Math.max(3, oddRound(legActualLen * segDensity));
 
   const wires: Wire[] = [
-    { start: end1, end: apexLeft, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_LEFT_TAG },
-    { start: apexRight, end: end2, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_RIGHT_TAG }
+    { start: end1, end: apex, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_LEFT_TAG },
+    { start: apex, end: end2, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_RIGHT_TAG }
   ];
 
-  if (layout) {
-    wires.push({ start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
-    if (layout.shield) {
-      wires.push({
-        start: apexRight, end: [apexRight[0], apexRight[1], layout.shield.bottomZ],
-        radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
-      });
-    }
+  if (layout && layout.shield) {
+    wires.push({
+      start: apex, end: [apex[0], apex[1], layout.shield.bottomZ],
+      radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
+    });
   }
 
   // Sloping V termination: add vertical drop wires from each leg tip to
@@ -734,7 +720,8 @@ function buildVBeamWires(
   const [dx, dy] = orientationVector(state.orientation);
   const halfAngle = ((state.vAngle ?? 60) * Math.PI) / 360;
   const layout = computeFeedlineLayout(state);
-  const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
+
+  const apex: [number, number, number] = [0, 0, h];
 
   const leg1DirX = dx * Math.cos(halfAngle) - dy * Math.sin(halfAngle);
   const leg1DirY = dx * Math.sin(halfAngle) + dy * Math.cos(halfAngle);
@@ -745,29 +732,18 @@ function buildVBeamWires(
   const end2: [number, number, number] = [legLength * leg2DirX, legLength * leg2DirY, h];
   
   const segDensity = state.segments / state.length;
-  const legSegments = Math.max(3, oddRound((legLength - bridgeHalf) * segDensity));
-
-  const dx1 = end1[0] / legLength;
-  const dy1 = end1[1] / legLength;
-  const apexLeft: [number, number, number] = [bridgeHalf * dx1, bridgeHalf * dy1, h];
-  
-  const dx2 = end2[0] / legLength;
-  const dy2 = end2[1] / legLength;
-  const apexRight: [number, number, number] = [bridgeHalf * dx2, bridgeHalf * dy2, h];
+  const legSegments = Math.max(3, oddRound(legLength * segDensity));
 
   const wires: Wire[] = [
-    { start: end1, end: apexLeft, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_LEFT_TAG },
-    { start: apexRight, end: end2, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_RIGHT_TAG },
+    { start: end1, end: apex, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_LEFT_TAG },
+    { start: apex, end: end2, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_RIGHT_TAG },
   ];
 
-  if (layout) {
-    wires.push({ start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
-    if (layout.shield) {
-      wires.push({
-        start: apexRight, end: [apexRight[0], apexRight[1], layout.shield.bottomZ],
-        radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
-      });
-    }
+  if (layout && layout.shield) {
+    wires.push({
+      start: apex, end: [apex[0], apex[1], layout.shield.bottomZ],
+      radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
+    });
   }
 
   if (state.terminatedEnabled) {
@@ -949,40 +925,46 @@ function buildGroundParams(state: AntennaState): GroundParams {
 
 export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
+  const layout = computeFeedlineLayout(state);
   const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
-  const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
-  const feedlineActive = hasBridge; // bridge is added iff feedline is configured
+  const feedlineActive = layout !== null;
+
+  // Determine feedpoint geometry mapping
+  let feedpointTag = DIPOLE_TAG;
+  let feedpointSeg = Math.ceil(state.segments / 2);
+
+  if (state.type === 'delta-loop') {
+    const baseWire = wires.find((w) => w.tag === DELTA_BASE_TAG);
+    if (baseWire) {
+      feedpointTag = DELTA_BASE_TAG;
+      feedpointSeg = Math.ceil(baseWire.segments / 2);
+    }
+  } else if (state.type === 'inverted-v' || state.type === 'sloping-v' || state.type === 'v-beam') {
+    const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
+    if (leftWire) {
+      feedpointTag = DIPOLE_LEFT_TAG;
+      feedpointSeg = leftWire.segments;
+    }
+  }
+
+  // If a bridge exists (horizontal dipole or delta base), use it instead
+  const bridgeWire = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
+  if (bridgeWire) {
+    feedpointTag = FEED_BRIDGE_TAG;
+    feedpointSeg = 1;
+  }
 
   // Excitation:
   //   - Feedline active: the EX is at the *rig* end of the coax shield
   //     (bottom segment of the shield wire). The TL card carries the
-  //     differential signal from there back to the antenna terminals
-  //     (the source bridge).
-  //   - No feedline: legacy single-wire dipole, fed at its centre segment.
-  const dipoleCentreSeg = Math.ceil(state.segments / 2);
-  let excitationWire = DIPOLE_TAG;
-  let excitationSeg = dipoleCentreSeg;
+  //     differential signal from there back to the antenna terminals.
+  //   - No feedline: legacy single-wire fed at the antenna.
+  let excitationWire = feedpointTag;
+  let excitationSeg = feedpointSeg;
 
   if (feedlineActive && hasShield) {
     excitationWire = FEEDLINE_SHIELD_TAG;
     excitationSeg = FEEDLINE_SHIELD_SEGMENTS;
-  } else if (feedlineActive) {
-    excitationWire = FEED_BRIDGE_TAG;
-    excitationSeg = 1;
-  } else if (state.type === 'delta-loop') {
-    // No feedline, feed at the center of the base wire
-    const baseWire = wires.find((w) => w.tag === DELTA_BASE_TAG);
-    if (baseWire) {
-      excitationWire = DELTA_BASE_TAG;
-      excitationSeg = Math.ceil(baseWire.segments / 2);
-    }
-  } else if (state.type === 'inverted-v' || state.type === 'sloping-v' || state.type === 'v-beam') {
-    // No feedline, feed at the end of the left leg (the apex)
-    const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
-    if (leftWire) {
-      excitationWire = DIPOLE_LEFT_TAG;
-      excitationSeg = leftWire.segments;
-    }
   }
 
   const excitation = { wireTag: excitationWire, segment: excitationSeg };
@@ -992,14 +974,10 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 
   if (feedlineActive && hasShield) {
     const preset = findFeedlinePreset(state.feedlineId);
-    // NEC's TL card uses free-space propagation; to model a real cable
-    // with velocity factor < 1 we pass the *electrical* length, which is
-    // physical length / VF. (β·ℓ_phys / VF gives the correct phase shift.)
     const electricalLength = state.feedlineLength / Math.max(0.05, preset.velocityFactor);
     transmissionLines.push({
-      // Antenna terminals (source bridge) <-> bottom of shield (the rig).
-      fromTag: FEED_BRIDGE_TAG,
-      fromSegment: 1,
+      fromTag: feedpointTag,
+      fromSegment: feedpointSeg,
       toTag: FEEDLINE_SHIELD_TAG,
       toSegment: FEEDLINE_SHIELD_SEGMENTS,
       z0: preset.z0,
