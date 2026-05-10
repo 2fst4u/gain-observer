@@ -508,19 +508,20 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().length).toBe(15.5);
     });
 
-    it('auto-resizes sloping V to ~2λ total length', () => {
+    it('auto-resizes sloping V to ~4λ total length', () => {
       const store = useAntennaStore.getState();
       store.setFrequency(7.1);
       store.setType('dipole');
       store.setLength(20);
       store.setType('sloping-v');
       const state = useAntennaStore.getState();
-      // Directional vee-beam default: about one wavelength per leg.
-      expect(state.length).toBeGreaterThan(80);
-      expect(state.length).toBeLessThan(90);
+      // Directional vee-beam default: about two wavelengths per leg (4λ total).
+      // 4 * 299.792/7.1 ≈ 168.9 m
+      expect(state.length).toBeGreaterThan(160);
+      expect(state.length).toBeLessThan(180);
     });
 
-    it('setHalfWaveLength is topology-aware: ½λ for dipole/V, 2λ for sloping V, 1λ for delta-loop', () => {
+    it('setHalfWaveLength is topology-aware: ½λ for dipole/V, 4λ for sloping V / v-beam, 1λ for delta-loop', () => {
       const store = useAntennaStore.getState();
       store.setFrequency(7.1);
 
@@ -541,8 +542,9 @@ describe('antennaStore actions', () => {
       store.setType('sloping-v');
       store.setHalfWaveLength();
       const slopingVLen = useAntennaStore.getState().length;
-      expect(slopingVLen).toBeGreaterThan(80);
-      expect(slopingVLen).toBeLessThan(90); // ~84.45 m
+      // 4λ at 7.1 MHz ≈ 168.9 m
+      expect(slopingVLen).toBeGreaterThan(160);
+      expect(slopingVLen).toBeLessThan(180);
       expect(slopingVLen).toBeGreaterThan(loopLen);
     });
   });
@@ -633,10 +635,10 @@ describe('termination loading', () => {
     const input = selectSimulationInput({
       ...state,
       type: 'sloping-v',
-      length: 30,
+      length: 80,
       height: 12,
       segments: 21,
-      vAngle: 90,
+      vAngle: 60,
       legSlope: 30,
       feedlineId: 'none',
       terminatedEnabled: true,
@@ -768,5 +770,77 @@ describe('V geometry (sanity-only checks for current implementation)', () => {
     // Several wire endpoints may coincide at the apex; just check the highest.
     const apexZ = Math.max(...apexCandidates.map((p) => p[2]));
     expect(apexZ).toBe(15);
+  });
+});
+
+describe('v-beam excitation and geometry', () => {
+  it('v-beam is fed at the apex (last segment of left leg)', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'v-beam',
+      length: 80,
+      height: 15,
+      segments: 21,
+      vAngle: 60,
+      feedlineId: 'none',
+      terminatedEnabled: true,
+      terminatingResistor: 450,
+    });
+    // v-beam should be fed at the apex = last segment of DIPOLE_LEFT_TAG
+    const leftWire = input.wires.find((w) => w.tag === 1)!;
+    expect(input.excitation.wireTag).toBe(1);
+    expect(input.excitation.segment).toBe(leftWire.segments);
+  });
+
+  it('v-beam terminated: creates drop wires and LD cards', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'v-beam',
+      length: 80,
+      height: 15,
+      segments: 21,
+      vAngle: 60,
+      feedlineId: 'none',
+      terminatedEnabled: true,
+      terminatingResistor: 450,
+    });
+    const termLeft = input.wires.find((w) => w.tag === 10)!;
+    const termRight = input.wires.find((w) => w.tag === 11)!;
+    expect(termLeft).toBeDefined();
+    expect(termRight).toBeDefined();
+    expect(termLeft.end[2]).toBe(0);
+    expect(termRight.end[2]).toBe(0);
+    expect(input.loads).toBeDefined();
+    expect(input.loads).toHaveLength(2);
+  });
+
+  it('sloping-v auto-enables termination on type switch', () => {
+    const store = useAntennaStore.getState();
+    store.setType('dipole');
+    store.setTerminatedEnabled(false);
+    store.setType('sloping-v');
+    expect(useAntennaStore.getState().terminatedEnabled).toBe(true);
+  });
+
+  it('sloping-v without termination produces no drop wires or LD cards', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'sloping-v',
+      length: 80,
+      height: 15,
+      segments: 21,
+      vAngle: 60,
+      legSlope: 30,
+      feedlineId: 'none',
+      terminatedEnabled: false,
+      terminatingResistor: 450,
+    });
+    // Only leg wires, no termination drops
+    expect(input.wires).toHaveLength(2);
+    expect(input.wires.map((w) => w.tag).sort()).toEqual([1, 2]);
+    expect(input.loads).toBeUndefined();
   });
 });

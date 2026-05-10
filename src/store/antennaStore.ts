@@ -37,7 +37,7 @@ export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
-export type AntennaType = 'dipole' | 'inverted-v' | 'sloping-v' | 'delta-loop';
+export type AntennaType = 'dipole' | 'inverted-v' | 'sloping-v' | 'delta-loop' | 'v-beam';
 
 export interface ComparisonSnapshot {
   readonly type: AntennaType;
@@ -255,10 +255,9 @@ export const useAntennaStore = create<AntennaState>()(
         //   - Dipole / inverted-V: total wire length is one
         //     half-wavelength (with the standard ~0.95 end-effect factor),
         //     so each leg is roughly λ/4.
-        //   - Sloping V: this is a travelling-wave vee-beam, not a resonant
-        //     half-wave antenna. Use two wavelengths total (about one
-        //     wavelength per leg) so the default shape can actually develop
-        //     directionality.
+        //   - V-beam / sloping-V: total wire length is four wavelengths,
+        //     i.e. two wavelengths per leg, so it can act as a directional
+        //     travelling-wave antenna when terminated.
         //   - Delta loop: the perimeter is one full wavelength for the
         //     fundamental loop resonance. We use the un-corrected
         //     wavelength here because closed-loop antennas don't suffer
@@ -266,8 +265,8 @@ export const useAntennaStore = create<AntennaState>()(
         //     compensates for.
         if (s.type === 'delta-loop') {
           s.length = wavelengthMeters(s.frequency);
-        } else if (s.type === 'sloping-v') {
-          s.length = wavelengthMeters(s.frequency) * 2;
+        } else if (s.type === 'v-beam' || s.type === 'sloping-v') {
+          s.length = wavelengthMeters(s.frequency) * 4;
         } else {
           s.length = halfWaveLength(s.frequency);
         }
@@ -292,19 +291,23 @@ export const useAntennaStore = create<AntennaState>()(
         if (t !== 'dipole') {
           s.feedlineId = 'none';
         }
-        s.terminatedEnabled = false;
+        s.terminatedEnabled = t === 'v-beam' || t === 'sloping-v';
 
         // Auto-resize length when switching between topologies with very
         // different useful lengths so the user doesn't get a model that
         // cannot show the advertised behaviour on type change.
+        const isVeeType = t === 'v-beam' || t === 'sloping-v';
+        const wasVeeType = previousType === 'v-beam' || previousType === 'sloping-v';
         if (t === 'delta-loop' && previousType !== 'delta-loop') {
           s.length = wavelengthMeters(s.frequency);
-        } else if (t === 'sloping-v' && previousType !== 'sloping-v') {
-          s.length = wavelengthMeters(s.frequency) * 2;
+        } else if (isVeeType && !wasVeeType) {
+          s.length = wavelengthMeters(s.frequency) * 4;
+          s.vAngle = 60;
         } else if (t !== 'delta-loop' && previousType === 'delta-loop') {
           s.length = halfWaveLength(s.frequency);
-        } else if (t !== 'sloping-v' && previousType === 'sloping-v') {
+        } else if (!isVeeType && wasVeeType) {
           s.length = halfWaveLength(s.frequency);
+          s.vAngle = 120;
         }
       }),
       setOrientation: (o) => set((s) => {
@@ -358,7 +361,9 @@ export const useAntennaStore = create<AntennaState>()(
         s.feedlineOffset = Math.max(-limit, Math.min(limit, meters));
       }),
       setBalunEnabled: (enabled) => set((s) => { s.balunEnabled = !!enabled; }),
-      setTerminatedEnabled: (enabled) => set((s) => { s.terminatedEnabled = enabled; }),
+      setTerminatedEnabled: (enabled) => set((s) => {
+        s.terminatedEnabled = supportsTermination(s.type) ? enabled : false;
+      }),
       setTerminatingResistor: (ohms) => set((s) => { s.terminatingResistor = Math.max(1, ohms); }),
       setTheme: (t) => set((s) => { s.theme = t; }),
       toggleTheme: () => set((s) => { s.theme = s.theme === 'dark' ? 'light' : 'dark'; }),
@@ -441,6 +446,10 @@ function clampSegments(n: number): number {
   const v = Math.max(9, Math.min(101, odd));
   // NEC-2 conventionally wants an odd number of segments for a centre feed.
   return v % 2 === 0 ? v + 1 : v;
+}
+
+export function supportsTermination(type: AntennaType): boolean {
+  return type === 'dipole' || type === 'delta-loop' || type === 'v-beam' || type === 'sloping-v';
 }
 
 // --------------- Selectors ---------------
@@ -552,6 +561,8 @@ export function buildWires(
 ): Wire[] {
   if (state.type === 'delta-loop') {
     return buildDeltaLoopWires(state);
+  } else if (state.type === 'v-beam') {
+    return buildVBeamWires(state);
   } else if (state.type === 'inverted-v' || state.type === 'sloping-v') {
     return buildVWires(state);
   }
@@ -662,9 +673,63 @@ function buildVWires(
     }
   ];
 
+  // Sloping V termination: add vertical drop wires from each leg tip to
+  // the ground plane, giving the terminating resistor a real return path
+  // so the leg current can become travelling-wave rather than standing-wave.
   if (state.type === 'sloping-v' && state.terminatedEnabled) {
     const leftDropSegments = terminationDropSegments(end1[2], halfSeg);
     const rightDropSegments = terminationDropSegments(end2[2], halfSeg);
+    wires.push({
+      start: end1,
+      end: [end1[0], end1[1], 0],
+      radius: state.wireRadius,
+      segments: leftDropSegments,
+      tag: TERM_LEFT_TAG,
+    });
+    wires.push({
+      start: end2,
+      end: [end2[0], end2[1], 0],
+      radius: state.wireRadius,
+      segments: rightDropSegments,
+      tag: TERM_RIGHT_TAG,
+    });
+  }
+
+  return wires;
+}
+
+function buildVBeamWires(
+  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
+    Partial<Pick<AntennaState, 'vAngle' | 'terminatedEnabled'>>
+): Wire[] {
+  const legLength = state.length / 2;
+  const h = state.height;
+  const [dx, dy] = orientationVector(state.orientation);
+  const halfAngle = ((state.vAngle ?? 60) * Math.PI) / 360;
+
+  const apex: [number, number, number] = [0, 0, h];
+  const leg1DirX = dx * Math.cos(halfAngle) - dy * Math.sin(halfAngle);
+  const leg1DirY = dx * Math.sin(halfAngle) + dy * Math.cos(halfAngle);
+  const leg2DirX = dx * Math.cos(-halfAngle) - dy * Math.sin(-halfAngle);
+  const leg2DirY = dx * Math.sin(-halfAngle) + dy * Math.cos(-halfAngle);
+  const end1: [number, number, number] = [legLength * leg1DirX, legLength * leg1DirY, h];
+  const end2: [number, number, number] = [legLength * leg2DirX, legLength * leg2DirY, h];
+  const legSegments = Math.max(11, oddRound(state.segments));
+
+  const wires: Wire[] = [
+    {
+      start: end1, end: apex,
+      radius: state.wireRadius, segments: legSegments, tag: DIPOLE_LEFT_TAG,
+    },
+    {
+      start: apex, end: end2,
+      radius: state.wireRadius, segments: legSegments, tag: DIPOLE_RIGHT_TAG,
+    },
+  ];
+
+  if (state.terminatedEnabled) {
+    const leftDropSegments = terminationDropSegments(end1[2], legSegments);
+    const rightDropSegments = terminationDropSegments(end2[2], legSegments);
     wires.push({
       start: end1,
       end: [end1[0], end1[1], 0],
@@ -861,7 +926,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   } else if (feedlineActive) {
     excitationWire = FEED_BRIDGE_TAG;
     excitationSeg = 1;
-  } else if (state.type === 'inverted-v' || state.type === 'sloping-v') {
+  } else if (state.type === 'inverted-v' || state.type === 'sloping-v' || state.type === 'v-beam') {
     // Fed at the apex, which is the end of the left leg (or start of right leg)
     const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
     if (leftWire) {
@@ -920,7 +985,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     }
   }
 
-  if (state.terminatedEnabled && state.terminatingResistor) {
+  if (supportsTermination(state.type) && state.terminatedEnabled && state.terminatingResistor) {
     if (state.type === 'delta-loop') {
       // Delta loop: fed at apex, so terminated opposite feedpoint (centre
       // of the base wire, which is its own DELTA_BASE_TAG).
@@ -936,11 +1001,12 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
           param2: 0
         });
       }
-    } else if (state.type === 'sloping-v') {
-      // Terminated vee-beam: each leg's far end is loaded to the ground
-      // plane through a short vertical drop wire. This gives the resistor a
-      // real return path, so the leg current can become travelling-wave
-      // rather than a mostly standing-wave open-ended conductor.
+    } else if (state.type === 'v-beam' || state.type === 'sloping-v') {
+      // Terminated vee-beam / sloping V: each leg's far end is loaded to
+      // the ground plane through a short vertical drop wire. This gives
+      // the resistor a real return path, so the leg current can become
+      // travelling-wave rather than a mostly standing-wave open-ended
+      // conductor.
       const leftTerm = wires.find(w => w.tag === TERM_LEFT_TAG);
       const rightTerm = wires.find(w => w.tag === TERM_RIGHT_TAG);
       if (leftTerm) {

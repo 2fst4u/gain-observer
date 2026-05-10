@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAntennaStore, type AntennaType } from '../../store/antennaStore';
+import { supportsTermination, useAntennaStore, type AntennaType } from '../../store/antennaStore';
 import {
   toDisplayLength,
   fromDisplayLength,
@@ -65,6 +65,7 @@ export function AntennaControl() {
   }
 
   const maxHeight = units === 'metric' ? 40 : 131;
+  const canTerminate = supportsTermination(type);
 
   const [localVAngle, setLocalVAngle] = useState(vAngle.toString());
   const [isVAngleFocused, setIsVAngleFocused] = useState(false);
@@ -104,6 +105,7 @@ export function AntennaControl() {
         <option value="dipole">Dipole</option>
         <option value="inverted-v">Inverted V</option>
         <option value="sloping-v">Sloping V</option>
+        <option value="v-beam">V-Beam</option>
         <option value="delta-loop">Delta Loop</option>
       </select>
 
@@ -136,23 +138,23 @@ export function AntennaControl() {
           title={
             type === 'delta-loop'
               ? 'Set perimeter to one full wavelength (resonant 1λ loop)'
-              : type === 'sloping-v'
-                ? 'Set total wire length to two wavelengths (about 1λ per leg for vee-beam directionality)'
+              : (type === 'v-beam' || type === 'sloping-v')
+                ? 'Set total wire length to four wavelengths (2λ per leg for V-beam directionality)'
               : 'Set length to resonant ½λ'
           }
           aria-label={
             type === 'delta-loop'
               ? 'Set perimeter to one wavelength'
-              : type === 'sloping-v'
-                ? 'Set total wire length to two wavelengths'
+              : (type === 'v-beam' || type === 'sloping-v')
+                ? 'Set total wire length to four wavelengths'
               : 'Set length to resonant half wavelength'
           }
         >
-          {type === 'delta-loop' ? '1λ' : type === 'sloping-v' ? '2λ' : '½λ'}
+          {type === 'delta-loop' ? '1λ' : (type === 'v-beam' || type === 'sloping-v') ? '2λ/leg' : '½λ'}
         </button>
       </div>
 
-      {(type === 'inverted-v' || type === 'sloping-v') && (
+      {(type === 'inverted-v' || type === 'sloping-v' || type === 'v-beam') && (
         <>
           <label htmlFor="v-angle" style={{ marginTop: 10 }}>V-Angle (°)</label>
           <input
@@ -200,17 +202,19 @@ export function AntennaControl() {
         </>
       )}
 
-      <div className="row" style={{ marginTop: 10, alignItems: 'center' }}>
-        <input
-          id="terminated-enabled"
-          type="checkbox"
-          checked={terminatedEnabled}
-          onChange={(e) => setTerminatedEnabled(e.target.checked)}
-        />
-        <label htmlFor="terminated-enabled" style={{ marginLeft: 8, marginTop: 0, cursor: 'pointer', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.5px' }}>Terminated</label>
-      </div>
+      {canTerminate && (
+        <div className="row" style={{ marginTop: 10, alignItems: 'center' }}>
+          <input
+            id="terminated-enabled"
+            type="checkbox"
+            checked={terminatedEnabled}
+            onChange={(e) => setTerminatedEnabled(e.target.checked)}
+          />
+          <label htmlFor="terminated-enabled" style={{ marginLeft: 8, marginTop: 0, cursor: 'pointer', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.5px' }}>Terminated</label>
+        </div>
+      )}
 
-      {terminatedEnabled && (
+      {canTerminate && terminatedEnabled && (
         <>
           <label htmlFor="terminating-resistor" style={{ marginTop: 10 }}>Terminator (Ω)</label>
           <input
