@@ -640,8 +640,9 @@ function buildVWires(
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
   const layout = computeFeedlineLayout(state);
+  const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
 
-  const apex: [number, number, number] = [0, 0, h];
+  const apexZ = h;
   let end1: [number, number, number];
   let end2: [number, number, number];
 
@@ -669,21 +670,44 @@ function buildVWires(
     end2 = [actualProj * leg2DirX, actualProj * leg2DirY, tipZ];
   }
 
-  // Calculate actual lengths to allocate segments correctly
-  const legActualLen = Math.hypot(end1[0], end1[1], end1[2] - h);
-  const segDensity = state.segments / state.length;
-  const legSegs = Math.max(3, oddRound(legActualLen * segDensity));
+  const legActualLen = Math.hypot(end1[0], end1[1], end1[2] - apexZ);
+  
+  // NEC-2 limitation: Adjacent segments at a bend cannot exceed a 5:1 length ratio.
+  // The feed bridge is 0.05m. So adjacent leg segments must be <= 0.25m.
+  let effectiveSegments = state.segments;
+  if (layout) {
+    const minSegs = Math.ceil(state.length / (FEEDLINE_BRIDGE_LENGTH_M * 5));
+    if (effectiveSegments < minSegs) {
+      effectiveSegments = minSegs;
+    }
+  }
+
+  const segDensity = effectiveSegments / state.length;
+  const legSegs = Math.max(3, oddRound((legActualLen - bridgeHalf) * segDensity));
+
+  const dx1 = end1[0] / legActualLen;
+  const dy1 = end1[1] / legActualLen;
+  const dz1 = (end1[2] - apexZ) / legActualLen;
+  const apexLeft: [number, number, number] = [bridgeHalf * dx1, bridgeHalf * dy1, apexZ + bridgeHalf * dz1];
+  
+  const dx2 = end2[0] / legActualLen;
+  const dy2 = end2[1] / legActualLen;
+  const dz2 = (end2[2] - apexZ) / legActualLen;
+  const apexRight: [number, number, number] = [bridgeHalf * dx2, bridgeHalf * dy2, apexZ + bridgeHalf * dz2];
 
   const wires: Wire[] = [
-    { start: end1, end: apex, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_LEFT_TAG },
-    { start: apex, end: end2, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_RIGHT_TAG }
+    { start: end1, end: apexLeft, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_LEFT_TAG },
+    { start: apexRight, end: end2, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_RIGHT_TAG }
   ];
 
-  if (layout && layout.shield) {
-    wires.push({
-      start: apex, end: [apex[0], apex[1], layout.shield.bottomZ],
-      radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
-    });
+  if (layout) {
+    wires.push({ start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
+    if (layout.shield) {
+      wires.push({
+        start: apexRight, end: [apexRight[0], apexRight[1], layout.shield.bottomZ],
+        radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
+      });
+    }
   }
 
   // Sloping V termination: add vertical drop wires from each leg tip to
@@ -720,8 +744,7 @@ function buildVBeamWires(
   const [dx, dy] = orientationVector(state.orientation);
   const halfAngle = ((state.vAngle ?? 60) * Math.PI) / 360;
   const layout = computeFeedlineLayout(state);
-
-  const apex: [number, number, number] = [0, 0, h];
+  const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
 
   const leg1DirX = dx * Math.cos(halfAngle) - dy * Math.sin(halfAngle);
   const leg1DirY = dx * Math.sin(halfAngle) + dy * Math.cos(halfAngle);
@@ -731,19 +754,38 @@ function buildVBeamWires(
   const end1: [number, number, number] = [legLength * leg1DirX, legLength * leg1DirY, h];
   const end2: [number, number, number] = [legLength * leg2DirX, legLength * leg2DirY, h];
   
-  const segDensity = state.segments / state.length;
-  const legSegments = Math.max(3, oddRound(legLength * segDensity));
+  let effectiveSegments = state.segments;
+  if (layout) {
+    const minSegs = Math.ceil(state.length / (FEEDLINE_BRIDGE_LENGTH_M * 5));
+    if (effectiveSegments < minSegs) {
+      effectiveSegments = minSegs;
+    }
+  }
+
+  const segDensity = effectiveSegments / state.length;
+  const legSegments = Math.max(3, oddRound((legLength - bridgeHalf) * segDensity));
+
+  const dx1 = end1[0] / legLength;
+  const dy1 = end1[1] / legLength;
+  const apexLeft: [number, number, number] = [bridgeHalf * dx1, bridgeHalf * dy1, h];
+  
+  const dx2 = end2[0] / legLength;
+  const dy2 = end2[1] / legLength;
+  const apexRight: [number, number, number] = [bridgeHalf * dx2, bridgeHalf * dy2, h];
 
   const wires: Wire[] = [
-    { start: end1, end: apex, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_LEFT_TAG },
-    { start: apex, end: end2, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_RIGHT_TAG },
+    { start: end1, end: apexLeft, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_LEFT_TAG },
+    { start: apexRight, end: end2, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_RIGHT_TAG },
   ];
 
-  if (layout && layout.shield) {
-    wires.push({
-      start: apex, end: [apex[0], apex[1], layout.shield.bottomZ],
-      radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
-    });
+  if (layout) {
+    wires.push({ start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
+    if (layout.shield) {
+      wires.push({
+        start: apexRight, end: [apexRight[0], apexRight[1], layout.shield.bottomZ],
+        radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
+      });
+    }
   }
 
   if (state.terminatedEnabled) {
