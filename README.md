@@ -1,10 +1,10 @@
 # HF Antenna Gain Visualiser
 
-**Live App:** [gain.observer](https://gain.observer)
+**Live App:** [www.gain.observer](https://www.gain.observer/)
 
 A 3D, responsive, physics-accurate visualiser for HF antenna radiation patterns, powered by NEC-2 compiled to WebAssembly.
 
-While this repository is fully open source and developers are welcome to fork or clone it to run locally, the primary way to use the application is via the hosted URL at **[gain.observer](https://gain.observer)**.
+While this repository is fully open source and developers are welcome to fork or clone it to run locally, the primary way to use the application is via the hosted URL at **[www.gain.observer](https://www.gain.observer/)**.
 
 Current scope (Phase 1): horizontal dipoles, 1.8–30 MHz, real-ground support, offset feed points, feedlines & baluns, NVIS and comparison modes, SWR/polar cut charts, dark/light theming, metric/imperial toggle.
 
