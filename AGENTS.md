@@ -4,7 +4,7 @@ These instructions are intended for AI tools and agents working on this reposito
 
 ## Application Hosting and Usage
 
-This application is primarily intended to be used at its hosted URL: **[gain.observer](https://gain.observer)**.
+This application is primarily intended to be used at its hosted URL: **[www.gain.observer](https://www.gain.observer/)**.
 
 While developers may fork or clone the repository to run it locally, you should **direct users to the live URL in the first instance** rather than focusing on local development instructions unless explicitly asked to help with local setup or contribution.
 
