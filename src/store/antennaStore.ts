@@ -576,7 +576,7 @@ function buildDeltaLoopWires(
   const L = state.length;
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
-  const layout = buildFeedlineLayout(state);
+  const layout = computeFeedlineLayout(state);
   const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
 
   // Apex at top
@@ -639,7 +639,7 @@ function buildVWires(
   const half = state.length / 2;
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
-  const layout = buildFeedlineLayout(state);
+  const layout = computeFeedlineLayout(state);
   const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
 
   const apexZ = h;
@@ -733,7 +733,7 @@ function buildVBeamWires(
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
   const halfAngle = ((state.vAngle ?? 60) * Math.PI) / 360;
-  const layout = buildFeedlineLayout(state);
+  const layout = computeFeedlineLayout(state);
   const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
 
   const leg1DirX = dx * Math.cos(halfAngle) - dy * Math.sin(halfAngle);
