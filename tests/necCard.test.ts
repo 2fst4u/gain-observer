@@ -226,6 +226,7 @@ describe('buildNecCards', () => {
     it('emits no LD/TL cards when arrays are absent', () => {
       const out = buildNecCards(defaultInput);
       expect(out).not.toContain('\nLD ');
+      expect(out).not.toContain('\nNT ');
       expect(out).not.toContain('\nTL ');
     });
 
@@ -238,10 +239,20 @@ describe('buildNecCards', () => {
       });
       expect(out).toMatch(/^LD 0 1 5 5 100\./m);
     });
+
+    it('emits an NT network card when requested', () => {
+      const out = buildNecCards({
+        ...defaultInput,
+        networks: [
+          { fromTag: 1, fromSegment: 1, toTag: 2, toSegment: 9, y11Real: 0.002, y12Real: -0.002, y22Real: 0.002 },
+        ],
+      });
+      expect(out).toMatch(/^NT 1 1 2 9 0\.00200000 0\.00000000 -0\.00200000 0\.00000000 0\.00200000 0\.00000000/m);
+    });
   });
 
   describe('generated antenna topology cards', () => {
-    it('terminated sloping V emits elevated resistor networks, not grounded drop wires', () => {
+    it('terminated sloping V emits an NT far-end resistor, not grounded drop wires', () => {
       const state = useAntennaStore.getState();
       const input = selectSimulationInput({
         ...state,
@@ -260,14 +271,14 @@ describe('buildNecCards', () => {
       const gwLines = out.split('\n').filter((line) => line.startsWith('GW '));
 
       expect(out).toContain('GE 1');
-      expect(out).toMatch(/^LD 4 10 1 1 500\./m);
-      expect(out).toMatch(/^LD 4 11 1 1 500\./m);
+      expect(out).toMatch(/^NT 1 1 2 \d+ 0\.00200000 0\.00000000 -0\.00200000 0\.00000000 0\.00200000 0\.00000000/m);
+      expect(out).not.toContain('\nLD ');
       expect(gwLines.every((line) => {
         const parts = line.split(/\s+/);
         return parts[5] !== '0.00000' && parts[8] !== '0.00000';
       })).toBe(true);
-      expect(gwLines.some((line) => line.startsWith('GW 12 '))).toBe(true);
-      expect(gwLines.some((line) => line.startsWith('GW 13 '))).toBe(true);
+      expect(gwLines.some((line) => line.startsWith('GW 10 '))).toBe(false);
+      expect(gwLines.some((line) => line.startsWith('GW 11 '))).toBe(false);
     });
   });
 

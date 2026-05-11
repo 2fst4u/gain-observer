@@ -180,10 +180,10 @@ export function FeedlineControl() {
         aria-describedby="transformer-hint"
       >
         <option value={1}>None (1:1 / 50 Ω)</option>
-        <option value={4}>4:1 Balun (200 Ω)</option>
-        <option value={9}>9:1 Balun (450 Ω)</option>
-        <option value={12}>12:1 Balun (600 Ω)</option>
-        <option value={16}>16:1 Balun (800 Ω)</option>
+        <option value={4}>4:1 Matching Transformer (200 Ω)</option>
+        <option value={9}>9:1 Matching Transformer (450 Ω)</option>
+        <option value={12}>12:1 Matching Transformer (600 Ω)</option>
+        <option value={16}>16:1 Matching Transformer (800 Ω)</option>
       </select>
       <div id="transformer-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         Calculates SWR after dividing the measured impedance by this ratio, then comparing against 50 Ω.

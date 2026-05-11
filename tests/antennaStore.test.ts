@@ -630,7 +630,7 @@ describe('termination loading', () => {
     expect(leg2Load!.segmentStart).not.toBe(1);
   });
 
-  it('sloping V: terminates each leg through an elevated counterpoise network', () => {
+  it('sloping V: terminates the far ends with a non-radiating resistor network', () => {
     const state = useAntennaStore.getState();
     const input = selectSimulationInput({
       ...state,
@@ -644,21 +644,20 @@ describe('termination loading', () => {
       terminatedEnabled: true,
       terminatingResistor: 500,
     });
-    const termLeft = input.wires.find((w) => w.tag === 10)!;
-    const termRight = input.wires.find((w) => w.tag === 11)!;
-    const returnLeft = input.wires.find((w) => w.tag === 12)!;
-    const returnRight = input.wires.find((w) => w.tag === 13)!;
-    expect(termLeft).toBeDefined();
-    expect(termRight).toBeDefined();
-    expect(returnLeft).toBeDefined();
-    expect(returnRight).toBeDefined();
-    expect(termLeft.segments).toBe(1);
-    expect(termRight.segments).toBe(1);
+    const rightLeg = input.wires.find((w) => w.tag === 2)!;
+    expect(input.wires).toHaveLength(2);
     expect(input.wires.every((w) => w.start[2] > 0 && w.end[2] > 0)).toBe(true);
-    expect(input.loads).toBeDefined();
-    expect(input.loads).toHaveLength(2);
-    expect(input.loads!.some((l) => l.wireTag === 10 && l.segmentStart === 1)).toBe(true);
-    expect(input.loads!.some((l) => l.wireTag === 11 && l.segmentStart === 1)).toBe(true);
+    expect(input.loads).toBeUndefined();
+    expect(input.networks).toHaveLength(1);
+    expect(input.networks![0]).toMatchObject({
+      fromTag: 1,
+      fromSegment: 1,
+      toTag: 2,
+      toSegment: rightLeg.segments,
+      y11Real: 1 / 500,
+      y12Real: -1 / 500,
+      y22Real: 1 / 500,
+    });
   });
 
   it('delta loop: a single LD card at the centre of the bottom (base) wire', () => {
@@ -725,8 +724,7 @@ describe('termination loading', () => {
       terminatedEnabled: true,
       terminatingResistor: 600,
     });
-    // Expect only the two leg wires (tags 1 and 2). No TERM_LEFT_TAG=10 /
-    // TERM_RIGHT_TAG=11 floaters.
+    // Expect only the two leg wires (tags 1 and 2). No termination floaters.
     expect(input.wires).toHaveLength(2);
     const tags = input.wires.map((w) => w.tag).sort();
     expect(tags).toEqual([1, 2]);
@@ -815,7 +813,7 @@ describe('v-beam excitation and geometry', () => {
     expect(input.excitation.segment).toBe(leftWire.segments);
   });
 
-  it('v-beam terminated: creates drop wires and LD cards', () => {
+  it('v-beam terminated: creates a far-end NT resistor, not floating LD stubs', () => {
     const state = useAntennaStore.getState();
     const input = selectSimulationInput({
       ...state,
@@ -828,15 +826,20 @@ describe('v-beam excitation and geometry', () => {
       terminatedEnabled: true,
       terminatingResistor: 450,
     });
-    const termLeft = input.wires.find((w) => w.tag === 10)!;
-    const termRight = input.wires.find((w) => w.tag === 11)!;
-    expect(termLeft).toBeDefined();
-    expect(termRight).toBeDefined();
-    expect(termLeft.segments).toBe(1);
-    expect(termRight.segments).toBe(1);
+    const rightLeg = input.wires.find((w) => w.tag === 2)!;
+    expect(input.wires).toHaveLength(2);
     expect(input.wires.every((w) => w.start[2] > 0 && w.end[2] > 0)).toBe(true);
-    expect(input.loads).toBeDefined();
-    expect(input.loads).toHaveLength(2);
+    expect(input.loads).toBeUndefined();
+    expect(input.networks).toHaveLength(1);
+    expect(input.networks![0]).toMatchObject({
+      fromTag: 1,
+      fromSegment: 1,
+      toTag: 2,
+      toSegment: rightLeg.segments,
+      y11Real: 1 / 450,
+      y12Real: -1 / 450,
+      y22Real: 1 / 450,
+    });
   });
 
   it('sloping-v does not inflate leg segments to satisfy the 5 cm bridge when no feedline is active', () => {
@@ -875,7 +878,7 @@ describe('v-beam excitation and geometry', () => {
     expect(useAntennaStore.getState().terminatedEnabled).toBe(true);
   });
 
-  it('sloping-v without termination produces no drop wires or LD cards', () => {
+  it('sloping-v without termination produces no termination network or LD cards', () => {
     const state = useAntennaStore.getState();
     const input = selectSimulationInput({
       ...state,
@@ -893,5 +896,6 @@ describe('v-beam excitation and geometry', () => {
     expect(input.wires).toHaveLength(2);
     expect(input.wires.map((w) => w.tag).sort()).toEqual([1, 2]);
     expect(input.loads).toBeUndefined();
+    expect(input.networks).toBeUndefined();
   });
 });

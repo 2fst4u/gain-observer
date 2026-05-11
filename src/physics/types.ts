@@ -88,6 +88,20 @@ export interface SegmentLoad {
   readonly param3?: number;
 }
 
+/** NEC-2 NT card network between two wire segments. */
+export interface NetworkLoad {
+  readonly fromTag: number;
+  readonly fromSegment: number;
+  readonly toTag: number;
+  readonly toSegment: number;
+  readonly y11Real: number;
+  readonly y11Imag?: number;
+  readonly y12Real: number;
+  readonly y12Imag?: number;
+  readonly y22Real: number;
+  readonly y22Imag?: number;
+}
+
 export interface SimulationInput {
   readonly wires: readonly Wire[];
   readonly frequencyMHz: number;
@@ -102,6 +116,8 @@ export interface SimulationInput {
   readonly transmissionLines?: readonly TransmissionLine[];
   /** Optional NEC LD cards (e.g. choke balun, end-fed terminator). */
   readonly loads?: readonly SegmentLoad[];
+  /** Optional NEC NT cards for non-radiating lumped networks between segments. */
+  readonly networks?: readonly NetworkLoad[];
   /** Reference impedance for SWR calculation (e.g. 50, 450, 600). Defaults to 50 if omitted. */
   readonly systemZ0?: number;
   /** Ideal impedance-ratio transformer applied at the measured/radio impedance point for SWR. */

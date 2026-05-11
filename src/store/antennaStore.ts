@@ -17,6 +17,7 @@ import type {
   Wire,
   TransmissionLine,
   SegmentLoad,
+  NetworkLoad,
 } from '../physics/types';
 import {
   DEFAULT_BALUN_IMPEDANCE_OHMS,
@@ -483,12 +484,6 @@ export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
  */
 export const DELTA_BASE_TAG = 5;
 export const DELTA_BASE_LEFT_TAG = 6; // Left half of delta base when split
-/** Termination resistor segments for travelling-wave V topologies. */
-export const TERM_LEFT_TAG = 10;
-export const TERM_RIGHT_TAG = 11;
-export const TERM_LEFT_RETURN_TAG = 12;
-export const TERM_RIGHT_RETURN_TAG = 13;
-
 /**
  * Number of segments on the coax shield wire. Odd so the middle segment
  * is well-defined; small enough to keep NEC fast but large enough to
@@ -508,9 +503,6 @@ const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
 /** Minimum gap (m) between the bottom of the shield wire and the ground
  * plane, to avoid NEC's "wire touching ground" warning. */
 const FEEDLINE_GROUND_GAP_M = 0.1;
-const TERMINATION_RESISTOR_SEGMENT_M = 0.25;
-const TERMINATION_COUNTERPOISE_MIN_M = 2;
-const TERMINATION_COUNTERPOISE_FRACTION = 0.05;
 
 /**
  * Build a unit-vector along the chosen dipole orientation in the XY plane.
@@ -705,15 +697,6 @@ function buildVWires(
     });
   }
 
-  // Sloping V termination: model each far-end load as a deliberate short
-  // resistor segment into an elevated counterpoise. Nothing touches z=0 under
-  // GE 1, avoiding the unstable grounded-drop topology this replaced.
-  if (state.type === 'sloping-v' && state.terminatedEnabled) {
-    const apex: [number, number, number] = [0, 0, apexZ];
-    addTerminationNetwork(wires, end1, apex, state.wireRadius, legActualLen, legSegs, TERM_LEFT_TAG, TERM_LEFT_RETURN_TAG);
-    addTerminationNetwork(wires, end2, apex, state.wireRadius, legActualLen, legSegs, TERM_RIGHT_TAG, TERM_RIGHT_RETURN_TAG);
-  }
-
   return wires;
 }
 
@@ -762,57 +745,7 @@ function buildVBeamWires(
     }
   }
 
-  if (state.terminatedEnabled) {
-    const apex: [number, number, number] = [0, 0, h];
-    addTerminationNetwork(wires, end1, apex, state.wireRadius, legLength, legSegments, TERM_LEFT_TAG, TERM_LEFT_RETURN_TAG);
-    addTerminationNetwork(wires, end2, apex, state.wireRadius, legLength, legSegments, TERM_RIGHT_TAG, TERM_RIGHT_RETURN_TAG);
-  }
-
   return wires;
-}
-
-function addTerminationNetwork(
-  wires: Wire[],
-  legTip: [number, number, number],
-  apex: [number, number, number],
-  radius: number,
-  legLength: number,
-  legSegments: number,
-  resistorTag: number,
-  returnTag: number,
-): void {
-  const awayX = legTip[0] - apex[0];
-  const awayY = legTip[1] - apex[1];
-  const awayLen = Math.hypot(awayX, awayY) || 1;
-  const ux = awayX / awayLen;
-  const uy = awayY / awayLen;
-  const gapZ = FEEDLINE_GROUND_GAP_M;
-  const resistorEnd: [number, number, number] = legTip[2] > gapZ + TERMINATION_RESISTOR_SEGMENT_M
-    ? [legTip[0], legTip[1], legTip[2] - TERMINATION_RESISTOR_SEGMENT_M]
-    : [legTip[0] + TERMINATION_RESISTOR_SEGMENT_M * ux, legTip[1] + TERMINATION_RESISTOR_SEGMENT_M * uy, Math.max(gapZ, legTip[2])];
-  const counterpoiseLen = Math.max(TERMINATION_COUNTERPOISE_MIN_M, legLength * TERMINATION_COUNTERPOISE_FRACTION);
-  const counterpoiseEnd: [number, number, number] = [
-    resistorEnd[0] + counterpoiseLen * ux,
-    resistorEnd[1] + counterpoiseLen * uy,
-    resistorEnd[2],
-  ];
-  const legSegmentLen = legLength / Math.max(1, legSegments);
-  const returnSegments = Math.max(3, oddRound(counterpoiseLen / Math.max(0.25, legSegmentLen)));
-
-  wires.push({
-    start: legTip,
-    end: resistorEnd,
-    radius,
-    segments: 1,
-    tag: resistorTag,
-  });
-  wires.push({
-    start: resistorEnd,
-    end: counterpoiseEnd,
-    radius,
-    segments: returnSegments,
-    tag: returnTag,
-  });
 }
 
 function buildDipoleWires(
@@ -1014,6 +947,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 
   const transmissionLines: TransmissionLine[] = [];
   const loads: SegmentLoad[] = [];
+  const networks: NetworkLoad[] = [];
 
   if (feedlineActive && hasShield) {
     const preset = findFeedlinePreset(state.feedlineId);
@@ -1065,28 +999,21 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
         });
       }
     } else if (state.type === 'v-beam' || state.type === 'sloping-v') {
-      // Terminated vee-beam / sloping V: each LD sits on the deliberate
-      // one-segment resistor between the leg tip and an elevated return wire.
-      const leftTerm = wires.find(w => w.tag === TERM_LEFT_TAG);
-      const rightTerm = wires.find(w => w.tag === TERM_RIGHT_TAG);
-      if (leftTerm) {
-        loads.push({
-          type: 4,
-          wireTag: TERM_LEFT_TAG,
-          segmentStart: 1,
-          segmentEnd: 1,
-          param1: state.terminatingResistor,
-          param2: 0,
-        });
-      }
-      if (rightTerm) {
-        loads.push({
-          type: 4,
-          wireTag: TERM_RIGHT_TAG,
-          segmentStart: 1,
-          segmentEnd: 1,
-          param1: state.terminatingResistor,
-          param2: 0,
+      // Terminated travelling-wave V: use a non-radiating NT card resistor
+      // across the two far ends. The previous floating counterpoise stubs were
+      // NEC-safe but weakly coupled, so they often behaved like no termination.
+      const leftLeg = wires.find(w => w.tag === DIPOLE_LEFT_TAG);
+      const rightLeg = wires.find(w => w.tag === DIPOLE_RIGHT_TAG);
+      if (leftLeg && rightLeg) {
+        const y = 1 / state.terminatingResistor;
+        networks.push({
+          fromTag: DIPOLE_LEFT_TAG,
+          fromSegment: 1,
+          toTag: DIPOLE_RIGHT_TAG,
+          toSegment: rightLeg.segments,
+          y11Real: y,
+          y12Real: -y,
+          y22Real: y,
         });
       }
     } else if (state.type === 'inverted-v') {
@@ -1179,6 +1106,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     },
     transmissionLines: transmissionLines.length > 0 ? transmissionLines : undefined,
     loads: loads.length > 0 ? loads : undefined,
+    networks: networks.length > 0 ? networks : undefined,
     systemZ0: 50,
     transformerRatio: state.matchingTransformer || 1,
   };

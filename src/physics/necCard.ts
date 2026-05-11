@@ -19,6 +19,8 @@
 //   LD type, tag, seg_start, seg_end, P1, P2, P3 — segment loading:
 //       type=0 series RLC (R Ω, L H, C F)
 //       type=4 impedance Z = R + jX (P1=R, P2=X)
+//   NT tag1, seg1, tag2, seg2, Y11r, Y11i, Y12r, Y12i, Y22r, Y22i — network:
+//       two-port admittance matrix between two segments (Siemens)
 //   TL tag1, seg1, tag2, seg2, Z0, length, Y1r, Y1i, Y2r, Y2i — transmission line:
 //       Lossless ideal TL between two segments. Length in metres. Negative
 //       Z0 indicates a crossover (balanced-line phase reversal).
@@ -107,6 +109,14 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
         `LD 4 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 5)}`,
       );
     }
+  }
+
+  // Network cards (NT): non-radiating lumped two-port networks. A resistor
+  // between two segments is represented as Y11=Y22=1/R, Y12=-1/R.
+  for (const nt of input.networks ?? []) {
+    lines.push(
+      `NT ${nt.fromTag} ${nt.fromSegment} ${nt.toTag} ${nt.toSegment} ${n(nt.y11Real, 8)} ${n(nt.y11Imag ?? 0, 8)} ${n(nt.y12Real, 8)} ${n(nt.y12Imag ?? 0, 8)} ${n(nt.y22Real, 8)} ${n(nt.y22Imag ?? 0, 8)}`,
+    );
   }
 
   // Transmission-line cards (TL): differential signal in coax/parallel
