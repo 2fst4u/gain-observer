@@ -98,14 +98,17 @@ function ScenePane({
   result: import('./physics/types').SimulationResult | null;
 }) {
   return (
-    <div className="scene-pane">
-      <div className="scene-pane-header">
-        <div className="scene-pane-title">{title}</div>
+    /* SEO: Upgrade div to section for better structural outline */
+    <section className="scene-pane" aria-labelledby={`scene-pane-title-${title.replace(/\s+/g, '-').toLowerCase()}`}>
+      {/* SEO: Use header for logical grouping of pane title */}
+      <header className="scene-pane-header">
+        {/* SEO: Use h2 to maintain proper heading hierarchy after h1 in ControlPanel */}
+        <h2 id={`scene-pane-title-${title.replace(/\s+/g, '-').toLowerCase()}`} className="scene-pane-title" style={{ margin: 0 }}>{title}</h2>
         <div className="scene-pane-subtitle">{subtitle}</div>
-      </div>
+      </header>
       <ColormapLegend result={result} />
       {children}
-    </div>
+    </section>
   );
 }
 
