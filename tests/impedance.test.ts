@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { swr } from '../src/physics/impedance';
+import { applyImpedanceTransformer, swr } from '../src/physics/impedance';
 
 describe('reflection coefficient and SWR', () => {
   it('perfect match => |Γ|=0, SWR=1', () => {
@@ -37,5 +37,12 @@ describe('reflection coefficient and SWR', () => {
     // With Z0 = 50, Z = -50 + j0 gives denR = -50 + 50 = 0 and denX = 0 => den = 0.
     // When |Γ| = 1, SWR is clamped at 999.
     expect(swr({ R: -50, X: 0 })).toBe(999);
+  });
+
+  it('applies an ideal impedance-ratio transformer before SWR calculation', () => {
+    const radioSide = applyImpedanceTransformer({ R: 450, X: 90 }, 9);
+    expect(radioSide.R).toBe(50);
+    expect(radioSide.X).toBe(10);
+    expect(swr(radioSide, 50)).toBeLessThan(1.25);
   });
 });

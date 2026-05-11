@@ -20,7 +20,7 @@
 
 import { buildNecCards } from './necCard';
 import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
-import { swr } from './impedance';
+import { applyImpedanceTransformer, swr } from './impedance';
 import type { Engine, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 
 interface EmscriptenFS {
@@ -216,13 +216,15 @@ export class Nec2Engine implements Engine {
 
       const computeTimeMs = performance.now() - t0;
 
+      const radioSideImpedance = applyImpedanceTransformer(parsed.impedance, input.transformerRatio);
+
       return {
         pattern: parsed.pattern,
         maxGainDbi: maxGain,
         takeoffElevationDeg: elevationDeg,
         takeoffAzimuthDeg: phiDeg,
         impedance: parsed.impedance,
-        swr: swr(parsed.impedance, input.systemZ0),
+        swr: swr(radioSideImpedance, input.systemZ0),
         computeTimeMs,
       };
     } finally {
@@ -246,9 +248,10 @@ export class Nec2Engine implements Engine {
       if (!parsed?.impedance) {
         throw new Error(`NEC-2 sweep missing impedance result for frequency ${frequencyMHz} MHz`);
       }
+      const radioSideImpedance = applyImpedanceTransformer(parsed.impedance, input.transformerRatio);
       sweep.push({
         frequencyMHz,
-        swr: swr(parsed.impedance, input.systemZ0),
+        swr: swr(radioSideImpedance, input.systemZ0),
         R: parsed.impedance.R,
         X: parsed.impedance.X,
       });

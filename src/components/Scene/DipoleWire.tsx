@@ -133,12 +133,10 @@ export function DipoleWire({
   // wire's midpoint (legacy single-wire layout).
   let feedpoint = bridge?.feedMid ?? dipoleSingle?.feedMid ?? null;
 
-  if (type !== 'dipole' && apexWire) {
-    // For V-shapes and Delta loop, the feedpoint is at the apex, which connects
-    // to the end of the DIPOLE_LEFT_TAG wire (or start of DIPOLE_RIGHT_TAG).
-    // The visual wire component has `sceneEnd` calculated for its 3D geometry end point.
-    // So we use sceneEnd of the left wire.
-    feedpoint = apexWire.sceneEnd;
+  if (type !== 'dipole') {
+    // V-shapes and delta loops are apex-fed. If a bridge exists, its midpoint
+    // is the exact solver source; otherwise the left-leg endpoint is the apex.
+    feedpoint = bridge?.feedMid ?? apexWire?.sceneEnd ?? feedpoint;
   }
 
   return (

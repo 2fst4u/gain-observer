@@ -483,14 +483,11 @@ export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
  */
 export const DELTA_BASE_TAG = 5;
 export const DELTA_BASE_LEFT_TAG = 6; // Left half of delta base when split
-/**
- * Sloping-V termination drop wires. These are only generated when the
- * sloping V is explicitly terminated; the corresponding LD cards sit on
- * segment 1 so the resistor is directly at the leg tip before the ground
- * return path.
- */
+/** Termination resistor segments for travelling-wave V topologies. */
 export const TERM_LEFT_TAG = 10;
 export const TERM_RIGHT_TAG = 11;
+export const TERM_LEFT_RETURN_TAG = 12;
+export const TERM_RIGHT_RETURN_TAG = 13;
 
 /**
  * Number of segments on the coax shield wire. Odd so the middle segment
@@ -511,6 +508,9 @@ const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
 /** Minimum gap (m) between the bottom of the shield wire and the ground
  * plane, to avoid NEC's "wire touching ground" warning. */
 const FEEDLINE_GROUND_GAP_M = 0.1;
+const TERMINATION_RESISTOR_SEGMENT_M = 0.25;
+const TERMINATION_COUNTERPOISE_MIN_M = 2;
+const TERMINATION_COUNTERPOISE_FRACTION = 0.05;
 
 /**
  * Build a unit-vector along the chosen dipole orientation in the XY plane.
@@ -599,39 +599,39 @@ function buildDeltaLoopWires(
   const segDensity = totalSeg / L;
   const segPerSide = Math.max(3, oddRound(side * segDensity));
 
+  const leftLegEnd = layout
+    ? [-bridgeHalf * dx, -bridgeHalf * dy, h] as [number, number, number]
+    : apex as [number, number, number];
+  const rightLegStart = layout
+    ? [bridgeHalf * dx, bridgeHalf * dy, h] as [number, number, number]
+    : apex as [number, number, number];
+
   const wires: Wire[] = [
     {
-      start: left as [number, number, number], end: apex as [number, number, number],
+      start: left as [number, number, number], end: leftLegEnd,
       radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_LEFT_TAG
     },
     {
-      start: apex as [number, number, number], end: right as [number, number, number],
+      start: rightLegStart, end: right as [number, number, number],
       radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_RIGHT_TAG
     }
   ];
 
   if (layout) {
-    // Feed at the center of the base wire
-    const bridgeStart = [bridgeHalf * dx, bridgeHalf * dy, baseZ] as [number, number, number];
-    const bridgeEnd = [-bridgeHalf * dx, -bridgeHalf * dy, baseZ] as [number, number, number];
-    const baseSegs = Math.max(3, oddRound((halfBase - bridgeHalf) * segDensity));
-    
-    wires.push({ start: right as [number, number, number], end: bridgeStart, radius: state.wireRadius, segments: baseSegs, tag: DELTA_BASE_TAG });
-    wires.push({ start: bridgeStart, end: bridgeEnd, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
-    wires.push({ start: bridgeEnd, end: left as [number, number, number], radius: state.wireRadius, segments: baseSegs, tag: DELTA_BASE_LEFT_TAG });
+    wires.push({ start: leftLegEnd, end: rightLegStart, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
 
     if (layout.shield) {
       wires.push({
-        start: bridgeEnd, end: [bridgeEnd[0], bridgeEnd[1], layout.shield.bottomZ],
+        start: rightLegStart, end: [rightLegStart[0], rightLegStart[1], layout.shield.bottomZ],
         radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
       });
     }
-  } else {
-    wires.push({
-      start: right as [number, number, number], end: left as [number, number, number],
-      radius: state.wireRadius, segments: segPerSide, tag: DELTA_BASE_TAG
-    });
   }
+
+  wires.push({
+    start: right as [number, number, number], end: left as [number, number, number],
+    radius: state.wireRadius, segments: segPerSide, tag: DELTA_BASE_TAG
+  });
 
   return wires;
 }
@@ -644,8 +644,7 @@ function buildVWires(
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
   const layout = computeFeedlineLayout(state);
-  // Always use a central bridge to ensure symmetric feed for V-antennas.
-  const bridgeHalf = FEEDLINE_BRIDGE_LENGTH_M / 2;
+  const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
 
   const apexZ = h;
   let end1: [number, number, number];
@@ -677,15 +676,7 @@ function buildVWires(
 
   const legActualLen = Math.hypot(end1[0], end1[1], end1[2] - apexZ);
   
-  // NEC-2 limitation: Adjacent segments at a bend cannot exceed a 5:1 length ratio.
-  // The feed bridge is 0.05m. So adjacent leg segments must be <= 0.25m.
-  let effectiveSegments = state.segments;
-  const minSegs = Math.ceil(state.length / (FEEDLINE_BRIDGE_LENGTH_M * 5));
-  if (effectiveSegments < minSegs) {
-    effectiveSegments = minSegs;
-  }
-
-  const segDensity = effectiveSegments / state.length;
+  const segDensity = state.segments / state.length;
   const legSegs = Math.max(3, oddRound((legActualLen - bridgeHalf) * segDensity));
 
   const dx1 = end1[0] / legActualLen;
@@ -701,8 +692,11 @@ function buildVWires(
   const wires: Wire[] = [
     { start: end1, end: apexLeft, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_LEFT_TAG },
     { start: apexRight, end: end2, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_RIGHT_TAG },
-    { start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG }
   ];
+
+  if (layout) {
+    wires.push({ start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
+  }
 
   if (layout && layout.shield) {
     wires.push({
@@ -711,26 +705,13 @@ function buildVWires(
     });
   }
 
-  // Sloping V termination: add vertical drop wires from each leg tip to
-  // the ground plane, giving the terminating resistor a real return path
-  // so the leg current can become travelling-wave rather than standing-wave.
+  // Sloping V termination: model each far-end load as a deliberate short
+  // resistor segment into an elevated counterpoise. Nothing touches z=0 under
+  // GE 1, avoiding the unstable grounded-drop topology this replaced.
   if (state.type === 'sloping-v' && state.terminatedEnabled) {
-    const leftDropSegments = terminationDropSegments(end1[2], legSegs);
-    const rightDropSegments = terminationDropSegments(end2[2], legSegs);
-    wires.push({
-      start: end1,
-      end: [end1[0], end1[1], 0],
-      radius: state.wireRadius,
-      segments: leftDropSegments,
-      tag: TERM_LEFT_TAG,
-    });
-    wires.push({
-      start: end2,
-      end: [end2[0], end2[1], 0],
-      radius: state.wireRadius,
-      segments: rightDropSegments,
-      tag: TERM_RIGHT_TAG,
-    });
+    const apex: [number, number, number] = [0, 0, apexZ];
+    addTerminationNetwork(wires, end1, apex, state.wireRadius, legActualLen, legSegs, TERM_LEFT_TAG, TERM_LEFT_RETURN_TAG);
+    addTerminationNetwork(wires, end2, apex, state.wireRadius, legActualLen, legSegs, TERM_RIGHT_TAG, TERM_RIGHT_RETURN_TAG);
   }
 
   return wires;
@@ -755,15 +736,7 @@ function buildVBeamWires(
   const end1: [number, number, number] = [legLength * leg1DirX, legLength * leg1DirY, h];
   const end2: [number, number, number] = [legLength * leg2DirX, legLength * leg2DirY, h];
   
-  let effectiveSegments = state.segments;
-  if (layout) {
-    const minSegs = Math.ceil(state.length / (FEEDLINE_BRIDGE_LENGTH_M * 5));
-    if (effectiveSegments < minSegs) {
-      effectiveSegments = minSegs;
-    }
-  }
-
-  const segDensity = effectiveSegments / state.length;
+  const segDensity = state.segments / state.length;
   const legSegments = Math.max(3, oddRound((legLength - bridgeHalf) * segDensity));
 
   const dx1 = end1[0] / legLength;
@@ -790,30 +763,56 @@ function buildVBeamWires(
   }
 
   if (state.terminatedEnabled) {
-    const leftDropSegments = terminationDropSegments(end1[2], legSegments);
-    const rightDropSegments = terminationDropSegments(end2[2], legSegments);
-    wires.push({
-      start: end1,
-      end: [end1[0], end1[1], 0],
-      radius: state.wireRadius,
-      segments: leftDropSegments,
-      tag: TERM_LEFT_TAG,
-    });
-    wires.push({
-      start: end2,
-      end: [end2[0], end2[1], 0],
-      radius: state.wireRadius,
-      segments: rightDropSegments,
-      tag: TERM_RIGHT_TAG,
-    });
+    const apex: [number, number, number] = [0, 0, h];
+    addTerminationNetwork(wires, end1, apex, state.wireRadius, legLength, legSegments, TERM_LEFT_TAG, TERM_LEFT_RETURN_TAG);
+    addTerminationNetwork(wires, end2, apex, state.wireRadius, legLength, legSegments, TERM_RIGHT_TAG, TERM_RIGHT_RETURN_TAG);
   }
 
   return wires;
 }
 
-function terminationDropSegments(dropMeters: number, referenceSegments: number): number {
-  if (dropMeters <= 0.25) return 1;
-  return Math.max(3, Math.min(21, oddRound(referenceSegments)));
+function addTerminationNetwork(
+  wires: Wire[],
+  legTip: [number, number, number],
+  apex: [number, number, number],
+  radius: number,
+  legLength: number,
+  legSegments: number,
+  resistorTag: number,
+  returnTag: number,
+): void {
+  const awayX = legTip[0] - apex[0];
+  const awayY = legTip[1] - apex[1];
+  const awayLen = Math.hypot(awayX, awayY) || 1;
+  const ux = awayX / awayLen;
+  const uy = awayY / awayLen;
+  const gapZ = FEEDLINE_GROUND_GAP_M;
+  const resistorEnd: [number, number, number] = legTip[2] > gapZ + TERMINATION_RESISTOR_SEGMENT_M
+    ? [legTip[0], legTip[1], legTip[2] - TERMINATION_RESISTOR_SEGMENT_M]
+    : [legTip[0] + TERMINATION_RESISTOR_SEGMENT_M * ux, legTip[1] + TERMINATION_RESISTOR_SEGMENT_M * uy, Math.max(gapZ, legTip[2])];
+  const counterpoiseLen = Math.max(TERMINATION_COUNTERPOISE_MIN_M, legLength * TERMINATION_COUNTERPOISE_FRACTION);
+  const counterpoiseEnd: [number, number, number] = [
+    resistorEnd[0] + counterpoiseLen * ux,
+    resistorEnd[1] + counterpoiseLen * uy,
+    resistorEnd[2],
+  ];
+  const legSegmentLen = legLength / Math.max(1, legSegments);
+  const returnSegments = Math.max(3, oddRound(counterpoiseLen / Math.max(0.25, legSegmentLen)));
+
+  wires.push({
+    start: legTip,
+    end: resistorEnd,
+    radius,
+    segments: 1,
+    tag: resistorTag,
+  });
+  wires.push({
+    start: resistorEnd,
+    end: counterpoiseEnd,
+    radius,
+    segments: returnSegments,
+    tag: returnTag,
+  });
 }
 
 function buildDipoleWires(
@@ -934,7 +933,7 @@ function computeFeedlineLayout(
 
   // Compute shield drop (clamped above the ground plane).
   const topZ = state.height;
-  const minBottomZ = state.height > 0 ? FEEDLINE_GROUND_GAP_M : -len;
+  const minBottomZ = state.height > 0 ? Math.min(FEEDLINE_GROUND_GAP_M, state.height) : -len;
   const desiredBottomZ = topZ - len;
   const bottomZ = Math.max(minBottomZ, desiredBottomZ);
   const drop = topZ - bottomZ;
@@ -978,10 +977,10 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   let feedpointSeg = Math.ceil(state.segments / 2);
 
   if (state.type === 'delta-loop') {
-    const baseWire = wires.find((w) => w.tag === DELTA_BASE_TAG);
-    if (baseWire) {
-      feedpointTag = DELTA_BASE_TAG;
-      feedpointSeg = Math.ceil(baseWire.segments / 2);
+    const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
+    if (leftWire) {
+      feedpointTag = DIPOLE_LEFT_TAG;
+      feedpointSeg = leftWire.segments;
     }
   } else if (state.type === 'inverted-v' || state.type === 'sloping-v' || state.type === 'v-beam') {
     const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
@@ -1052,25 +1051,22 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 
   if (supportsTermination(state.type) && state.terminatedEnabled && state.terminatingResistor) {
     if (state.type === 'delta-loop') {
-      // Delta loop: fed at base, so terminated opposite feedpoint (the apex).
-      // We can put the load at the very tip of the left leg before the right leg.
-      const leftWire = wires.find(w => w.tag === DIPOLE_LEFT_TAG);
-      if (leftWire) {
+      // Delta loop: apex-fed, so terminate opposite the feedpoint at the
+      // centre of the base wire.
+      const baseWire = wires.find(w => w.tag === DELTA_BASE_TAG);
+      if (baseWire) {
         loads.push({
           type: 4,
-          wireTag: DIPOLE_LEFT_TAG,
-          segmentStart: leftWire.segments,
-          segmentEnd: leftWire.segments,
+          wireTag: DELTA_BASE_TAG,
+          segmentStart: Math.ceil(baseWire.segments / 2),
+          segmentEnd: Math.ceil(baseWire.segments / 2),
           param1: state.terminatingResistor,
           param2: 0
         });
       }
     } else if (state.type === 'v-beam' || state.type === 'sloping-v') {
-      // Terminated vee-beam / sloping V: each leg's far end is loaded to
-      // the ground plane through a short vertical drop wire. This gives
-      // the resistor a real return path, so the leg current can become
-      // travelling-wave rather than a mostly standing-wave open-ended
-      // conductor.
+      // Terminated vee-beam / sloping V: each LD sits on the deliberate
+      // one-segment resistor between the leg tip and an elevated return wire.
       const leftTerm = wires.find(w => w.tag === TERM_LEFT_TAG);
       const rightTerm = wires.find(w => w.tag === TERM_RIGHT_TAG);
       if (leftTerm) {
@@ -1183,7 +1179,8 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     },
     transmissionLines: transmissionLines.length > 0 ? transmissionLines : undefined,
     loads: loads.length > 0 ? loads : undefined,
-    systemZ0: 50 * (state.matchingTransformer || 1),
+    systemZ0: 50,
+    transformerRatio: state.matchingTransformer || 1,
   };
 }
 

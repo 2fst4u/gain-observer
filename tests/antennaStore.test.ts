@@ -630,7 +630,7 @@ describe('termination loading', () => {
     expect(leg2Load!.segmentStart).not.toBe(1);
   });
 
-  it('sloping V: terminates each leg through a grounded drop wire', () => {
+  it('sloping V: terminates each leg through an elevated counterpoise network', () => {
     const state = useAntennaStore.getState();
     const input = selectSimulationInput({
       ...state,
@@ -646,10 +646,15 @@ describe('termination loading', () => {
     });
     const termLeft = input.wires.find((w) => w.tag === 10)!;
     const termRight = input.wires.find((w) => w.tag === 11)!;
+    const returnLeft = input.wires.find((w) => w.tag === 12)!;
+    const returnRight = input.wires.find((w) => w.tag === 13)!;
     expect(termLeft).toBeDefined();
     expect(termRight).toBeDefined();
-    expect(termLeft.end[2]).toBe(0);
-    expect(termRight.end[2]).toBe(0);
+    expect(returnLeft).toBeDefined();
+    expect(returnRight).toBeDefined();
+    expect(termLeft.segments).toBe(1);
+    expect(termRight.segments).toBe(1);
+    expect(input.wires.every((w) => w.start[2] > 0 && w.end[2] > 0)).toBe(true);
     expect(input.loads).toBeDefined();
     expect(input.loads).toHaveLength(2);
     expect(input.loads!.some((l) => l.wireTag === 10 && l.segmentStart === 1)).toBe(true);
@@ -677,6 +682,23 @@ describe('termination loading', () => {
     const bottomWire = input.wires.find((w) => w.tag === 5)!;
     expect(ld.segmentStart).toBe(Math.ceil(bottomWire.segments / 2));
     expect(ld.param1).toBe(800);
+  });
+
+  it('delta loop: solver feedpoint is at the apex', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'delta-loop',
+      length: 42,
+      height: 15,
+      segments: 21,
+      feedlineId: 'none',
+      terminatedEnabled: false,
+    });
+    const leftLeg = input.wires.find((w) => w.tag === 1)!;
+    expect(input.excitation.wireTag).toBe(1);
+    expect(input.excitation.segment).toBe(leftLeg.segments);
+    expect(leftLeg.end[2]).toBe(15);
   });
 
   it('terminated=false produces no LD cards', () => {
@@ -810,10 +832,39 @@ describe('v-beam excitation and geometry', () => {
     const termRight = input.wires.find((w) => w.tag === 11)!;
     expect(termLeft).toBeDefined();
     expect(termRight).toBeDefined();
-    expect(termLeft.end[2]).toBe(0);
-    expect(termRight.end[2]).toBe(0);
+    expect(termLeft.segments).toBe(1);
+    expect(termRight.segments).toBe(1);
+    expect(input.wires.every((w) => w.start[2] > 0 && w.end[2] > 0)).toBe(true);
     expect(input.loads).toBeDefined();
     expect(input.loads).toHaveLength(2);
+  });
+
+  it('sloping-v does not inflate leg segments to satisfy the 5 cm bridge when no feedline is active', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      type: 'sloping-v',
+      length: 170,
+      height: 20,
+      segments: 21,
+      vAngle: 60,
+      legSlope: 20,
+      feedlineId: 'none',
+      terminatedEnabled: false,
+    });
+    const leftLeg = input.wires.find((w) => w.tag === 1)!;
+    expect(input.wires.some((w) => w.tag === 3)).toBe(false);
+    expect(leftLeg.segments).toBeLessThan(50);
+  });
+
+  it('matching transformer stores the ratio explicitly instead of changing the SWR reference impedance', () => {
+    const state = useAntennaStore.getState();
+    const input = selectSimulationInput({
+      ...state,
+      matchingTransformer: 9,
+    });
+    expect(input.systemZ0).toBe(50);
+    expect(input.transformerRatio).toBe(9);
   });
 
   it('sloping-v auto-enables termination on type switch', () => {

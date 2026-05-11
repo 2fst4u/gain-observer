@@ -171,7 +171,7 @@ export function FeedlineControl() {
       <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
 
       <label htmlFor="matching-transformer" style={{ marginTop: 10 }}>
-        Matching Transformer (Radio End)
+        Ideal Transformer Ratio
       </label>
       <select
         id="matching-transformer"
@@ -186,7 +186,7 @@ export function FeedlineControl() {
         <option value={16}>16:1 Balun (800 Ω)</option>
       </select>
       <div id="transformer-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-        Steps down the antenna impedance to 50 Ω. Use 12:1 or 9:1 for Terminated V-Beams.
+        Calculates SWR after dividing the measured impedance by this ratio, then comparing against 50 Ω.
       </div>
     </div>
   );

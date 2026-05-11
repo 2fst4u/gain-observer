@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildNecCards } from '../src/physics/necCard';
+import { selectSimulationInput, useAntennaStore } from '../src/store/antennaStore';
 import type { SimulationInput } from '../src/physics/types';
 
 describe('buildNecCards', () => {
@@ -236,6 +237,37 @@ describe('buildNecCards', () => {
         ],
       });
       expect(out).toMatch(/^LD 0 1 5 5 100\./m);
+    });
+  });
+
+  describe('generated antenna topology cards', () => {
+    it('terminated sloping V emits elevated resistor networks, not grounded drop wires', () => {
+      const state = useAntennaStore.getState();
+      const input = selectSimulationInput({
+        ...state,
+        type: 'sloping-v',
+        length: 80,
+        height: 12,
+        segments: 21,
+        vAngle: 60,
+        legSlope: 30,
+        groundId: 'perfect',
+        feedlineId: 'none',
+        terminatedEnabled: true,
+        terminatingResistor: 500,
+      });
+      const out = buildNecCards(input);
+      const gwLines = out.split('\n').filter((line) => line.startsWith('GW '));
+
+      expect(out).toContain('GE 1');
+      expect(out).toMatch(/^LD 4 10 1 1 500\./m);
+      expect(out).toMatch(/^LD 4 11 1 1 500\./m);
+      expect(gwLines.every((line) => {
+        const parts = line.split(/\s+/);
+        return parts[5] !== '0.00000' && parts[8] !== '0.00000';
+      })).toBe(true);
+      expect(gwLines.some((line) => line.startsWith('GW 12 '))).toBe(true);
+      expect(gwLines.some((line) => line.startsWith('GW 13 '))).toBe(true);
     });
   });
 

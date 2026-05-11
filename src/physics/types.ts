@@ -104,6 +104,8 @@ export interface SimulationInput {
   readonly loads?: readonly SegmentLoad[];
   /** Reference impedance for SWR calculation (e.g. 50, 450, 600). Defaults to 50 if omitted. */
   readonly systemZ0?: number;
+  /** Ideal impedance-ratio transformer applied at the measured/radio impedance point for SWR. */
+  readonly transformerRatio?: number;
 }
 
 /**

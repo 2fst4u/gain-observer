@@ -27,3 +27,12 @@ export function swr(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
   const s = (1 + gamma) / (1 - gamma);
   return Math.min(s, 999);
 }
+
+/** Ideal impedance-ratio transformer at the measured impedance point. */
+export function applyImpedanceTransformer(z: ImpedanceResult, ratio: number = 1): ImpedanceResult {
+  const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+  return {
+    R: z.R / safeRatio,
+    X: z.X / safeRatio,
+  };
+}
