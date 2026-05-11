@@ -23,3 +23,7 @@
 ## 2024-05-18 - Missing Button Group Roles
 **Learning:** The `ComparisonControl.tsx` had a `.button-group` component lacking the `role="group"` and `aria-label` attribute, which prevented screen readers from correctly announcing the options as part of a coherent group.
 **Action:** Always ensure `.button-group` elements have the required ARIA grouping attributes.
+
+## 2024-05-24 - Resolving WCAG 2.5.3 Label in Name Violations
+**Learning:** Using an `aria-label` that completely overrides the visible text of a button (like `aria-label="Meters"` for a button showing "m") violates WCAG 2.5.3 (Label in Name). Speech recognition users might say "Click m" which won't work if the accessible name doesn't contain "m".
+**Action:** Always ensure the visible text is included within the `aria-label` (e.g., `aria-label="m (Meters)"`), and use the `title` attribute to provide the expanded tooltip for mouse users.

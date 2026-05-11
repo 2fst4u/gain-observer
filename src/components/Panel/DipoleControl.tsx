@@ -86,7 +86,7 @@ export function DipoleControl() {
         <button
           onClick={setHalfWaveLength}
           title="Set length to resonant ½λ"
-          aria-label="Set length to resonant half wavelength"
+          aria-label="½λ (Set length to resonant half wavelength)"
         >
           ½λ
         </button>

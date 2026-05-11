@@ -15,8 +15,8 @@ describe('UnitToggle', () => {
 
   it('renders with metric as active by default', () => {
     render(<UnitToggle />);
-    const metricButton = screen.getByRole('button', { name: 'Meters' });
-    const imperialButton = screen.getByRole('button', { name: 'Feet' });
+    const metricButton = screen.getByRole('button', { name: 'm (Meters)' });
+    const imperialButton = screen.getByRole('button', { name: 'ft (Feet)' });
 
     expect(metricButton.className).toContain('active');
     expect(metricButton.getAttribute('aria-pressed')).toBe('true');
@@ -27,7 +27,7 @@ describe('UnitToggle', () => {
 
   it('toggles to imperial when clicked', () => {
     render(<UnitToggle />);
-    const imperialButton = screen.getByRole('button', { name: 'Feet' });
+    const imperialButton = screen.getByRole('button', { name: 'ft (Feet)' });
 
     fireEvent.click(imperialButton);
 
@@ -37,7 +37,7 @@ describe('UnitToggle', () => {
   it('toggles back to metric when clicked', () => {
     useAntennaStore.setState({ units: 'imperial' });
     render(<UnitToggle />);
-    const metricButton = screen.getByRole('button', { name: 'Meters' });
+    const metricButton = screen.getByRole('button', { name: 'm (Meters)' });
 
     fireEvent.click(metricButton);
 
@@ -47,8 +47,8 @@ describe('UnitToggle', () => {
   it('reflects state changes', () => {
     useAntennaStore.setState({ units: 'imperial' });
     render(<UnitToggle />);
-    const metricButton = screen.getByRole('button', { name: 'Meters' });
-    const imperialButton = screen.getByRole('button', { name: 'Feet' });
+    const metricButton = screen.getByRole('button', { name: 'm (Meters)' });
+    const imperialButton = screen.getByRole('button', { name: 'ft (Feet)' });
 
     expect(imperialButton.className).toContain('active');
     expect(metricButton.className).not.toContain('active');
