@@ -62,7 +62,6 @@ export function DipoleWire({
   terminatedEnabled,
 }: DipoleWireProps) {
   const theme = useAntennaStore((s) => s.theme);
-  const balunEnabled = useAntennaStore((s) => s.balunEnabled);
 
   const rendered = useMemo(() => {
     const wires = buildWires({
@@ -156,21 +155,6 @@ export function DipoleWire({
             emissive={THEME_COLORS[theme].feedpoint}
             emissiveIntensity={0.4}
           />
-        </mesh>
-      )}
-      {shield && balunEnabled && (
-        // Choke balun marker: a small torus near the top of the shield wire
-        // (immediately below the antenna feedpoint).
-        <mesh
-          position={[
-            shield.sceneStart[0],
-            shield.sceneStart[1] - Math.min(0.4, Math.max(0.15, shield.length * 0.05)),
-            shield.sceneStart[2],
-          ]}
-          rotation={[Math.PI / 2, 0, 0]}
-        >
-          <torusGeometry args={[0.18, 0.07, 12, 24]} />
-          <meshStandardMaterial color="#cc8844" emissive="#cc8844" emissiveIntensity={0.3} />
         </mesh>
       )}
       {shield && (

@@ -216,7 +216,7 @@ export class Nec2Engine implements Engine {
 
       const computeTimeMs = performance.now() - t0;
 
-      const radioSideImpedance = applyImpedanceTransformer(parsed.impedance, input.transformerRatio);
+      const transformedFeedpoint = applyImpedanceTransformer(parsed.impedance, input.transformerRatio);
 
       return {
         pattern: parsed.pattern,
@@ -224,7 +224,7 @@ export class Nec2Engine implements Engine {
         takeoffElevationDeg: elevationDeg,
         takeoffAzimuthDeg: phiDeg,
         impedance: parsed.impedance,
-        swr: swr(radioSideImpedance, input.systemZ0),
+        swr: swr(transformedFeedpoint, input.systemZ0),
         computeTimeMs,
       };
     } finally {
@@ -248,10 +248,10 @@ export class Nec2Engine implements Engine {
       if (!parsed?.impedance) {
         throw new Error(`NEC-2 sweep missing impedance result for frequency ${frequencyMHz} MHz`);
       }
-      const radioSideImpedance = applyImpedanceTransformer(parsed.impedance, input.transformerRatio);
+      const transformedFeedpoint = applyImpedanceTransformer(parsed.impedance, input.transformerRatio);
       sweep.push({
         frequencyMHz,
-        swr: swr(radioSideImpedance, input.systemZ0),
+        swr: swr(transformedFeedpoint, input.systemZ0),
         R: parsed.impedance.R,
         X: parsed.impedance.X,
       });

@@ -214,7 +214,6 @@ describe('antennaStore selectors', () => {
         feedlineId: 'rg58',
         feedlineLength: 8,
         feedlineOffset: 0,
-        balunEnabled: false,
       };
 
       const input = selectSimulationInput(testState);
@@ -237,7 +236,8 @@ describe('antennaStore selectors', () => {
       expect(tl.z0).toBe(50);
       // Electrical length = physical / VF (RG-58 VF = 0.66).
       expect(tl.lengthM).toBeCloseTo(8 / 0.66, 5);
-      // No balun => no load card.
+      // The choke balun has been removed; we no longer emit any LD load
+      // tied to the shield wire here.
       expect(input.loads).toBeUndefined();
     });
 
@@ -254,29 +254,6 @@ describe('antennaStore selectors', () => {
       const shield = input.wires.find((w) => w.tag === 4)!;
       // The shield's top vertex must coincide with the right half's start.
       expect(shield.start).toEqual(right.start);
-    });
-
-    it('adds an LD choke balun on the shield when balun is enabled', () => {
-      const state = useAntennaStore.getState();
-      const testState = {
-        ...state,
-        height: 10,
-        feedlineId: 'rg213',
-        feedlineLength: 6,
-        feedlineOffset: 0,
-        balunEnabled: true,
-      };
-
-      const input = selectSimulationInput(testState);
-
-      expect(input.loads).toHaveLength(1);
-      const ld = input.loads![0];
-      expect(ld.type).toBe(4); // impedance load
-      expect(ld.wireTag).toBe(4); // shield wire (FEEDLINE_SHIELD_TAG)
-      expect(ld.segmentStart).toBe(1); // top of shield (near feedpoint)
-      expect(ld.segmentEnd).toBe(1);
-      expect(ld.param1).toBeGreaterThan(500); // ~kΩ choke
-      expect(ld.param2).toBe(0);
     });
 
     it('clamps shield bottom above ground when feedline length exceeds height', () => {
@@ -359,14 +336,6 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().feedlineLength).toBe(200);
       store.setFeedlineLength(15);
       expect(useAntennaStore.getState().feedlineLength).toBe(15);
-    });
-
-    it('toggles balun enabled flag', () => {
-      const store = useAntennaStore.getState();
-      store.setBalunEnabled(true);
-      expect(useAntennaStore.getState().balunEnabled).toBe(true);
-      store.setBalunEnabled(false);
-      expect(useAntennaStore.getState().balunEnabled).toBe(false);
     });
 
     it('clamps feedline offset to ±length/2', () => {
@@ -584,11 +553,10 @@ describe('termination loading', () => {
       feedlineId: 'rg58',
       feedlineLength: 8,
       feedlineOffset: 0,
-      balunEnabled: false,
       terminatedEnabled: true,
       terminatingResistor: 450,
     });
-    // We expect exactly 2 termination LD cards (no balun since balun=false).
+    // We expect exactly 2 termination LD cards.
     expect(input.loads).toBeDefined();
     expect(input.loads).toHaveLength(2);
     const leftTagLoad = input.loads!.find((l) => l.wireTag === 1);

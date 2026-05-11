@@ -18,7 +18,6 @@ const state = {
   feedlineId: 'none',
   feedlineLength: 10,
   feedlineOffset: 0,
-  balunEnabled: false,
   terminatedEnabled: true,
   terminatingResistor: 450,
   matchingTransformer: 1,

@@ -192,12 +192,3 @@ export function feedlineLossDb(preset: FeedlinePreset, frequencyMHz: number, len
   const lossPer100m = preset.lossK1 * Math.sqrt(frequencyMHz) + preset.lossK2 * frequencyMHz;
   return lossPer100m * (lengthM / 100);
 }
-
-/**
- * Default choke-balun common-mode impedance.
- * Real-world current baluns (W2DU, ferrite-bead string) typically present
- * 1 kΩ to 5 kΩ across HF. We use a moderate 2 kΩ resistive value as the
- * "balun enabled" default — high enough to substantially suppress
- * common-mode current, low enough to remain physical.
- */
-export const DEFAULT_BALUN_IMPEDANCE_OHMS = 2000;

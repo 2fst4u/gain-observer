@@ -39,10 +39,18 @@ describe('reflection coefficient and SWR', () => {
     expect(swr({ R: -50, X: 0 })).toBe(999);
   });
 
-  it('applies an ideal impedance-ratio transformer before SWR calculation', () => {
-    const radioSide = applyImpedanceTransformer({ R: 450, X: 90 }, 9);
-    expect(radioSide.R).toBe(50);
-    expect(radioSide.X).toBe(10);
-    expect(swr(radioSide, 50)).toBeLessThan(1.25);
+  it('applies an ideal feedpoint matching transformer to the antenna impedance', () => {
+    // A 9:1 matching transformer at the antenna terminals divides the
+    // antenna's feedpoint Z by 9 when looking from the radio. So a real
+    // 450 Ω feedpoint looks like 50 Ω at the radio, giving 1:1 SWR
+    // against a 50 Ω system.
+    const transformed = applyImpedanceTransformer({ R: 450, X: 0 }, 9);
+    expect(transformed.R).toBeCloseTo(50, 6);
+    expect(transformed.X).toBe(0);
+    expect(swr(transformed, 50)).toBeLessThan(1.01);
+
+    // Mismatched: a 50 Ω antenna with a 9:1 transformer looks like 5.56 Ω.
+    const mismatched = applyImpedanceTransformer({ R: 50, X: 0 }, 9);
+    expect(mismatched.R).toBeCloseTo(50 / 9, 6);
   });
 });

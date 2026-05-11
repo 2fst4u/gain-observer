@@ -20,7 +20,6 @@ import type {
   NetworkLoad,
 } from '../physics/types';
 import {
-  DEFAULT_BALUN_IMPEDANCE_OHMS,
   DEFAULT_FEEDLINE_ID,
   DEFAULT_FEEDLINE_LENGTH_M,
   DEFAULT_GROUND_ID,
@@ -57,7 +56,6 @@ export interface ComparisonSnapshot {
   readonly feedlineId: string;
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
-  readonly balunEnabled: boolean;
   readonly result: SimulationResult;
   readonly sweep: SweepPoint[];
   readonly capturedAt: number;
@@ -95,7 +93,6 @@ export interface AntennaState {
   feedlineId: string;
   feedlineLength: number;
   feedlineOffset: number;
-  balunEnabled: boolean;
   terminatedEnabled: boolean;
   terminatingResistor: number;
   matchingTransformer: number;
@@ -155,7 +152,6 @@ export interface AntennaState {
   setFeedline(id: string): void;
   setFeedlineLength(meters: number): void;
   setFeedlineOffset(meters: number): void;
-  setBalunEnabled(v: boolean): void;
   setTerminatedEnabled(v: boolean): void;
   setTerminatingResistor(ohms: number): void;
   setMatchingTransformer(ratio: number): void;
@@ -213,7 +209,6 @@ export const useAntennaStore = create<AntennaState>()(
       feedlineId: DEFAULT_FEEDLINE_ID,
       feedlineLength: DEFAULT_FEEDLINE_LENGTH_M,
       feedlineOffset: 0,
-      balunEnabled: false,
       terminatedEnabled: false,
       terminatingResistor: 450,
       matchingTransformer: 1,
@@ -363,7 +358,6 @@ export const useAntennaStore = create<AntennaState>()(
         const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
         s.feedlineOffset = Math.max(-limit, Math.min(limit, meters));
       }),
-      setBalunEnabled: (enabled) => set((s) => { s.balunEnabled = !!enabled; }),
       setTerminatedEnabled: (enabled) => set((s) => {
         s.terminatedEnabled = supportsTermination(s.type) ? enabled : false;
       }),
@@ -503,6 +497,17 @@ const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
 /** Minimum gap (m) between the bottom of the shield wire and the ground
  * plane, to avoid NEC's "wire touching ground" warning. */
 const FEEDLINE_GROUND_GAP_M = 0.1;
+
+/**
+ * Minimum tip elevation (m) for sloping-V leg ends. Going below this would
+ * push the leg almost flat just above lossy ground, which makes the model
+ * behave like a shorted transmission line to earth — the feedpoint Z
+ * collapses to a few ohms regardless of the rest of the geometry. The
+ * runtime auto-clamps the requested legSlope so the tip stays at or above
+ * this height; the slider value the user set is preserved in state, only
+ * the *effective* slope used by buildVWires is reduced.
+ */
+const SLOPING_V_MIN_TIP_Z_M = 1.0;
 
 /**
  * Build a unit-vector along the chosen dipole orientation in the XY plane.
@@ -652,9 +657,19 @@ function buildVWires(
   } else {
     const vAngleRad = ((state.vAngle ?? 120) * Math.PI) / 180;
     const halfAngle = vAngleRad / 2;
-    const slopeRad = ((state.legSlope ?? 45) * Math.PI) / 180;
-    const zDrop = half * Math.sin(slopeRad);
-    const tipZ = Math.max(0.1, h - zDrop);
+    const requestedSlopeRad = ((state.legSlope ?? 45) * Math.PI) / 180;
+    // Auto-clamp the leg slope so the leg tip cannot be forced into (or
+    // below) the ground at the chosen apex height. Pinning the tip to a
+    // tiny gap above z=0 made the leg almost horizontal and just above
+    // lossy earth, which collapsed feedpoint resistance to a few ohms
+    // regardless of any termination. The maximum drop the geometry can
+    // physically support is (h - SLOPING_V_MIN_TIP_Z_M); we cap the
+    // half-length × sin(slope) at that.
+    const maxDrop = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
+    const maxSinSlope = Math.min(1, half > 1e-6 ? maxDrop / half : 0);
+    const effectiveSinSlope = Math.min(Math.sin(requestedSlopeRad), maxSinSlope);
+    const zDrop = half * effectiveSinSlope;
+    const tipZ = Math.max(SLOPING_V_MIN_TIP_Z_M, h - zDrop);
     const actualProj = Math.sqrt(Math.max(0.001, half * half - (h - tipZ) * (h - tipZ)));
 
     const leg1DirX = dx * Math.cos(halfAngle) - dy * Math.sin(halfAngle);
@@ -965,22 +980,6 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
       // shield). A future enhancement may add a frequency-dependent
       // shunt-G term derived from feedlineLossDb().
     });
-
-    if (state.balunEnabled) {
-      // Place a 1:1 current ("choke") balun on the shield's TOP segment —
-      // i.e. immediately below the antenna feedpoint. The high common-mode
-      // impedance suppresses current on the outside of the shield without
-      // affecting the differential signal inside (which travels via the
-      // TL card and never sees this load).
-      loads.push({
-        type: 4, // impedance Z = R + jX
-        wireTag: FEEDLINE_SHIELD_TAG,
-        segmentStart: 1,
-        segmentEnd: 1,
-        param1: DEFAULT_BALUN_IMPEDANCE_OHMS, // R
-        param2: 0,                            // X
-      });
-    }
   }
 
   if (supportsTermination(state.type) && state.terminatedEnabled && state.terminatingResistor) {
@@ -1131,7 +1130,6 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     feedlineId: state.feedlineId,
     feedlineLength: state.feedlineLength,
     feedlineOffset: state.feedlineOffset,
-    balunEnabled: state.balunEnabled,
     result: state.result,
     sweep: [...state.sweep],
     capturedAt: Date.now(),

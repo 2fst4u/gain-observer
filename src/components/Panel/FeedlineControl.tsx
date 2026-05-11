@@ -19,12 +19,10 @@ export function FeedlineControl() {
   const feedlineLength = useAntennaStore((s) => s.feedlineLength);
   const antennaType = useAntennaStore((s) => s.type);
   const feedlineOffset = useAntennaStore((s) => s.feedlineOffset);
-  const balunEnabled = useAntennaStore((s) => s.balunEnabled);
   const matchingTransformer = useAntennaStore((s) => s.matchingTransformer);
   const setFeedline = useAntennaStore((s) => s.setFeedline);
   const setFeedlineLength = useAntennaStore((s) => s.setFeedlineLength);
   const setFeedlineOffset = useAntennaStore((s) => s.setFeedlineOffset);
-  const setBalunEnabled = useAntennaStore((s) => s.setBalunEnabled);
   const setMatchingTransformer = useAntennaStore((s) => s.setMatchingTransformer);
 
   const preset = findFeedlinePreset(feedlineId);
@@ -131,32 +129,6 @@ export function FeedlineControl() {
             </>
           )}
 
-          <label
-            htmlFor="balun-toggle"
-            style={{
-              marginTop: 10,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-            }}
-          >
-            <input
-              id="balun-toggle"
-              type="checkbox"
-              checked={balunEnabled}
-              onChange={(e) => setBalunEnabled(e.target.checked)}
-              aria-describedby="balun-hint"
-              style={{ width: 'auto' }}
-            />
-            <span>1:1 current (choke) balun at feedpoint</span>
-          </label>
-          <div id="balun-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-            {balunEnabled
-              ? 'Suppresses common-mode current on shield (~2 kΩ choke).'
-              : 'Unchoked: shield can radiate. Pattern may distort.'}
-          </div>
-
           <div className="stat" style={{ marginTop: 10 }}>
             <span className="stat-label">Z₀ / VF</span>
             <span className="stat-value">{preset.z0.toFixed(0)} Ω · {preset.velocityFactor.toFixed(2)}</span>
@@ -171,7 +143,7 @@ export function FeedlineControl() {
       <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
 
       <label htmlFor="matching-transformer" style={{ marginTop: 10 }}>
-        Ideal Transformer Ratio
+        Feedpoint Matching Transformer
       </label>
       <select
         id="matching-transformer"
@@ -179,14 +151,18 @@ export function FeedlineControl() {
         onChange={(e) => setMatchingTransformer(parseFloat(e.target.value))}
         aria-describedby="transformer-hint"
       >
-        <option value={1}>None (1:1 / 50 Ω)</option>
-        <option value={4}>4:1 Matching Transformer (200 Ω)</option>
-        <option value={9}>9:1 Matching Transformer (450 Ω)</option>
-        <option value={12}>12:1 Matching Transformer (600 Ω)</option>
-        <option value={16}>16:1 Matching Transformer (800 Ω)</option>
+        <option value={1}>None (1:1)</option>
+        <option value={4}>4:1 Matching Transformer</option>
+        <option value={9}>9:1 Matching Transformer</option>
+        <option value={12}>12:1 Matching Transformer</option>
+        <option value={16}>16:1 Matching Transformer</option>
       </select>
       <div id="transformer-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-        Calculates SWR after dividing the measured impedance by this ratio, then comparing against 50 Ω.
+        Ideal lossless matching transformer at the antenna feedpoint. Divides the
+        antenna's R + jX by this ratio before computing SWR against 50 Ω — so a
+        9:1 transformer presents a real 450 Ω feedpoint to the radio as 50 Ω
+        (1:1 SWR). Pick the ratio whose nominal impedance matches your antenna's
+        actual feedpoint Z (e.g. 4:1 for ~200 Ω, 9:1 for ~450 Ω end-fed half-wave).
       </div>
     </div>
   );
