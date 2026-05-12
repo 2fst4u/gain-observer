@@ -41,17 +41,17 @@ export function App() {
                 <AntennaScene />
               </ErrorBoundary>
               {!engineReady && (
-                <div className="loading-overlay">
-                  <div className="spinner" /> Loading NEC-2 WebAssembly…
+                <div className="loading-overlay" role="status" aria-live="polite">
+                  <div className="spinner" aria-hidden="true" /> Loading NEC-2 WebAssembly…
                 </div>
               )}
               {engineReady && loading && (
-                <div className="loading-overlay">
-                  <div className="spinner" /> Solving…
+                <div className="loading-overlay" role="status" aria-live="polite">
+                  <div className="spinner" aria-hidden="true" /> Solving…
                 </div>
               )}
               {error && (
-                <div className="error-banner">
+                <div className="error-banner" role="alert" aria-live="assertive">
                   <strong>Solver error:</strong> {error}
                 </div>
               )}
@@ -63,17 +63,17 @@ export function App() {
               <AntennaScene />
             </ErrorBoundary>
             {!engineReady && (
-              <div className="loading-overlay">
-                <div className="spinner" /> Loading NEC-2 WebAssembly…
+              <div className="loading-overlay" role="status" aria-live="polite">
+                <div className="spinner" aria-hidden="true" /> Loading NEC-2 WebAssembly…
               </div>
             )}
             {engineReady && loading && (
-              <div className="loading-overlay">
-                <div className="spinner" /> Solving…
+              <div className="loading-overlay" role="status" aria-live="polite">
+                <div className="spinner" aria-hidden="true" /> Solving…
               </div>
             )}
             {error && (
-              <div className="error-banner">
+              <div className="error-banner" role="alert" aria-live="assertive">
                 <strong>Solver error:</strong> {error}
               </div>
             )}
