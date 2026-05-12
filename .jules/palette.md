@@ -27,3 +27,7 @@
 ## 2024-05-24 - Resolving WCAG 2.5.3 Label in Name Violations
 **Learning:** Using an `aria-label` that completely overrides the visible text of a button (like `aria-label="Meters"` for a button showing "m") violates WCAG 2.5.3 (Label in Name). Speech recognition users might say "Click m" which won't work if the accessible name doesn't contain "m".
 **Action:** Always ensure the visible text is included within the `aria-label` (e.g., `aria-label="m (Meters)"`), and use the `title` attribute to provide the expanded tooltip for mouse users.
+
+## 2024-05-25 - ARIA Roles for Loading and Error Overlays
+**Learning:** Global application states like "Loading WebAssembly" or solver errors use custom overlay divs (`.loading-overlay`, `.error-banner`). Without explicit ARIA roles and live regions, screen readers are unaware when the application transitions between these states. This leads to a confusing experience where the UI appears frozen to assistive technologies.
+**Action:** Always add `role="status"` and `aria-live="polite"` to loading overlays, and add `role="alert"` and `aria-live="assertive"` to error banners. Additionally, mark purely decorative animation elements like spinners with `aria-hidden="true"`.
