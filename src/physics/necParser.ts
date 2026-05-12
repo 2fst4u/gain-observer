@@ -107,27 +107,27 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
   const blockStart = text.indexOf('RADIATION PATTERNS');
   if (blockStart < 0) return null;
 
-  // Row regex: leading whitespace, theta, phi, vert, horiz, total (we stop here).
-  const rowRe = /^\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)/;
-
   const expected = thetaSteps * phiSteps;
   const data = new Float32Array(expected);
   let count = 0;
 
-  // Track the order we see (theta, phi) so we can verify NEC emitted in the
-  // expected "phi outer, theta inner" ordering (it does).
-  const lines = text.slice(blockStart).split('\n');
-  for (const line of lines) {
-    const m = rowRe.exec(line);
-    if (!m) continue;
+  const dTheta = 180 / (thetaSteps - 1);
+  const dPhi = 360 / phiSteps;
+
+  // Row regex: leading whitespace, theta, phi, vert, horiz, total (we stop here).
+  // Using a global regex and setting lastIndex avoids large string slicing
+  // and split() allocations for performance.
+  const rowReGlobal = /^[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)/gm;
+  rowReGlobal.lastIndex = blockStart;
+
+  let m;
+  while ((m = rowReGlobal.exec(text)) !== null) {
     const theta = parseFloat(m[1]!);
     const phi = parseFloat(m[2]!);
     const totalRaw = parseFloat(m[5]!);
     const total = totalRaw <= NO_HORIZ_SENTINEL + 1 ? -100 : totalRaw;
 
     // Compute row index from theta and phi (both quantised by NEC's step).
-    const dTheta = 180 / (thetaSteps - 1);
-    const dPhi = 360 / phiSteps;
     const ti = Math.round(theta / dTheta);
     const pi = Math.round(phi / dPhi) % phiSteps;
     if (ti < 0 || ti >= thetaSteps) continue;
@@ -143,8 +143,8 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
     data,
     thetaSteps,
     phiSteps,
-    dTheta: 180 / (thetaSteps - 1),
-    dPhi: 360 / phiSteps,
+    dTheta,
+    dPhi,
   };
 }
 
