@@ -480,6 +480,8 @@ export const DELTA_BASE_TAG = 5;
 export const DELTA_BASE_LEFT_TAG = 6; // Left half of delta base when split
 export const TERMINATION_DROP_LEFT_TAG = 8;
 export const TERMINATION_DROP_RIGHT_TAG = 9;
+export const TERMINATION_RADIAL_LEFT_TAG = 10;
+export const TERMINATION_RADIAL_RIGHT_TAG = 11;
 /**
  * Number of segments on the coax shield wire. Odd so the middle segment
  * is well-defined; small enough to keep NEC fast but large enough to
@@ -737,20 +739,42 @@ function buildVWires(
   }
 
   if (state.terminatedEnabled) {
-    const dropZ = 0; // Terminate strictly to Z=0 so NEC connects it to ground
+    const dropZ = 0.05; // Terminate just above ground (we provide our own radials)
     const dropLenLeft = end1[2] - dropZ;
     const dropLenRight = end2[2] - dropZ;
     if (dropLenLeft > 0.1 && dropLenRight > 0.1) {
       const dropSegsLeft = Math.max(3, oddCeil(dropLenLeft / targetSegLen));
       const dropSegsRight = Math.max(3, oddCeil(dropLenRight / targetSegLen));
+      
+      const leftBase: [number, number, number] = [end1[0], end1[1], dropZ];
+      const rightBase: [number, number, number] = [end2[0], end2[1], dropZ];
+      
       wires.push({
-        start: end1, end: [end1[0], end1[1], dropZ],
+        start: end1, end: leftBase,
         radius: state.wireRadius, segments: dropSegsLeft, tag: TERMINATION_DROP_LEFT_TAG
       });
       wires.push({
-        start: end2, end: [end2[0], end2[1], dropZ],
+        start: end2, end: rightBase,
         radius: state.wireRadius, segments: dropSegsRight, tag: TERMINATION_DROP_RIGHT_TAG
       });
+
+      // Add a 4-wire radial screen (2m radius) at the bottom of each drop wire
+      // to provide an RF ground connection over lossy earth without violating
+      // NEC-2 Sommerfeld-Norton limitations.
+      const radialLen = 2.0;
+      const radialSegs = 5;
+      const dirs: [number, number][] = [[1,0], [-1,0], [0,1], [0,-1]];
+      
+      for (const [dx, dy] of dirs) {
+        wires.push({
+          start: leftBase, end: [leftBase[0] + dx * radialLen, leftBase[1] + dy * radialLen, dropZ],
+          radius: state.wireRadius, segments: radialSegs, tag: TERMINATION_RADIAL_LEFT_TAG
+        });
+        wires.push({
+          start: rightBase, end: [rightBase[0] + dx * radialLen, rightBase[1] + dy * radialLen, dropZ],
+          radius: state.wireRadius, segments: radialSegs, tag: TERMINATION_RADIAL_RIGHT_TAG
+        });
+      }
     }
   }
 
@@ -812,20 +836,38 @@ function buildVBeamWires(
   }
 
   if (state.terminatedEnabled) {
-    const dropZ = 0; // Terminate strictly to Z=0 so NEC connects it to ground
+    const dropZ = 0.05; // Terminate just above ground
     const dropLenLeft = end1[2] - dropZ;
     const dropLenRight = end2[2] - dropZ;
     if (dropLenLeft > 0.1 && dropLenRight > 0.1) {
       const dropSegsLeft = Math.max(3, oddCeil(dropLenLeft / targetSegLen));
       const dropSegsRight = Math.max(3, oddCeil(dropLenRight / targetSegLen));
+      
+      const leftBase: [number, number, number] = [end1[0], end1[1], dropZ];
+      const rightBase: [number, number, number] = [end2[0], end2[1], dropZ];
+      
       wires.push({
-        start: end1, end: [end1[0], end1[1], dropZ],
+        start: end1, end: leftBase,
         radius: state.wireRadius, segments: dropSegsLeft, tag: TERMINATION_DROP_LEFT_TAG
       });
       wires.push({
-        start: end2, end: [end2[0], end2[1], dropZ],
+        start: end2, end: rightBase,
         radius: state.wireRadius, segments: dropSegsRight, tag: TERMINATION_DROP_RIGHT_TAG
       });
+
+      const radialLen = 2.0;
+      const radialSegs = 5;
+      const dirs: [number, number][] = [[1,0], [-1,0], [0,1], [0,-1]];
+      for (const [dx, dy] of dirs) {
+        wires.push({
+          start: leftBase, end: [leftBase[0] + dx * radialLen, leftBase[1] + dy * radialLen, dropZ],
+          radius: state.wireRadius, segments: radialSegs, tag: TERMINATION_RADIAL_LEFT_TAG
+        });
+        wires.push({
+          start: rightBase, end: [rightBase[0] + dx * radialLen, rightBase[1] + dy * radialLen, dropZ],
+          radius: state.wireRadius, segments: radialSegs, tag: TERMINATION_RADIAL_RIGHT_TAG
+        });
+      }
     }
   }
 
