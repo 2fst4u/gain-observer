@@ -160,7 +160,7 @@ export function FeedlineControl() {
       </select>
       <div id="transformer-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         Any selection other than "None" physically inserts a high-impedance common-mode
-        choke at the feedpoint to block shield radiation. Ratios > 1 act as an ideal
+        choke at the feedpoint to block shield radiation. Ratios &gt; 1 act as an ideal
         lossless matching transformer, dividing the antenna's R + jX by the ratio
         before computing SWR against 50 Ω (e.g. 4:1 for ~200 Ω, 9:1 for ~450 Ω).
       </div>
