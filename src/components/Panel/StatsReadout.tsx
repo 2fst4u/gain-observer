@@ -36,11 +36,19 @@ export function StatsReadout() {
         </span>
       </div>
       <div className="stat">
-        <span className="stat-label">SWR (50 Ω)</span>
+        <span className="stat-label">SWR (raw 50 Ω)</span>
         <span className="stat-value" style={{
           color: result.swr > 2 ? 'var(--danger)' : result.swr > 1.5 ? 'var(--warning)' : 'var(--success)',
         }}>{result.swr.toFixed(2)}:1</span>
       </div>
+      {result.transformedSwr != null && Math.abs(result.transformedSwr - result.swr) > 0.01 && (
+        <div className="stat">
+          <span className="stat-label">SWR (with transformer)</span>
+          <span className="stat-value" style={{
+            color: result.transformedSwr > 2 ? 'var(--danger)' : result.transformedSwr > 1.5 ? 'var(--warning)' : 'var(--success)',
+          }}>{result.transformedSwr.toFixed(2)}:1</span>
+        </div>
+      )}
       {mode === 'comparison' && reference && (
         <ComparisonStats current={result} reference={reference.result} />
       )}
