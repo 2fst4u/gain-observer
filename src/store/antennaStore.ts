@@ -556,17 +556,19 @@ function orientationVector(o: Orientation): [number, number] {
  *      radiation.
  */
 export function buildWires(
-  state: Pick<AntennaState, 'type' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'vAngle' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'terminatedEnabled' | 'frequency'>>,
+  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
+    Partial<Pick<AntennaState, 'type' | 'vAngle' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'terminatedEnabled' | 'frequency'>>,
 ): Wire[] {
-  if (state.type === 'delta-loop') {
-    return buildDeltaLoopWires(state);
-  } else if (state.type === 'v-beam') {
-    return buildVBeamWires(state);
-  } else if (state.type === 'inverted-v' || state.type === 'sloping-v') {
-    return buildVWires(state);
+  const type = state.type ?? 'dipole';
+  const stateWithType = { ...state, type };
+  if (type === 'delta-loop') {
+    return buildDeltaLoopWires(stateWithType);
+  } else if (type === 'v-beam') {
+    return buildVBeamWires(stateWithType);
+  } else if (type === 'inverted-v' || type === 'sloping-v') {
+    return buildVWires(stateWithType);
   }
-  return buildDipoleWires(state);
+  return buildDipoleWires(stateWithType);
 }
 
 function buildDeltaLoopWires(
@@ -577,12 +579,13 @@ function buildDeltaLoopWires(
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
   const layout = computeFeedlineLayout(state);
-  const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
 
-  // Apex at top
-  const apex = [0, 0, h];
+  // Apex bridge is always present so the apex feed is symmetric (a single
+  // voltage source between the two leg bases) — see buildVWires for the
+  // full rationale.
+  const bridgeHalf = FEEDLINE_BRIDGE_LENGTH_M / 2;
 
-  // Equilateral triangle
+  // Equilateral triangle.
   const side = L / 3;
   const heightTri = side * Math.sqrt(3) / 2;
   const baseZ = Math.max(0.1, h - heightTri); // Keep above ground
@@ -595,12 +598,8 @@ function buildDeltaLoopWires(
   const segDensity = totalSeg / L;
   const segPerSide = Math.max(3, oddRound(side * segDensity));
 
-  const leftLegEnd = layout
-    ? [-bridgeHalf * dx, -bridgeHalf * dy, h] as [number, number, number]
-    : apex as [number, number, number];
-  const rightLegStart = layout
-    ? [bridgeHalf * dx, bridgeHalf * dy, h] as [number, number, number]
-    : apex as [number, number, number];
+  const leftLegEnd: [number, number, number] = [-bridgeHalf * dx, -bridgeHalf * dy, h];
+  const rightLegStart: [number, number, number] = [bridgeHalf * dx, bridgeHalf * dy, h];
 
   const wires: Wire[] = [
     {
@@ -610,18 +609,19 @@ function buildDeltaLoopWires(
     {
       start: rightLegStart, end: right as [number, number, number],
       radius: state.wireRadius, segments: segPerSide, tag: DIPOLE_RIGHT_TAG
-    }
+    },
+    // Apex source bridge.
+    {
+      start: leftLegEnd, end: rightLegStart,
+      radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG
+    },
   ];
 
-  if (layout) {
-    wires.push({ start: leftLegEnd, end: rightLegStart, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
-
-    if (layout.shield) {
-      wires.push({
-        start: rightLegStart, end: [rightLegStart[0], rightLegStart[1], layout.shield.bottomZ],
-        radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
-      });
-    }
+  if (layout && layout.shield) {
+    wires.push({
+      start: rightLegStart, end: [rightLegStart[0], rightLegStart[1], layout.shield.bottomZ],
+      radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
+    });
   }
 
   wires.push({
@@ -640,7 +640,14 @@ function buildVWires(
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
   const layout = computeFeedlineLayout(state);
-  const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
+
+  // The apex bridge is now ALWAYS emitted for V antennas (independent of
+  // feedline). Reason: an apex-fed balanced V must be driven symmetrically
+  // — i.e. as a single voltage source between the two leg bases. Feeding
+  // the last segment of only the left leg, as the previous code did,
+  // skews the current distribution and visibly de-centres the radiation
+  // pattern (which is what the user observed).
+  const bridgeHalf = FEEDLINE_BRIDGE_LENGTH_M / 2;
 
   const apexZ = h;
   let end1: [number, number, number];
@@ -657,13 +664,13 @@ function buildVWires(
     const vAngleRad = ((state.vAngle ?? 120) * Math.PI) / 180;
     const halfAngle = vAngleRad / 2;
     const requestedSlopeRad = ((state.legSlope ?? 45) * Math.PI) / 180;
-    // Auto-clamp the leg slope so the leg tip cannot be forced into (or
-    // below) the ground at the chosen apex height. Pinning the tip to a
-    // tiny gap above z=0 made the leg almost horizontal and just above
-    // lossy earth, which collapsed feedpoint resistance to a few ohms
-    // regardless of any termination. The maximum drop the geometry can
-    // physically support is (h - SLOPING_V_MIN_TIP_Z_M); we cap the
-    // half-length × sin(slope) at that.
+    // Geometry clamp: a leg tip below SLOPING_V_MIN_TIP_Z_M would sit just
+    // above lossy ground and collapse the feedpoint resistance to a few
+    // ohms regardless of any termination. We cap zDrop so the tip stays
+    // at or above that height. The *requested* slopeDeg is preserved in
+    // state — only the geometry actually fed to NEC is clamped — and the
+    // effective slope/tip height are exposed via computeEffectiveSlope()
+    // so the UI can warn the user when the requested geometry is invalid.
     const maxDrop = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
     const maxSinSlope = Math.min(1, half > 1e-6 ? maxDrop / half : 0);
     const effectiveSinSlope = Math.min(Math.sin(requestedSlopeRad), maxSinSlope);
@@ -715,11 +722,9 @@ function buildVWires(
   const wires: Wire[] = [
     { start: end1, end: apexLeft, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_LEFT_TAG },
     { start: apexRight, end: end2, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_RIGHT_TAG },
+    // Apex source bridge — always present so the feed is symmetric.
+    { start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG },
   ];
-
-  if (layout) {
-    wires.push({ start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
-  }
 
   if (layout && layout.shield) {
     wires.push({
@@ -740,7 +745,10 @@ function buildVBeamWires(
   const [dx, dy] = orientationVector(state.orientation);
   const halfAngle = ((state.vAngle ?? 60) * Math.PI) / 360;
   const layout = computeFeedlineLayout(state);
-  const bridgeHalf = layout ? FEEDLINE_BRIDGE_LENGTH_M / 2 : 0;
+
+  // Apex bridge is always present for V antennas (see buildVWires for the
+  // rationale: required for a symmetric balanced feed).
+  const bridgeHalf = FEEDLINE_BRIDGE_LENGTH_M / 2;
 
   const leg1DirX = dx * Math.cos(halfAngle) - dy * Math.sin(halfAngle);
   const leg1DirY = dx * Math.sin(halfAngle) + dy * Math.cos(halfAngle);
@@ -771,16 +779,15 @@ function buildVBeamWires(
   const wires: Wire[] = [
     { start: end1, end: apexLeft, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_LEFT_TAG },
     { start: apexRight, end: end2, radius: state.wireRadius, segments: legSegments, tag: DIPOLE_RIGHT_TAG },
+    // Apex source bridge — always present so the feed is symmetric.
+    { start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG },
   ];
 
-  if (layout) {
-    wires.push({ start: apexLeft, end: apexRight, radius: state.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG });
-    if (layout.shield) {
-      wires.push({
-        start: apexRight, end: [apexRight[0], apexRight[1], layout.shield.bottomZ],
-        radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
-      });
-    }
+  if (layout && layout.shield) {
+    wires.push({
+      start: apexRight, end: [apexRight[0], apexRight[1], layout.shield.bottomZ],
+      radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
+    });
   }
 
   return wires;
@@ -929,6 +936,32 @@ function oddRound(v: number): number {
 function oddCeil(v: number): number {
   const n = Math.max(1, Math.ceil(v));
   return n % 2 === 0 ? n + 1 : n;
+}
+
+/**
+ * Returns the effective leg slope (degrees) and tip height (m) for the
+ * sloping-V topology, taking the SLOPING_V_MIN_TIP_Z_M clamp into account.
+ *
+ * For other antenna types this returns null. The UI uses this to warn the
+ * user when the requested geometry has been clamped — i.e. the simulated
+ * antenna is not the antenna they asked for.
+ */
+export function computeEffectiveSlope(
+  state: Pick<AntennaState, 'type' | 'length' | 'height' | 'legSlope'>,
+): { requestedDeg: number; effectiveDeg: number; tipHeightM: number; clamped: boolean } | null {
+  if (state.type !== 'sloping-v') return null;
+  const half = state.length / 2;
+  const h = state.height;
+  const requestedDeg = state.legSlope;
+  const requestedRad = (requestedDeg * Math.PI) / 180;
+  const maxDrop = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
+  const maxSinSlope = Math.min(1, half > 1e-6 ? maxDrop / half : 0);
+  const effectiveSinSlope = Math.min(Math.sin(requestedRad), maxSinSlope);
+  const effectiveRad = Math.asin(effectiveSinSlope);
+  const effectiveDeg = (effectiveRad * 180) / Math.PI;
+  const tipHeightM = Math.max(SLOPING_V_MIN_TIP_Z_M, h - half * effectiveSinSlope);
+  const clamped = Math.abs(effectiveDeg - requestedDeg) > 0.5;
+  return { requestedDeg, effectiveDeg, tipHeightM, clamped };
 }
 
 function buildGroundParams(state: AntennaState): GroundParams {

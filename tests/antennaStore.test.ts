@@ -613,7 +613,10 @@ describe('termination loading', () => {
       terminatingResistor: 500,
     });
     const rightLeg = input.wires.find((w) => w.tag === 2)!;
-    expect(input.wires).toHaveLength(2);
+    // Two leg wires + one 1-segment apex source bridge (tag 3). The bridge
+    // is now always present so the feed is symmetric.
+    expect(input.wires).toHaveLength(3);
+    expect(input.wires.map((w) => w.tag).sort()).toEqual([1, 2, 3]);
     expect(input.wires.every((w) => w.start[2] > 0 && w.end[2] > 0)).toBe(true);
     expect(input.loads).toBeUndefined();
     expect(input.networks).toHaveLength(1);
@@ -651,7 +654,7 @@ describe('termination loading', () => {
     expect(ld.param1).toBe(800);
   });
 
-  it('delta loop: solver feedpoint is at the apex', () => {
+  it('delta loop: solver feedpoint is at the apex bridge', () => {
     const state = useAntennaStore.getState();
     const input = selectSimulationInput({
       ...state,
@@ -663,9 +666,16 @@ describe('termination loading', () => {
       terminatedEnabled: false,
     });
     const leftLeg = input.wires.find((w) => w.tag === 1)!;
-    expect(input.excitation.wireTag).toBe(1);
-    expect(input.excitation.segment).toBe(leftLeg.segments);
-    expect(leftLeg.end[2]).toBe(15);
+    // The apex source bridge (tag 3) is now always present; the feed
+    // sits on its single segment for a symmetric balanced source.
+    const bridge = input.wires.find((w) => w.tag === 3)!;
+    expect(bridge).toBeDefined();
+    expect(bridge.segments).toBe(1);
+    expect(input.excitation.wireTag).toBe(3);
+    expect(input.excitation.segment).toBe(1);
+    // The bridge midpoint sits at the apex height (the bridge endpoints
+    // are tiny offsets either side of the apex along the dipole axis).
+    expect(leftLeg.end[2]).toBeCloseTo(15, 5);
   });
 
   it('terminated=false produces no LD cards', () => {
@@ -692,10 +702,11 @@ describe('termination loading', () => {
       terminatedEnabled: true,
       terminatingResistor: 600,
     });
-    // Expect only the two leg wires (tags 1 and 2). No termination floaters.
-    expect(input.wires).toHaveLength(2);
+    // Two leg wires (tags 1, 2) plus the always-present 1-segment apex
+    // source bridge (tag 3). No termination floaters.
+    expect(input.wires).toHaveLength(3);
     const tags = input.wires.map((w) => w.tag).sort();
-    expect(tags).toEqual([1, 2]);
+    expect(tags).toEqual([1, 2, 3]);
   });
 });
 
@@ -704,7 +715,7 @@ describe('V geometry (sanity-only checks for current implementation)', () => {
   // PR-101 follow-ups so future changes don't silently regress it. They do
   // NOT validate that the antenna is electrically correct (in particular,
   // the sloping V remains symmetric about its bisector — see PR review).
-  it('inverted V: legs lie in a single vertical plane along the orientation axis', () => {
+  it('inverted V: legs + apex bridge lie in a single vertical plane along the orientation axis', () => {
     const wires = buildWires({
       type: 'inverted-v',
       length: 20,
@@ -714,15 +725,24 @@ describe('V geometry (sanity-only checks for current implementation)', () => {
       segments: 21,
       vAngle: 120,
     });
-    expect(wires).toHaveLength(2);
+    // Two legs + 1-segment apex source bridge (so the feed is symmetric).
+    expect(wires).toHaveLength(3);
     const left = wires.find((w) => w.tag === 1)!;
     const right = wires.find((w) => w.tag === 2)!;
-    // Leg endpoints lie on the X axis (Y=0) for EW orientation.
+    const bridge = wires.find((w) => w.tag === 3)!;
+    expect(bridge.segments).toBe(1);
+    // Leg outer endpoints lie on the X axis (Y=0) for EW orientation.
     expect(left.start[1]).toBeCloseTo(0, 5);
     expect(right.end[1]).toBeCloseTo(0, 5);
-    // Apex is at z=10 with x=y=0; both wires share that vertex.
-    expect(left.end).toEqual(right.start);
-    expect(left.end[2]).toBe(10);
+    // The bridge spans between the two leg inner ends at the apex height.
+    expect(left.end).toEqual(bridge.start);
+    expect(right.start).toEqual(bridge.end);
+    // The bridge endpoints sit a small 2.5 cm offset away from the apex
+    // along each leg's axis (the bridge is a 5 cm wire spanning the
+    // two leg inner ends). At apex height 10 m with a 120° angle the
+    // z-component of that offset is ~1.2 cm.
+    expect(left.end[2]).toBeCloseTo(10, 1);
+    expect(right.start[2]).toBeCloseTo(10, 1);
     // Leg tips drop below apex by length/2 * sin((180-120)/2 deg).
     const expectedDrop = 10 * Math.sin((30 * Math.PI) / 180);
     expect(left.start[2]).toBeCloseTo(10 - expectedDrop, 5);
@@ -738,31 +758,26 @@ describe('V geometry (sanity-only checks for current implementation)', () => {
       wireRadius: 0.001,
       segments: 21,
     });
-    expect(wires).toHaveLength(3);
+    // Two leg wires + apex bridge + base wire = 4 wires.
+    expect(wires).toHaveLength(4);
     const expectedSide = 30 / 3;
-    // The base wire (DIPOLE_TAG=1, bottom) endpoints have z = baseZ < apex.
-    const leftLeg = wires.find((w) => w.tag === 1)!; // left -> apex (DIPOLE_LEFT_TAG=1 ?? clash)
-    // Note: DIPOLE_TAG and DIPOLE_LEFT_TAG share the value 1 in this codebase.
-    // The base wire is the one whose segment runs purely horizontally.
-    const baseWire = wires.find((w) => Math.abs(w.start[2] - w.end[2]) < 1e-6)!;
+    const baseWire = wires.find((w) => Math.abs(w.start[2] - w.end[2]) < 1e-6 && w.start[2] < 15)!;
     const baseLen = Math.hypot(
       baseWire.end[0] - baseWire.start[0],
       baseWire.end[1] - baseWire.start[1],
     );
     expect(baseLen).toBeCloseTo(expectedSide, 4);
     // Apex above the midpoint of the base, at full height.
-    void leftLeg;
     const apexCandidates = wires
       .flatMap((w) => [w.start, w.end])
       .filter((p) => p[2] > baseWire.start[2] + 1e-6);
-    // Several wire endpoints may coincide at the apex; just check the highest.
     const apexZ = Math.max(...apexCandidates.map((p) => p[2]));
     expect(apexZ).toBe(15);
   });
 });
 
 describe('v-beam excitation and geometry', () => {
-  it('v-beam is fed at the apex (last segment of left leg)', () => {
+  it('v-beam is fed by a 1-segment apex bridge for a symmetric balanced source', () => {
     const state = useAntennaStore.getState();
     const input = selectSimulationInput({
       ...state,
@@ -775,10 +790,14 @@ describe('v-beam excitation and geometry', () => {
       terminatedEnabled: true,
       terminatingResistor: 450,
     });
-    // v-beam should be fed at the apex = last segment of DIPOLE_LEFT_TAG
-    const leftWire = input.wires.find((w) => w.tag === 1)!;
-    expect(input.excitation.wireTag).toBe(1);
-    expect(input.excitation.segment).toBe(leftWire.segments);
+    // V-beam feed sits on the apex source bridge (tag 3). This drives the
+    // two legs as a single balanced voltage source — exactly the textbook
+    // model of an apex-fed V — rather than asymmetrically feeding one leg.
+    const bridge = input.wires.find((w) => w.tag === 3)!;
+    expect(bridge).toBeDefined();
+    expect(bridge.segments).toBe(1);
+    expect(input.excitation.wireTag).toBe(3);
+    expect(input.excitation.segment).toBe(1);
   });
 
   it('v-beam terminated: creates a far-end NT resistor, not floating LD stubs', () => {
@@ -795,7 +814,9 @@ describe('v-beam excitation and geometry', () => {
       terminatingResistor: 450,
     });
     const rightLeg = input.wires.find((w) => w.tag === 2)!;
-    expect(input.wires).toHaveLength(2);
+    // Two legs + 1-segment apex source bridge.
+    expect(input.wires).toHaveLength(3);
+    expect(input.wires.map((w) => w.tag).sort()).toEqual([1, 2, 3]);
     expect(input.wires.every((w) => w.start[2] > 0 && w.end[2] > 0)).toBe(true);
     expect(input.loads).toBeUndefined();
     expect(input.networks).toHaveLength(1);
@@ -810,7 +831,7 @@ describe('v-beam excitation and geometry', () => {
     });
   });
 
-  it('sloping-v does not inflate leg segments to satisfy the 5 cm bridge when no feedline is active', () => {
+  it('sloping-v uses a wavelength-based segment floor for multi-wavelength legs', () => {
     const state = useAntennaStore.getState();
     const input = selectSimulationInput({
       ...state,
@@ -824,8 +845,14 @@ describe('v-beam excitation and geometry', () => {
       terminatedEnabled: false,
     });
     const leftLeg = input.wires.find((w) => w.tag === 1)!;
-    expect(input.wires.some((w) => w.tag === 3)).toBe(false);
-    expect(leftLeg.segments).toBeLessThan(50);
+    // The apex source bridge (tag 3) is now always present for symmetric
+    // feed. Each leg is roughly 2λ long at the default 7.1 MHz, so the
+    // wavelength-based floor (~20 segs/λ) gives 30–60 segments per leg.
+    expect(input.wires.some((w) => w.tag === 3)).toBe(true);
+    expect(leftLeg.segments).toBeGreaterThanOrEqual(20);
+    // Sanity cap: should still be in a reasonable range, not blown up to
+    // hundreds of segments by mis-applying the bridge length factor.
+    expect(leftLeg.segments).toBeLessThan(200);
   });
 
   it('matching transformer stores the ratio explicitly instead of changing the SWR reference impedance', () => {
@@ -860,9 +887,9 @@ describe('v-beam excitation and geometry', () => {
       terminatedEnabled: false,
       terminatingResistor: 450,
     });
-    // Only leg wires, no termination drops
-    expect(input.wires).toHaveLength(2);
-    expect(input.wires.map((w) => w.tag).sort()).toEqual([1, 2]);
+    // Two legs + apex source bridge, no termination drops.
+    expect(input.wires).toHaveLength(3);
+    expect(input.wires.map((w) => w.tag).sort()).toEqual([1, 2, 3]);
     expect(input.loads).toBeUndefined();
     expect(input.networks).toBeUndefined();
   });
