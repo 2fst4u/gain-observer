@@ -737,7 +737,7 @@ function buildVWires(
   }
 
   if (state.terminatedEnabled) {
-    const dropZ = 0.05; // Terminate to just above ground
+    const dropZ = 0; // Terminate strictly to Z=0 so NEC connects it to ground
     const dropLenLeft = end1[2] - dropZ;
     const dropLenRight = end2[2] - dropZ;
     if (dropLenLeft > 0.1 && dropLenRight > 0.1) {
@@ -812,7 +812,7 @@ function buildVBeamWires(
   }
 
   if (state.terminatedEnabled) {
-    const dropZ = 0.05; // Terminate to just above ground
+    const dropZ = 0; // Terminate strictly to Z=0 so NEC connects it to ground
     const dropLenLeft = end1[2] - dropZ;
     const dropLenRight = end2[2] - dropZ;
     if (dropLenLeft > 0.1 && dropLenRight > 0.1) {
