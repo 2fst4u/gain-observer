@@ -29,7 +29,6 @@ self.addEventListener('unhandledrejection', (ev: PromiseRejectionEvent) => {
   console.error('[worker unhandledrejection]', ev.reason);
 });
 
-console.log('[worker] booting, creating engine');
 
 const engine = new Nec2Engine({
   // The worker is served from the same origin as the app, so "/" resolves
@@ -43,7 +42,6 @@ const SWEEP_SPAN_FRACTION = 0.2;
 engine
   .init()
   .then(() => {
-    console.log('[worker] engine init complete, posting ready');
     ctx.postMessage({ type: 'ready' } satisfies WorkerResponse);
   })
   .catch((err: unknown) => {
