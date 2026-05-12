@@ -15,6 +15,9 @@ export const Z0_SYSTEM = 50;
 /** Default wire radius for HF antennas, metres (≈ 14 AWG copper ~ 2 mm). */
 export const DEFAULT_WIRE_RADIUS_M = 0.001;
 
+/** Common-mode choke impedance (ohms) applied to the shield feedpoint. */
+export const DEFAULT_BALUN_IMPEDANCE_OHMS = 5000;
+
 /**
  * Convenience: wavelength in metres for a given frequency in MHz.
  */

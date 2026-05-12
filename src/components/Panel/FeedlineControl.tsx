@@ -143,7 +143,7 @@ export function FeedlineControl() {
       <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
 
       <label htmlFor="matching-transformer" style={{ marginTop: 10 }}>
-        Feedpoint Matching Transformer
+        Balun / Matching Transformer
       </label>
       <select
         id="matching-transformer"
@@ -151,18 +151,18 @@ export function FeedlineControl() {
         onChange={(e) => setMatchingTransformer(parseFloat(e.target.value))}
         aria-describedby="transformer-hint"
       >
-        <option value={1}>None (1:1)</option>
-        <option value={4}>4:1 Matching Transformer</option>
-        <option value={9}>9:1 Matching Transformer</option>
-        <option value={12}>12:1 Matching Transformer</option>
-        <option value={16}>16:1 Matching Transformer</option>
+        <option value={0}>None (Direct Connect)</option>
+        <option value={1}>1:1 Balun (Common-Mode Choke)</option>
+        <option value={4}>4:1 Balun</option>
+        <option value={9}>9:1 Balun</option>
+        <option value={12}>12:1 Balun</option>
+        <option value={16}>16:1 Balun</option>
       </select>
       <div id="transformer-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-        Ideal lossless matching transformer at the antenna feedpoint. Divides the
-        antenna's R + jX by this ratio before computing SWR against 50 Ω — so a
-        9:1 transformer presents a real 450 Ω feedpoint to the radio as 50 Ω
-        (1:1 SWR). Pick the ratio whose nominal impedance matches your antenna's
-        actual feedpoint Z (e.g. 4:1 for ~200 Ω, 9:1 for ~450 Ω end-fed half-wave).
+        Any selection other than "None" physically inserts a high-impedance common-mode
+        choke at the feedpoint to block shield radiation. Ratios > 1 act as an ideal
+        lossless matching transformer, dividing the antenna's R + jX by the ratio
+        before computing SWR against 50 Ω (e.g. 4:1 for ~200 Ω, 9:1 for ~450 Ω).
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ import type {
   NetworkLoad,
 } from '../physics/types';
 import {
+  DEFAULT_BALUN_IMPEDANCE_OHMS,
   DEFAULT_FEEDLINE_ID,
   DEFAULT_FEEDLINE_LENGTH_M,
   DEFAULT_GROUND_ID,
@@ -361,7 +362,7 @@ export const useAntennaStore = create<AntennaState>()(
         s.terminatedEnabled = supportsTermination(s.type) ? enabled : false;
       }),
       setTerminatingResistor: (ohms) => set((s) => { s.terminatingResistor = Math.max(1, ohms); }),
-      setMatchingTransformer: (ratio) => set((s) => { s.matchingTransformer = Math.max(1, ratio); }),
+      setMatchingTransformer: (ratio) => set((s) => { s.matchingTransformer = Math.max(0, ratio); }),
       setTheme: (t) => set((s) => { s.theme = t; }),
       toggleTheme: () => set((s) => { s.theme = s.theme === 'dark' ? 'light' : 'dark'; }),
       setUnits: (u) => set((s) => { s.units = u; }),
@@ -477,6 +478,8 @@ export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
  */
 export const DELTA_BASE_TAG = 5;
 export const DELTA_BASE_LEFT_TAG = 6; // Left half of delta base when split
+export const TERMINATION_DROP_LEFT_TAG = 8;
+export const TERMINATION_DROP_RIGHT_TAG = 9;
 /**
  * Number of segments on the coax shield wire. Odd so the middle segment
  * is well-defined; small enough to keep NEC fast but large enough to
@@ -733,6 +736,24 @@ function buildVWires(
     });
   }
 
+  if (state.terminatedEnabled) {
+    const dropZ = 0.05; // Terminate to just above ground
+    const dropLenLeft = end1[2] - dropZ;
+    const dropLenRight = end2[2] - dropZ;
+    if (dropLenLeft > 0.1 && dropLenRight > 0.1) {
+      const dropSegsLeft = Math.max(3, oddCeil(dropLenLeft / targetSegLen));
+      const dropSegsRight = Math.max(3, oddCeil(dropLenRight / targetSegLen));
+      wires.push({
+        start: end1, end: [end1[0], end1[1], dropZ],
+        radius: state.wireRadius, segments: dropSegsLeft, tag: TERMINATION_DROP_LEFT_TAG
+      });
+      wires.push({
+        start: end2, end: [end2[0], end2[1], dropZ],
+        radius: state.wireRadius, segments: dropSegsRight, tag: TERMINATION_DROP_RIGHT_TAG
+      });
+    }
+  }
+
   return wires;
 }
 
@@ -788,6 +809,24 @@ function buildVBeamWires(
       start: apexRight, end: [apexRight[0], apexRight[1], layout.shield.bottomZ],
       radius: layout.shield.radius, segments: FEEDLINE_SHIELD_SEGMENTS, tag: FEEDLINE_SHIELD_TAG
     });
+  }
+
+  if (state.terminatedEnabled) {
+    const dropZ = 0.05; // Terminate to just above ground
+    const dropLenLeft = end1[2] - dropZ;
+    const dropLenRight = end2[2] - dropZ;
+    if (dropLenLeft > 0.1 && dropLenRight > 0.1) {
+      const dropSegsLeft = Math.max(3, oddCeil(dropLenLeft / targetSegLen));
+      const dropSegsRight = Math.max(3, oddCeil(dropLenRight / targetSegLen));
+      wires.push({
+        start: end1, end: [end1[0], end1[1], dropZ],
+        radius: state.wireRadius, segments: dropSegsLeft, tag: TERMINATION_DROP_LEFT_TAG
+      });
+      wires.push({
+        start: end2, end: [end2[0], end2[1], dropZ],
+        radius: state.wireRadius, segments: dropSegsRight, tag: TERMINATION_DROP_RIGHT_TAG
+      });
+    }
   }
 
   return wires;
@@ -1041,6 +1080,22 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
       // shield). A future enhancement may add a frequency-dependent
       // shunt-G term derived from feedlineLossDb().
     });
+
+    if (state.matchingTransformer > 0) {
+      // Place a 1:1 current ("choke") balun on the shield's TOP segment —
+      // i.e. immediately below the antenna feedpoint. The high common-mode
+      // impedance suppresses current on the outside of the shield without
+      // affecting the differential signal inside (which travels via the
+      // TL card and never sees this load).
+      loads.push({
+        type: 4, // impedance Z = R + jX
+        wireTag: FEEDLINE_SHIELD_TAG,
+        segmentStart: 1,
+        segmentEnd: 1,
+        param1: DEFAULT_BALUN_IMPEDANCE_OHMS, // R
+        param2: 0,                            // X
+      });
+    }
   }
 
   if (supportsTermination(state.type) && state.terminatedEnabled && state.terminatingResistor) {
@@ -1059,21 +1114,29 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
         });
       }
     } else if (state.type === 'v-beam' || state.type === 'sloping-v') {
-      // Terminated travelling-wave V: use a non-radiating NT card resistor
-      // across the two far ends. The previous floating counterpoise stubs were
-      // NEC-safe but weakly coupled, so they often behaved like no termination.
-      const leftLeg = wires.find(w => w.tag === DIPOLE_LEFT_TAG);
-      const rightLeg = wires.find(w => w.tag === DIPOLE_RIGHT_TAG);
-      if (leftLeg && rightLeg) {
-        const y = 1 / state.terminatingResistor;
-        networks.push({
-          fromTag: DIPOLE_LEFT_TAG,
-          fromSegment: 1,
-          toTag: DIPOLE_RIGHT_TAG,
-          toSegment: rightLeg.segments,
-          y11Real: y,
-          y12Real: -y,
-          y22Real: y,
+      // Terminated travelling-wave V: connect each leg tip to ground via
+      // a vertical drop wire, placing half the terminating resistor on each
+      // drop wire. This physically and correctly terminates the antenna
+      // without creating the mathematical anomalies of the instantaneous NT bridge.
+      const dropLeft = wires.find(w => w.tag === TERMINATION_DROP_LEFT_TAG);
+      const dropRight = wires.find(w => w.tag === TERMINATION_DROP_RIGHT_TAG);
+      if (dropLeft && dropRight) {
+        const rPerLeg = state.terminatingResistor / 2;
+        loads.push({
+          type: 4,
+          wireTag: TERMINATION_DROP_LEFT_TAG,
+          segmentStart: dropLeft.segments,
+          segmentEnd: dropLeft.segments,
+          param1: rPerLeg,
+          param2: 0,
+        });
+        loads.push({
+          type: 4,
+          wireTag: TERMINATION_DROP_RIGHT_TAG,
+          segmentStart: dropRight.segments,
+          segmentEnd: dropRight.segments,
+          param1: rPerLeg,
+          param2: 0,
         });
       }
     } else if (state.type === 'inverted-v') {
