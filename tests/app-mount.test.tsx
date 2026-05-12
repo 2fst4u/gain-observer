@@ -3,8 +3,8 @@
 // WebGL canvas or Web Worker — those need a real browser — but it still
 // reveals a surprising number of bugs.
 
-import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, cleanup } from '@testing-library/react';
 import { App } from '../src/App';
 
 // Stub Worker since jsdom doesn't implement it with module support.
@@ -22,8 +22,13 @@ globalThis.Worker = StubWorker;
 HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as never;
 
 describe('App mount', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it('renders without throwing', () => {
-    const { container } = render(<App />);
+    const { container, unmount } = render(<App />);
     expect(container).toBeTruthy();
+    unmount();
   });
 });
