@@ -41,6 +41,7 @@ interface DipoleWireProps {
   readonly vAngle?: number;
   readonly legSlope?: number;
   readonly terminatedEnabled?: boolean;
+  readonly frequency?: number;
 }
 
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
@@ -60,6 +61,7 @@ export function DipoleWire({
   vAngle,
   legSlope,
   terminatedEnabled,
+  frequency,
 }: DipoleWireProps) {
   const theme = useAntennaStore((s) => s.theme);
 
@@ -77,6 +79,7 @@ export function DipoleWire({
       vAngle,
       legSlope,
       terminatedEnabled: terminatedEnabled ?? false,
+      frequency,
     });
 
     return wires.map((w, idx) => {
@@ -114,7 +117,7 @@ export function DipoleWire({
         isDipoleHalf,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, terminatedEnabled]);
+  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, terminatedEnabled, frequency]);
 
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);

@@ -154,8 +154,10 @@ export interface SimulationResult {
   /** Azimuth (deg, 0=+x, 90=+y) of maximum gain direction. */
   readonly takeoffAzimuthDeg: number;
   readonly impedance: ImpedanceResult;
-  /** SWR vs 50 Ω. */
+  /** Raw SWR vs 50 Ω at the NEC feedpoint. */
   readonly swr: number;
+  /** SWR after applying the ideal matching-transformer ratio (if any). */
+  readonly transformedSwr?: number;
   /** Radiation efficiency (0..1) when provided by solver; undefined if unknown. */
   readonly efficiency?: number;
   /** Wall-clock compute time in milliseconds. */
@@ -165,7 +167,10 @@ export interface SimulationResult {
 /** Result of a frequency sweep for SWR/impedance analysis. */
 export interface SweepPoint {
   readonly frequencyMHz: number;
+  /** Raw SWR vs 50 Ω at the NEC feedpoint. */
   readonly swr: number;
+  /** SWR after applying the ideal matching-transformer ratio (if any). */
+  readonly transformedSwr?: number;
   readonly R: number;
   readonly X: number;
 }

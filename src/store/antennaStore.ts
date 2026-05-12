@@ -280,15 +280,14 @@ export const useAntennaStore = create<AntennaState>()(
       setType: (t) => set((s) => {
         const previousType = s.type;
         s.type = t;
-        // Reset dependent state that does not apply to the new type, to
-        // avoid stale values silently affecting the simulation:
-        //   - Feedline only models a coax run on a plain horizontal dipole.
-        //     For V-shapes / loops we force 'none' so a stale shield wire
-        //     can't poison the geometry next time the user switches back.
-        //   - Termination has different physical meanings per type and the
-        // If we switch types, we only reset feedline to 'none' if going to a type
-        // that inherently can't support the current feedline (none do currently).
-        // Actually, let's keep the feedline! All types now support it.
+        // Feedline model is only well-understood for the plain dipole.
+        // For V-shapes and loops, clear the feedline to avoid skewing
+        // feedpoint impedance with unmodelled common-mode effects.
+        if (t !== 'dipole') {
+          s.feedlineId = 'none';
+          s.feedlineLength = 0;
+          s.feedlineOffset = 0;
+        }
         s.terminatedEnabled = t === 'v-beam' || t === 'sloping-v';
 
         // Auto-resize length when switching between topologies with very
@@ -447,7 +446,7 @@ function clampSegments(n: number): number {
 }
 
 export function supportsTermination(type: AntennaType): boolean {
-  return type === 'dipole' || type === 'delta-loop' || type === 'v-beam' || type === 'sloping-v';
+  return type === 'dipole' || type === 'delta-loop' || type === 'v-beam' || type === 'sloping-v' || type === 'inverted-v';
 }
 
 // --------------- Selectors ---------------
@@ -558,7 +557,7 @@ function orientationVector(o: Orientation): [number, number] {
  */
 export function buildWires(
   state: Pick<AntennaState, 'type' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'vAngle' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'terminatedEnabled'>>,
+    Partial<Pick<AntennaState, 'vAngle' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'terminatedEnabled' | 'frequency'>>,
 ): Wire[] {
   if (state.type === 'delta-loop') {
     return buildDeltaLoopWires(state);
@@ -635,7 +634,7 @@ function buildDeltaLoopWires(
 
 function buildVWires(
   state: Pick<AntennaState, 'type' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'vAngle' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'terminatedEnabled'>>
+    Partial<Pick<AntennaState, 'vAngle' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'terminatedEnabled' | 'frequency'>>
 ): Wire[] {
   const half = state.length / 2;
   const h = state.height;
@@ -682,19 +681,36 @@ function buildVWires(
   }
 
   const legActualLen = Math.hypot(end1[0], end1[1], end1[2] - apexZ);
-  
-  const segDensity = state.segments / state.length;
-  const legSegs = Math.max(3, oddRound((legActualLen - bridgeHalf) * segDensity));
+
+  // For multi-wavelength travelling-wave wires, default dipole-style
+  // segmentation is too coarse. Use a wavelength-based floor (~20 segs/λ)
+  // while still allowing the user's global setting to increase resolution.
+  const freqMHz = state.frequency ?? 7.1;
+  const lambda = wavelengthMeters(freqMHz);
+  const targetSegLen = lambda / 20;
+  const minSegs = Math.max(3, oddCeil(Math.max(0, legActualLen - bridgeHalf) / targetSegLen));
+  const dipoleStyleSegs = Math.max(3, oddRound((legActualLen - bridgeHalf) * (state.segments / state.length)));
+  const legSegs = Math.max(minSegs, dipoleStyleSegs);
+
+  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
   const dx1 = end1[0] / legActualLen;
   const dy1 = end1[1] / legActualLen;
   const dz1 = (end1[2] - apexZ) / legActualLen;
-  const apexLeft: [number, number, number] = [bridgeHalf * dx1, bridgeHalf * dy1, apexZ + bridgeHalf * dz1];
-  
+  const apexLeft: [number, number, number] = [
+    cleanZero(bridgeHalf * dx1),
+    cleanZero(bridgeHalf * dy1),
+    apexZ + cleanZero(bridgeHalf * dz1),
+  ];
+
   const dx2 = end2[0] / legActualLen;
   const dy2 = end2[1] / legActualLen;
   const dz2 = (end2[2] - apexZ) / legActualLen;
-  const apexRight: [number, number, number] = [bridgeHalf * dx2, bridgeHalf * dy2, apexZ + bridgeHalf * dz2];
+  const apexRight: [number, number, number] = [
+    cleanZero(bridgeHalf * dx2),
+    cleanZero(bridgeHalf * dy2),
+    apexZ + cleanZero(bridgeHalf * dz2),
+  ];
 
   const wires: Wire[] = [
     { start: end1, end: apexLeft, radius: state.wireRadius, segments: legSegs, tag: DIPOLE_LEFT_TAG },
@@ -717,7 +733,7 @@ function buildVWires(
 
 function buildVBeamWires(
   state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'vAngle' | 'terminatedEnabled' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>
+    Partial<Pick<AntennaState, 'vAngle' | 'terminatedEnabled' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'frequency'>>
 ): Wire[] {
   const legLength = state.length / 2;
   const h = state.height;
@@ -733,9 +749,16 @@ function buildVBeamWires(
   
   const end1: [number, number, number] = [legLength * leg1DirX, legLength * leg1DirY, h];
   const end2: [number, number, number] = [legLength * leg2DirX, legLength * leg2DirY, h];
-  
-  const segDensity = state.segments / state.length;
-  const legSegments = Math.max(3, oddRound((legLength - bridgeHalf) * segDensity));
+
+  // For multi-wavelength travelling-wave wires, default dipole-style
+  // segmentation is too coarse. Use a wavelength-based floor (~20 segs/λ)
+  // while still allowing the user's global setting to increase resolution.
+  const freqMHz = state.frequency ?? 7.1;
+  const lambda = wavelengthMeters(freqMHz);
+  const targetSegLen = lambda / 20;
+  const minSegs = Math.max(3, oddCeil(Math.max(0, legLength - bridgeHalf) / targetSegLen));
+  const dipoleStyleSegs = Math.max(3, oddRound((legLength - bridgeHalf) * (state.segments / state.length)));
+  const legSegments = Math.max(minSegs, dipoleStyleSegs);
 
   const dx1 = end1[0] / legLength;
   const dy1 = end1[1] / legLength;
@@ -900,6 +923,11 @@ function computeFeedlineLayout(
 
 function oddRound(v: number): number {
   const n = Math.max(1, Math.round(v));
+  return n % 2 === 0 ? n + 1 : n;
+}
+
+function oddCeil(v: number): number {
+  const n = Math.max(1, Math.ceil(v));
   return n % 2 === 0 ? n + 1 : n;
 }
 
