@@ -14,3 +14,7 @@
 **Vulnerability:** Unvalidated state was being written to `localStorage` via `window.localStorage.setItem` using the Zustand store state. If an attacker managed to poison the store state, they could write excessively large payloads or malicious strings into `localStorage`.
 **Learning:** React hooks orchestrating persistence (`useTheme.ts`, `useUnits.ts`) validated data read from `localStorage`, but trusted internal state blindly when writing. This breaks the defense-in-depth security principle that all input boundaries, including internal ones persisting state, should be validated.
 **Prevention:** Always validate all data being serialized to `localStorage` even if it originates from an internal store. Enforce exact type or allowed-value checks before calling `setItem`.
+## 2026-05-13 - Defensive Programming: Explicit Radix in `parseInt`
+**Vulnerability:** Unspecified radix in `parseInt` calls processing UI string inputs can lead to unexpected numeric evaluation (e.g. interpreting leading zeros as octal in legacy or non-strict environments).
+**Learning:** Relying on implicit base-10 parsing is a classic defensive programming weakness. Specifying radix 10 explicitly guarantees correct parsing behavior and satisfies SAST tools and strict linters, reinforcing input handling correctness.
+**Prevention:** Always provide the radix argument explicitly when using `parseInt`, e.g., `parseInt(value, 10)`.
