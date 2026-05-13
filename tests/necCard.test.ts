@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { buildNecCards } from '../src/physics/necCard';
-import { selectSimulationInput, useAntennaStore } from '../src/store/antennaStore';
 import type { SimulationInput } from '../src/physics/types';
 
 describe('buildNecCards', () => {
@@ -226,7 +225,6 @@ describe('buildNecCards', () => {
     it('emits no LD/TL cards when arrays are absent', () => {
       const out = buildNecCards(defaultInput);
       expect(out).not.toContain('\nLD ');
-      expect(out).not.toContain('\nNT ');
       expect(out).not.toContain('\nTL ');
     });
 
@@ -238,47 +236,6 @@ describe('buildNecCards', () => {
         ],
       });
       expect(out).toMatch(/^LD 0 1 5 5 100\./m);
-    });
-
-    it('emits an NT network card when requested', () => {
-      const out = buildNecCards({
-        ...defaultInput,
-        networks: [
-          { fromTag: 1, fromSegment: 1, toTag: 2, toSegment: 9, y11Real: 0.002, y12Real: -0.002, y22Real: 0.002 },
-        ],
-      });
-      expect(out).toMatch(/^NT 1 1 2 9 0\.00200000 0\.00000000 -0\.00200000 0\.00000000 0\.00200000 0\.00000000/m);
-    });
-  });
-
-  describe('generated antenna topology cards', () => {
-    it('terminated sloping V emits an NT far-end resistor, not grounded drop wires', () => {
-      const state = useAntennaStore.getState();
-      const input = selectSimulationInput({
-        ...state,
-        type: 'sloping-v',
-        length: 80,
-        height: 12,
-        segments: 21,
-        vAngle: 60,
-        legSlope: 30,
-        groundId: 'perfect',
-        feedlineId: 'none',
-        terminatedEnabled: true,
-        terminatingResistor: 500,
-      });
-      const out = buildNecCards(input);
-      const gwLines = out.split('\n').filter((line) => line.startsWith('GW '));
-
-      expect(out).toContain('GE 1');
-      expect(out).toMatch(/^NT 1 1 2 \d+ 0\.00200000 0\.00000000 -0\.00200000 0\.00000000 0\.00200000 0\.00000000/m);
-      expect(out).not.toContain('\nLD ');
-      expect(gwLines.every((line) => {
-        const parts = line.split(/\s+/);
-        return parts[5] !== '0.00000' && parts[8] !== '0.00000';
-      })).toBe(true);
-      expect(gwLines.some((line) => line.startsWith('GW 10 '))).toBe(false);
-      expect(gwLines.some((line) => line.startsWith('GW 11 '))).toBe(false);
     });
   });
 

@@ -33,7 +33,6 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const liveVAngle = useAntennaStore((s) => s.vAngle);
   const liveLegSlope = useAntennaStore((s) => s.legSlope);
   const liveTerminatedEnabled = useAntennaStore((s) => s.terminatedEnabled);
-  const liveFrequency = useAntennaStore((s) => s.frequency);
   const showGrid = useAntennaStore((s) => s.showGrid);
   const showAxes = useAntennaStore((s) => s.showAxes);
   const patternScale = useAntennaStore((s) => s.patternScale);
@@ -85,7 +84,6 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
           feedlineLength={feedlineLength}
           feedlineOffset={feedlineOffset}
           terminatedEnabled={terminatedEnabled}
-          frequency={snapshot?.frequency ?? liveFrequency}
         />
         <RadiationPattern
           result={result}

@@ -23,6 +23,8 @@ import {
   DIPOLE_RIGHT_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
+  TERM_LEFT_TAG,
+  TERM_RIGHT_TAG,
   type Orientation,
   type AntennaType,
 } from '../../store/antennaStore';
@@ -41,7 +43,6 @@ interface DipoleWireProps {
   readonly vAngle?: number;
   readonly legSlope?: number;
   readonly terminatedEnabled?: boolean;
-  readonly frequency?: number;
 }
 
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
@@ -61,9 +62,9 @@ export function DipoleWire({
   vAngle,
   legSlope,
   terminatedEnabled,
-  frequency,
 }: DipoleWireProps) {
   const theme = useAntennaStore((s) => s.theme);
+  const balunEnabled = useAntennaStore((s) => s.balunEnabled);
 
   const rendered = useMemo(() => {
     const wires = buildWires({
@@ -79,7 +80,6 @@ export function DipoleWire({
       vAngle,
       legSlope,
       terminatedEnabled: terminatedEnabled ?? false,
-      frequency,
     });
 
     return wires.map((w, idx) => {
@@ -94,6 +94,7 @@ export function DipoleWire({
       const tag = w.tag ?? DIPOLE_TAG;
       const isShield = tag === FEEDLINE_SHIELD_TAG;
       const isBridge = tag === FEED_BRIDGE_TAG;
+      const isTerm = tag === TERM_LEFT_TAG || tag === TERM_RIGHT_TAG;
       const isDipoleHalf = tag === DIPOLE_LEFT_TAG || tag === DIPOLE_RIGHT_TAG || tag === DIPOLE_TAG;
       // Visual radius: keep the bridge nearly invisible (it's a 5cm
       // electrical token), the shield slightly slimmer than the dipole,
@@ -101,6 +102,7 @@ export function DipoleWire({
       let radius: number;
       if (isShield) radius = Math.max(w.radius * 6, 0.025);
       else if (isBridge) radius = Math.max(w.radius * 4, 0.018);
+      else if (isTerm) radius = Math.max(w.radius * 3, 0.015);
       else radius = Math.max(w.radius * 8, 0.03);
       return {
         key: idx,
@@ -115,9 +117,10 @@ export function DipoleWire({
         isShield,
         isBridge,
         isDipoleHalf,
+        isTerm,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, terminatedEnabled, frequency]);
+  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, terminatedEnabled]);
 
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);
@@ -130,10 +133,12 @@ export function DipoleWire({
   // wire's midpoint (legacy single-wire layout).
   let feedpoint = bridge?.feedMid ?? dipoleSingle?.feedMid ?? null;
 
-  if (type !== 'dipole') {
-    // V-shapes and delta loops are apex-fed. If a bridge exists, its midpoint
-    // is the exact solver source; otherwise the left-leg endpoint is the apex.
-    feedpoint = bridge?.feedMid ?? apexWire?.sceneEnd ?? feedpoint;
+  if (type !== 'dipole' && apexWire) {
+    // For V-shapes and Delta loop, the feedpoint is at the apex, which connects
+    // to the end of the DIPOLE_LEFT_TAG wire (or start of DIPOLE_RIGHT_TAG).
+    // The visual wire component has `sceneEnd` calculated for its 3D geometry end point.
+    // So we use sceneEnd of the left wire.
+    feedpoint = apexWire.sceneEnd;
   }
 
   return (
@@ -144,9 +149,9 @@ export function DipoleWire({
           <meshStandardMaterial
             color={THEME_COLORS[theme].wire}
             emissive={THEME_COLORS[theme].wire}
-            emissiveIntensity={s.isShield ? 0.08 : s.isBridge ? 0.05 : 0.15}
+            emissiveIntensity={s.isShield ? 0.08 : s.isBridge ? 0.05 : s.isTerm ? 0.05 : 0.15}
             metalness={0.85}
-            roughness={s.isShield ? 0.55 : s.isBridge ? 0.7 : 0.35}
+            roughness={s.isShield ? 0.55 : s.isBridge ? 0.7 : s.isTerm ? 0.8 : 0.35}
           />
         </mesh>
       ))}
@@ -158,6 +163,21 @@ export function DipoleWire({
             emissive={THEME_COLORS[theme].feedpoint}
             emissiveIntensity={0.4}
           />
+        </mesh>
+      )}
+      {shield && balunEnabled && (
+        // Choke balun marker: a small torus near the top of the shield wire
+        // (immediately below the antenna feedpoint).
+        <mesh
+          position={[
+            shield.sceneStart[0],
+            shield.sceneStart[1] - Math.min(0.4, Math.max(0.15, shield.length * 0.05)),
+            shield.sceneStart[2],
+          ]}
+          rotation={[Math.PI / 2, 0, 0]}
+        >
+          <torusGeometry args={[0.18, 0.07, 12, 24]} />
+          <meshStandardMaterial color="#cc8844" emissive="#cc8844" emissiveIntensity={0.3} />
         </mesh>
       )}
       {shield && (

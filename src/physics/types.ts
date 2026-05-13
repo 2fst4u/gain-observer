@@ -88,20 +88,6 @@ export interface SegmentLoad {
   readonly param3?: number;
 }
 
-/** NEC-2 NT card network between two wire segments. */
-export interface NetworkLoad {
-  readonly fromTag: number;
-  readonly fromSegment: number;
-  readonly toTag: number;
-  readonly toSegment: number;
-  readonly y11Real: number;
-  readonly y11Imag?: number;
-  readonly y12Real: number;
-  readonly y12Imag?: number;
-  readonly y22Real: number;
-  readonly y22Imag?: number;
-}
-
 export interface SimulationInput {
   readonly wires: readonly Wire[];
   readonly frequencyMHz: number;
@@ -116,12 +102,6 @@ export interface SimulationInput {
   readonly transmissionLines?: readonly TransmissionLine[];
   /** Optional NEC LD cards (e.g. choke balun, end-fed terminator). */
   readonly loads?: readonly SegmentLoad[];
-  /** Optional NEC NT cards for non-radiating lumped networks between segments. */
-  readonly networks?: readonly NetworkLoad[];
-  /** Reference impedance for SWR calculation (e.g. 50, 450, 600). Defaults to 50 if omitted. */
-  readonly systemZ0?: number;
-  /** Ideal impedance-ratio transformer applied at the measured/radio impedance point for SWR. */
-  readonly transformerRatio?: number;
 }
 
 /**
@@ -154,10 +134,8 @@ export interface SimulationResult {
   /** Azimuth (deg, 0=+x, 90=+y) of maximum gain direction. */
   readonly takeoffAzimuthDeg: number;
   readonly impedance: ImpedanceResult;
-  /** Raw SWR vs 50 Ω at the NEC feedpoint. */
+  /** SWR vs 50 Ω. */
   readonly swr: number;
-  /** SWR after applying the ideal matching-transformer ratio (if any). */
-  readonly transformedSwr?: number;
   /** Radiation efficiency (0..1) when provided by solver; undefined if unknown. */
   readonly efficiency?: number;
   /** Wall-clock compute time in milliseconds. */
@@ -167,10 +145,7 @@ export interface SimulationResult {
 /** Result of a frequency sweep for SWR/impedance analysis. */
 export interface SweepPoint {
   readonly frequencyMHz: number;
-  /** Raw SWR vs 50 Ω at the NEC feedpoint. */
   readonly swr: number;
-  /** SWR after applying the ideal matching-transformer ratio (if any). */
-  readonly transformedSwr?: number;
   readonly R: number;
   readonly X: number;
 }

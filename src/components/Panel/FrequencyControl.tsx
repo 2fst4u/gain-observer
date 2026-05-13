@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
-import { HF_BAND_PRESETS } from '../../physics/constants';
+import { HF_BAND_PRESETS, halfWaveLength } from '../../physics/constants';
 
 export function FrequencyControl() {
   const frequency = useAntennaStore((s) => s.frequency);
   const setFrequency = useAntennaStore((s) => s.setFrequency);
-
-  const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
+  const setLength = useAntennaStore((s) => s.setLength);
 
   // Use local string state to allow natural typing (trailing dots/zeros)
   // without immediate snapping from the store's clamp logic.
@@ -58,8 +57,8 @@ export function FrequencyControl() {
             className={Math.abs(b.mhz - frequency) < 0.05 ? 'active' : ''}
             onClick={() => {
               setFrequency(b.mhz);
-              // Auto-re-resonate length to match the current antenna type topology
-              setHalfWaveLength();
+              // Auto-re-resonate length to new ½λ.
+              setLength(halfWaveLength(b.mhz));
             }}
             title={`${b.mhz.toFixed(3)} MHz`}
             aria-pressed={Math.abs(b.mhz - frequency) < 0.05}

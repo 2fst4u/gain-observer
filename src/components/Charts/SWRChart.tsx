@@ -37,8 +37,6 @@ export function SWRChart() {
   const theme = useAntennaStore((s) => s.theme);
   const mode = useAntennaStore((s) => s.mode);
   const reference = useAntennaStore((s) => s.comparisonReference);
-  const terminatedEnabled = useAntennaStore((s) => s.terminatedEnabled);
-  const matchingTransformer = useAntennaStore((s) => s.matchingTransformer);
 
   const chartText = getCssVar('--chart-text') || '#aaa';
   const chartGrid = getCssVar('--chart-grid') || 'rgba(255,255,255,0.1)';
@@ -77,7 +75,7 @@ export function SWRChart() {
     }
 
     datasets.push({
-      label: comparisonActive ? 'Current (raw 50 Ω)' : 'SWR (raw 50 Ω)',
+      label: comparisonActive ? 'Current' : 'SWR (50 Ω)',
       data: sweep.map((point) => ({ x: point.frequencyMHz, y: point.swr })),
       borderColor: accent,
       backgroundColor: currentFill,
@@ -88,28 +86,8 @@ export function SWRChart() {
       pointBackgroundColor: accent,
     });
 
-    // Show a second trace for the transformed SWR when a matching
-    // transformer is active (ratio > 1).
-    const hasTransformer = (matchingTransformer ?? 1) > 1;
-    if (hasTransformer && sweep.some((p) => p.transformedSwr != null)) {
-      datasets.push({
-        label: 'SWR (with transformer)',
-        data: sweep
-          .filter((p) => p.transformedSwr != null)
-          .map((p) => ({ x: p.frequencyMHz, y: p.transformedSwr! })),
-        borderColor: '#4dff88',
-        backgroundColor: 'rgba(77, 255, 136, 0.12)',
-        fill: false,
-        tension: 0.18,
-        pointRadius: 0,
-        pointHoverRadius: 3,
-        pointBackgroundColor: '#4dff88',
-        borderDash: [6, 3],
-      });
-    }
-
     return { datasets };
-  }, [accent, comparisonActive, currentFill, matchingTransformer, reference, referenceFill, sweep]);
+  }, [accent, comparisonActive, currentFill, reference, referenceFill, sweep]);
 
   const xBounds = useMemo(() => {
     const allFrequencies = [
@@ -256,7 +234,7 @@ export function SWRChart() {
       },
       plugins: {
         legend: {
-          display: comparisonActive || (matchingTransformer ?? 1) > 1,
+          display: comparisonActive,
           labels: { color: chartText },
         },
         annotation: {
@@ -264,13 +242,13 @@ export function SWRChart() {
         },
       },
     };
-  }, [accent, chartGrid, chartText, comparisonActive, frequency, matchingTransformer, xBounds.max, xBounds.min, yMax, stats]);
+  }, [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax, stats]);
 
   if (!result || sweep.length === 0) {
     return (
       <div className="panel-section" style={{ minHeight: 220 }}>
         {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-        <h2>SWR sweep (50 Ω)</h2>
+        <h2>SWR sweep</h2>
         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Computing frequency sweep…</div>
       </div>
     );
@@ -279,7 +257,7 @@ export function SWRChart() {
   return (
     <div className="panel-section" style={{ minHeight: 220 }}>
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2>SWR sweep (50 Ω)</h2>
+      <h2>SWR sweep</h2>
       <div style={{ height: 130 }}>
         <Line data={data} options={options} />
       </div>
@@ -303,11 +281,6 @@ export function SWRChart() {
               <span className="stat-value" style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>N/A</span>
             )}
           </div>
-        </div>
-      )}
-      {terminatedEnabled && (
-        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-          Termination reduces reflections along the antenna wire. It does not guarantee a 50 Ω feedpoint impedance.
         </div>
       )}
     </div>

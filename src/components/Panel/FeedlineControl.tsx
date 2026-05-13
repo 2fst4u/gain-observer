@@ -19,11 +19,11 @@ export function FeedlineControl() {
   const feedlineLength = useAntennaStore((s) => s.feedlineLength);
   const antennaType = useAntennaStore((s) => s.type);
   const feedlineOffset = useAntennaStore((s) => s.feedlineOffset);
-  const matchingTransformer = useAntennaStore((s) => s.matchingTransformer);
+  const balunEnabled = useAntennaStore((s) => s.balunEnabled);
   const setFeedline = useAntennaStore((s) => s.setFeedline);
   const setFeedlineLength = useAntennaStore((s) => s.setFeedlineLength);
   const setFeedlineOffset = useAntennaStore((s) => s.setFeedlineOffset);
-  const setMatchingTransformer = useAntennaStore((s) => s.setMatchingTransformer);
+  const setBalunEnabled = useAntennaStore((s) => s.setBalunEnabled);
 
   const preset = findFeedlinePreset(feedlineId);
   const enabled = preset.id !== 'none';
@@ -45,7 +45,9 @@ export function FeedlineControl() {
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
 
-
+  if (antennaType !== 'dipole') {
+    return null;
+  }
 
   return (
     <div className="panel-section">
@@ -93,41 +95,63 @@ export function FeedlineControl() {
             }}
           />
 
-          {antennaType === 'dipole' && (
-            <>
-              <label htmlFor="feedline-offset" style={{ marginTop: 10 }}>
-                Attachment offset from centre ({unit}) — {dispOffset.toFixed(2)}
-              </label>
-              <div className="row">
-                <input
-                  id="feedline-offset"
-                  type="range"
-                  min={-dispOffsetLimit}
-                  max={dispOffsetLimit}
-                  step={units === 'metric' ? 0.05 : 0.25}
-                  value={dispOffset}
-                  aria-describedby="feedline-offset-hint"
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
-                  }}
-                />
-                <button
-                  onClick={() => setFeedlineOffset(0)}
-                  title="Centre feedpoint"
-                  aria-label="Centre feedpoint"
-                  style={{ flex: '0 0 auto' }}
-                >
-                  Centre
-                </button>
-              </div>
-              <div id="feedline-offset-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-                {Math.abs(feedlineOffset) < 1e-6
-                  ? 'Centred (perfectly balanced — no common-mode current).'
-                  : `Shifted ${Math.abs(dispOffset).toFixed(2)} ${unit} ${feedlineOffset > 0 ? '+ axis' : '− axis'}; common-mode current will flow on the shield.`}
-              </div>
-            </>
-          )}
+          <label htmlFor="feedline-offset" style={{ marginTop: 10 }}>
+            Attachment offset from centre ({unit}) — {dispOffset.toFixed(2)}
+          </label>
+          <div className="row">
+            <input
+              id="feedline-offset"
+              type="range"
+              min={-dispOffsetLimit}
+              max={dispOffsetLimit}
+              step={units === 'metric' ? 0.05 : 0.25}
+              value={dispOffset}
+              aria-describedby="feedline-offset-hint"
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
+              }}
+            />
+            <button
+              onClick={() => setFeedlineOffset(0)}
+              title="Centre feedpoint"
+              aria-label="Centre feedpoint"
+              style={{ flex: '0 0 auto' }}
+            >
+              Centre
+            </button>
+          </div>
+          <div id="feedline-offset-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+            {Math.abs(feedlineOffset) < 1e-6
+              ? 'Centred (perfectly balanced — no common-mode current).'
+              : `Shifted ${Math.abs(dispOffset).toFixed(2)} ${unit} ${feedlineOffset > 0 ? '+ axis' : '− axis'}; common-mode current will flow on the shield.`}
+          </div>
+
+          <label
+            htmlFor="balun-toggle"
+            style={{
+              marginTop: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              id="balun-toggle"
+              type="checkbox"
+              checked={balunEnabled}
+              onChange={(e) => setBalunEnabled(e.target.checked)}
+              aria-describedby="balun-hint"
+              style={{ width: 'auto' }}
+            />
+            <span>1:1 current (choke) balun at feedpoint</span>
+          </label>
+          <div id="balun-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+            {balunEnabled
+              ? 'Suppresses common-mode current on shield (~2 kΩ choke).'
+              : 'Unchoked: shield can radiate. Pattern may distort.'}
+          </div>
 
           <div className="stat" style={{ marginTop: 10 }}>
             <span className="stat-label">Z₀ / VF</span>
@@ -139,31 +163,6 @@ export function FeedlineControl() {
           </div>
         </>
       )}
-
-      <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
-
-      <label htmlFor="matching-transformer" style={{ marginTop: 10 }}>
-        Balun / Matching Transformer
-      </label>
-      <select
-        id="matching-transformer"
-        value={matchingTransformer}
-        onChange={(e) => setMatchingTransformer(parseFloat(e.target.value))}
-        aria-describedby="transformer-hint"
-      >
-        <option value={0}>None (Direct Connect)</option>
-        <option value={1}>1:1 Balun (Common-Mode Choke)</option>
-        <option value={4}>4:1 Balun</option>
-        <option value={9}>9:1 Balun</option>
-        <option value={12}>12:1 Balun</option>
-        <option value={16}>16:1 Balun</option>
-      </select>
-      <div id="transformer-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-        Any selection other than "None" physically inserts a high-impedance common-mode
-        choke at the feedpoint to block shield radiation. Ratios &gt; 1 act as an ideal
-        lossless matching transformer, dividing the antenna's R + jX by the ratio
-        before computing SWR against 50 Ω (e.g. 4:1 for ~200 Ω, 9:1 for ~450 Ω).
-      </div>
     </div>
   );
 }

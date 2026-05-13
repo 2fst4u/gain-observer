@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supportsTermination, computeEffectiveSlope, useAntennaStore, type AntennaType } from '../../store/antennaStore';
+import { supportsTermination, useAntennaStore, type AntennaType } from '../../store/antennaStore';
 import {
   toDisplayLength,
   fromDisplayLength,
@@ -178,61 +178,40 @@ export function AntennaControl() {
         </>
       )}
 
-      {type === 'sloping-v' && (() => {
-        const slopeInfo = computeEffectiveSlope({ type, length, height, legSlope });
-        return (
-          <>
-            <label htmlFor="leg-slope" style={{ marginTop: 10 }}>Leg Slope (°)</label>
-            <input
-              id="leg-slope"
-              type="number"
-              min={0}
-              max={90}
-              step={1}
-              value={localLegSlope}
-              onFocus={() => setIsLegSlopeFocused(true)}
-              onChange={(e) => {
-                setLocalLegSlope(e.target.value);
-                const val = parseFloat(e.target.value);
-                if (!isNaN(val)) setLegSlope(val);
-              }}
-              onBlur={() => {
-                setIsLegSlopeFocused(false);
-                setLocalLegSlope(legSlope.toString());
-              }}
-            />
-            {slopeInfo && slopeInfo.clamped && (
-              <div style={{ marginTop: 4, padding: '6px 8px', fontSize: 11, color: '#f0ad4e', background: 'rgba(240, 173, 78, 0.1)', borderRadius: 4, border: '1px solid rgba(240, 173, 78, 0.25)' }}>
-                ⚠ Requested slope: {slopeInfo.requestedDeg.toFixed(1)}° → Effective slope: {slopeInfo.effectiveDeg.toFixed(1)}°
-                <br />Tip height: {slopeInfo.tipHeightM.toFixed(1)} m — geometry clamped to keep wire above ground.
-              </div>
-            )}
-            {slopeInfo && !slopeInfo.clamped && (
-              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-                Tip height: {slopeInfo.tipHeightM.toFixed(1)} m
-              </div>
-            )}
-          </>
-        );
-      })()}
+      {type === 'sloping-v' && (
+        <>
+          <label htmlFor="leg-slope" style={{ marginTop: 10 }}>Leg Slope (°)</label>
+          <input
+            id="leg-slope"
+            type="number"
+            min={0}
+            max={90}
+            step={1}
+            value={localLegSlope}
+            onFocus={() => setIsLegSlopeFocused(true)}
+            onChange={(e) => {
+              setLocalLegSlope(e.target.value);
+              const val = parseFloat(e.target.value);
+              if (!isNaN(val)) setLegSlope(val);
+            }}
+            onBlur={() => {
+              setIsLegSlopeFocused(false);
+              setLocalLegSlope(legSlope.toString());
+            }}
+          />
+        </>
+      )}
 
       {canTerminate && (
-        <>
-          <div className="row" style={{ marginTop: 10, alignItems: 'center' }}>
-            <input
-              id="terminated-enabled"
-              type="checkbox"
-              checked={terminatedEnabled}
-              onChange={(e) => setTerminatedEnabled(e.target.checked)}
-            />
-            <label htmlFor="terminated-enabled" style={{ marginLeft: 8, marginTop: 0, cursor: 'pointer', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.5px' }}>Terminated</label>
-          </div>
-          {terminatedEnabled && (type === 'v-beam' || type === 'sloping-v') && (
-            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-              Balanced far-end resistor between the two leg tips.
-            </div>
-          )}
-        </>
+        <div className="row" style={{ marginTop: 10, alignItems: 'center' }}>
+          <input
+            id="terminated-enabled"
+            type="checkbox"
+            checked={terminatedEnabled}
+            onChange={(e) => setTerminatedEnabled(e.target.checked)}
+          />
+          <label htmlFor="terminated-enabled" style={{ marginLeft: 8, marginTop: 0, cursor: 'pointer', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.5px' }}>Terminated</label>
+        </div>
       )}
 
       {canTerminate && terminatedEnabled && (
