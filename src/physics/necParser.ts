@@ -30,13 +30,24 @@ const NO_HORIZ_SENTINEL = -999.99;
 export function parseNecImpedance(text: string): { impedance: ImpedanceResult | null; power: number | null } {
   const blockStart = text.indexOf('ANTENNA INPUT PARAMETERS');
   if (blockStart < 0) return { impedance: null, power: null };
-  const lines = text.slice(blockStart).split('\n').slice(0, 12);
-
   // First data row: starts with whitespace + integer tag.
-  const rowRe = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/;
-  for (const line of lines) {
-    const m = rowRe.exec(line);
-    if (!m) continue;
+  const rowRe = /^[ \t]+\d+[ \t]+\d+[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)/gm;
+
+  // Find the end of the 12th line to bound our search
+  let linesSearched = 0;
+  let p = blockStart;
+  while (linesSearched < 12) {
+    const nextNewline = text.indexOf('\n', p);
+    if (nextNewline < 0) break;
+    linesSearched++;
+    p = nextNewline + 1;
+  }
+  const window = text.slice(blockStart, p);
+
+  // We can just use the global regex on the window
+  rowRe.lastIndex = 0;
+  const m = rowRe.exec(window);
+  if (m) {
     const zR = parseFloat(m[5]!);
     const zX = parseFloat(m[6]!);
     const power = parseFloat(m[9]!);
@@ -51,7 +62,6 @@ export function parseNecImpedance(text: string): { impedance: ImpedanceResult | 
 export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResult | null; power: number | null }[] {
   const results: { impedance: ImpedanceResult | null; power: number | null }[] = [];
   let pos = 0;
-  const rowRe = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/;
 
   while (true) {
     const blockStart = text.indexOf('ANTENNA INPUT PARAMETERS', pos);
@@ -69,18 +79,17 @@ export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResu
     if (newlinePositions.length === 0) break;
 
     const blockText = text.slice(blockStart, newlinePositions[newlinePositions.length - 1]);
-    const lines = blockText.split('\n');
+
+    // We just use a global regex on the blockText
+    const localRe = /^[ \t]+\d+[ \t]+\d+[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)[ \t]+(-?\d\.\d+E[+-]\d+)/m;
+    const m = localRe.exec(blockText);
     let found = false;
-    for (const line of lines) {
-      const m = rowRe.exec(line);
-      if (m) {
-        const zR = parseFloat(m[5]!);
-        const zX = parseFloat(m[6]!);
-        const power = parseFloat(m[9]!);
-        results.push({ impedance: { R: zR, X: zX }, power });
-        found = true;
-        break;
-      }
+    if (m) {
+      const zR = parseFloat(m[5]!);
+      const zX = parseFloat(m[6]!);
+      const power = parseFloat(m[9]!);
+      results.push({ impedance: { R: zR, X: zX }, power });
+      found = true;
     }
 
     if (!found) {
@@ -107,19 +116,16 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
   const blockStart = text.indexOf('RADIATION PATTERNS');
   if (blockStart < 0) return null;
 
-  // Row regex: leading whitespace, theta, phi, vert, horiz, total (we stop here).
-  const rowRe = /^\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)/;
-
   const expected = thetaSteps * phiSteps;
   const data = new Float32Array(expected);
   let count = 0;
 
-  // Track the order we see (theta, phi) so we can verify NEC emitted in the
-  // expected "phi outer, theta inner" ordering (it does).
-  const lines = text.slice(blockStart).split('\n');
-  for (const line of lines) {
-    const m = rowRe.exec(line);
-    if (!m) continue;
+  // Row regex: leading whitespace, theta, phi, vert, horiz, total (we stop here).
+  const globalRowRe = /^[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)/gm;
+  globalRowRe.lastIndex = blockStart;
+
+  let m;
+  while ((m = globalRowRe.exec(text)) !== null) {
     const theta = parseFloat(m[1]!);
     const phi = parseFloat(m[2]!);
     const totalRaw = parseFloat(m[5]!);
