@@ -380,27 +380,94 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
     const p = input.pattern;
     // We sample at most 72 radials (5° steps) to keep radar rendering fast.
     const phiStride = Math.max(1, Math.floor(p.phiSteps / 72));
-    for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
-      let bestRay: RayPrediction | null = null;
 
-      for (let ti = 0; ti < p.thetaSteps; ti++) {
-        const elevationDeg = 90 - ti * p.dTheta;
-        if (elevationDeg < 0.5) continue;
+    // PRECOMPUTE invariant physics metrics over theta.
+    // MUF, range, and status only depend on elevation (theta), not azimuth (phi).
+    const baseRays = new Array<{
+      takeoffElevationDeg: number;
+      rangeKm: number;
+      status: HopStatus;
+      reason: string;
+      statusRankValue: number;
+    } | null>(p.thetaSteps);
 
-        const gainDbi = p.data[ti * p.phiSteps + pi] ?? -Infinity;
-        const ray = predictRay(input.frequencyMHz, fof2, luf, hmF2, elevationDeg, gainDbi - mismatchLossDb);
-        if (!bestRay || compareRays(ray, bestRay) > 0) bestRay = ray;
+    for (let ti = 0; ti < p.thetaSteps; ti++) {
+      const elevationDeg = 90 - ti * p.dTheta;
+      if (elevationDeg < 0.5) {
+        baseRays[ti] = null;
+        continue;
       }
 
-      if (bestRay) {
+      const mufMHz = estimateMUFMHz(fof2, elevationDeg, hmF2);
+      const { status, reason } = classifyPath(input.frequencyMHz, mufMHz, luf);
+
+      baseRays[ti] = {
+        takeoffElevationDeg: clamp(elevationDeg, 0.5, 89.5),
+        rangeKm: hopRangeKm(elevationDeg, hmF2),
+        status,
+        reason,
+        statusRankValue: statusRank(status),
+      };
+    }
+
+    for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
+      let bestTi = -1;
+      let bestEffectiveGainDbi = -Infinity;
+      let bestQualityRank = -1;
+      let bestLinkQuality: LinkQuality = 'unusable';
+
+      for (let ti = 0; ti < p.thetaSteps; ti++) {
+        const baseRay = baseRays[ti];
+        if (!baseRay) continue;
+
+        const gainDbi = p.data[ti * p.phiSteps + pi] ?? -Infinity;
+        const effectiveGainDbi = gainDbi - mismatchLossDb;
+        const linkQuality = classifyLinkQuality(effectiveGainDbi);
+        const qRank = qualityRank(linkQuality);
+
+        if (bestTi === -1) {
+          bestTi = ti;
+          bestEffectiveGainDbi = effectiveGainDbi;
+          bestQualityRank = qRank;
+          bestLinkQuality = linkQuality;
+          continue;
+        }
+
+        const bestBase = baseRays[bestTi]!;
+        const statusDelta = baseRay.statusRankValue - bestBase.statusRankValue;
+        if (statusDelta > 0) {
+          bestTi = ti;
+          bestEffectiveGainDbi = effectiveGainDbi;
+          bestQualityRank = qRank;
+          bestLinkQuality = linkQuality;
+        } else if (statusDelta === 0) {
+          const qualityDelta = qRank - bestQualityRank;
+          if (qualityDelta > 0) {
+            bestTi = ti;
+            bestEffectiveGainDbi = effectiveGainDbi;
+            bestQualityRank = qRank;
+            bestLinkQuality = linkQuality;
+          } else if (qualityDelta === 0) {
+            if (baseRay.rangeKm > bestBase.rangeKm) {
+              bestTi = ti;
+              bestEffectiveGainDbi = effectiveGainDbi;
+              bestQualityRank = qRank;
+              bestLinkQuality = linkQuality;
+            }
+          }
+        }
+      }
+
+      if (bestTi !== -1) {
+        const bestBase = baseRays[bestTi]!;
         azimuthalHops.push({
           phiDeg: pi * p.dPhi,
-          takeoffElevationDeg: bestRay.takeoffElevationDeg,
-          rangeKm: [bestRay.rangeKm, bestRay.rangeKm * 2, bestRay.rangeKm * 3],
-          status: bestRay.status,
-          reason: bestRay.reason,
-          linkQuality: bestRay.linkQuality,
-          effectiveGainDbi: bestRay.effectiveGainDbi,
+          takeoffElevationDeg: bestBase.takeoffElevationDeg,
+          rangeKm: [bestBase.rangeKm, bestBase.rangeKm * 2, bestBase.rangeKm * 3],
+          status: bestBase.status,
+          reason: bestBase.reason,
+          linkQuality: bestLinkQuality,
+          effectiveGainDbi: bestEffectiveGainDbi,
         });
       }
     }
