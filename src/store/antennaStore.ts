@@ -1,11 +1,3 @@
-// Central application state (Zustand + Immer).
-//
-// Invariants:
-//   - All geometry is stored in metres internally. UI conversion happens at
-//     the component edge via useUnits() / toDisplayLength().
-//   - `result` is read-only for UI code; it is written only by the physics
-//     worker bridge via the underscored _setResult action.
-
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
@@ -19,6 +11,7 @@ import type {
   SegmentLoad,
   AntennaType,
 } from '../physics/types';
+export type { AntennaType };
 import {
   DEFAULT_BALUN_IMPEDANCE_OHMS,
   DEFAULT_FEEDLINE_ID,
@@ -66,8 +59,8 @@ export interface ComparisonSnapshot {
 export interface AntennaState {
   // Antenna geometry (metres, MHz)
   type: AntennaType;
-  antennaType: AntennaType;
   frequency: number;
+  antennaType: AntennaType;
   length: number;
   height: number;
   orientation: Orientation;
@@ -94,9 +87,7 @@ export interface AntennaState {
   groundSigma: number;
   groundEpsilon: number;
 
-  // Feedline (coax / parallel-line modelled as physical radiating shield
-  // wire + NEC TL card for the differential signal). When feedlineId is
-  // 'none' the legacy direct-feed behaviour is used.
+  // Feedline
   feedlineId: string;
   feedlineLength: number;
   feedlineOffset: number;
@@ -132,8 +123,8 @@ export interface AntennaState {
 
   // Actions — user-facing
   setType(t: AntennaType): void;
-  setAntennaType(type: AntennaType): void;
   setFrequency(mhz: number): void;
+  setAntennaType(type: AntennaType): void;
   setLength(meters: number): void;
   setHalfWaveLength(): void;
   setHeight(meters: number): void;
@@ -243,7 +234,7 @@ export const useAntennaStore = create<AntennaState>()(
           s.balunEnabled = false;
         }
         s.length = calculateDefaultLength(t, s.frequency);
-        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        const limit = Math.max(0, s.length / 2 - 0.05);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
 
@@ -261,6 +252,7 @@ export const useAntennaStore = create<AntennaState>()(
           s.legSlope = 0;
         }
       }),
+      setFrequency: (mhz) => set((s) => { s.frequency = clampFreq(mhz); }),
       setAntennaType: (type) => set((s) => {
         s.antennaType = type;
         s.type = type;
@@ -285,17 +277,16 @@ export const useAntennaStore = create<AntennaState>()(
           s.legSlope = 0;
         }
       }),
-      setFrequency: (mhz) => set((s) => { s.frequency = clampFreq(mhz); }),
       setLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
         s.length = Math.max(0.1, meters);
-        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        const limit = Math.max(0, s.length / 2 - 0.05);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
       setHalfWaveLength: () => set((s) => {
         s.length = calculateDefaultLength(s.antennaType, s.frequency);
-        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        const limit = Math.max(0, s.length / 2 - 0.05);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
@@ -366,7 +357,7 @@ export const useAntennaStore = create<AntennaState>()(
       }),
       setFeedlineOffset: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
-        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        const limit = Math.max(0, s.length / 2 - 0.05);
         s.feedlineOffset = Math.max(-limit, Math.min(limit, meters));
       }),
       setBalunEnabled: (enabled) => set((s) => { s.balunEnabled = !!enabled; }),
@@ -539,10 +530,10 @@ function buildInvertedVWires(
 
 export function buildWires(
   state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'type' | 'antennaType' | 'frequency' | 'vAngle' | 'slope' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'antennaType' | 'type' | 'frequency' | 'vAngle' | 'slope' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): Wire[] {
-  const antennaType = state.antennaType ?? 'dipole';
-  const frequency = state.frequency ?? INITIAL_FREQ;
+  const antennaType = state.antennaType ?? state.type ?? 'dipole';
+  const frequency = state.frequency ?? 7.1;
 
   if (antennaType === 'inverted-v') {
     return buildInvertedVWires({
@@ -588,7 +579,6 @@ export function buildWires(
   }
 
   const layout = computeFeedlineLayout(state);
-
   if (!layout) {
     if (antennaType !== 'dipole' || vAngleDeg < 180 || slopeDeg > 0) {
       return [
@@ -669,9 +659,10 @@ export function buildWires(
 
 function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
-    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'antennaType' | 'type' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): { offset: number; shield: { bottomZ: number; radius: number } | null } | null {
-  if (state.antennaType && state.antennaType !== 'dipole') return null;
+  const antennaType = state.antennaType ?? state.type ?? 'dipole';
+  if (antennaType !== 'dipole') return null;
   const id = state.feedlineId;
   if (!id || id === 'none') return null;
   const preset = findFeedlinePreset(id);

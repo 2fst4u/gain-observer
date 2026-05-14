@@ -456,6 +456,7 @@ describe('antennaStore actions', () => {
       const s = useAntennaStore.getState();
       expect(s.type).toBe('dipole');
       expect(s.vAngle).toBe(180);
+      expect(s.slope).toBe(0);
       expect(s.legSlope).toBe(0);
     });
 
