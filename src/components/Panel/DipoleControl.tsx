@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { useAntennaStore } from '../../store/antennaStore';
+import { useAntennaStore, type OrientationPreset } from '../../store/antennaStore';
 import {
   toDisplayLength,
   fromDisplayLength,
   displayLengthUnit,
 } from '../../physics/units';
-import {
-  type OrientationPreset,
-} from '../../store/antennaStore';
+import type { AntennaType } from '../../physics/types';
 import { SLOPING_V_MIN_TIP_Z_M } from '../../physics/constants';
 
 export function DipoleControl() {
@@ -89,7 +87,7 @@ export function DipoleControl() {
       <select
         id="antenna-type"
         value={antennaType}
-        onChange={(e) => setAntennaType(e.target.value as any)}
+        onChange={(e) => setAntennaType(e.target.value as AntennaType)}
         style={{ marginBottom: 12 }}
       >
         <option value="dipole">Horizontal Dipole</option>
