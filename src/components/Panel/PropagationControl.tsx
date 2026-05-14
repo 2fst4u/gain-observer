@@ -162,9 +162,10 @@ export function PropagationControl() {
           onClick={() => { void requestLocation(); }}
           disabled={geoStatus === 'requesting'}
           aria-busy={geoStatus === 'requesting'}
-          style={{ flex: '0 0 auto' }}
+          style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: '6px' }}
           title="Use the browser geolocation API to populate latitude. Asks for permission only when clicked."
         >
+          {geoStatus === 'requesting' && <div className="spinner" aria-hidden="true" />}
           {geoStatus === 'requesting' ? 'Locating…' : 'Use my location'}
         </button>
       </div>

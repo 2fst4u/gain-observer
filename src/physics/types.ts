@@ -98,6 +98,34 @@ export interface SegmentLoad {
   readonly param3?: number;
 }
 
+/**
+ * NEC-2 two-port network (NT) card.
+ *
+ * This models a non-radiating two-port network between two segments.
+ * We use it primarily for lumped resistors between wire segments
+ * (e.g. termination for a sloping-V).
+ *
+ * Admittance matrix convention:
+ * I1 = Y11*V1 + Y12*V2
+ * I2 = Y12*V1 + Y22*V2
+ *
+ * For a resistor R between port 1 and port 2:
+ * Y11 = Y22 = 1/R
+ * Y12 = -1/R
+ */
+export interface NetworkLoad {
+  readonly fromTag: number;
+  readonly fromSegment: number;
+  readonly toTag: number;
+  readonly toSegment: number;
+  readonly y11Real: number;
+  readonly y11Imag?: number;
+  readonly y12Real: number;
+  readonly y12Imag?: number;
+  readonly y22Real: number;
+  readonly y22Imag?: number;
+}
+
 export interface SimulationInput {
   readonly wires: readonly Wire[];
   readonly frequencyMHz: number;
@@ -112,6 +140,8 @@ export interface SimulationInput {
   readonly transmissionLines?: readonly TransmissionLine[];
   /** Optional NEC LD cards (e.g. choke balun, end-fed terminator). */
   readonly loads?: readonly SegmentLoad[];
+  /** Optional NEC NT cards (two-port networks). */
+  readonly networks?: readonly NetworkLoad[];
 }
 
 /**
@@ -144,7 +174,15 @@ export interface SimulationResult {
   /** Azimuth (deg, 0=+x, 90=+y) of maximum gain direction. */
   readonly takeoffAzimuthDeg: number;
   readonly impedance: ImpedanceResult;
-  /** SWR vs 50 Ω. */
+  /**
+   * SWR at the feedpoint against the 50 Ω system impedance.
+   *
+   * Note: This measures the reflection caused by the mismatch between
+   * the antenna's feedpoint impedance and the source (source reflection).
+   * It is distinct from the travelling-wave reflections along the antenna
+   * wire itself, which may be suppressed by termination without
+   * necessarily resulting in a 50 Ω feedpoint impedance.
+   */
   readonly swr: number;
   /** Radiation efficiency (0..1) when provided by solver; undefined if unknown. */
   readonly efficiency?: number;
@@ -155,6 +193,7 @@ export interface SimulationResult {
 /** Result of a frequency sweep for SWR/impedance analysis. */
 export interface SweepPoint {
   readonly frequencyMHz: number;
+  /** SWR vs 50 Ω at the feedpoint (source reflection). */
   readonly swr: number;
   readonly R: number;
   readonly X: number;

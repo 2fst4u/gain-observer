@@ -57,7 +57,7 @@ export function FrequencyControl() {
             className={Math.abs(b.mhz - frequency) < 0.05 ? 'active' : ''}
             onClick={() => {
               setFrequency(b.mhz);
-              // Auto-re-resonate length to new reference length.
+              // Auto-re-resonate length per topology.
               setHalfWaveLength();
             }}
             title={`${b.mhz.toFixed(3)} MHz`}

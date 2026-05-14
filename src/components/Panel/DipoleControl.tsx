@@ -11,11 +11,11 @@ import {
 
 export function DipoleControl() {
   const units = useAntennaStore((s) => s.units);
-  const type = useAntennaStore((s) => s.type);
+  const antennaType = useAntennaStore((s) => s.antennaType);
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
   const orientation = useAntennaStore((s) => s.orientation);
-  const setType = useAntennaStore((s) => s.setType);
+  const setAntennaType = useAntennaStore((s) => s.setAntennaType);
   const setLength = useAntennaStore((s) => s.setLength);
   const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
   const setHeight = useAntennaStore((s) => s.setHeight);
@@ -87,20 +87,19 @@ export function DipoleControl() {
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Antenna</h2>
 
-      <label id="antenna-type-label">Type</label>
-      <div className="button-group" role="group" aria-labelledby="antenna-type-label" style={{ marginBottom: 12 }}>
-        {(Object.keys(typeLabels) as Array<keyof typeof typeLabels>).map((t) => (
-          <button
-            key={t}
-            className={type === t ? 'active' : ''}
-            onClick={() => setType(t)}
-            aria-pressed={type === t}
-            style={{ fontSize: 11, padding: '4px 6px' }}
-          >
-            {typeLabels[t]}
-          </button>
-        ))}
-      </div>
+      <label htmlFor="antenna-type">Type</label>
+      <select
+        id="antenna-type"
+        value={antennaType}
+        onChange={(e) => setAntennaType(e.target.value as any)}
+        style={{ marginBottom: 12 }}
+      >
+        <option value="dipole">Horizontal Dipole</option>
+        <option value="inverted-v">Inverted V</option>
+        <option value="sloping-v">Sloping V</option>
+        <option value="v-beam">V-Beam</option>
+        <option value="delta-loop">Delta Loop</option>
+      </select>
 
       <label htmlFor="dipole-length">Length ({unit})</label>
       <div className="row">
