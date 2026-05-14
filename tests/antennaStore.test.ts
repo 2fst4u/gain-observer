@@ -1,17 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { useAntennaStore, buildWires, selectSimulationInput } from '../src/store/antennaStore';
 
-
 describe('antennaStore selectors', () => {
   describe('buildWires', () => {
     it('generates a single wire when no feedline is configured (EW)', () => {
       // Arrange
       const state = {
+        antennaType: 'dipole' as const,
+        type: 'dipole' as const,
         length: 20,
         height: 10,
         orientation: 'EW' as const,
         wireRadius: 0.001,
         segments: 21,
+        vAngle: 180,
+        slope: 0,
+        legSlope: 0,
+        frequency: 7.1,
         feedlineId: 'none',
         feedlineLength: 0,
         feedlineOffset: 0,
@@ -33,11 +38,17 @@ describe('antennaStore selectors', () => {
 
     it('generates correct wire coordinates for NS orientation (no feedline)', () => {
       const state = {
+        antennaType: 'dipole' as const,
+        type: 'dipole' as const,
         length: 20,
         height: 15,
         orientation: 'NS' as const,
         wireRadius: 0.002,
         segments: 11,
+        vAngle: 180,
+        slope: 0,
+        legSlope: 0,
+        frequency: 7.1,
         feedlineId: 'none',
         feedlineLength: 0,
         feedlineOffset: 0,
@@ -53,11 +64,17 @@ describe('antennaStore selectors', () => {
 
     it('generates correct wire coordinates for numeric orientation (45 deg)', () => {
       const state = {
+        antennaType: 'dipole' as const,
+        type: 'dipole' as const,
         length: 10,
         height: 5,
         orientation: 45,
         wireRadius: 0.001,
         segments: 11,
+        vAngle: 180,
+        slope: 0,
+        legSlope: 0,
+        frequency: 7.1,
         feedlineId: 'none',
         feedlineLength: 0,
         feedlineOffset: 0,
@@ -76,11 +93,17 @@ describe('antennaStore selectors', () => {
 
     it('builds split-dipole + bridge + shield when feedline is configured', () => {
       const wires = buildWires({
+        antennaType: 'dipole',
+        type: 'dipole',
         length: 20,
         height: 10,
         orientation: 'EW' as const,
         wireRadius: 0.001,
         segments: 21,
+        vAngle: 180,
+        slope: 0,
+        legSlope: 0,
+        frequency: 7.1,
         feedlineId: 'rg58',
         feedlineLength: 8,
         feedlineOffset: 0,
@@ -103,11 +126,17 @@ describe('antennaStore selectors', () => {
 
     it('shifts the source bridge along the dipole axis when offset is nonzero', () => {
       const wires = buildWires({
+        antennaType: 'dipole',
+        type: 'dipole',
         length: 20,
         height: 10,
         orientation: 'EW' as const,
         wireRadius: 0.001,
         segments: 21,
+        vAngle: 180,
+        slope: 0,
+        legSlope: 0,
+        frequency: 7.1,
         feedlineId: 'rg58',
         feedlineLength: 8,
         feedlineOffset: 2, // 2 m east of centre
@@ -128,11 +157,17 @@ describe('antennaStore selectors', () => {
 
     it('clamps offset so the bridge cannot escape the dipole', () => {
       const wires = buildWires({
+        antennaType: 'dipole',
+        type: 'dipole',
         length: 4,
         height: 10,
         orientation: 'EW' as const,
         wireRadius: 0.001,
         segments: 21,
+        vAngle: 180,
+        slope: 0,
+        legSlope: 0,
+        frequency: 7.1,
         feedlineId: 'rg58',
         feedlineLength: 5,
         feedlineOffset: 999, // absurdly large
@@ -181,6 +216,8 @@ describe('antennaStore selectors', () => {
       const testState = {
         ...state,
         frequency: 14.1,
+        antennaType: 'dipole' as const,
+        type: 'dipole' as const,
         length: 10,
         height: 5,
         orientation: 'EW' as const,
@@ -208,6 +245,8 @@ describe('antennaStore selectors', () => {
       const state = useAntennaStore.getState();
       const testState = {
         ...state,
+        antennaType: 'dipole' as const,
+        type: 'dipole' as const,
         frequency: 14.1,
         height: 10,
         segments: 21,
@@ -245,6 +284,8 @@ describe('antennaStore selectors', () => {
       const state = useAntennaStore.getState();
       const input = selectSimulationInput({
         ...state,
+        antennaType: 'dipole' as const,
+        type: 'dipole' as const,
         height: 10,
         feedlineId: 'rg58',
         feedlineLength: 8,
@@ -264,8 +305,11 @@ describe('antennaStore selectors', () => {
         wireRadius: 0.001,
         segments: 21,
         antennaType: 'sloping-v' as const,
+        type: 'sloping-v' as const,
         slope: 30, // 30 degrees down
+        legSlope: 30,
         vAngle: 90, // 90 degrees opening
+        frequency: 7.1,
         feedlineId: 'none',
       };
 
@@ -296,8 +340,11 @@ describe('antennaStore selectors', () => {
         wireRadius: 0.001,
         segments: 21,
         antennaType: 'sloping-v' as const,
+        type: 'sloping-v' as const,
         slope: 45, // requested 45 deg
+        legSlope: 45,
         vAngle: 180,
+        frequency: 7.1,
         feedlineId: 'none',
       };
 
@@ -337,6 +384,7 @@ describe('antennaStore selectors', () => {
       const input = selectSimulationInput({
         ...state,
         antennaType: 'sloping-v',
+        type: 'sloping-v',
         feedlineId: 'rg58',
         feedlineLength: 10,
       });
@@ -365,6 +413,55 @@ describe('antennaStore selectors', () => {
       // Top stays at the feedpoint height.
       expect(shield.start[2]).toBe(5);
     });
+
+    it('generates inverted-V geometry correctly', () => {
+      const state = {
+        length: 21, // half = 10.5
+        height: 10,
+        orientation: 'EW' as const,
+        wireRadius: 0.001,
+        segments: 21,
+        antennaType: 'inverted-v' as const,
+        type: 'inverted-v' as const,
+        vAngle: 120, // 120 degrees at apex
+        slope: 0,
+        legSlope: 0,
+        frequency: 7.1,
+      };
+
+      const wires = buildWires(state);
+      expect(wires).toHaveLength(2);
+
+      const apex = wires[0].end;
+      expect(apex).toEqual([0, 0, 10]);
+
+      // drop = (180 - 120) / 2 = 30 deg.
+      // tip_z = 10 - 10.5 * sin(30) = 10 - 10.5 * 0.5 = 4.75.
+      expect(wires[0].start[2]).toBeCloseTo(4.75, 5);
+      expect(wires[1].end[2]).toBeCloseTo(4.75, 5);
+
+      // check X/Y coordinates (NS plane for orientation EW/90deg?
+      // orientation EW -> dx=1, dy=0. Apex at center.
+      // wire start/end should be on the X axis.
+      expect(wires[0].start[1]).toBeCloseTo(0, 5);
+      expect(wires[1].end[1]).toBeCloseTo(0, 5);
+      expect(Math.abs(wires[0].start[0])).toBeCloseTo(10.5 * Math.cos(Math.PI / 6), 5);
+    });
+
+    it('places excitation at the apex of inverted-V', () => {
+      const state = {
+        ...useAntennaStore.getState(),
+        antennaType: 'inverted-v' as const,
+        type: 'inverted-v' as const,
+        length: 20,
+        height: 10,
+        vAngle: 120,
+      };
+      const input = selectSimulationInput(state);
+      const leftLeg = input.wires.find(w => w.tag === 1)!;
+      expect(input.excitation.wireTag).toBe(1);
+      expect(input.excitation.segment).toBe(leftLeg.segments);
+    });
   });
 });
 
@@ -372,44 +469,47 @@ describe('antennaStore actions', () => {
   describe('topology and defaults', () => {
     it('sets initial defaults correctly per spec', () => {
       const s = useAntennaStore.getState();
+      expect(s.antennaType).toBe('dipole');
       expect(s.type).toBe('dipole');
-      expect(s.vAngle).toBe(90);
-      expect(s.legSlope).toBe(30);
+      expect(s.vAngle).toBe(180);
+      expect(s.slope).toBe(0);
+      expect(s.legSlope).toBe(0);
     });
 
-    it('setType(non-dipole) clears feedline state', () => {
+    it('setAntennaType(non-dipole) clears feedline state', () => {
       const store = useAntennaStore.getState();
       store.setFeedline('rg58');
       store.setFeedlineLength(10);
       store.setFeedlineOffset(1);
 
-      store.setType('inverted-v');
+      store.setAntennaType('inverted-v');
       const s = useAntennaStore.getState();
+      expect(s.antennaType).toBe('inverted-v');
       expect(s.type).toBe('inverted-v');
       expect(s.feedlineId).toBe('none');
       expect(s.feedlineLength).toBe(0);
       expect(s.feedlineOffset).toBe(0);
     });
 
-    it('setType sets correct default lengths for each type', () => {
+    it('setAntennaType sets correct default lengths for each type', () => {
       const store = useAntennaStore.getState();
       const freq = 7.1;
       const lambda = 299.792458 / freq;
       store.setFrequency(freq);
 
-      store.setType('dipole');
+      store.setAntennaType('dipole');
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 3);
 
-      store.setType('inverted-v');
-      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 3);
+      store.setAntennaType('inverted-v');
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.97, 3);
 
-      store.setType('delta-loop');
+      store.setAntennaType('delta-loop');
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda, 3);
 
-      store.setType('sloping-v');
+      store.setAntennaType('sloping-v');
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
 
-      store.setType('v-beam');
+      store.setAntennaType('v-beam');
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
     });
 
@@ -419,12 +519,12 @@ describe('antennaStore actions', () => {
       const lambda = 299.792458 / freq;
       store.setFrequency(freq);
 
-      store.setType('delta-loop');
+      store.setAntennaType('delta-loop');
       store.setLength(5); // manual override
       store.setHalfWaveLength();
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda, 3);
 
-      store.setType('sloping-v');
+      store.setAntennaType('sloping-v');
       store.setLength(5);
       store.setHalfWaveLength();
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
@@ -440,14 +540,31 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().vAngle).toBe(45);
     });
 
-    it('clamps legSlope to [0, 90]', () => {
+    it('clamps slope to [0, 90]', () => {
       const store = useAntennaStore.getState();
-      store.setLegSlope(-10);
+      store.setSlope(-10);
+      expect(useAntennaStore.getState().slope).toBe(0);
       expect(useAntennaStore.getState().legSlope).toBe(0);
-      store.setLegSlope(100);
+      store.setSlope(100);
+      expect(useAntennaStore.getState().slope).toBe(90);
       expect(useAntennaStore.getState().legSlope).toBe(90);
-      store.setLegSlope(25);
+      store.setSlope(25);
+      expect(useAntennaStore.getState().slope).toBe(25);
       expect(useAntennaStore.getState().legSlope).toBe(25);
+    });
+
+    it('legSlope alias works', () => {
+      const store = useAntennaStore.getState();
+      store.setLegSlope(45);
+      expect(useAntennaStore.getState().slope).toBe(45);
+      expect(useAntennaStore.getState().legSlope).toBe(45);
+    });
+
+    it('type alias works', () => {
+      const store = useAntennaStore.getState();
+      store.setType('inverted-v');
+      expect(useAntennaStore.getState().antennaType).toBe('inverted-v');
+      expect(useAntennaStore.getState().type).toBe('inverted-v');
     });
   });
 
