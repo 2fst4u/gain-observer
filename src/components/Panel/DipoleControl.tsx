@@ -144,10 +144,10 @@ export function DipoleControl() {
         />
         <button
           onClick={setHalfWaveLength}
-          title={resonateTitles[type]}
-          aria-label={`${resonateLabels[type]} (Resonate antenna length)`}
+          title={resonateTitles[antennaType]}
+          aria-label={`${resonateLabels[antennaType]} (Resonate antenna length)`}
         >
-          {resonateLabels[type]}
+          {resonateLabels[antennaType]}
         </button>
       </div>
 
