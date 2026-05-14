@@ -20,6 +20,10 @@ function reflectionCoefficientMag(z: ImpedanceResult, z0: number = Z0_SYSTEM): n
 
 /**
  * Voltage SWR against the system impedance. Clamped at 999 for display sanity.
+ *
+ * This calculates SWR based on the mismatch between the load impedance (z)
+ * and the system impedance (z0, typically 50 Ω). This represents the
+ * "source reflection" at the feedpoint.
  */
 export function swr(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
   const gamma = reflectionCoefficientMag(z, z0);

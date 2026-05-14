@@ -134,7 +134,15 @@ export interface SimulationResult {
   /** Azimuth (deg, 0=+x, 90=+y) of maximum gain direction. */
   readonly takeoffAzimuthDeg: number;
   readonly impedance: ImpedanceResult;
-  /** SWR vs 50 Ω. */
+  /**
+   * SWR at the feedpoint against the 50 Ω system impedance.
+   *
+   * Note: This measures the reflection caused by the mismatch between
+   * the antenna's feedpoint impedance and the source (source reflection).
+   * It is distinct from the travelling-wave reflections along the antenna
+   * wire itself, which may be suppressed by termination without
+   * necessarily resulting in a 50 Ω feedpoint impedance.
+   */
   readonly swr: number;
   /** Radiation efficiency (0..1) when provided by solver; undefined if unknown. */
   readonly efficiency?: number;
@@ -145,6 +153,7 @@ export interface SimulationResult {
 /** Result of a frequency sweep for SWR/impedance analysis. */
 export interface SweepPoint {
   readonly frequencyMHz: number;
+  /** SWR vs 50 Ω at the feedpoint (source reflection). */
   readonly swr: number;
   readonly R: number;
   readonly X: number;
