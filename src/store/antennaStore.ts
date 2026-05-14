@@ -30,6 +30,7 @@ import {
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
 
+export type AntennaType = 'dipole' | 'inverted-v' | 'sloping-v' | 'delta-loop' | 'v-beam';
 export type OrientationPreset = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
 export type Orientation = OrientationPreset | number;
 export type Theme = 'dark' | 'light';
@@ -37,12 +38,15 @@ export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
 export interface ComparisonSnapshot {
+  readonly type: AntennaType;
   readonly frequency: number;
   readonly length: number;
   readonly height: number;
   readonly orientation: Orientation;
   readonly wireRadius: number;
   readonly segments: number;
+  readonly vAngle: number;
+  readonly legSlope: number;
   readonly groundId: string;
   readonly groundSigma: number;
   readonly groundEpsilon: number;
@@ -57,12 +61,25 @@ export interface ComparisonSnapshot {
 
 export interface AntennaState {
   // Antenna geometry (metres, MHz)
+  type: AntennaType;
   frequency: number;
   length: number;
   height: number;
   orientation: Orientation;
   wireRadius: number;
   segments: number;
+
+  /**
+   * For V-beam and sloping V: the interior angle between the two legs,
+   * degrees (10..180). For Inverted V: the interior angle at the apex.
+   */
+  vAngle: number;
+
+  /**
+   * For sloping V: the downward slope angle of each leg relative to
+   * the horizontal, degrees (0..90).
+   */
+  legSlope: number;
 
   // Environment
   groundId: string;
@@ -126,11 +143,14 @@ export interface AntennaState {
   comparisonReference: ComparisonSnapshot | null;
 
   // Actions — user-facing
+  setType(t: AntennaType): void;
   setFrequency(mhz: number): void;
   setLength(meters: number): void;
   setHalfWaveLength(): void;
   setHeight(meters: number): void;
   setOrientation(o: Orientation): void;
+  setVAngle(deg: number): void;
+  setLegSlope(deg: number): void;
   setWireRadius(meters: number): void;
   setSegments(n: number): void;
   setGround(id: string): void;
@@ -176,12 +196,15 @@ const INITIAL_LENGTH = halfWaveLength(INITIAL_FREQ); // resonant ½λ
 export const useAntennaStore = create<AntennaState>()(
   subscribeWithSelector(
     immer((set) => ({
+      type: 'dipole',
       frequency: INITIAL_FREQ,
       length: INITIAL_LENGTH,
       height: INITIAL_HEIGHT,
       orientation: 'EW',
       wireRadius: DEFAULT_WIRE_RADIUS_M,
       segments: 21,
+      vAngle: 90,
+      legSlope: 30,
 
       groundId: DEFAULT_GROUND_ID,
       groundSigma: findGroundPreset(DEFAULT_GROUND_ID).sigma,
@@ -219,6 +242,22 @@ export const useAntennaStore = create<AntennaState>()(
       engineReady: false,
       comparisonReference: null,
 
+      setType: (t) => set((s) => {
+        s.type = t;
+        // When switching to a non-dipole type, clear feedline state.
+        if (t !== 'dipole') {
+          s.feedlineId = 'none';
+          s.feedlineLength = 0;
+          s.feedlineOffset = 0;
+        }
+        // Auto-resize length per topology.
+        s.length = calculateDefaultLength(t, s.frequency);
+
+        // Re-clamp feedline offset (relevant if t is dipole).
+        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        if (s.feedlineOffset > limit) s.feedlineOffset = limit;
+        if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
+      }),
       setFrequency: (mhz) => set((s) => { s.frequency = clampFreq(mhz); }),
       setLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
@@ -229,7 +268,7 @@ export const useAntennaStore = create<AntennaState>()(
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
       setHalfWaveLength: () => set((s) => {
-        s.length = halfWaveLength(s.frequency);
+        s.length = calculateDefaultLength(s.type, s.frequency);
         const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
@@ -248,6 +287,14 @@ export const useAntennaStore = create<AntennaState>()(
         } else {
           s.orientation = o;
         }
+      }),
+      setVAngle: (deg) => set((s) => {
+        if (!Number.isFinite(deg)) return;
+        s.vAngle = Math.max(10, Math.min(180, deg));
+      }),
+      setLegSlope: (deg) => set((s) => {
+        if (!Number.isFinite(deg)) return;
+        s.legSlope = Math.max(0, Math.min(90, deg));
       }),
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
@@ -368,6 +415,29 @@ function clampSegments(n: number): number {
   const v = Math.max(9, Math.min(101, odd));
   // NEC-2 conventionally wants an odd number of segments for a centre feed.
   return v % 2 === 0 ? v + 1 : v;
+}
+
+/**
+ * Compute the default resonant/standard length for a given topology.
+ *
+ *  - Dipole / Inverted V: half-wave (0.5λ * 0.95 end-effect)
+ *  - Delta loop: full-wave (1.0λ)
+ *  - Sloping V / V-beam: 1λ per leg (2.0λ total)
+ */
+function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number {
+  const lambda = 299.792458 / frequencyMHz;
+  switch (type) {
+    case 'dipole':
+    case 'inverted-v':
+      return halfWaveLength(frequencyMHz);
+    case 'delta-loop':
+      return lambda;
+    case 'sloping-v':
+    case 'v-beam':
+      return lambda * 2;
+    default:
+      return halfWaveLength(frequencyMHz);
+  }
 }
 
 // --------------- Selectors ---------------
@@ -686,12 +756,15 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | null {
   if (!state.result || state.sweep.length === 0) return null;
   return {
+    type: state.type,
     frequency: state.frequency,
     length: state.length,
     height: state.height,
     orientation: state.orientation,
     wireRadius: state.wireRadius,
     segments: state.segments,
+    vAngle: state.vAngle,
+    legSlope: state.legSlope,
     groundId: state.groundId,
     groundSigma: state.groundSigma,
     groundEpsilon: state.groundEpsilon,
