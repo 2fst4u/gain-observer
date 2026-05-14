@@ -301,6 +301,55 @@ describe('antennaStore selectors', () => {
 });
 
 describe('antennaStore actions', () => {
+  describe('setType', () => {
+    it('updates type and resizes length when crossing families', () => {
+      const store = useAntennaStore.getState();
+      const freq = useAntennaStore.getState().frequency;
+
+      // Start as dipole (half-wave family)
+      store.setType('dipole');
+      const dipoleLen = useAntennaStore.getState().length;
+      expect(dipoleLen).toBeCloseTo(299.79 / freq * 0.5 * 0.95, 1);
+
+      // Change to inverted-v (same family) -> should NOT resize
+      store.setLength(10);
+      store.setType('inverted-v');
+      expect(useAntennaStore.getState().length).toBe(10);
+
+      // Change to delta-loop (full-wave family) -> SHOULD resize
+      store.setType('delta-loop');
+      expect(useAntennaStore.getState().length).toBeCloseTo(299.79 / freq * 1.0 * 0.95, 1);
+
+      // Change to sloping-v (double-wave family) -> SHOULD resize
+      store.setType('sloping-v');
+      expect(useAntennaStore.getState().length).toBeCloseTo(299.79 / freq * 2.0 * 0.95, 1);
+    });
+  });
+
+  describe('setHalfWaveLength (topology-aware)', () => {
+    it('sets correct reference length for each topology', () => {
+      const store = useAntennaStore.getState();
+      const freq = useAntennaStore.getState().frequency;
+      const lambda = 299.792458 / freq;
+
+      store.setType('dipole');
+      store.setHalfWaveLength();
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 2);
+
+      store.setType('delta-loop');
+      store.setHalfWaveLength();
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 1.0 * 0.95, 2);
+
+      store.setType('sloping-v');
+      store.setHalfWaveLength();
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2.0 * 0.95, 2);
+
+      store.setType('v-beam');
+      store.setHalfWaveLength();
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2.0 * 0.95, 2);
+    });
+  });
+
   it('updates orientation and normalizes correctly', () => {
     const store = useAntennaStore.getState();
 

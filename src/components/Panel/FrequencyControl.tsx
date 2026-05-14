@@ -5,7 +5,7 @@ import { HF_BAND_PRESETS, halfWaveLength } from '../../physics/constants';
 export function FrequencyControl() {
   const frequency = useAntennaStore((s) => s.frequency);
   const setFrequency = useAntennaStore((s) => s.setFrequency);
-  const setLength = useAntennaStore((s) => s.setLength);
+  const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
 
   // Use local string state to allow natural typing (trailing dots/zeros)
   // without immediate snapping from the store's clamp logic.
@@ -57,8 +57,8 @@ export function FrequencyControl() {
             className={Math.abs(b.mhz - frequency) < 0.05 ? 'active' : ''}
             onClick={() => {
               setFrequency(b.mhz);
-              // Auto-re-resonate length to new ½λ.
-              setLength(halfWaveLength(b.mhz));
+              // Auto-re-resonate length to new reference length.
+              setHalfWaveLength();
             }}
             title={`${b.mhz.toFixed(3)} MHz`}
             aria-pressed={Math.abs(b.mhz - frequency) < 0.05}

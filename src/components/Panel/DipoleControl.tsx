@@ -11,9 +11,11 @@ import {
 
 export function DipoleControl() {
   const units = useAntennaStore((s) => s.units);
+  const type = useAntennaStore((s) => s.type);
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
   const orientation = useAntennaStore((s) => s.orientation);
+  const setType = useAntennaStore((s) => s.setType);
   const setLength = useAntennaStore((s) => s.setLength);
   const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
   const setHeight = useAntennaStore((s) => s.setHeight);
@@ -56,10 +58,49 @@ export function DipoleControl() {
 
   const maxHeight = units === 'metric' ? 40 : 131;
 
+  const typeLabels: Record<import('../../physics/types').AntennaType, string> = {
+    'dipole': 'Dipole',
+    'inverted-v': 'Inverted V',
+    'delta-loop': 'Delta Loop',
+    'sloping-v': 'Sloping V',
+    'v-beam': 'V-beam',
+  };
+
+  const resonateLabels: Record<import('../../physics/types').AntennaType, string> = {
+    'dipole': '½λ',
+    'inverted-v': '½λ',
+    'delta-loop': '1λ',
+    'sloping-v': '1λ/leg',
+    'v-beam': '1λ/leg',
+  };
+
+  const resonateTitles: Record<import('../../physics/types').AntennaType, string> = {
+    'dipole': 'Set length to resonant ½λ',
+    'inverted-v': 'Set length to resonant ½λ',
+    'delta-loop': 'Set perimeter to resonant 1λ',
+    'sloping-v': 'Set total length to 2λ (1λ per leg)',
+    'v-beam': 'Set total length to 2λ (1λ per leg)',
+  };
+
   return (
     <div className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2>Dipole</h2>
+      <h2>Antenna</h2>
+
+      <label id="antenna-type-label">Type</label>
+      <div className="button-group" role="group" aria-labelledby="antenna-type-label" style={{ marginBottom: 12 }}>
+        {(Object.keys(typeLabels) as Array<keyof typeof typeLabels>).map((t) => (
+          <button
+            key={t}
+            className={type === t ? 'active' : ''}
+            onClick={() => setType(t)}
+            aria-pressed={type === t}
+            style={{ fontSize: 11, padding: '4px 6px' }}
+          >
+            {typeLabels[t]}
+          </button>
+        ))}
+      </div>
 
       <label htmlFor="dipole-length">Length ({unit})</label>
       <div className="row">
@@ -85,10 +126,10 @@ export function DipoleControl() {
         />
         <button
           onClick={setHalfWaveLength}
-          title="Set length to resonant ½λ"
-          aria-label="½λ (Set length to resonant half wavelength)"
+          title={resonateTitles[type]}
+          aria-label={`${resonateLabels[type]} (Resonate antenna length)`}
         >
-          ½λ
+          {resonateLabels[type]}
         </button>
       </div>
 
