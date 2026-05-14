@@ -25,9 +25,11 @@ import {
   FEEDLINE_SHIELD_TAG,
   type Orientation,
 } from '../../store/antennaStore';
+import type { AntennaType } from '../../physics/types';
 import { THEME_COLORS } from '../../utils/themeColors';
 
 interface DipoleWireProps {
+  readonly type: AntennaType;
   readonly length: number;
   readonly height: number;
   readonly orientation: Orientation;
@@ -43,6 +45,7 @@ function necToScene(p: readonly [number, number, number]): [number, number, numb
 }
 
 export function DipoleWire({
+  type,
   length,
   height,
   orientation,
@@ -57,6 +60,7 @@ export function DipoleWire({
 
   const rendered = useMemo(() => {
     const wires = buildWires({
+      type,
       length,
       height,
       orientation,
@@ -102,7 +106,7 @@ export function DipoleWire({
         isDipoleHalf,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset]);
+  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset]);
 
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);

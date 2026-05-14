@@ -13,6 +13,7 @@ import {
 
 export function FeedlineControl() {
   const units = useAntennaStore((s) => s.units);
+  const antennaType = useAntennaStore((s) => s.antennaType);
   const frequency = useAntennaStore((s) => s.frequency);
   const dipoleLength = useAntennaStore((s) => s.length);
   const feedlineId = useAntennaStore((s) => s.feedlineId);
@@ -40,6 +41,10 @@ export function FeedlineControl() {
       setLocalLen(dispLen.toFixed(2));
     }
   }
+
+  // Feedline modelling is restricted to dipoles for now.
+  if (antennaType !== 'dipole') return null;
+
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;

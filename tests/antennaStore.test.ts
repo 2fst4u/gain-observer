@@ -332,6 +332,21 @@ describe('antennaStore selectors', () => {
       expect(ld.param2).toBe(0);
     });
 
+    it('does NOT include feedline logic for non-dipoles even if state is somehow set', () => {
+      const state = useAntennaStore.getState();
+      const input = selectSimulationInput({
+        ...state,
+        antennaType: 'sloping-v',
+        feedlineId: 'rg58',
+        feedlineLength: 10,
+      });
+
+      // Even if feedline state is present, selectSimulationInput should
+      // ignore it for non-dipoles.
+      expect(input.wires.some(w => w.tag === 4)).toBe(false);
+      expect(input.transmissionLines).toBeUndefined();
+    });
+
     it('clamps shield bottom above ground when feedline length exceeds height', () => {
       const state = useAntennaStore.getState();
       const testState = {
@@ -354,6 +369,88 @@ describe('antennaStore selectors', () => {
 });
 
 describe('antennaStore actions', () => {
+  describe('topology and defaults', () => {
+    it('sets initial defaults correctly per spec', () => {
+      const s = useAntennaStore.getState();
+      expect(s.type).toBe('dipole');
+      expect(s.vAngle).toBe(90);
+      expect(s.legSlope).toBe(30);
+    });
+
+    it('setType(non-dipole) clears feedline state', () => {
+      const store = useAntennaStore.getState();
+      store.setFeedline('rg58');
+      store.setFeedlineLength(10);
+      store.setFeedlineOffset(1);
+
+      store.setType('inverted-v');
+      const s = useAntennaStore.getState();
+      expect(s.type).toBe('inverted-v');
+      expect(s.feedlineId).toBe('none');
+      expect(s.feedlineLength).toBe(0);
+      expect(s.feedlineOffset).toBe(0);
+    });
+
+    it('setType sets correct default lengths for each type', () => {
+      const store = useAntennaStore.getState();
+      const freq = 7.1;
+      const lambda = 299.792458 / freq;
+      store.setFrequency(freq);
+
+      store.setType('dipole');
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 3);
+
+      store.setType('inverted-v');
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 3);
+
+      store.setType('delta-loop');
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda, 3);
+
+      store.setType('sloping-v');
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
+
+      store.setType('v-beam');
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
+    });
+
+    it('setHalfWaveLength is topology-aware', () => {
+      const store = useAntennaStore.getState();
+      const freq = 14.1;
+      const lambda = 299.792458 / freq;
+      store.setFrequency(freq);
+
+      store.setType('delta-loop');
+      store.setLength(5); // manual override
+      store.setHalfWaveLength();
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda, 3);
+
+      store.setType('sloping-v');
+      store.setLength(5);
+      store.setHalfWaveLength();
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
+    });
+
+    it('clamps vAngle to [10, 180]', () => {
+      const store = useAntennaStore.getState();
+      store.setVAngle(5);
+      expect(useAntennaStore.getState().vAngle).toBe(10);
+      store.setVAngle(200);
+      expect(useAntennaStore.getState().vAngle).toBe(180);
+      store.setVAngle(45);
+      expect(useAntennaStore.getState().vAngle).toBe(45);
+    });
+
+    it('clamps legSlope to [0, 90]', () => {
+      const store = useAntennaStore.getState();
+      store.setLegSlope(-10);
+      expect(useAntennaStore.getState().legSlope).toBe(0);
+      store.setLegSlope(100);
+      expect(useAntennaStore.getState().legSlope).toBe(90);
+      store.setLegSlope(25);
+      expect(useAntennaStore.getState().legSlope).toBe(25);
+    });
+  });
+
   it('updates orientation and normalizes correctly', () => {
     const store = useAntennaStore.getState();
 
@@ -391,6 +488,28 @@ describe('antennaStore actions', () => {
   });
 
   describe('feedline', () => {
+    it('clears feedline state when switching from dipole to non-dipole', () => {
+      const store = useAntennaStore.getState();
+      store.setAntennaType('dipole');
+      store.setFeedline('rg58');
+      store.setFeedlineLength(15);
+      store.setFeedlineOffset(2);
+      store.setBalunEnabled(true);
+
+      expect(useAntennaStore.getState().feedlineId).toBe('rg58');
+
+      // Act
+      store.setAntennaType('sloping-v');
+
+      // Assert
+      const s = useAntennaStore.getState();
+      expect(s.antennaType).toBe('sloping-v');
+      expect(s.feedlineId).toBe('none');
+      expect(s.feedlineLength).toBe(0);
+      expect(s.feedlineOffset).toBe(0);
+      expect(s.balunEnabled).toBe(false);
+    });
+
     it('updates feedline preset id', () => {
       const store = useAntennaStore.getState();
       store.setFeedline('rg213');

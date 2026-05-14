@@ -109,6 +109,16 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
     }
   }
 
+  // Network cards (NT): non-radiating two-port networks.
+  for (const nt of input.networks ?? []) {
+    const y11i = nt.y11Imag ?? 0;
+    const y12i = nt.y12Imag ?? 0;
+    const y22i = nt.y22Imag ?? 0;
+    lines.push(
+      `NT ${nt.fromTag} ${nt.fromSegment} ${nt.toTag} ${nt.toSegment} ${n(nt.y11Real, 6)} ${n(y11i, 6)} ${n(nt.y12Real, 6)} ${n(y12i, 6)} ${n(nt.y22Real, 6)} ${n(y22i, 6)}`,
+    );
+  }
+
   // Transmission-line cards (TL): differential signal in coax/parallel
   // line. NEC's TL card is lossless and non-radiating by definition.
   for (const tl of input.transmissionLines ?? []) {

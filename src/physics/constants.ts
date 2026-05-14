@@ -3,6 +3,8 @@
 // IMPORTANT: We standardise internally on metric (SI) units. The UI may
 // display imperial but the physics layer and stored state are always metric.
 
+import { type AntennaType } from './types';
+
 /** Speed of light in a vacuum, m/s. */
 const SPEED_OF_LIGHT = 299_792_458;
 
@@ -28,6 +30,31 @@ export function wavelengthMeters(frequencyMHz: number): number {
  */
 export function halfWaveLength(frequencyMHz: number, endEffect = 0.95): number {
   return wavelengthMeters(frequencyMHz) * 0.5 * endEffect;
+}
+
+/**
+ * Topology-aware reference length (metres).
+ *
+ *   - dipole / inverted-v: 0.5λ total.
+ *   - delta-loop: 1λ perimeter.
+ *   - sloping-v / v-beam: 2λ total (1λ per leg).
+ *
+ * Applies the standard HF end-effect factor k ~ 0.95.
+ */
+export function referenceLength(type: AntennaType, frequencyMHz: number, endEffect = 0.95): number {
+  const lambda = wavelengthMeters(frequencyMHz);
+  switch (type) {
+    case 'dipole':
+    case 'inverted-v':
+      return lambda * 0.5 * endEffect;
+    case 'delta-loop':
+      return lambda * 1.0 * endEffect;
+    case 'sloping-v':
+    case 'v-beam':
+      return lambda * 2.0 * endEffect;
+    default:
+      return lambda * 0.5 * endEffect;
+  }
 }
 
 /** Amateur HF band centres (MHz) for quick presets. */
