@@ -222,10 +222,51 @@ describe('buildNecCards', () => {
       expect(exIdx).toBeGreaterThan(tlIdx);
     });
 
-    it('emits no LD/TL cards when arrays are absent', () => {
+    it('emits no LD/TL/NT cards when arrays are absent', () => {
       const out = buildNecCards(defaultInput);
       expect(out).not.toContain('\nLD ');
       expect(out).not.toContain('\nTL ');
+      expect(out).not.toContain('\nNT ');
+    });
+
+    it('emits an NT network card when requested', () => {
+      const out = buildNecCards({
+        ...defaultInput,
+        networks: [
+          {
+            fromTag: 1,
+            fromSegment: 1,
+            toTag: 1,
+            toSegment: 11,
+            y11Real: 0.02,
+            y12Real: -0.02,
+            y22Real: 0.02,
+          },
+        ],
+      });
+      // NT tag1 seg1 tag2 seg2 Y11r Y11i Y12r Y12i Y22r Y22i
+      expect(out).toMatch(/^NT 1 1 1 11 0\.020000 0\.000000 -0\.020000 0\.000000 0\.020000 0\.000000/m);
+    });
+
+    it('correctly models a resistor as an NT card', () => {
+      const R = 500;
+      const G = 1 / R;
+      const out = buildNecCards({
+        ...defaultInput,
+        networks: [
+          {
+            fromTag: 1,
+            fromSegment: 1,
+            toTag: 1,
+            toSegment: 11,
+            y11Real: G,
+            y12Real: -G,
+            y22Real: G,
+          },
+        ],
+      });
+      // 1/500 = 0.002
+      expect(out).toContain('NT 1 1 1 11 0.002000 0.000000 -0.002000 0.000000 0.002000 0.000000');
     });
 
     it('emits a series-RLC LD card (type 0) when requested', () => {
