@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
-import { HF_BAND_PRESETS, halfWaveLength } from '../../physics/constants';
+import { HF_BAND_PRESETS } from '../../physics/constants';
 
 export function FrequencyControl() {
   const frequency = useAntennaStore((s) => s.frequency);

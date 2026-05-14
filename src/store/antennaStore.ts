@@ -27,7 +27,6 @@ import {
   DEFAULT_WIRE_RADIUS_M,
   findFeedlinePreset,
   findGroundPreset,
-  halfWaveLength,
   referenceLength,
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
