@@ -515,10 +515,13 @@ function orientationVector(o: Orientation): [number, number] {
 }
 
 export function buildWires(
-  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'vAngle' | 'slope' | 'frequency' | 'antennaType'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
+    Partial<Pick<AntennaState, 'antennaType' | 'type' | 'vAngle' | 'slope' | 'frequency' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): Wire[] {
-  const antennaType = state.antennaType;
+  const antennaType = state.antennaType ?? state.type ?? 'dipole';
+  const frequency = state.frequency ?? 7.1;
+  const vAngle = state.vAngle ?? (antennaType === 'inverted-v' ? 120 : (antennaType === 'sloping-v' || antennaType === 'v-beam' ? 90 : 180));
+  const slope = state.slope ?? (antennaType === 'sloping-v' ? 30 : 0);
 
   if (antennaType === 'inverted-v') {
     return buildInvertedVWires({
@@ -527,8 +530,8 @@ export function buildWires(
       orientation: state.orientation,
       wireRadius: state.wireRadius,
       segments: state.segments,
-      frequency: state.frequency,
-      vAngle: state.vAngle,
+      frequency,
+      vAngle,
     });
   }
 
@@ -538,8 +541,8 @@ export function buildWires(
   const [px, py] = [-dy, dx];
   const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
-  const slopeDeg = (antennaType === 'sloping-v' || antennaType === 'v-beam') ? state.slope : 0;
-  const vAngleDeg = (antennaType === 'sloping-v' || antennaType === 'v-beam' || antennaType === 'delta-loop') ? state.vAngle : 180;
+  const slopeDeg = (antennaType === 'sloping-v' || antennaType === 'v-beam') ? slope : 0;
+  const vAngleDeg = (antennaType === 'sloping-v' || antennaType === 'v-beam' || antennaType === 'delta-loop') ? vAngle : 180;
 
   const maxSin = half > 0 ? (h - SLOPING_V_MIN_TIP_Z_M) / half : 0;
   const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
@@ -643,10 +646,11 @@ export function buildWires(
 }
 
 function computeFeedlineLayout(
-  state: Pick<AntennaState, 'length' | 'height' | 'antennaType'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+  state: Pick<AntennaState, 'length' | 'height'> &
+    Partial<Pick<AntennaState, 'antennaType' | 'type' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): { offset: number; shield: { bottomZ: number; radius: number } | null } | null {
-  if (state.antennaType !== 'dipole') return null;
+  const antennaType = state.antennaType ?? state.type ?? 'dipole';
+  if (antennaType !== 'dipole') return null;
   const id = state.feedlineId;
   if (!id || id === 'none') return null;
   const preset = findFeedlinePreset(id);
