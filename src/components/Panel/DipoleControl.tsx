@@ -59,14 +59,6 @@ export function DipoleControl() {
 
   const maxHeight = units === 'metric' ? 40 : 131;
 
-  const typeLabels: Record<import('../../physics/types').AntennaType, string> = {
-    'dipole': 'Dipole',
-    'inverted-v': 'Inverted V',
-    'delta-loop': 'Delta Loop',
-    'sloping-v': 'Sloping V',
-    'v-beam': 'V-beam',
-  };
-
   const resonateLabels: Record<import('../../physics/types').AntennaType, string> = {
     'dipole': '½λ',
     'inverted-v': '½λ',
@@ -92,7 +84,7 @@ export function DipoleControl() {
       <select
         id="antenna-type"
         value={antennaType}
-        onChange={(e) => setAntennaType(e.target.value as any)}
+        onChange={(e) => setAntennaType(e.target.value as import('../../physics/types').AntennaType)}
         style={{ marginBottom: 12 }}
       >
         <option value="dipole">Horizontal Dipole</option>
