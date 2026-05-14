@@ -38,6 +38,7 @@ export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
 export interface ComparisonSnapshot {
+  readonly type: AntennaType;
   readonly frequency: number;
   readonly length: number;
   readonly height: number;
@@ -712,6 +713,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | null {
   if (!state.result || state.sweep.length === 0) return null;
   return {
+    type: state.type,
     frequency: state.frequency,
     length: state.length,
     height: state.height,
