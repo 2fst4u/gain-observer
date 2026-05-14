@@ -40,7 +40,7 @@ export function DisplayControl() {
         id="dynamic-range"
         type="range" min={10} max={50} step={1}
         value={dbRange}
-        onChange={(e) => setDbRange(parseInt(e.target.value))}
+        onChange={(e) => setDbRange(parseInt(e.target.value, 10))}
       />
 
       <label htmlFor="color-max" style={{ marginTop: 8 }}>Color max — {colorMaxDb} dBi</label>
@@ -48,7 +48,7 @@ export function DisplayControl() {
         id="color-max"
         type="range" min={-20} max={30} step={1}
         value={colorMaxDb}
-        onChange={(e) => setColorMaxDb(parseInt(e.target.value))}
+        onChange={(e) => setColorMaxDb(parseInt(e.target.value, 10))}
       />
 
       <label htmlFor="pattern-scale" style={{ marginTop: 8 }}>Pattern scale — {patternScale.toFixed(2)}×</label>
