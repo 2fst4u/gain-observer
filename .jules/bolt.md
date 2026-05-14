@@ -25,3 +25,6 @@
 ## 2025-05-18 - Maintainability in Inner Loops
 **Learning:** Reconstructing complex state strings (like `LinkQuality`) from integer rank metrics (like `0`/`1`/`2`) inside an inner loop using ternary operators is brittle and presents a maintainability hazard. If rank values or the states they represent ever evolve, the hardcoded ternary mappings become bugs.
 **Action:** Instead of dynamically reconstructing states from arbitrary integer ranks, simply maintain explicit variables representing the best actual states found along with the rank used for comparison (e.g. `let bestLinkQuality: LinkQuality = 'unusable'`). This completely eliminates brittle conversions and avoids logic duplication later when producing output.
+## 2024-05-14 - Zero-copy regex scanning for text outputs
+**Learning:** Parsing large text files using \`text.slice().split('\\n')\` is inefficient because it creates thousands of string objects and increases GC pressure. It scales poorly with file size, increasing memory overhead and CPU time.
+**Action:** Use global regular expressions with the \`/gm\` flag and \`lastIndex\` explicitly starting at the block offset instead. Use \`RegExp.exec()\` in a \`while\` loop to iterate through matches iteratively without slicing or splitting strings, saving both CPU time and memory.
