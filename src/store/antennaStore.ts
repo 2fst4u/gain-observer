@@ -1,3 +1,11 @@
+// Central application state (Zustand + Immer).
+//
+// Invariants:
+//   - All geometry is stored in metres internally. UI conversion happens at
+//     the component edge via useUnits() / toDisplayLength().
+//   - `result` is read-only for UI code; it is written only by the physics
+//     worker bridge via the underscored _setResult action.
+
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
@@ -32,8 +40,8 @@ export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
 export interface ComparisonSnapshot {
+  readonly type: AntennaType;
   readonly antennaType: AntennaType;
-  readonly type: AntennaType; // Legacy alias
   readonly frequency: number;
   readonly length: number;
   readonly height: number;
@@ -42,7 +50,7 @@ export interface ComparisonSnapshot {
   readonly segments: number;
   readonly vAngle: number;
   readonly slope: number;
-  readonly legSlope: number; // Legacy alias
+  readonly legSlope: number;
   readonly groundId: string;
   readonly groundSigma: number;
   readonly groundEpsilon: number;
@@ -57,9 +65,8 @@ export interface ComparisonSnapshot {
 
 export interface AntennaState {
   // Antenna geometry (metres, MHz)
+  type: AntennaType;
   antennaType: AntennaType;
-  type: AntennaType; // Legacy alias for backward compatibility
-
   frequency: number;
   length: number;
   height: number;
@@ -74,18 +81,22 @@ export interface AntennaState {
   vAngle: number;
 
   /**
-   * For sloping V: the downward slope angle of each leg relative to
-   * the horizontal, degrees (0..90).
+   * For sloping V and Inverted V: the downward slope angle of each leg
+   * relative to the horizontal, degrees (0..90).
    */
   slope: number;
-  legSlope: number; // Legacy alias for backward compatibility
+
+  /** Legacy alias for slope. */
+  legSlope: number;
 
   // Environment
   groundId: string;
   groundSigma: number;
   groundEpsilon: number;
 
-  // Feedline
+  // Feedline (coax / parallel-line modelled as physical radiating shield
+  // wire + NEC TL card for the differential signal). When feedlineId is
+  // 'none' the legacy direct-feed behaviour is used.
   feedlineId: string;
   feedlineLength: number;
   feedlineOffset: number;
@@ -120,19 +131,16 @@ export interface AntennaState {
   comparisonReference: ComparisonSnapshot | null;
 
   // Actions — user-facing
+  setType(t: AntennaType): void;
   setAntennaType(type: AntennaType): void;
-  setType(type: AntennaType): void; // Legacy alias
-
   setFrequency(mhz: number): void;
   setLength(meters: number): void;
   setHalfWaveLength(): void;
   setHeight(meters: number): void;
   setOrientation(o: Orientation): void;
   setVAngle(deg: number): void;
-
   setSlope(deg: number): void;
-  setLegSlope(deg: number): void; // Legacy alias
-
+  setLegSlope(deg: number): void;
   setWireRadius(meters: number): void;
   setSegments(n: number): void;
   setGround(id: string): void;
@@ -179,8 +187,8 @@ const INITIAL_LENGTH = referenceLength(INITIAL_TYPE, INITIAL_FREQ);
 export const useAntennaStore = create<AntennaState>()(
   subscribeWithSelector(
     immer((set) => ({
-      antennaType: INITIAL_TYPE,
       type: INITIAL_TYPE,
+      antennaType: INITIAL_TYPE,
       frequency: INITIAL_FREQ,
       length: INITIAL_LENGTH,
       height: INITIAL_HEIGHT,
@@ -225,6 +233,34 @@ export const useAntennaStore = create<AntennaState>()(
       engineReady: false,
       comparisonReference: null,
 
+      setType: (t) => set((s) => {
+        s.type = t;
+        s.antennaType = t;
+        if (t !== 'dipole') {
+          s.feedlineId = 'none';
+          s.feedlineLength = 0;
+          s.feedlineOffset = 0;
+          s.balunEnabled = false;
+        }
+        s.length = calculateDefaultLength(t, s.frequency);
+        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        if (s.feedlineOffset > limit) s.feedlineOffset = limit;
+        if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
+
+        if (t === 'inverted-v') {
+          s.vAngle = 120;
+          s.slope = 30;
+          s.legSlope = 30;
+        } else if (t === 'sloping-v') {
+          s.vAngle = 90;
+          s.slope = 30;
+          s.legSlope = 30;
+        } else {
+          s.vAngle = 180;
+          s.slope = 0;
+          s.legSlope = 0;
+        }
+      }),
       setAntennaType: (type) => set((s) => {
         s.antennaType = type;
         s.type = type;
@@ -234,40 +270,21 @@ export const useAntennaStore = create<AntennaState>()(
           s.feedlineOffset = 0;
           s.balunEnabled = false;
         }
-
-        // Initialize topology defaults if switching
-        if (type === 'dipole') {
-          s.slope = 0;
-          s.legSlope = 0;
-          s.vAngle = 180;
-        } else if (type === 'inverted-v') {
+        s.length = calculateDefaultLength(type, s.frequency);
+        if (type === 'inverted-v') {
           s.vAngle = 120;
-          s.slope = 0;
-          s.legSlope = 0;
+          s.slope = 30;
+          s.legSlope = 30;
         } else if (type === 'sloping-v') {
           s.vAngle = 90;
           s.slope = 30;
           s.legSlope = 30;
-        } else if (type === 'v-beam') {
-          s.vAngle = 90;
-          s.slope = 0;
-          s.legSlope = 0;
-        } else if (type === 'delta-loop') {
+        } else {
           s.vAngle = 180;
           s.slope = 0;
           s.legSlope = 0;
         }
-
-        s.length = calculateDefaultLength(type, s.frequency);
-        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
-        if (s.feedlineOffset > limit) s.feedlineOffset = limit;
-        if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
-      setType: (type) => {
-        // useAntennaStore.getState() is fine inside an action if we are not in a component
-        const current = useAntennaStore.getState();
-        current.setAntennaType(type);
-      },
       setFrequency: (mhz) => set((s) => { s.frequency = clampFreq(mhz); }),
       setLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
@@ -299,17 +316,27 @@ export const useAntennaStore = create<AntennaState>()(
       setVAngle: (deg) => set((s) => {
         if (!Number.isFinite(deg)) return;
         s.vAngle = Math.max(10, Math.min(180, deg));
+        if (s.antennaType === 'inverted-v') {
+          s.slope = (180 - s.vAngle) / 2;
+          s.legSlope = s.slope;
+        }
       }),
       setSlope: (deg) => set((s) => {
         if (!Number.isFinite(deg)) return;
-        const val = Math.max(0, Math.min(90, deg));
-        s.slope = val;
-        s.legSlope = val;
+        s.slope = Math.max(0, Math.min(90, deg));
+        s.legSlope = s.slope;
+        if (s.antennaType === 'inverted-v') {
+          s.vAngle = 180 - 2 * s.slope;
+        }
       }),
-      setLegSlope: (deg) => {
-        const current = useAntennaStore.getState();
-        current.setSlope(deg);
-      },
+      setLegSlope: (deg) => set((s) => {
+        if (!Number.isFinite(deg)) return;
+        s.legSlope = Math.max(0, Math.min(90, deg));
+        s.slope = s.legSlope;
+        if (s.antennaType === 'inverted-v') {
+          s.vAngle = 180 - 2 * s.legSlope;
+        }
+      }),
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
         s.wireRadius = Math.max(0.0001, r);
@@ -427,9 +454,8 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
   const lambda = 299.792458 / frequencyMHz;
   switch (type) {
     case 'dipole':
-      return halfWaveLength(frequencyMHz);
     case 'inverted-v':
-      return halfWaveLength(frequencyMHz, 0.97); // 0.485λ
+      return halfWaveLength(frequencyMHz);
     case 'delta-loop':
       return lambda;
     case 'sloping-v':
@@ -450,9 +476,22 @@ const FEEDLINE_SHIELD_SEGMENTS = 11;
 const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
 const FEEDLINE_GROUND_GAP_M = 0.1;
 
-/**
- * Build Inverted-V wires.
- */
+function orientationVector(o: Orientation): [number, number] {
+  let deg = 0;
+  if (typeof o === 'number') {
+    deg = o;
+  } else {
+    switch (o) {
+      case 'NS': deg = 0; break;
+      case 'EW': deg = 90; break;
+      case 'NE-SW': deg = 45; break;
+      case 'NW-SE': deg = 315; break;
+    }
+  }
+  const rad = ((90 - deg) * Math.PI) / 180;
+  return [Math.cos(rad), Math.sin(rad)];
+}
+
 function buildInvertedVWires(
   state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle'>,
 ): Wire[] {
@@ -498,30 +537,12 @@ function buildInvertedVWires(
   ];
 }
 
-function orientationVector(o: Orientation): [number, number] {
-  let deg = 0;
-  if (typeof o === 'number') {
-    deg = o;
-  } else {
-    switch (o) {
-      case 'NS': deg = 0; break;
-      case 'EW': deg = 90; break;
-      case 'NE-SW': deg = 45; break;
-      case 'NW-SE': deg = 315; break;
-    }
-  }
-  const rad = ((90 - deg) * Math.PI) / 180;
-  return [Math.cos(rad), Math.sin(rad)];
-}
-
 export function buildWires(
   state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'antennaType' | 'type' | 'vAngle' | 'slope' | 'frequency' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'type' | 'antennaType' | 'frequency' | 'vAngle' | 'slope' | 'legSlope' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): Wire[] {
-  const antennaType = state.antennaType ?? state.type ?? 'dipole';
-  const frequency = state.frequency ?? 7.1;
-  const vAngle = state.vAngle ?? (antennaType === 'inverted-v' ? 120 : (antennaType === 'sloping-v' || antennaType === 'v-beam' ? 90 : 180));
-  const slope = state.slope ?? (antennaType === 'sloping-v' ? 30 : 0);
+  const antennaType = state.antennaType ?? 'dipole';
+  const frequency = state.frequency ?? INITIAL_FREQ;
 
   if (antennaType === 'inverted-v') {
     return buildInvertedVWires({
@@ -531,7 +552,7 @@ export function buildWires(
       wireRadius: state.wireRadius,
       segments: state.segments,
       frequency,
-      vAngle,
+      vAngle: state.vAngle ?? 120,
     });
   }
 
@@ -541,8 +562,8 @@ export function buildWires(
   const [px, py] = [-dy, dx];
   const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
-  const slopeDeg = (antennaType === 'sloping-v' || antennaType === 'v-beam') ? slope : 0;
-  const vAngleDeg = (antennaType === 'sloping-v' || antennaType === 'v-beam' || antennaType === 'delta-loop') ? vAngle : 180;
+  const slopeDeg = antennaType === 'sloping-v' ? (state.slope ?? state.legSlope ?? 0) : 0;
+  const vAngleDeg = antennaType === 'sloping-v' ? (state.vAngle ?? 180) : 180;
 
   const maxSin = half > 0 ? (h - SLOPING_V_MIN_TIP_Z_M) / half : 0;
   const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
@@ -567,22 +588,23 @@ export function buildWires(
   }
 
   const layout = computeFeedlineLayout(state);
+
   if (!layout) {
-    if (antennaType !== 'dipole') {
+    if (antennaType !== 'dipole' || vAngleDeg < 180 || slopeDeg > 0) {
       return [
         {
           start: legPointAt(half, -1),
           end: legPointAt(0, 0),
           radius: state.wireRadius,
           segments: Math.max(1, Math.round(state.segments / 2)),
-          tag: DIPOLE_LEFT_TAG,
+          tag: DIPOLE_TAG,
         },
         {
           start: legPointAt(0, 0),
           end: legPointAt(half, 1),
           radius: state.wireRadius,
           segments: Math.max(1, Math.round(state.segments / 2)),
-          tag: DIPOLE_RIGHT_TAG,
+          tag: DIPOLE_TAG,
         },
       ];
     }
@@ -647,10 +669,9 @@ export function buildWires(
 
 function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
-    Partial<Pick<AntennaState, 'antennaType' | 'type' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): { offset: number; shield: { bottomZ: number; radius: number } | null } | null {
-  const antennaType = state.antennaType ?? state.type ?? 'dipole';
-  if (antennaType !== 'dipole') return null;
+  if (state.antennaType && state.antennaType !== 'dipole') return null;
   const id = state.feedlineId;
   if (!id || id === 'none') return null;
   const preset = findFeedlinePreset(id);
@@ -692,15 +713,13 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 
   const dipoleCentreSeg = Math.ceil(state.segments / 2);
   let excitation: SimulationInput['excitation'];
-  if (feedlineActive && hasShield) {
+  if (state.antennaType === 'inverted-v') {
+    const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
+    excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg ? leftLeg.segments : 1 };
+  } else if (feedlineActive && hasShield) {
     excitation = { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
   } else if (feedlineActive) {
     excitation = { wireTag: FEED_BRIDGE_TAG, segment: 1 };
-  } else if (state.antennaType !== 'dipole') {
-    // For V and loop topologies, feed at the join of the two legs (DIPOLE_LEFT end / DIPOLE_RIGHT start)
-    // buildWires/buildInvertedVWires puts the apex at DIPOLE_LEFT end.
-    const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
-    excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg ? leftLeg.segments : 1 };
   } else {
     excitation = { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
   }
@@ -737,8 +756,8 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | null {
   if (!state.result || state.sweep.length === 0) return null;
   return {
+    type: state.type,
     antennaType: state.antennaType,
-    type: state.antennaType,
     frequency: state.frequency,
     length: state.length,
     height: state.height,
@@ -747,7 +766,7 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     segments: state.segments,
     vAngle: state.vAngle,
     slope: state.slope,
-    legSlope: state.slope,
+    legSlope: state.legSlope,
     groundId: state.groundId,
     groundSigma: state.groundSigma,
     groundEpsilon: state.groundEpsilon,
