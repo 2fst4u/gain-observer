@@ -30,13 +30,13 @@ export function StatsReadout() {
         <span className="stat-value">{result.takeoffAzimuthDeg.toFixed(0)}°</span>
       </div>
       <div className="stat">
-        <span className="stat-label">Impedance</span>
+        <span className="stat-label">Feedpoint (R + jX)</span>
         <span className="stat-value">
           {result.impedance.R.toFixed(1)} {result.impedance.X >= 0 ? '+' : '−'}j{Math.abs(result.impedance.X).toFixed(1)} Ω
         </span>
       </div>
       <div className="stat">
-        <span className="stat-label">SWR (50 Ω)</span>
+        <span className="stat-label">SWR (raw 50 Ω)</span>
         <span className="stat-value" style={{
           color: result.swr > 2 ? 'var(--danger)' : result.swr > 1.5 ? 'var(--warning)' : 'var(--success)',
         }}>{result.swr.toFixed(2)}:1</span>
@@ -47,6 +47,10 @@ export function StatsReadout() {
       {mode === 'nvis' && (
         <NvisStats />
       )}
+      <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+        <strong>Note:</strong> Termination reduces reflections along the antenna wire.
+        It does not guarantee a 50 Ω feedpoint impedance.
+      </div>
     </div>
   );
 }
@@ -73,7 +77,7 @@ function ComparisonStats({
         <span className="stat-value">{formatSigned(current.takeoffElevationDeg - reference.takeoffElevationDeg, 1)}°</span>
       </div>
       <div className="stat">
-        <span className="stat-label">SWR delta</span>
+        <span className="stat-label">SWR delta (raw 50 Ω)</span>
         <span className="stat-value">{formatSigned(current.swr - reference.swr, 2)}</span>
       </div>
       <div className="stat">
