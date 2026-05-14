@@ -96,6 +96,12 @@ export const GROUND_PRESETS: ReadonlyArray<GroundPreset> = [
 
 export const DEFAULT_GROUND_ID = 'pastoral';
 
+/**
+ * Recommended minimum height for antenna wire tips above ground (metres)
+ * to avoid unphysical results or NEC wire-touching-ground warnings.
+ */
+export const SLOPING_V_MIN_TIP_Z_M = 0.5;
+
 export function findGroundPreset(id: string): GroundPreset {
   const preset = GROUND_PRESETS.find((g) => g.id === id);
   if (!preset) {
