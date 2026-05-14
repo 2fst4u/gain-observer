@@ -7,6 +7,7 @@ import {
 } from '../../physics/units';
 import {
   type OrientationPreset,
+  type AntennaType,
 } from '../../store/antennaStore';
 import { SLOPING_V_MIN_TIP_Z_M } from '../../physics/constants';
 
@@ -64,17 +65,7 @@ export function DipoleControl() {
 
   const maxHeight = units === 'metric' ? 40 : 131;
 
-  // @ts-ignore
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const typeLabels: Record<import('../../physics/types').AntennaType, string> = {
-    'dipole': 'Dipole',
-    'inverted-v': 'Inverted V',
-    'delta-loop': 'Delta Loop',
-    'sloping-v': 'Sloping V',
-    'v-beam': 'V-beam',
-  };
-
-  const resonateLabels: Record<import('../../physics/types').AntennaType, string> = {
+  const resonateLabels: Record<AntennaType, string> = {
     'dipole': '½λ',
     'inverted-v': '½λ',
     'delta-loop': '1λ',
@@ -82,7 +73,7 @@ export function DipoleControl() {
     'v-beam': '1λ/leg',
   };
 
-  const resonateTitles: Record<import('../../physics/types').AntennaType, string> = {
+  const resonateTitles: Record<AntennaType, string> = {
     'dipole': 'Set length to resonant ½λ',
     'inverted-v': 'Set length to resonant ½λ',
     'delta-loop': 'Set perimeter to resonant 1λ',
@@ -99,7 +90,7 @@ export function DipoleControl() {
       <select
         id="antenna-type"
         value={antennaType}
-        onChange={(e) => setAntennaType(e.target.value as any)}
+        onChange={(e) => setAntennaType(e.target.value as AntennaType)}
         style={{ marginBottom: 12 }}
       >
         <option value="dipole">Horizontal Dipole</option>
