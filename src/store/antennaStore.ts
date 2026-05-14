@@ -32,12 +32,14 @@ import type { UnitSystem } from '../physics/units';
 
 export type OrientationPreset = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
 export type Orientation = OrientationPreset | number;
+export type AntennaType = 'dipole' | 'inverted-v' | 'sloping-v' | 'v-beam' | 'delta-loop';
 export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
 export interface ComparisonSnapshot {
   readonly frequency: number;
+  readonly antennaType: AntennaType;
   readonly length: number;
   readonly height: number;
   readonly orientation: Orientation;
@@ -58,6 +60,7 @@ export interface ComparisonSnapshot {
 export interface AntennaState {
   // Antenna geometry (metres, MHz)
   frequency: number;
+  antennaType: AntennaType;
   length: number;
   height: number;
   orientation: Orientation;
@@ -127,6 +130,7 @@ export interface AntennaState {
 
   // Actions — user-facing
   setFrequency(mhz: number): void;
+  setAntennaType(type: AntennaType): void;
   setLength(meters: number): void;
   setHalfWaveLength(): void;
   setHeight(meters: number): void;
@@ -177,6 +181,7 @@ export const useAntennaStore = create<AntennaState>()(
   subscribeWithSelector(
     immer((set) => ({
       frequency: INITIAL_FREQ,
+      antennaType: 'dipole',
       length: INITIAL_LENGTH,
       height: INITIAL_HEIGHT,
       orientation: 'EW',
@@ -220,6 +225,17 @@ export const useAntennaStore = create<AntennaState>()(
       comparisonReference: null,
 
       setFrequency: (mhz) => set((s) => { s.frequency = clampFreq(mhz); }),
+      setAntennaType: (type) => set((s) => {
+        s.antennaType = type;
+        // Restrict feedline model to dipoles: clear stale state when switching
+        // to any non-dipole type.
+        if (type !== 'dipole') {
+          s.feedlineId = 'none';
+          s.feedlineLength = 0;
+          s.feedlineOffset = 0;
+          s.balunEnabled = false;
+        }
+      }),
       setLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
         s.length = Math.max(0.1, meters);
@@ -461,7 +477,7 @@ function orientationVector(o: Orientation): [number, number] {
  */
 export function buildWires(
   state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): Wire[] {
   const half = state.length / 2;
   const h = state.height;
@@ -560,8 +576,11 @@ interface FeedlineLayout {
 
 function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): FeedlineLayout | null {
+  // Feedline modelling is restricted to dipoles only.
+  if (state.antennaType && state.antennaType !== 'dipole') return null;
+
   const id = state.feedlineId;
   if (!id || id === 'none') return null;
   const preset = findFeedlinePreset(id);
@@ -613,7 +632,8 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
   const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
   const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
-  const feedlineActive = hasBridge; // bridge is added iff feedline is configured
+  // Feedline is only active for dipoles.
+  const feedlineActive = hasBridge && state.antennaType === 'dipole';
 
   // Excitation:
   //   - Feedline active: the EX is at the *rig* end of the coax shield
@@ -687,6 +707,7 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
   if (!state.result || state.sweep.length === 0) return null;
   return {
     frequency: state.frequency,
+    antennaType: state.antennaType,
     length: state.length,
     height: state.height,
     orientation: state.orientation,
