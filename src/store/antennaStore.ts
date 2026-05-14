@@ -17,6 +17,7 @@ import type {
   Wire,
   TransmissionLine,
   SegmentLoad,
+  AntennaType,
 } from '../physics/types';
 import {
   DEFAULT_BALUN_IMPEDANCE_OHMS,
@@ -26,7 +27,7 @@ import {
   DEFAULT_WIRE_RADIUS_M,
   findFeedlinePreset,
   findGroundPreset,
-  halfWaveLength,
+  referenceLength,
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
 
@@ -195,7 +196,8 @@ export interface AntennaState {
 
 const INITIAL_FREQ = 7.1; // 40m band per user spec
 const INITIAL_HEIGHT = 10; // metres
-const INITIAL_LENGTH = halfWaveLength(INITIAL_FREQ); // resonant ½λ
+const INITIAL_TYPE: AntennaType = 'dipole';
+const INITIAL_LENGTH = referenceLength(INITIAL_TYPE, INITIAL_FREQ); // resonant reference length
 
 export const useAntennaStore = create<AntennaState>()(
   subscribeWithSelector(
@@ -278,7 +280,7 @@ export const useAntennaStore = create<AntennaState>()(
       setLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
         s.length = Math.max(0.1, meters);
-        // Re-clamp feedline offset to fit inside the new dipole.
+        // Re-clamp feedline offset to fit inside the new antenna.
         const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
