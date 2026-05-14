@@ -31,3 +31,6 @@
 ## 2024-05-25 - ARIA Roles for Loading and Error Overlays
 **Learning:** Global application states like "Loading WebAssembly" or solver errors use custom overlay divs (`.loading-overlay`, `.error-banner`). Without explicit ARIA roles and live regions, screen readers are unaware when the application transitions between these states. This leads to a confusing experience where the UI appears frozen to assistive technologies.
 **Action:** Always add `role="status"` and `aria-live="polite"` to loading overlays, and add `role="alert"` and `aria-live="assertive"` to error banners. Additionally, mark purely decorative animation elements like spinners with `aria-hidden="true"`.
+## 2026-05-13 - Loading Spinner Alignment
+**Learning:** Adding a spinner to a button with text requires adjusting the display properties to `flex` and aligning items to the center, along with a gap, to prevent the spinner from sitting awkwardly above or below the text.
+**Action:** When adding inline spinners to buttons, ensure the button has `display: 'flex', alignItems: 'center', gap: '6px'` to maintain visual balance and layout.
