@@ -256,6 +256,59 @@ describe('antennaStore selectors', () => {
       expect(shield.start).toEqual(right.start);
     });
 
+    it('generates sloping-V geometry correctly', () => {
+      const state = {
+        length: 20,
+        height: 10,
+        orientation: 'EW' as const,
+        wireRadius: 0.001,
+        segments: 21,
+        antennaType: 'sloping-v' as const,
+        slope: 30, // 30 degrees down
+        vAngle: 90, // 90 degrees opening
+        feedlineId: 'none',
+      };
+
+      const wires = buildWires(state);
+      expect(wires).toHaveLength(2); // Two legs joined at apex
+
+      const apex = wires[0].end;
+      expect(apex).toEqual([0, 0, 10]);
+
+      // tip_z = 10 - 10 * sin(30) = 10 - 10 * 0.5 = 5.
+      expect(wires[0].start[2]).toBeCloseTo(5, 5);
+      expect(wires[1].end[2]).toBeCloseTo(5, 5);
+
+      // check X/Y coordinates for 90 deg opening.
+      // orientation EW -> dx=1, dy=0. px=0, py=1.
+      // openingHalf = 45 deg.
+      // L.x = 10 * cos(30) * cos(45) = 10 * 0.866025 * 0.707107 = 6.123724
+      // L.y = 10 * cos(30) * sin(45) * side = 10 * 0.866025 * 0.707107 * side = 6.123724 * side
+      expect(Math.abs(wires[0].start[0])).toBeCloseTo(6.1237, 4);
+      expect(Math.abs(wires[0].start[1])).toBeCloseTo(6.1237, 4);
+    });
+
+    it('clamps sloping-V slope to prevent tips hitting ground', () => {
+      const state = {
+        length: 100, // half = 50
+        height: 10,
+        orientation: 'EW' as const,
+        wireRadius: 0.001,
+        segments: 21,
+        antennaType: 'sloping-v' as const,
+        slope: 45, // requested 45 deg
+        vAngle: 180,
+        feedlineId: 'none',
+      };
+
+      const wires = buildWires(state);
+      // maxSin = (10 - 0.5) / 50 = 9.5 / 50 = 0.19
+      // maxSlope = asin(0.19) ≈ 10.95 deg
+      // tip_z should be 0.5
+      expect(wires[0].start[2]).toBeCloseTo(0.5, 5);
+      expect(wires[1].end[2]).toBeCloseTo(0.5, 5);
+    });
+
     it('adds an LD choke balun on the shield when balun is enabled', () => {
       const state = useAntennaStore.getState();
       const testState = {

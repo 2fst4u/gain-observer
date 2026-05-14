@@ -24,6 +24,7 @@ import {
   DEFAULT_FEEDLINE_LENGTH_M,
   DEFAULT_GROUND_ID,
   DEFAULT_WIRE_RADIUS_M,
+  SLOPING_V_MIN_TIP_Z_M,
   findFeedlinePreset,
   findGroundPreset,
   halfWaveLength,
@@ -35,8 +36,12 @@ export type Orientation = OrientationPreset | number;
 export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
+export type AntennaType = 'dipole' | 'sloping-v';
 
 export interface ComparisonSnapshot {
+  readonly antennaType: AntennaType;
+  readonly slope: number;
+  readonly vAngle: number;
   readonly frequency: number;
   readonly length: number;
   readonly height: number;
@@ -57,6 +62,9 @@ export interface ComparisonSnapshot {
 
 export interface AntennaState {
   // Antenna geometry (metres, MHz)
+  antennaType: AntennaType;
+  slope: number;    // vertical angle (deg, 0 = horizontal)
+  vAngle: number;   // opening angle (deg, 180 = straight line)
   frequency: number;
   length: number;
   height: number;
@@ -162,6 +170,10 @@ export interface AntennaState {
   setUtcHourOverride(hour: number | null): void;
   setGeolocationStatus(s: AntennaState['geolocationStatus']): void;
 
+  setAntennaType(t: AntennaType): void;
+  setSlope(deg: number): void;
+  setVAngle(deg: number): void;
+
   // Actions — internal (used by hooks/workers only, prefixed with _)
   _setSimulationData(r: SimulationResult, sweep: readonly SweepPoint[]): void;
   _setError(msg: string | null): void;
@@ -176,6 +188,9 @@ const INITIAL_LENGTH = halfWaveLength(INITIAL_FREQ); // resonant ½λ
 export const useAntennaStore = create<AntennaState>()(
   subscribeWithSelector(
     immer((set) => ({
+      antennaType: 'dipole',
+      slope: 0,
+      vAngle: 180,
       frequency: INITIAL_FREQ,
       length: INITIAL_LENGTH,
       height: INITIAL_HEIGHT,
@@ -341,6 +356,22 @@ export const useAntennaStore = create<AntennaState>()(
       }),
       setGeolocationStatus: (st) => set((s) => { s.geolocationStatus = st; }),
 
+      setAntennaType: (t) => set((s) => {
+        s.antennaType = t;
+        if (t === 'dipole') {
+          s.slope = 0;
+          s.vAngle = 180;
+        }
+      }),
+      setSlope: (deg) => set((s) => {
+        if (!Number.isFinite(deg)) return;
+        s.slope = Math.max(0, Math.min(90, deg));
+      }),
+      setVAngle: (deg) => set((s) => {
+        if (!Number.isFinite(deg)) return;
+        s.vAngle = Math.max(0, Math.min(180, deg));
+      }),
+
       _setSimulationData: (r, sweep) => set((s) => {
         s.result = r;
         s.sweep = [...sweep];
@@ -461,56 +492,128 @@ function orientationVector(o: Orientation): [number, number] {
  */
 export function buildWires(
   state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'antennaType' | 'slope' | 'vAngle' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): Wire[] {
+  const antennaType = state.antennaType ?? 'dipole';
   const half = state.length / 2;
   const h = state.height;
   const [dx, dy] = orientationVector(state.orientation);
 
+  // Perpendicular vector for the V-opening (pointing in the XY plane).
+  // Orientation is (dx, dy). Perpendicular is (-dy, dx).
+  const [px, py] = [-dy, dx];
+
   // Helper that normalises -0 → +0 so endpoints compare cleanly.
   const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
-  // Geometric endpoints of the dipole.
-  const start: [number, number, number] = [cleanZero(-half * dx), cleanZero(-half * dy), h];
-  const end: [number, number, number] = [cleanZero(half * dx), cleanZero(half * dy), h];
+  // Sloping V logic:
+  // - slope: vertical angle down from horizontal (0..90).
+  // - vAngle: interior angle between legs (0..180).
+  const slopeDeg = antennaType === 'sloping-v' ? (state.slope ?? 0) : 0;
+  const vAngleDeg = antennaType === 'sloping-v' ? (state.vAngle ?? 180) : 180;
+
+  // Validity check / Clamping:
+  //   tip_z = h - (length/2) * sin(slope)
+  //   must be >= MIN_TIP_Z.
+  //   sin(maxSlope) = (h - MIN_TIP_Z) / (length/2)
+  const maxSin = half > 0 ? (h - SLOPING_V_MIN_TIP_Z_M) / half : 0;
+  const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
+  const requestedSlopeRad = (slopeDeg * Math.PI) / 180;
+  const effectiveSlopeRad = Math.min(requestedSlopeRad, maxSlopeRad);
+
+  const cosS = Math.cos(effectiveSlopeRad);
+  const sinS = Math.sin(effectiveSlopeRad);
+
+  // openingHalf is the angle of each leg relative to the orientation axis.
+  const openingHalfRad = ((180 - vAngleDeg) / 2 * Math.PI) / 180;
+  const cosV = Math.cos(openingHalfRad);
+  const sinV = Math.sin(openingHalfRad);
+
+  /**
+   * Map a position along a leg (axis ∈ [0, length/2]) to 3D space.
+   * side = -1 (left leg) or +1 (right leg).
+   */
+  function legPointAt(axis: number, side: number): [number, number, number] {
+    // 1. The leg vector in "dipole-local" coordinates (along orientation axis,
+    //    opening outward by openingHalf, and sloping down by effectiveSlope).
+    // In local frame (L):
+    //   L.x = axis * cos(effectiveSlope) * cos(openingHalf) * side
+    //   L.y = axis * cos(effectiveSlope) * sin(openingHalf)
+    //   L.z = -axis * sin(effectiveSlope)
+    const lx = axis * cosS * cosV * side;
+    const ly = axis * cosS * sinV;
+    const lz = -axis * sinS;
+
+    // 2. Rotate local XY into world XY using the orientation unit vector.
+    // worldX = orientationX * lx - orientationPerpX * ly
+    // worldY = orientationY * lx - orientationPerpY * ly
+    // (Note: side -1/1 is already in ly)
+    const wx = dx * lx + px * ly;
+    const wy = dy * lx + py * ly;
+    const wz = h + lz;
+
+    return [cleanZero(wx), cleanZero(wy), cleanZero(wz)];
+  }
 
   // Decide whether to build the split-dipole + shield topology.
   const layout = computeFeedlineLayout(state);
 
   if (!layout) {
-    // Plain single-wire dipole (no feedline).
+    // Single-wire V or dipole.
+    // NEC wants one wire for the whole thing if not split.
+    // But a V is two wires joined at the apex.
+    if (antennaType === 'sloping-v' || vAngleDeg < 180 || slopeDeg > 0) {
+      return [
+        {
+          start: legPointAt(half, -1),
+          end: legPointAt(0, 0), // Apex
+          radius: state.wireRadius,
+          segments: Math.max(1, Math.round(state.segments / 2)),
+          tag: DIPOLE_TAG,
+        },
+        {
+          start: legPointAt(0, 0),
+          end: legPointAt(half, 1),
+          radius: state.wireRadius,
+          segments: Math.max(1, Math.round(state.segments / 2)),
+          tag: DIPOLE_TAG,
+        },
+      ];
+    }
+    // Pure straight horizontal dipole (legacy path).
     return [{
-      start, end,
+      start: [cleanZero(-half * dx), cleanZero(-half * dy), h],
+      end: [cleanZero(half * dx), cleanZero(half * dy), h],
       radius: state.wireRadius,
       segments: state.segments,
       tag: DIPOLE_TAG,
     }];
   }
 
-  // Split-dipole layout. The bridge is centred at axisCentre + offset along
-  // the dipole axis. Bridge endpoints are the inner ends of each half.
+  // Split topology. The bridge is centred at axisCentre + offset along
+  // the dipole axis.
   const offset = layout.offset;
   const bridgeHalf = FEEDLINE_BRIDGE_LENGTH_M / 2;
-  // Position along the axis (signed distance from the dipole midpoint):
-  //   left half:  axis ∈ [-half, offset - bridgeHalf]
-  //   bridge:     axis ∈ [offset - bridgeHalf, offset + bridgeHalf]
-  //   right half: axis ∈ [offset + bridgeHalf, half]
-  const leftLen = offset - bridgeHalf - (-half);
-  const rightLen = half - (offset + bridgeHalf);
 
-  function pointAt(axis: number): [number, number, number] {
-    return [cleanZero(axis * dx), cleanZero(axis * dy), h];
-  }
+  // We assume the bridge itself is horizontal and aligned with the
+  // orientation axis, even if the legs slope away. This is a reasonable
+  // approximation for a real feedpoint.
+  const bridgeStart = legPointAt(offset - bridgeHalf, offset < 0 ? -1 : 1);
+  const bridgeEnd = legPointAt(offset + bridgeHalf, offset < 0 ? -1 : 1);
 
-  const leftStart = pointAt(-half);
-  const leftEnd = pointAt(offset - bridgeHalf);
-  const bridgeStart = leftEnd;
-  const bridgeEnd = pointAt(offset + bridgeHalf);
-  const rightStart = bridgeEnd;
-  const rightEnd = pointAt(half);
+  // Left leg: from tip to bridgeStart.
+  // Right leg: from bridgeEnd to tip.
+  const leftTip = legPointAt(half, -1);
+  const rightTip = legPointAt(half, 1);
 
-  // Allocate segments to each half proportionally to its length, keeping
-  // them odd and at least 3 so NEC has enough resolution near the feed.
+  // Segment counts for each half.
+  // Note: with sloping-V and offset, lengths can differ.
+  const dist = (p1: [number, number, number], p2: [number, number, number]) =>
+    Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2);
+
+  const leftLen = dist(leftTip, bridgeStart);
+  const rightLen = dist(rightTip, bridgeEnd);
+
   const totalSeg = state.segments;
   const segDensity = totalSeg / state.length;
   const leftSeg = Math.max(3, oddRound(leftLen * segDensity));
@@ -518,13 +621,13 @@ export function buildWires(
 
   const wires: Wire[] = [
     {
-      start: leftStart, end: leftEnd,
+      start: leftTip, end: bridgeStart,
       radius: state.wireRadius,
       segments: leftSeg,
       tag: DIPOLE_LEFT_TAG,
     },
     {
-      start: rightStart, end: rightEnd,
+      start: bridgeEnd, end: rightTip,
       radius: state.wireRadius,
       segments: rightSeg,
       tag: DIPOLE_RIGHT_TAG,
@@ -542,8 +645,8 @@ export function buildWires(
   // is the source of the unbalanced feed effect.
   if (layout.shield) {
     wires.push({
-      start: rightStart,
-      end: [rightStart[0], rightStart[1], layout.shield.bottomZ],
+      start: bridgeEnd,
+      end: [bridgeEnd[0], bridgeEnd[1], layout.shield.bottomZ],
       radius: layout.shield.radius,
       segments: FEEDLINE_SHIELD_SEGMENTS,
       tag: FEEDLINE_SHIELD_TAG,
@@ -686,6 +789,9 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | null {
   if (!state.result || state.sweep.length === 0) return null;
   return {
+    antennaType: state.antennaType,
+    slope: state.slope,
+    vAngle: state.vAngle,
     frequency: state.frequency,
     length: state.length,
     height: state.height,

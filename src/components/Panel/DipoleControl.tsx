@@ -8,12 +8,20 @@ import {
 import {
   type OrientationPreset,
 } from '../../store/antennaStore';
+import { SLOPING_V_MIN_TIP_Z_M } from '../../physics/constants';
 
 export function DipoleControl() {
   const units = useAntennaStore((s) => s.units);
+  const antennaType = useAntennaStore((s) => s.antennaType);
+  const slope = useAntennaStore((s) => s.slope);
+  const vAngle = useAntennaStore((s) => s.vAngle);
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
   const orientation = useAntennaStore((s) => s.orientation);
+
+  const setAntennaType = useAntennaStore((s) => s.setAntennaType);
+  const setSlope = useAntennaStore((s) => s.setSlope);
+  const setVAngle = useAntennaStore((s) => s.setVAngle);
   const setLength = useAntennaStore((s) => s.setLength);
   const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
   const setHeight = useAntennaStore((s) => s.setHeight);
@@ -59,9 +67,27 @@ export function DipoleControl() {
   return (
     <div className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2>Dipole</h2>
+      <h2>Antenna</h2>
 
-      <label htmlFor="dipole-length">Length ({unit})</label>
+      <label htmlFor="antenna-type">Type</label>
+      <div className="button-group" role="group" aria-label="Antenna type">
+        <button
+          className={antennaType === 'dipole' ? 'active' : ''}
+          onClick={() => setAntennaType('dipole')}
+          aria-pressed={antennaType === 'dipole'}
+        >
+          Dipole
+        </button>
+        <button
+          className={antennaType === 'sloping-v' ? 'active' : ''}
+          onClick={() => setAntennaType('sloping-v')}
+          aria-pressed={antennaType === 'sloping-v'}
+        >
+          Sloping V
+        </button>
+      </div>
+
+      <label htmlFor="dipole-length" style={{ marginTop: 10 }}>Length ({unit})</label>
       <div className="row">
         <input
           id="dipole-length"
@@ -106,6 +132,40 @@ export function DipoleControl() {
         }}
       />
 
+      {antennaType === 'sloping-v' && (
+        <>
+          <label htmlFor="sloping-v-slope" style={{ marginTop: 10 }}>Slope angle (°) — {slope}°</label>
+          <input
+            id="sloping-v-slope"
+            type="range"
+            min={0}
+            max={90}
+            step={1}
+            value={slope}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              if (!isNaN(val)) setSlope(val);
+            }}
+          />
+
+          <label htmlFor="sloping-v-angle" style={{ marginTop: 10 }}>V opening angle (°) — {vAngle}°</label>
+          <input
+            id="sloping-v-angle"
+            type="range"
+            min={0}
+            max={180}
+            step={1}
+            value={vAngle}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              if (!isNaN(val)) setVAngle(val);
+            }}
+          />
+        </>
+      )}
+
+      <GeometryStatus />
+
       <label htmlFor="dipole-orientation" style={{ marginTop: 10 }}>Orientation (°)</label>
       <div className="row">
         <input
@@ -143,6 +203,62 @@ export function DipoleControl() {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function GeometryStatus() {
+  const antennaType = useAntennaStore((s) => s.antennaType);
+  const length = useAntennaStore((s) => s.length);
+  const height = useAntennaStore((s) => s.height);
+  const requestedSlope = useAntennaStore((s) => s.slope);
+  const units = useAntennaStore((s) => s.units);
+
+  if (antennaType !== 'sloping-v') return null;
+
+  const half = length / 2;
+  // Compute max allowable slope: h - half * sin(slope) >= MIN_TIP_Z
+  // sin(maxSlope) = (h - MIN_TIP_Z) / half
+  const maxSin = half > 0 ? (height - SLOPING_V_MIN_TIP_Z_M) / half : 0;
+  const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
+  const maxSlopeDeg = (maxSlopeRad * 180) / Math.PI;
+
+  const effectiveSlopeDeg = Math.min(requestedSlope, maxSlopeDeg);
+  const effectiveSlopeRad = (effectiveSlopeDeg * Math.PI) / 180;
+  const tipZ = height - half * Math.sin(effectiveSlopeRad);
+
+  const isClamped = requestedSlope > maxSlopeDeg + 0.1;
+  const unit = displayLengthUnit(units);
+
+  return (
+    <div style={{
+      marginTop: 12,
+      padding: '8px 10px',
+      fontSize: 12,
+      borderRadius: 4,
+      background: isClamped ? 'rgba(255, 107, 107, 0.1)' : 'var(--bg-accent)',
+      border: `1px solid ${isClamped ? '#ff6b6b' : 'var(--border)'}`,
+    }}>
+      <div style={{ fontWeight: 600, marginBottom: 4, color: isClamped ? '#ff6b6b' : 'inherit' }}>
+        {isClamped ? '⚠️ Geometry Clamped' : 'Geometry Status'}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
+        <span style={{ color: 'var(--text-muted)' }}>Max slope:</span>
+        <span>{maxSlopeDeg.toFixed(1)}°</span>
+
+        <span style={{ color: 'var(--text-muted)' }}>Effective slope:</span>
+        <span style={{ color: isClamped ? '#ff6b6b' : 'inherit', fontWeight: isClamped ? 600 : 400 }}>
+          {effectiveSlopeDeg.toFixed(1)}°
+        </span>
+
+        <span style={{ color: 'var(--text-muted)' }}>Tip height:</span>
+        <span>{toDisplayLength(tipZ, units).toFixed(2)} {unit}</span>
+      </div>
+      {isClamped && (
+        <div style={{ marginTop: 6, fontSize: 11, fontStyle: 'italic', lineHeight: 1.3 }}>
+          Slope reduced to keep tips at least {toDisplayLength(SLOPING_V_MIN_TIP_Z_M, units).toFixed(2)} {unit} above ground.
+        </div>
+      )}
     </div>
   );
 }
