@@ -279,6 +279,21 @@ describe('antennaStore selectors', () => {
       expect(ld.param2).toBe(0);
     });
 
+    it('does NOT include feedline logic for non-dipoles even if state is somehow set', () => {
+      const state = useAntennaStore.getState();
+      const input = selectSimulationInput({
+        ...state,
+        antennaType: 'sloping-v',
+        feedlineId: 'rg58',
+        feedlineLength: 10,
+      });
+
+      // Even if feedline state is present, selectSimulationInput should
+      // ignore it for non-dipoles.
+      expect(input.wires.some(w => w.tag === 4)).toBe(false);
+      expect(input.transmissionLines).toBeUndefined();
+    });
+
     it('clamps shield bottom above ground when feedline length exceeds height', () => {
       const state = useAntennaStore.getState();
       const testState = {
@@ -420,6 +435,28 @@ describe('antennaStore actions', () => {
   });
 
   describe('feedline', () => {
+    it('clears feedline state when switching from dipole to non-dipole', () => {
+      const store = useAntennaStore.getState();
+      store.setAntennaType('dipole');
+      store.setFeedline('rg58');
+      store.setFeedlineLength(15);
+      store.setFeedlineOffset(2);
+      store.setBalunEnabled(true);
+
+      expect(useAntennaStore.getState().feedlineId).toBe('rg58');
+
+      // Act
+      store.setAntennaType('sloping-v');
+
+      // Assert
+      const s = useAntennaStore.getState();
+      expect(s.antennaType).toBe('sloping-v');
+      expect(s.feedlineId).toBe('none');
+      expect(s.feedlineLength).toBe(0);
+      expect(s.feedlineOffset).toBe(0);
+      expect(s.balunEnabled).toBe(false);
+    });
+
     it('updates feedline preset id', () => {
       const store = useAntennaStore.getState();
       store.setFeedline('rg213');
