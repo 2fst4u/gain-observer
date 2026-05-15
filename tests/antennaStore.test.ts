@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { useAntennaStore, buildWires, selectSimulationInput, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG, type AntennaState } from '../src/store/antennaStore';
+import {
+  useAntennaStore,
+  buildWires,
+  selectSimulationInput,
+  computeEffectiveSlope,
+  DIPOLE_LEFT_TAG,
+  DIPOLE_RIGHT_TAG,
+  type AntennaState,
+} from '../src/store/antennaStore';
 
 describe('antennaStore selectors', () => {
   describe('buildWires', () => {
@@ -299,20 +307,31 @@ describe('antennaStore selectors', () => {
       const wires = buildWires(state);
       expect(wires).toHaveLength(2); // Two legs joined at apex
 
-      const apex = wires[0].end;
-      expect(apex).toEqual([0, 0, 10]);
+      // Left leg: Tip to Apex
+      const left = wires.find((w) => w.tag === 1)!;
+      // Right leg: Apex to Tip
+      const right = wires.find((w) => w.tag === 2)!;
+
+      expect(left.end).toEqual([0, 0, 10]);
+      expect(right.start).toEqual([0, 0, 10]);
 
       // tip_z = 10 - 10 * sin(30) = 10 - 10 * 0.5 = 5.
-      expect(wires[0].start[2]).toBeCloseTo(5, 5);
-      expect(wires[1].end[2]).toBeCloseTo(5, 5);
+      expect(left.start[2]).toBeCloseTo(5, 5);
+      expect(right.end[2]).toBeCloseTo(5, 5);
 
-      // check X/Y coordinates for 90 deg opening.
-      // orientation EW -> dx=1, dy=0. px=0, py=1.
-      // openingHalf = 45 deg.
-      // L.x = 10 * cos(30) * cos(45) = 10 * 0.866025 * 0.707107 = 6.123724
-      // L.y = 10 * cos(30) * sin(45) * side = 10 * 0.866025 * 0.707107 * side = 6.123724 * side
-      expect(Math.abs(wires[0].start[0])).toBeCloseTo(6.1237, 4);
-      expect(Math.abs(wires[0].start[1])).toBeCloseTo(6.1237, 4);
+      // check X/Y coordinates for 90 deg opening (vAngle=90).
+      // orientation EW -> dx=1, dy=0.
+      // px = -dy = 0, py = dx = 1.
+      // halfV = 45 deg.
+      // horizontalDist = 10 * cos(30) = 8.66025
+      // la = 8.66025 * cos(45) = 6.1237
+      // lp = 8.66025 * sin(45) * side = 6.1237 * side
+      // wx = dx * la + px * lp = 1 * 6.1237 + 0 = 6.1237
+      // wy = dy * la + py * lp = 0 + 1 * 6.1237 * side = 6.1237 * side
+      expect(left.start[0]).toBeCloseTo(6.1237, 4);
+      expect(left.start[1]).toBeCloseTo(-6.1237, 4);
+      expect(right.end[0]).toBeCloseTo(6.1237, 4);
+      expect(right.end[1]).toBeCloseTo(6.1237, 4);
     });
 
     it('clamps sloping-V slope to prevent tips hitting ground', () => {
@@ -333,8 +352,8 @@ describe('antennaStore selectors', () => {
       // maxSin = (10 - 0.5) / 50 = 9.5 / 50 = 0.19
       // maxSlope = asin(0.19) ≈ 10.95 deg
       // tip_z should be 0.5
-      expect(wires[0].start[2]).toBeCloseTo(0.5, 5);
-      expect(wires[1].end[2]).toBeCloseTo(0.5, 5);
+      expect(wires.find((w) => w.tag === 1)!.start[2]).toBeCloseTo(0.5, 5);
+      expect(wires.find((w) => w.tag === 2)!.end[2]).toBeCloseTo(0.5, 5);
     });
 
     it('adds an LD choke balun on the shield when balun is enabled', () => {
@@ -662,6 +681,62 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().geolocationStatus).toBe('requesting');
       store.setGeolocationStatus('denied');
       expect(useAntennaStore.getState().geolocationStatus).toBe('denied');
+    });
+  });
+
+  describe('Sloping V Geometry', () => {
+    it('performs the hand-check at 7.1 MHz, height 10m, slope 45 deg', () => {
+      // λ = 299.792458 / 7.1 = 42.2243m.
+      // Sloping V ref length = λ * 2 * 0.95 = 80.2262m.
+      const length = 80.22615;
+      const state = {
+        antennaType: 'sloping-v' as const,
+        length,
+        height: 10,
+        legSlope: 45,
+      };
+
+      const result = computeEffectiveSlope(state);
+
+      // maxSin = (10 - 0.5) / (80.226 / 2) = 9.5 / 40.113 ≈ 0.23683
+      // maxSlope = asin(0.23683) ≈ 13.701 deg
+      expect(result.clamped).toBe(true);
+      expect(result.effectiveDeg).toBeCloseTo(13.701, 2);
+      expect(result.tipHeightM).toBeCloseTo(0.5, 5);
+    });
+
+    it('reports clamped=false when slope is shallow', () => {
+      const state = {
+        antennaType: 'sloping-v' as const,
+        length: 20,
+        height: 10,
+        legSlope: 10,
+      };
+      const result = computeEffectiveSlope(state);
+      expect(result.clamped).toBe(false);
+      expect(result.effectiveDeg).toBe(10);
+    });
+
+    it('sets excitation at the apex of the left leg for sloping-v', () => {
+      const state = {
+        ...useAntennaStore.getState(),
+        antennaType: 'sloping-v' as const,
+        length: 80,
+        height: 10,
+        legSlope: 15,
+        vAngle: 90,
+      };
+      const input = selectSimulationInput(state as AntennaState);
+      expect(input.wires).toHaveLength(2);
+      const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+      const rightLeg = input.wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+
+      // Left leg should end at apex, right leg should start at apex.
+      expect(leftLeg.end).toEqual([0, 0, 10]);
+      expect(rightLeg.start).toEqual([0, 0, 10]);
+
+      expect(input.excitation.wireTag).toBe(DIPOLE_LEFT_TAG);
+      expect(input.excitation.segment).toBe(leftLeg.segments);
     });
   });
 
