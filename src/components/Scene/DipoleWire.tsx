@@ -60,7 +60,7 @@ export function DipoleWire({
 
   const rendered = useMemo(() => {
     const wires = buildWires({
-      type,
+      antennaType: type,
       length,
       height,
       orientation,

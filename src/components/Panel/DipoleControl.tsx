@@ -13,14 +13,19 @@ import { SLOPING_V_MIN_TIP_Z_M } from '../../physics/constants';
 export function DipoleControl() {
   const units = useAntennaStore((s) => s.units);
   const antennaType = useAntennaStore((s) => s.antennaType);
+  const type = antennaType;
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
+  const slope = useAntennaStore((s) => s.slope);
+  const vAngle = useAntennaStore((s) => s.vAngle);
   const orientation = useAntennaStore((s) => s.orientation);
   const setAntennaType = useAntennaStore((s) => s.setAntennaType);
   const setLength = useAntennaStore((s) => s.setLength);
   const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
   const setHeight = useAntennaStore((s) => s.setHeight);
   const setOrientation = useAntennaStore((s) => s.setOrientation);
+  const setSlope = useAntennaStore((s) => s.setSlope);
+  const setVAngle = useAntennaStore((s) => s.setVAngle);
 
   const unit = displayLengthUnit(units);
   const dispLen = toDisplayLength(length, units);

@@ -79,6 +79,7 @@ export interface AntennaState {
    * degrees (10..180). For Inverted V: the interior angle at the apex.
    */
   vAngle: number;
+  slope: number;
 
   /**
    * For sloping V: the downward slope angle of each leg relative to
@@ -188,9 +189,7 @@ export interface AntennaState {
   setUtcHourOverride(hour: number | null): void;
   setGeolocationStatus(s: AntennaState['geolocationStatus']): void;
 
-  setAntennaType(t: AntennaType): void;
   setSlope(deg: number): void;
-  setVAngle(deg: number): void;
 
   // Actions — internal (used by hooks/workers only, prefixed with _)
   _setSimulationData(r: SimulationResult, sweep: readonly SweepPoint[]): void;
@@ -216,6 +215,7 @@ export const useAntennaStore = create<AntennaState>()(
       wireRadius: DEFAULT_WIRE_RADIUS_M,
       segments: 21,
       vAngle: 90,
+      slope: 30,
       legSlope: 30,
 
       groundId: DEFAULT_GROUND_ID,
@@ -273,6 +273,10 @@ export const useAntennaStore = create<AntennaState>()(
       setFrequency: (mhz) => set((s) => { s.frequency = clampFreq(mhz); }),
       setAntennaType: (type) => set((s) => {
         s.antennaType = type;
+        if (type === 'dipole') {
+          s.slope = 0;
+          s.vAngle = 180;
+        }
         // Restrict feedline model to dipoles: clear stale state when switching
         // to any non-dipole type.
         if (type !== 'dipole') {
@@ -411,20 +415,9 @@ export const useAntennaStore = create<AntennaState>()(
       }),
       setGeolocationStatus: (st) => set((s) => { s.geolocationStatus = st; }),
 
-      setAntennaType: (t) => set((s) => {
-        s.antennaType = t;
-        if (t === 'dipole') {
-          s.slope = 0;
-          s.vAngle = 180;
-        }
-      }),
       setSlope: (deg) => set((s) => {
         if (!Number.isFinite(deg)) return;
         s.slope = Math.max(0, Math.min(90, deg));
-      }),
-      setVAngle: (deg) => set((s) => {
-        if (!Number.isFinite(deg)) return;
-        s.vAngle = Math.max(0, Math.min(180, deg));
       }),
 
       _setSimulationData: (r, sweep) => set((s) => {
@@ -570,7 +563,7 @@ function orientationVector(o: Orientation): [number, number] {
  */
 export function buildWires(
   state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'slope' | 'vAngle'>>,
 ): Wire[] {
   const antennaType = state.antennaType ?? 'dipole';
   const half = state.length / 2;
