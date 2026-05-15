@@ -13,19 +13,20 @@ import { SLOPING_V_MIN_TIP_Z_M } from '../../physics/constants';
 
 export function DipoleControl() {
   const units = useAntennaStore((s) => s.units);
-  const antennaType = useAntennaStore((s) => s.antennaType);
-  const legSlope = useAntennaStore((s) => s.legSlope);
-  const vAngle = useAntennaStore((s) => s.vAngle);
+  const type = useAntennaStore((s) => s.antennaType);
+  const antennaType = type;
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
   const orientation = useAntennaStore((s) => s.orientation);
+  const slope = useAntennaStore((s) => s.slope);
+  const vAngle = useAntennaStore((s) => s.vAngle);
   const setAntennaType = useAntennaStore((s) => s.setAntennaType);
-  const setLegSlope = useAntennaStore((s) => s.setLegSlope);
-  const setVAngle = useAntennaStore((s) => s.setVAngle);
   const setLength = useAntennaStore((s) => s.setLength);
   const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
   const setHeight = useAntennaStore((s) => s.setHeight);
   const setOrientation = useAntennaStore((s) => s.setOrientation);
+  const setSlope = useAntennaStore((s) => s.setSlope);
+  const setVAngle = useAntennaStore((s) => s.setVAngle);
 
   const unit = displayLengthUnit(units);
   const dispLen = toDisplayLength(length, units);
@@ -64,7 +65,7 @@ export function DipoleControl() {
 
   const maxHeight = units === 'metric' ? 40 : 131;
 
-  const resonateLabels: Record<AntennaType, string> = {
+  const resonateLabels: Record<import('../../physics/types').AntennaType, string> = {
     'dipole': '½λ',
     'inverted-v': '½λ',
     'delta-loop': '1λ',
@@ -72,7 +73,7 @@ export function DipoleControl() {
     'v-beam': '1λ/leg',
   };
 
-  const resonateTitles: Record<AntennaType, string> = {
+  const resonateTitles: Record<import('../../physics/types').AntennaType, string> = {
     'dipole': 'Set length to resonant ½λ',
     'inverted-v': 'Set length to resonant ½λ',
     'delta-loop': 'Set perimeter to resonant 1λ',
@@ -99,6 +100,24 @@ export function DipoleControl() {
         <option value="delta-loop">Delta Loop</option>
       </select>
 
+      <label htmlFor="antenna-type">Type</label>
+      <div className="button-group" role="group" aria-label="Antenna type">
+        <button
+          className={antennaType === 'dipole' ? 'active' : ''}
+          onClick={() => setAntennaType('dipole')}
+          aria-pressed={antennaType === 'dipole'}
+        >
+          Dipole
+        </button>
+        <button
+          className={antennaType === 'sloping-v' ? 'active' : ''}
+          onClick={() => setAntennaType('sloping-v')}
+          aria-pressed={antennaType === 'sloping-v'}
+        >
+          Sloping V
+        </button>
+      </div>
+
       <label htmlFor="dipole-length" style={{ marginTop: 10 }}>Length ({unit})</label>
       <div className="row">
         <input
@@ -123,10 +142,10 @@ export function DipoleControl() {
         />
         <button
           onClick={setHalfWaveLength}
-          title={resonateTitles[antennaType]}
-          aria-label={`${resonateLabels[antennaType]} (Resonate antenna length)`}
+          title={resonateTitles[type]}
+          aria-label={`${resonateLabels[type]} (Resonate antenna length)`}
         >
-          {resonateLabels[antennaType]}
+          {resonateLabels[type]}
         </button>
       </div>
 
@@ -144,19 +163,19 @@ export function DipoleControl() {
         }}
       />
 
-      {(antennaType === 'sloping-v' || antennaType === 'inverted-v') && (
+      {antennaType === 'sloping-v' && (
         <>
-          <label htmlFor="sloping-v-slope" style={{ marginTop: 10 }}>Slope angle (°) — {legSlope}°</label>
+          <label htmlFor="sloping-v-slope" style={{ marginTop: 10 }}>Slope angle (°) — {slope}°</label>
           <input
             id="sloping-v-slope"
             type="range"
             min={0}
             max={90}
             step={1}
-            value={legSlope}
+            value={slope}
             onChange={(e) => {
               const val = parseFloat(e.target.value);
-              if (!isNaN(val)) setLegSlope(val);
+              if (!isNaN(val)) setSlope(val);
             }}
           />
 
@@ -164,7 +183,7 @@ export function DipoleControl() {
           <input
             id="sloping-v-angle"
             type="range"
-            min={10}
+            min={0}
             max={180}
             step={1}
             value={vAngle}
@@ -223,10 +242,10 @@ function GeometryStatus() {
   const antennaType = useAntennaStore((s) => s.antennaType);
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
-  const requestedSlope = useAntennaStore((s) => s.legSlope);
+  const requestedSlope = useAntennaStore((s) => s.slope);
   const units = useAntennaStore((s) => s.units);
 
-  if (antennaType !== 'sloping-v' && antennaType !== 'inverted-v') return null;
+  if (antennaType !== 'sloping-v') return null;
 
   const half = length / 2;
   // Compute max allowable slope: h - half * sin(slope) >= MIN_TIP_Z
