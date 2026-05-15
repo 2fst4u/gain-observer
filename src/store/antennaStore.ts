@@ -29,17 +29,16 @@ import {
   findFeedlinePreset,
   findGroundPreset,
   referenceLength,
+  halfWaveLength,
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
 
-export type AntennaType = 'dipole' | 'inverted-v' | 'sloping-v' | 'delta-loop' | 'v-beam';
+export type { AntennaType };
 export type OrientationPreset = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
 export type Orientation = OrientationPreset | number;
-export type AntennaType = 'dipole' | 'inverted-v' | 'sloping-v' | 'v-beam' | 'delta-loop';
 export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
-export type AntennaType = 'dipole' | 'sloping-v';
 
 export interface ComparisonSnapshot {
   readonly type: AntennaType;
