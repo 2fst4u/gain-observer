@@ -35,18 +35,21 @@ export function halfWaveLength(frequencyMHz: number, endEffect = 0.95): number {
 /**
  * Topology-aware reference length (metres).
  *
- *   - dipole / inverted-v: 0.5λ total.
+ *   - dipole: 0.475λ total (0.5λ × 0.95 end-effect).
+ *   - inverted-v: 0.485λ total (0.5λ × 0.97 end-effect) per spec.
  *   - delta-loop: 1λ perimeter.
  *   - sloping-v / v-beam: 2λ total (1λ per leg).
  *
- * Applies the standard HF end-effect factor k ~ 0.95.
+ * Applies the standard HF end-effect factor k ~ 0.95 where noted.
  */
 export function referenceLength(type: AntennaType, frequencyMHz: number, endEffect = 0.95): number {
   const lambda = wavelengthMeters(frequencyMHz);
   switch (type) {
     case 'dipole':
-    case 'inverted-v':
       return lambda * 0.5 * endEffect;
+    case 'inverted-v':
+      // Slightly higher end-effect than a dipole due to the V geometry.
+      return lambda * 0.5 * 0.97;
     case 'delta-loop':
       return lambda * 1.0 * endEffect;
     case 'sloping-v':
