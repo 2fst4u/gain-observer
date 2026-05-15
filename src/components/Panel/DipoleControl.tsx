@@ -84,7 +84,7 @@ export function DipoleControl() {
       <select
         id="antenna-type"
         value={antennaType}
-        onChange={(e) => setAntennaType(e.target.value as any)}
+        onChange={(e) => setAntennaType(e.target.value as import('../../physics/types').AntennaType)}
         style={{ marginBottom: 12 }}
       >
         <option value="dipole">Horizontal Dipole</option>
