@@ -19,7 +19,7 @@ interface AntennaSceneProps {
 }
 
 export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
-  const liveType = useAntennaStore((s) => s.type);
+  const liveType = useAntennaStore((s) => s.antennaType);
   const liveLength = useAntennaStore((s) => s.length);
   const liveHeight = useAntennaStore((s) => s.height);
   const liveOrientation = useAntennaStore((s) => s.orientation);
@@ -39,7 +39,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const mode = useAntennaStore((s) => s.mode);
   const theme = useAntennaStore((s) => s.theme);
 
-  const type = snapshot?.type ?? liveType;
+  const type = snapshot?.antennaType ?? liveType;
   const length = snapshot?.length ?? liveLength;
   const height = snapshot?.height ?? liveHeight;
   const orientation = snapshot?.orientation ?? liveOrientation;

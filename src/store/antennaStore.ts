@@ -17,6 +17,7 @@ import type {
   Wire,
   TransmissionLine,
   SegmentLoad,
+  AntennaType,
 } from '../physics/types';
 import {
   DEFAULT_BALUN_IMPEDANCE_OHMS,
@@ -29,28 +30,19 @@ import {
   findGroundPreset,
   referenceLength,
   halfWaveLength,
-  wavelengthMeters,
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
+import { buildInvertedVWires, orientationVector, type OrientationPreset, type Orientation } from './antennaGeometry';
 
-/**
- * Antenna topology type.
- *
- * Different topologies have different reference lengths for resonance:
- *   - dipole / inverted-v: ½λ total (standard resonant length).
- *   - delta-loop: 1λ perimeter.
- *   - sloping-v / v-beam: 2λ total (1λ per leg).
- */
-export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'v-beam';
+// Re-export shared types for UI and geometry.
+export type { AntennaType };
+export type { OrientationPreset, Orientation };
 
-export type OrientationPreset = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
-export type Orientation = OrientationPreset | number;
 export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
 export interface ComparisonSnapshot {
-  readonly type: AntennaType;
   readonly frequency: number;
   readonly antennaType: AntennaType;
   readonly length: number;
@@ -74,9 +66,7 @@ export interface ComparisonSnapshot {
 
 export interface AntennaState {
   // Antenna geometry (metres, MHz)
-  /** Primary antenna type. 'type' is kept for backward compatibility. */
   antennaType: AntennaType;
-  type: AntennaType;
   frequency: number;
   length: number;
   height: number;
@@ -95,8 +85,6 @@ export interface AntennaState {
    * the horizontal, degrees (0..90).
    */
   legSlope: number;
-  /** Legacy alias for legSlope. */
-  slope: number;
 
   // Environment
   groundId: string;
@@ -104,17 +92,7 @@ export interface AntennaState {
   groundEpsilon: number;
 
   // Feedline (coax / parallel-line modelled as physical radiating shield
-  // wire + NEC TL card for the differential signal). When feedlineId is
-  // 'none' the legacy direct-feed behaviour is used.
-  //
-  // feedlineOffset is the displacement of the shield's attachment point
-  // from the geometric centre of the dipole, in metres along the dipole
-  // axis (positive = toward the +X / "east" end). With offset = 0 the
-  // model is symmetric and common-mode current is near zero (correct
-  // physics for a perfectly balanced feed); any nonzero offset breaks the
-  // symmetry and produces real common-mode shield radiation. Real coax
-  // attachment is never perfectly centred, so this slider is the primary
-  // knob for adjusting the unbalanced feed effect.
+  // wire + NEC TL card for the differential signal).
   feedlineId: string;
   feedlineLength: number;
   feedlineOffset: number;
@@ -132,18 +110,7 @@ export interface AntennaState {
   showAxes: boolean;
   showPolarCuts: boolean;
 
-  // Propagation (HF sky-wave estimator inputs).
-  //
-  // tIndex is the Australian IPS / BOM ionospheric T-index (dimensionless,
-  // typically -50..+200). It is entered manually — the app does not
-  // currently fetch it from any service.
-  //
-  // latitudeDeg is the path-midpoint latitude. Defaults to null (we treat
-  // null as 0° for predictions but the UI shows it as "not set"). The
-  // browser geolocation API may populate it on user request.
-  //
-  // monthOverride / utcHourOverride let the user explore conditions at a
-  // different time. When null, the UI auto-fills from the browser clock.
+  // Propagation
   tIndex: number;
   latitudeDeg: number | null;
   longitudeDeg: number | null;
@@ -160,9 +127,7 @@ export interface AntennaState {
   comparisonReference: ComparisonSnapshot | null;
 
   // Actions — user-facing
-  setAntennaType(t: AntennaType): void;
-  /** Legacy alias for setAntennaType. */
-  setType(t: AntennaType): void;
+  setAntennaType(type: AntennaType): void;
   setFrequency(mhz: number): void;
   setLength(meters: number): void;
   setHalfWaveLength(): void;
@@ -170,8 +135,6 @@ export interface AntennaState {
   setOrientation(o: Orientation): void;
   setVAngle(deg: number): void;
   setLegSlope(deg: number): void;
-  /** Legacy alias for setLegSlope. */
-  setSlope(deg: number): void;
   setWireRadius(meters: number): void;
   setSegments(n: number): void;
   setGround(id: string): void;
@@ -219,16 +182,14 @@ export const useAntennaStore = create<AntennaState>()(
   subscribeWithSelector(
     immer((set) => ({
       antennaType: INITIAL_TYPE,
-      type: INITIAL_TYPE,
       frequency: INITIAL_FREQ,
       length: INITIAL_LENGTH,
       height: INITIAL_HEIGHT,
       orientation: 'EW',
       wireRadius: DEFAULT_WIRE_RADIUS_M,
       segments: 21,
-      vAngle: 90,
-      legSlope: 30,
-      slope: 30,
+      vAngle: 180,
+      legSlope: 0,
 
       groundId: DEFAULT_GROUND_ID,
       groundSigma: findGroundPreset(DEFAULT_GROUND_ID).sigma,
@@ -250,8 +211,6 @@ export const useAntennaStore = create<AntennaState>()(
       showAxes: true,
       showPolarCuts: true,
 
-      // Propagation defaults: T=30 (~quiet sun, plausible long-term median),
-      // no location until user requests it, no time override.
       tIndex: 30,
       latitudeDeg: null,
       longitudeDeg: null,
@@ -266,43 +225,35 @@ export const useAntennaStore = create<AntennaState>()(
       engineReady: false,
       comparisonReference: null,
 
-      setAntennaType: (t) => set((s) => {
-        s.antennaType = t;
-        s.type = t;
-        // When switching to a non-dipole type, clear feedline state.
-        if (t !== 'dipole') {
+      setAntennaType: (type) => set((s) => {
+        s.antennaType = type;
+        if (type !== 'dipole') {
           s.feedlineId = 'none';
           s.feedlineLength = 0;
           s.feedlineOffset = 0;
           s.balunEnabled = false;
         }
-        // Auto-resize length per topology.
-        s.length = calculateDefaultLength(t, s.frequency);
+        s.length = calculateDefaultLength(type, s.frequency);
 
-        // Reset angles for specific types.
-        if (t === 'dipole') {
-          s.legSlope = 0;
-          s.slope = 0;
+        if (type === 'dipole') {
           s.vAngle = 180;
-        } else if (t === 'inverted-v') {
+          s.legSlope = 0;
+        } else if (type === 'sloping-v') {
+          s.vAngle = 90;
+          s.legSlope = 30;
+        } else if (type === 'inverted-v') {
           s.vAngle = 120;
-          s.legSlope = 30; // (180 - 120) / 2
-          s.slope = 30;
+          s.legSlope = 30;
         }
 
-        // Re-clamp feedline offset (relevant if t is dipole).
         const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
-      setType: (t) => {
-        useAntennaStore.getState().setAntennaType(t);
-      },
       setFrequency: (mhz) => set((s) => { s.frequency = clampFreq(mhz); }),
       setLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
         s.length = Math.max(0.1, meters);
-        // Re-clamp feedline offset to fit inside the new antenna.
         const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
@@ -320,7 +271,6 @@ export const useAntennaStore = create<AntennaState>()(
       setOrientation: (o) => set((s) => {
         if (typeof o === 'number') {
           if (!Number.isFinite(o)) return;
-          // Normalize to [0, 360)
           let normalized = o % 360;
           if (normalized < 0) normalized += 360;
           s.orientation = normalized;
@@ -330,28 +280,12 @@ export const useAntennaStore = create<AntennaState>()(
       }),
       setVAngle: (deg) => set((s) => {
         if (!Number.isFinite(deg)) return;
-        const v = Math.max(10, Math.min(180, deg));
-        s.vAngle = v;
-        // Sync legSlope for Inverted V
-        if (s.antennaType === 'inverted-v') {
-          const syncSlope = (180 - v) / 2;
-          s.legSlope = syncSlope;
-          s.slope = syncSlope;
-        }
+        s.vAngle = Math.max(10, Math.min(180, deg));
       }),
       setLegSlope: (deg) => set((s) => {
         if (!Number.isFinite(deg)) return;
-        const v = Math.max(0, Math.min(90, deg));
-        s.legSlope = v;
-        s.slope = v;
-        // Sync vAngle for Inverted V
-        if (s.antennaType === 'inverted-v') {
-          s.vAngle = 180 - 2 * v;
-        }
+        s.legSlope = Math.max(0, Math.min(90, deg));
       }),
-      setSlope: (deg) => {
-        useAntennaStore.getState().setLegSlope(deg);
-      },
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
         s.wireRadius = Math.max(0.0001, r);
@@ -372,20 +306,15 @@ export const useAntennaStore = create<AntennaState>()(
         s.groundEpsilon = Math.max(1, epsilon);
       }),
       setFeedline: (id) => set((s) => {
-        // Validate; throws on unknown id.
         findFeedlinePreset(id);
         s.feedlineId = id;
       }),
       setFeedlineLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
-        // Cap at 200 m (substantially longer than any practical HF feedline)
-        // to keep NEC matrices bounded.
         s.feedlineLength = Math.max(0, Math.min(200, meters));
       }),
       setFeedlineOffset: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
-        // The offset must keep the source bridge inside the dipole. We
-        // clamp to length/2 minus a small margin for the bridge itself.
         const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
         s.feedlineOffset = Math.max(-limit, Math.min(limit, meters));
       }),
@@ -414,7 +343,6 @@ export const useAntennaStore = create<AntennaState>()(
 
       setTIndex: (v) => set((s) => {
         if (!Number.isFinite(v)) return;
-        // Clamp to the practical range. Anything outside this is unphysical.
         s.tIndex = Math.max(-100, Math.min(250, v));
       }),
       setLatitude: (deg) => set((s) => {
@@ -425,7 +353,6 @@ export const useAntennaStore = create<AntennaState>()(
       setLongitude: (deg) => set((s) => {
         if (deg === null) { s.longitudeDeg = null; return; }
         if (!Number.isFinite(deg)) return;
-        // Wrap into -180..+180.
         let v = deg;
         while (v > 180) v -= 360;
         while (v < -180) v += 360;
@@ -460,6 +387,12 @@ export const useAntennaStore = create<AntennaState>()(
   ),
 );
 
+/**
+ * Legacy setters maintained for backward compatibility.
+ */
+export const setType = (t: AntennaType) => useAntennaStore.getState().setAntennaType(t);
+export const setSlope = (deg: number) => useAntennaStore.getState().setLegSlope(deg);
+
 function clampFreq(f: number): number {
   if (!Number.isFinite(f)) return 7.1;
   return Math.max(1.8, Math.min(30, f));
@@ -469,28 +402,19 @@ function clampSegments(n: number): number {
   if (!Number.isFinite(n)) return 21;
   const odd = Math.round(n);
   const v = Math.max(9, Math.min(101, odd));
-  // NEC-2 conventionally wants an odd number of segments for a centre feed.
   return v % 2 === 0 ? v + 1 : v;
 }
 
-/**
- * Compute the default resonant/standard length for a given topology.
- *
- *  - Dipole / Inverted V: half-wave (0.5λ * 0.95 end-effect)
- *  - Delta loop: full-wave (1.0λ)
- *  - Sloping V / V-beam: 1λ per leg (2.0λ total)
- */
 function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number {
-  const lambda = wavelengthMeters(frequencyMHz);
   switch (type) {
     case 'dipole':
     case 'inverted-v':
       return halfWaveLength(frequencyMHz);
     case 'delta-loop':
-      return lambda;
+      return 299.792458 / frequencyMHz;
     case 'sloping-v':
     case 'v-beam':
-      return lambda * 2;
+      return (299.792458 / frequencyMHz) * 2;
     default:
       return halfWaveLength(frequencyMHz);
   }
@@ -498,121 +422,43 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
 
 // --------------- Selectors ---------------
 
-/**
- * Tag identifiers for the built-in geometry.
- *
- * When no feedline is active we use a single dipole wire on tag 1 (legacy
- * behaviour, preserved for backwards compat with tests and snapshots).
- *
- * When a feedline IS active we split the dipole into two halves separated
- * by a 1-segment "source bridge" — the antenna terminals — and add a
- * vertical coax-shield wire that physically connects to one side of the
- * bridge (offset from the geometric centre by `feedlineOffset`). This is
- * the textbook NEC modelling approach for an unchoked, unbalanced coax
- * feed: the asymmetric attachment naturally drives common-mode current
- * onto the outside of the shield.
- */
 export const DIPOLE_TAG = 1;          // single-wire dipole (no feedline)
 export const DIPOLE_LEFT_TAG = 1;     // left half of split dipole
 export const DIPOLE_RIGHT_TAG = 2;    // right half of split dipole
 export const FEED_BRIDGE_TAG = 3;     // 1-segment source bridge
 export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
 
-/**
- * Number of segments on the coax shield wire. Odd so the middle segment
- * is well-defined; small enough to keep NEC fast but large enough to
- * resolve common-mode current variation along a multi-wavelength run.
- */
 const FEEDLINE_SHIELD_SEGMENTS = 11;
-
-/**
- * Physical length of the source bridge — the small wire segment that
- * stands in for the antenna terminals between the two dipole halves.
- * Kept short (5 cm) so it doesn't itself contribute meaningful radiation,
- * but long enough to satisfy NEC's segment-vs-radius geometry rules at
- * typical HF wire radii (≤ ~5 mm).
- */
 const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
-
-/** Minimum gap (m) between the bottom of the shield wire and the ground
- * plane, to avoid NEC's "wire touching ground" warning. */
 const FEEDLINE_GROUND_GAP_M = 0.1;
 
-/**
- * Build a unit-vector along the chosen dipole orientation in the XY plane.
- *
- * Convention: 0° is North (+Y / NS), 90° is East (+X / EW).
- * Radio convention: 0 is North, clockwise increasing.
- */
-function orientationVector(o: Orientation): [number, number] {
-  let deg = 0;
-  if (typeof o === 'number') {
-    deg = o;
-  } else {
-    switch (o) {
-      case 'NS': deg = 0; break;
-      case 'EW': deg = 90; break;
-      case 'NE-SW': deg = 45; break;
-      case 'NW-SE': deg = 315; break;
-    }
-  }
-
-  // To map radio degrees (0=N, 90=E) to unit circle (0=E, 90=N):
-  // unit_angle = 90 - radio_angle
-  const rad = ((90 - deg) * Math.PI) / 180;
-  return [Math.cos(rad), Math.sin(rad)];
-}
-
-/**
- * Build the geometry vector for the current state.
- *
- * Two topologies are produced depending on whether a feedline is active:
- *
- *  • No feedline → a single dipole wire (tag 1), centre-fed.
- *
- *  • Feedline → split dipole topology:
- *      - tag 1: left half of the dipole.
- *      - tag 2: right half of the dipole.
- *      - tag 3: 1-segment "source bridge" between the halves; this is
- *               where the EX card sits when there is no TL card, or where
- *               the TL card's antenna-side terminates when there is one.
- *      - tag 4: vertical coax shield, attached at the bridge's right end
- *               (so the shield is connected to the right dipole leg, just
- *               like a real unchoked coax).
- *      The bridge is shifted along the dipole axis by `feedlineOffset`
- *      metres from the geometric centre. With offset = 0 the geometry is
- *      symmetric about the bridge midpoint and common-mode current is
- *      near zero; nonzero offset breaks the symmetry → real shield
- *      radiation.
- */
 export function buildWires(
-  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments'> &
-    Partial<Pick<AntennaState, 'frequency' | 'antennaType' | 'type' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'vAngle' | 'legSlope' | 'slope'>>,
+  state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): Wire[] {
-  const antennaType = state.antennaType ?? state.type ?? 'dipole';
+  const antennaType = state.antennaType;
   const half = state.length / 2;
   const h = state.height;
+
+  if (antennaType === 'inverted-v') {
+    return buildInvertedVWires({
+      length: state.length,
+      height: h,
+      orientation: state.orientation,
+      wireRadius: state.wireRadius,
+      segments: state.segments,
+      frequency: state.frequency,
+      vAngle: state.vAngle,
+    });
+  }
+
   const [dx, dy] = orientationVector(state.orientation);
   const [px, py] = [-dy, dx];
   const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
-  // Sloping V / Inverted V logic:
-  const isSlopingV = antennaType === 'sloping-v';
-  const isInvertedV = antennaType === 'inverted-v';
+  const slopeDeg = antennaType === 'sloping-v' ? (state.legSlope ?? 0) : 0;
+  const vAngleDeg = antennaType === 'sloping-v' ? (state.vAngle ?? 180) : 180;
 
-  let slopeDeg = 0;
-  let vAngleDeg = 180;
-
-  if (isSlopingV) {
-    slopeDeg = state.legSlope ?? state.slope ?? 0;
-    vAngleDeg = state.vAngle ?? 180;
-  } else if (isInvertedV) {
-    // Inverted V: drop angle derived from vAngle. drop = (180 - vAngle) / 2.
-    slopeDeg = (180 - (state.vAngle ?? 120)) / 2;
-    vAngleDeg = 180; // Legs are straight in XY plane relative to orientation axis.
-  }
-
-  // Validity check / Clamping:
   const maxSin = half > 0 ? (h - SLOPING_V_MIN_TIP_Z_M) / half : 0;
   const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
   const requestedSlopeRad = (slopeDeg * Math.PI) / 180;
@@ -625,51 +471,39 @@ export function buildWires(
   const cosV = Math.cos(openingHalfRad);
   const sinV = Math.sin(openingHalfRad);
 
-  /**
-   * Map a position along a leg (axis ∈ [0, length/2]) to 3D space.
-   * side = -1 (left leg) or +1 (right leg).
-   */
   function legPointAt(axis: number, side: number): [number, number, number] {
     const lx = axis * cosS * cosV * side;
     const ly = axis * cosS * sinV;
     const lz = -axis * sinS;
+
     const wx = dx * lx + px * ly;
     const wy = dy * lx + py * ly;
     const wz = h + lz;
+
     return [cleanZero(wx), cleanZero(wy), cleanZero(wz)];
   }
 
-  // Decide whether to build the split-dipole + shield topology.
   const layout = computeFeedlineLayout(state);
 
   if (!layout) {
-    // Two-wire V topologies.
-    if (isSlopingV || isInvertedV || vAngleDeg < 180 || slopeDeg > 0) {
-      let segmentsPerLeg = Math.max(1, Math.round(state.segments / 2));
-      if (isInvertedV && state.frequency) {
-        const lambda = wavelengthMeters(state.frequency);
-        const minSeg = Math.ceil(20 * half / lambda);
-        segmentsPerLeg = Math.max(9, minSeg, segmentsPerLeg);
-      }
-
+    if (antennaType === 'sloping-v' || vAngleDeg < 180 || slopeDeg > 0) {
       return [
         {
           start: legPointAt(half, -1),
           end: legPointAt(0, 0),
           radius: state.wireRadius,
-          segments: segmentsPerLeg,
-          tag: DIPOLE_LEFT_TAG,
+          segments: Math.max(1, Math.round(state.segments / 2)),
+          tag: DIPOLE_TAG,
         },
         {
           start: legPointAt(0, 0),
           end: legPointAt(half, 1),
           radius: state.wireRadius,
-          segments: segmentsPerLeg,
-          tag: DIPOLE_RIGHT_TAG,
+          segments: Math.max(1, Math.round(state.segments / 2)),
+          tag: DIPOLE_TAG,
         },
       ];
     }
-    // Pure straight horizontal dipole (legacy path).
     return [{
       start: [cleanZero(-half * dx), cleanZero(-half * dy), h],
       end: [cleanZero(half * dx), cleanZero(half * dy), h],
@@ -683,6 +517,7 @@ export function buildWires(
   const bridgeHalf = FEEDLINE_BRIDGE_LENGTH_M / 2;
   const bridgeStart = legPointAt(offset - bridgeHalf, offset < 0 ? -1 : 1);
   const bridgeEnd = legPointAt(offset + bridgeHalf, offset < 0 ? -1 : 1);
+
   const leftTip = legPointAt(half, -1);
   const rightTip = legPointAt(half, 1);
 
@@ -691,6 +526,7 @@ export function buildWires(
 
   const leftLen = dist(leftTip, bridgeStart);
   const rightLen = dist(rightTip, bridgeEnd);
+
   const totalSeg = state.segments;
   const segDensity = totalSeg / state.length;
   const leftSeg = Math.max(3, oddRound(leftLen * segDensity));
@@ -739,7 +575,7 @@ function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
     Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): FeedlineLayout | null {
-  if (state.antennaType && state.antennaType !== 'dipole') return null;
+  if (state.antennaType !== 'dipole') return null;
 
   const id = state.feedlineId;
   if (!id || id === 'none') return null;
@@ -792,14 +628,18 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
   const feedlineActive = hasBridge && state.antennaType === 'dipole';
 
-  const dipoleCentreSeg = Math.ceil(state.segments / 2);
-  const excitation = feedlineActive && hasShield
-    ? { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS }
-    : feedlineActive
-      ? { wireTag: FEED_BRIDGE_TAG, segment: 1 }
-      : state.antennaType === 'inverted-v'
-        ? { wireTag: DIPOLE_LEFT_TAG, segment: wires.find(w => w.tag === DIPOLE_LEFT_TAG)!.segments }
-        : { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
+  let excitation;
+  if (feedlineActive && hasShield) {
+    excitation = { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
+  } else if (feedlineActive) {
+    excitation = { wireTag: FEED_BRIDGE_TAG, segment: 1 };
+  } else if (state.antennaType === 'inverted-v') {
+    const leftLeg = wires.find(w => w.tag === DIPOLE_LEFT_TAG)!;
+    excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
+  } else {
+    const dipoleCentreSeg = Math.ceil(state.segments / 2);
+    excitation = { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
+  }
 
   const transmissionLines: TransmissionLine[] = [];
   const loads: SegmentLoad[] = [];
@@ -845,7 +685,6 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | null {
   if (!state.result || state.sweep.length === 0) return null;
   return {
-    type: state.antennaType,
     frequency: state.frequency,
     antennaType: state.antennaType,
     length: state.length,
