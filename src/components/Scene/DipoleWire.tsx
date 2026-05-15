@@ -58,6 +58,9 @@ export function DipoleWire({
   const theme = useAntennaStore((s) => s.theme);
   const balunEnabled = useAntennaStore((s) => s.balunEnabled);
 
+  const vAngle = useAntennaStore((s) => s.vAngle);
+  const legSlope = useAntennaStore((s) => s.legSlope);
+
   const rendered = useMemo(() => {
     const wires = buildWires({
       type,
@@ -69,6 +72,8 @@ export function DipoleWire({
       feedlineId,
       feedlineLength,
       feedlineOffset,
+      vAngle,
+      legSlope,
     });
 
     return wires.map((w, idx) => {
@@ -106,7 +111,7 @@ export function DipoleWire({
         isDipoleHalf,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset]);
+}, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope]);
 
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);
