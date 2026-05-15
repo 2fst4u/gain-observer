@@ -144,7 +144,7 @@ export function DipoleControl() {
         }}
       />
 
-      {(antennaType === 'sloping-v' || antennaType === 'inverted-v') && (
+      {antennaType === 'sloping-v' && (
         <>
           <label htmlFor="sloping-v-slope" style={{ marginTop: 10 }}>Slope angle (°) — {legSlope}°</label>
           <input
@@ -159,7 +159,11 @@ export function DipoleControl() {
               if (!isNaN(val)) setLegSlope(val);
             }}
           />
+        </>
+      )}
 
+      {(antennaType === 'sloping-v' || antennaType === 'inverted-v') && (
+        <>
           <label htmlFor="sloping-v-angle" style={{ marginTop: 10 }}>V opening angle (°) — {vAngle}°</label>
           <input
             id="sloping-v-angle"
@@ -223,7 +227,8 @@ function GeometryStatus() {
   const antennaType = useAntennaStore((s) => s.antennaType);
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
-  const requestedSlope = useAntennaStore((s) => s.legSlope);
+  const vAngle = useAntennaStore((s) => s.vAngle);
+  const legSlope = useAntennaStore((s) => s.legSlope);
   const units = useAntennaStore((s) => s.units);
 
   if (antennaType !== 'sloping-v' && antennaType !== 'inverted-v') return null;
@@ -235,11 +240,15 @@ function GeometryStatus() {
   const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
   const maxSlopeDeg = (maxSlopeRad * 180) / Math.PI;
 
-  const effectiveSlopeDeg = Math.min(requestedSlope, maxSlopeDeg);
+  // For Inverted-V the slope is derived from vAngle; for Sloping-V it's user-set.
+  const requestedSlopeDeg =
+    antennaType === 'inverted-v' ? (180 - vAngle) / 2 : legSlope;
+
+  const effectiveSlopeDeg = Math.min(requestedSlopeDeg, maxSlopeDeg);
   const effectiveSlopeRad = (effectiveSlopeDeg * Math.PI) / 180;
   const tipZ = height - half * Math.sin(effectiveSlopeRad);
 
-  const isClamped = requestedSlope > maxSlopeDeg + 0.1;
+  const isClamped = requestedSlopeDeg > maxSlopeDeg + 0.1;
   const unit = displayLengthUnit(units);
 
   return (

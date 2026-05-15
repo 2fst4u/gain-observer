@@ -243,7 +243,7 @@ export const useAntennaStore = create<AntennaState>()(
           s.legSlope = 30;
         } else if (type === 'inverted-v') {
           s.vAngle = 120;
-          s.legSlope = 30;
+          s.legSlope = 0;
         }
 
         const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
@@ -406,15 +406,18 @@ function clampSegments(n: number): number {
 }
 
 function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number {
+  const lambda = 299.792458 / frequencyMHz;
   switch (type) {
     case 'dipole':
-    case 'inverted-v':
       return halfWaveLength(frequencyMHz);
+    case 'inverted-v':
+      // Inverted-V end-effect is higher (0.97) than a dipole (0.95) per spec.
+      return lambda * 0.5 * 0.97;
     case 'delta-loop':
-      return 299.792458 / frequencyMHz;
+      return lambda;
     case 'sloping-v':
     case 'v-beam':
-      return (299.792458 / frequencyMHz) * 2;
+      return lambda * 2;
     default:
       return halfWaveLength(frequencyMHz);
   }

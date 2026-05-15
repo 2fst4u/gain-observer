@@ -433,9 +433,9 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().legSlope).toBe(0);
 
       store.setAntennaType('inverted-v');
-      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 3);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.97, 3);
       expect(useAntennaStore.getState().vAngle).toBe(120);
-      expect(useAntennaStore.getState().legSlope).toBe(30);
+      expect(useAntennaStore.getState().legSlope).toBe(0);
 
       store.setAntennaType('delta-loop');
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda, 3);
@@ -674,7 +674,7 @@ describe('antennaStore actions', () => {
       segments: 21,
       frequency: 7.1,
       vAngle: 120,
-      legSlope: 30,
+      legSlope: 0,
     };
 
     it('places the apex at the specified height', () => {
