@@ -59,14 +59,6 @@ export function DipoleControl() {
 
   const maxHeight = units === 'metric' ? 40 : 131;
 
-  const typeLabels: Record<import('../../physics/types').AntennaType, string> = {
-    'dipole': 'Dipole',
-    'inverted-v': 'Inverted V',
-    'delta-loop': 'Delta Loop',
-    'sloping-v': 'Sloping V',
-    'v-beam': 'V-beam',
-  };
-
   const resonateLabels: Record<import('../../physics/types').AntennaType, string> = {
     'dipole': '½λ',
     'inverted-v': '½λ',
