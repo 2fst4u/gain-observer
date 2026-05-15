@@ -441,7 +441,7 @@ const FEEDLINE_GROUND_GAP_M = 0.1;
  * clamping it so the wire tips stay at or above SLOPING_V_MIN_TIP_Z_M.
  */
 export function computeEffectiveSlope(
-  state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'legSlope'>,
+  state: Pick<AntennaState, 'length' | 'height' | 'legSlope'>,
 ) {
   const half = state.length / 2;
   const h = state.height;
