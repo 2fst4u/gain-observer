@@ -206,8 +206,13 @@ export interface PowerBudget {
 /** Per-tag current ripple diagnostic. */
 export interface CurrentRipple {
   readonly tagNo: number;
-  /** Current magnitudes for every segment on this wire, amperes. */
-  readonly magnitudes: readonly number[];
+  /**
+   * Current magnitudes for every segment on this wire, amperes.
+   * Mutable element type (not `readonly number[]`) so the enclosing
+   * `SimulationResult` remains assignable into an Immer draft in the
+   * Zustand store.
+   */
+  readonly magnitudes: number[];
   /**
    * max(|I|) / min(|I|).
    * 1.0 = perfectly uniform (ideal travelling wave).
@@ -225,8 +230,13 @@ export interface CurrentRipple {
  * travelling wave.  They are NOT feedpoint-match metrics.
  */
 export interface TerminationDiagnostics {
-  /** Current ripple for each wire tag present in the NEC output. */
-  readonly currentRippleByTag: readonly CurrentRipple[];
+  /**
+   * Current ripple for each wire tag present in the NEC output.
+   * Mutable element type (not `readonly CurrentRipple[]`) so the
+   * enclosing `SimulationResult` remains assignable into an Immer draft
+   * in the Zustand store.
+   */
+  readonly currentRippleByTag: CurrentRipple[];
   /**
    * Full NEC power budget.  powerBudget.networkLossW is the power
    * absorbed by the termination resistor (NT card).
