@@ -17,6 +17,7 @@ import type {
   Wire,
   TransmissionLine,
   SegmentLoad,
+  NetworkLoad,
   AntennaType,
 } from '../physics/types';
 import {
@@ -110,6 +111,18 @@ export interface AntennaState {
    */
   legSlope: number;
 
+  /**
+   * Across-tip termination resistance Ω for V-beam / sloping-V (0 = unterminated).
+   *
+   * Topology: Option A — a single lumped resistor between the far tip of the
+   * left leg and the far tip of the right leg. This is the *total* across-tip
+   * resistance, not a per-leg-to-ground value. In the NEC deck it appears as
+   * one NT card (two-port network).
+   *
+   * Typical values: 300–600 Ω depending on antenna characteristic impedance.
+   */
+  terminatingResistor: number;
+
   // Environment
   groundId: string;
   groundSigma: number;
@@ -159,6 +172,7 @@ export interface AntennaState {
   setOrientation(o: Orientation): void;
   setVAngle(deg: number): void;
   setLegSlope(deg: number): void;
+  setTerminatingResistor(ohms: number): void;
   setWireRadius(meters: number): void;
   setSegments(n: number): void;
   setGround(id: string): void;
@@ -214,6 +228,7 @@ export const useAntennaStore = create<AntennaState>()(
       segments: 21,
       vAngle: 180,
       legSlope: 0,
+      terminatingResistor: 0,
 
       groundId: DEFAULT_GROUND_ID,
       groundSigma: findGroundPreset(DEFAULT_GROUND_ID).sigma,
@@ -316,6 +331,10 @@ export const useAntennaStore = create<AntennaState>()(
       setLegSlope: (deg) => set((s) => {
         if (!Number.isFinite(deg)) return;
         s.legSlope = Math.max(0, Math.min(90, deg));
+      }),
+      setTerminatingResistor: (ohms) => set((s) => {
+        if (!Number.isFinite(ohms)) return;
+        s.terminatingResistor = Math.max(0, ohms);
       }),
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
@@ -682,6 +701,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 
   const transmissionLines: TransmissionLine[] = [];
   const loads: SegmentLoad[] = [];
+  const networks: NetworkLoad[] = [];
 
   if (feedlineActive && hasShield) {
     const preset = findFeedlinePreset(state.feedlineId);
@@ -707,6 +727,29 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     }
   }
 
+  // Option A termination: a single NT resistor between the far tips of both legs.
+  // terminatingResistor is the *total* across-tip resistance (not per-leg).
+  // Left leg (DIPOLE_LEFT_TAG) runs start=far-tip→end=apex; NEC segment 1 = far tip.
+  // Right leg (DIPOLE_RIGHT_TAG) runs start=apex→end=far-tip; NEC segment N = far tip.
+  if (
+    (state.antennaType === 'sloping-v' || state.antennaType === 'v-beam') &&
+    state.terminatingResistor > 0
+  ) {
+    const rightLeg = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG);
+    if (rightLeg) {
+      const G = 1 / state.terminatingResistor;
+      networks.push({
+        fromTag: DIPOLE_LEFT_TAG,
+        fromSegment: 1,
+        toTag: DIPOLE_RIGHT_TAG,
+        toSegment: rightLeg.segments,
+        y11Real: G,
+        y12Real: -G,
+        y22Real: G,
+      });
+    }
+  }
+
   return {
     wires,
     frequencyMHz: state.frequency,
@@ -718,6 +761,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     },
     transmissionLines: transmissionLines.length > 0 ? transmissionLines : undefined,
     loads: loads.length > 0 ? loads : undefined,
+    networks: networks.length > 0 ? networks : undefined,
   };
 }
 
