@@ -60,6 +60,21 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
   }
 }
 
+// --- Geometry Tags ---
+export const DIPOLE_TAG = 1; // single-wire dipole (no feedline)
+export const DIPOLE_LEFT_TAG = 1; // left half of split dipole
+export const DIPOLE_RIGHT_TAG = 2; // right half of split dipole
+export const FEED_BRIDGE_TAG = 3; // 1-segment source bridge
+export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
+export const DELTA_LOOP_TOP_TAG = 5; // top wire for delta loop
+
+/**
+ * Length of the source bridge segment for apex-fed or split-fed antennas (metres).
+ * Chosen to be small enough to not affect pattern, but large enough to
+ * remain NEC-valid at HF for typical wire radii.
+ */
+export const FEED_BRIDGE_LENGTH_M = 0.1;
+
 /** Amateur HF band centres (MHz) for quick presets. */
 export const HF_BAND_PRESETS: Array<{ name: string; mhz: number }> = [
   { name: '160m', mhz: 1.900 },

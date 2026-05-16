@@ -117,11 +117,13 @@ export function DipoleWire({
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);
   const dipoleSingle = rendered.find((s) => s.tag === DIPOLE_TAG && !bridge);
+  const deltaLoopBottom = rendered.find((s) => type === 'delta-loop' && s.tag === DIPOLE_RIGHT_TAG);
   const shield = rendered.find((s) => s.isShield);
 
   // The feedpoint is at the bridge midpoint when split, else at the dipole
   // wire's midpoint (legacy single-wire layout).
-  const feedpoint = bridge?.feedMid ?? dipoleSingle?.feedMid ?? null;
+  // For Delta Loop, it's at the center of the bottom wire.
+  const feedpoint = bridge?.feedMid ?? deltaLoopBottom?.feedMid ?? dipoleSingle?.feedMid ?? null;
 
   return (
     <group>

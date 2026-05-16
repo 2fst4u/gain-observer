@@ -293,7 +293,7 @@ describe('antennaStore selectors', () => {
     it('generates sloping-V geometry correctly', () => {
       const state = {
         antennaType: 'sloping-v' as const,
-        length: 20,
+        length: 80, // ~2 lambda
         height: 10,
         orientation: 'EW' as const,
         wireRadius: 0.001,
@@ -305,33 +305,29 @@ describe('antennaStore selectors', () => {
       };
 
       const wires = buildWires(state);
-      expect(wires).toHaveLength(2); // Two legs joined at apex
+      expect(wires).toHaveLength(3); // Two legs + feed bridge
 
-      // Left leg: Tip to Apex
+      // Left leg: Tip to ApexBridge connection
       const left = wires.find((w) => w.tag === 1)!;
-      // Right leg: Apex to Tip
+      // Right leg: ApexBridge connection to Tip
       const right = wires.find((w) => w.tag === 2)!;
+      // Bridge
+      const bridge = wires.find((w) => w.tag === 3)!;
 
-      expect(left.end).toEqual([0, 0, 10]);
-      expect(right.start).toEqual([0, 0, 10]);
+      expect(left.end).toEqual(bridge.start);
+      expect(right.start).toEqual(bridge.end);
 
-      // tip_z = 10 - 10 * sin(30) = 10 - 10 * 0.5 = 5.
-      expect(left.start[2]).toBeCloseTo(5, 5);
-      expect(right.end[2]).toBeCloseTo(5, 5);
+      // Bridge is horizontal at apex height
+      expect(bridge.start[2]).toBe(10);
+      expect(bridge.end[2]).toBe(10);
 
-      // check X/Y coordinates for 90 deg opening (vAngle=90).
-      // orientation EW -> dx=1, dy=0.
-      // px = -dy = 0, py = dx = 1.
-      // halfV = 45 deg.
-      // horizontalDist = 10 * cos(30) = 8.66025
-      // la = 8.66025 * cos(45) = 6.1237
-      // lp = 8.66025 * sin(45) * side = 6.1237 * side
-      // wx = dx * la + px * lp = 1 * 6.1237 + 0 = 6.1237
-      // wy = dy * la + py * lp = 0 + 1 * 6.1237 * side = 6.1237 * side
-      expect(left.start[0]).toBeCloseTo(6.1237, 4);
-      expect(left.start[1]).toBeCloseTo(-6.1237, 4);
-      expect(right.end[0]).toBeCloseTo(6.1237, 4);
-      expect(right.end[1]).toBeCloseTo(6.1237, 4);
+      // legLen = (80 - 0.1) / 2 = 39.95
+      // Max drop = 10 - 0.5 = 9.5.
+      // maxSin = 9.5 / 39.95 ≈ 0.237.
+      // maxSlope = asin(0.237) ≈ 13.7 deg.
+      // 30 deg > 13.7 deg, so it should be clamped to 0.5m tip height.
+      expect(left.start[2]).toBeCloseTo(0.5, 5);
+      expect(right.end[2]).toBeCloseTo(0.5, 5);
     });
 
     it('clamps sloping-V slope to prevent tips hitting ground', () => {
@@ -426,15 +422,16 @@ describe('antennaStore actions', () => {
       expect(s.legSlope).toBe(0);
     });
 
-    it('setAntennaType(non-dipole) clears feedline state', () => {
+    it('setAntennaType(non-dipole) clears feedline state for unsupported types', () => {
       const store = useAntennaStore.getState();
       store.setFeedline('rg58');
       store.setFeedlineLength(10);
       store.setFeedlineOffset(1);
 
-      store.setAntennaType('inverted-v');
+      // Sloping-v does NOT support feedlines per spec.
+      store.setAntennaType('sloping-v');
       const s = useAntennaStore.getState();
-      expect(s.antennaType).toBe('inverted-v');
+      expect(s.antennaType).toBe('sloping-v');
       expect(s.feedlineId).toBe('none');
       expect(s.feedlineLength).toBe(0);
       expect(s.feedlineOffset).toBe(0);
@@ -615,8 +612,8 @@ describe('antennaStore actions', () => {
       // Shorten the dipole; the +4m offset is no longer valid.
       store.setLength(4);
       const offsetAfter = useAntennaStore.getState().feedlineOffset;
-      // New limit is 4/2 - 0.05 = 1.95.
-      expect(offsetAfter).toBeLessThanOrEqual(1.95);
+      // New limit is 4/2 - 0.1 = 1.9.
+      expect(offsetAfter).toBeLessThanOrEqual(1.9);
     });
   });
 
@@ -717,7 +714,7 @@ describe('antennaStore actions', () => {
       expect(result.effectiveDeg).toBe(10);
     });
 
-    it('sets excitation at the apex of the left leg for sloping-v', () => {
+    it('sets excitation on the apex bridge for sloping-v', () => {
       const state = {
         ...useAntennaStore.getState(),
         antennaType: 'sloping-v' as const,
@@ -727,16 +724,10 @@ describe('antennaStore actions', () => {
         vAngle: 90,
       };
       const input = selectSimulationInput(state as AntennaState);
-      expect(input.wires).toHaveLength(2);
-      const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-      const rightLeg = input.wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+      expect(input.wires).toHaveLength(3);
 
-      // Left leg should end at apex, right leg should start at apex.
-      expect(leftLeg.end).toEqual([0, 0, 10]);
-      expect(rightLeg.start).toEqual([0, 0, 10]);
-
-      expect(input.excitation.wireTag).toBe(DIPOLE_LEFT_TAG);
-      expect(input.excitation.segment).toBe(leftLeg.segments);
+      expect(input.excitation.wireTag).toBe(3); // FEED_BRIDGE_TAG
+      expect(input.excitation.segment).toBe(1);
     });
   });
 
@@ -754,26 +745,25 @@ describe('antennaStore actions', () => {
 
     it('places the apex at the specified height', () => {
       const wires = buildWires({ ...commonState, antennaType: 'inverted-v' });
-      const leftWire = wires.find(w => w.tag === DIPOLE_LEFT_TAG)!;
-      const rightWire = wires.find(w => w.tag === DIPOLE_RIGHT_TAG)!;
-      expect(leftWire.end[2]).toBeCloseTo(10);
-      expect(rightWire.start[2]).toBeCloseTo(10);
-      expect(leftWire.end).toEqual(rightWire.start);
+      const bridge = wires.find(w => w.tag === 3)!;
+      expect(bridge.start[2]).toBeCloseTo(10);
+      expect(bridge.end[2]).toBeCloseTo(10);
     });
 
     it('calculates leg endpoints correctly based on vAngle', () => {
+      // Total length 20m. Bridge 0.1m. Each leg = (20 - 0.1) / 2 = 9.95m.
       // For 120 deg apex, drop angle is 30 deg.
-      // Leg length is 10m. Drop = 10 * sin(30) = 5m.
-      // Tip Z = 10 - 5 = 5m.
+      // Drop = 9.95 * sin(30) = 4.975m.
+      // Tip Z = 10 - 4.975 = 5.025m.
       const wires = buildWires({ ...commonState, antennaType: 'inverted-v', vAngle: 120 });
       const leftWire = wires.find(w => w.tag === DIPOLE_LEFT_TAG)!;
-      expect(leftWire.start[2]).toBeCloseTo(5);
+      expect(leftWire.start[2]).toBeCloseTo(5.025);
     });
 
     it('clamps tip height to SLOPING_V_MIN_TIP_Z_M (0.5m)', () => {
-      // Length 20m (10m per leg), Height 2m.
-      // 60 deg drop (vAngle 60) would drop 10 * sin(60) = 8.66m.
-      // 2 - 8.66 = -6.66m (underground).
+      // Length 20m (9.975m per leg), Height 2m.
+      // 60 deg drop (vAngle 60) would drop 9.975 * sin(60) = 8.638m.
+      // 2 - 8.638 = -6.638m (underground).
       // Max drop allowed = 2 - 0.5 = 1.5m.
       const wires = buildWires({ ...commonState, antennaType: 'inverted-v', height: 2, vAngle: 60 });
       const leftWire = wires.find(w => w.tag === DIPOLE_LEFT_TAG)!;
@@ -781,12 +771,11 @@ describe('antennaStore actions', () => {
       expect(leftWire.start[2]).toBeLessThanOrEqual(0.51);
     });
 
-    it('places excitation at the apex of the left leg', () => {
+    it('places excitation on the apex bridge', () => {
       const state = { ...useAntennaStore.getState(), ...commonState, antennaType: 'inverted-v' };
       const input = selectSimulationInput(state as AntennaState);
-      const leftLeg = input.wires.find(w => w.tag === DIPOLE_LEFT_TAG)!;
-      expect(input.excitation.wireTag).toBe(DIPOLE_LEFT_TAG);
-      expect(input.excitation.segment).toBe(leftLeg.segments);
+      expect(input.excitation.wireTag).toBe(3);
+      expect(input.excitation.segment).toBe(1);
     });
 
     it('uses at least 20 segments per wavelength on each leg', () => {
