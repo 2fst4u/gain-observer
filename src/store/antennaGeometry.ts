@@ -5,7 +5,7 @@ import {
   DIPOLE_RIGHT_TAG,
   FEED_BRIDGE_TAG,
   FEED_BRIDGE_LENGTH_M,
-  DELTA_LOOP_TOP_TAG,
+  DELTA_LOOP_RIGHT_LEG_TAG,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -109,7 +109,7 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
 }
 
 export interface SlopingVWiresParams {
-  length: number; // per leg
+  length: number; // total length (both legs + bridge)
   height: number;
   orientation: Orientation;
   wireRadius: number;
@@ -227,9 +227,9 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   // Height of equilateral triangle = sideLen * sqrt(3)/2.
   let triHeight = (sideLen * Math.sqrt(3)) / 2;
 
-  // Clamp height to avoid wires touching ground (min 0.1m per spec).
-  if (triHeight > h - 0.1) {
-    triHeight = Math.max(0, h - 0.1);
+  // Clamp height to avoid wires touching ground.
+  if (triHeight > h - SLOPING_V_MIN_TIP_Z_M) {
+    triHeight = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
   }
   const bottomZ = h - triHeight;
 
@@ -263,7 +263,7 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
       end: rightCorner,
       radius: params.wireRadius,
       segments: segmentsPerSide,
-      tag: DELTA_LOOP_TOP_TAG,
+      tag: DELTA_LOOP_RIGHT_LEG_TAG,
     },
     {
       start: leftCorner,
