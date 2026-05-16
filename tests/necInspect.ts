@@ -69,6 +69,29 @@ export function parseTlLine(line: string) {
 }
 
 /**
+ * Parses an NT (Two-port Network) card line.
+ * Format: NT tag1 seg1 tag2 seg2 Y11r Y11i Y12r Y12i Y22r Y22i
+ */
+export function parseNtLine(line: string) {
+  const parts = line.trim().split(/\s+/);
+  if (parts[0] !== 'NT') {
+    throw new Error(`Not an NT line: ${line}`);
+  }
+  return {
+    tag1: parseInt(parts[1], 10),
+    seg1: parseInt(parts[2], 10),
+    tag2: parseInt(parts[3], 10),
+    seg2: parseInt(parts[4], 10),
+    y11Real: parseFloat(parts[5]),
+    y11Imag: parseFloat(parts[6]),
+    y12Real: parseFloat(parts[7]),
+    y12Imag: parseFloat(parts[8]),
+    y22Real: parseFloat(parts[9]),
+    y22Imag: parseFloat(parts[10]),
+  };
+}
+
+/**
  * Asserts that no wires in the deck have endpoints at or below z=0.
  * Useful for verifying height regressions.
  */

@@ -17,6 +17,7 @@ import type {
   Wire,
   TransmissionLine,
   SegmentLoad,
+  NetworkLoad,
   AntennaType,
 } from '../physics/types';
 import {
@@ -110,6 +111,13 @@ export interface AntennaState {
    */
   legSlope: number;
 
+  /**
+   * For sloping-V and V-beam: far-end terminating resistor across the two tips.
+   * 0 = unterminated. Any positive value inserts one NEC NT card representing
+   * the total across-tip resistance (not per-leg-to-ground).
+   */
+  terminatingResistor: number;
+
   // Environment
   groundId: string;
   groundSigma: number;
@@ -159,6 +167,7 @@ export interface AntennaState {
   setOrientation(o: Orientation): void;
   setVAngle(deg: number): void;
   setLegSlope(deg: number): void;
+  setTerminatingResistor(ohms: number): void;
   setWireRadius(meters: number): void;
   setSegments(n: number): void;
   setGround(id: string): void;
@@ -214,6 +223,7 @@ export const useAntennaStore = create<AntennaState>()(
       segments: 21,
       vAngle: 180,
       legSlope: 0,
+      terminatingResistor: 0,
 
       groundId: DEFAULT_GROUND_ID,
       groundSigma: findGroundPreset(DEFAULT_GROUND_ID).sigma,
@@ -316,6 +326,10 @@ export const useAntennaStore = create<AntennaState>()(
       setLegSlope: (deg) => set((s) => {
         if (!Number.isFinite(deg)) return;
         s.legSlope = Math.max(0, Math.min(90, deg));
+      }),
+      setTerminatingResistor: (ohms) => set((s) => {
+        if (!Number.isFinite(ohms)) return;
+        s.terminatingResistor = Math.max(0, ohms);
       }),
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
@@ -707,6 +721,22 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     }
   }
 
+  const networks: NetworkLoad[] = [];
+  const isVTopology = state.antennaType === 'sloping-v' || state.antennaType === 'v-beam';
+  if (isVTopology && state.terminatingResistor > 0) {
+    const R = state.terminatingResistor;
+    const rightWire = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+    networks.push({
+      fromTag: DIPOLE_LEFT_TAG,
+      fromSegment: 1,
+      toTag: DIPOLE_RIGHT_TAG,
+      toSegment: rightWire.segments,
+      y11Real: 1 / R,
+      y12Real: -1 / R,
+      y22Real: 1 / R,
+    });
+  }
+
   return {
     wires,
     frequencyMHz: state.frequency,
@@ -718,6 +748,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     },
     transmissionLines: transmissionLines.length > 0 ? transmissionLines : undefined,
     loads: loads.length > 0 ? loads : undefined,
+    networks: networks.length > 0 ? networks : undefined,
   };
 }
 
