@@ -2,12 +2,14 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { StatsReadout } from '../src/components/Panel/StatsReadout';
 import { useAntennaStore } from '../src/store/antennaStore';
+import type { TerminationDiagnostics } from '../src/physics/types';
 
 describe('StatsReadout', () => {
   beforeEach(() => {
     cleanup();
-    // Reset store before each test
+    // Reset store before each test; include antennaType to prevent state bleed
     useAntennaStore.setState({
+      antennaType: 'dipole',
       result: null,
       mode: 'standard',
       comparisonReference: null,
@@ -71,6 +73,60 @@ describe('StatsReadout', () => {
     expect(getByText('-0.50')).not.toBeNull();
     const plus10Elements = getAllByText('+10.0 Ω');
     expect(plus10Elements.length).toBe(2); // R delta: 50 - 40, X delta: 0 - (-10) = +10
+  });
+
+  it('does not render termination section or note for dipole', () => {
+    const diagnostics: TerminationDiagnostics = {
+      currentRippleByTag: [
+        { tagNo: 1, magnitudes: [2e-3, 1e-3], ripple: 2, rippleDb: 6.02 },
+      ],
+      powerBudget: {
+        inputW: 0.01, radiatedW: 0.006, structureLossW: 0,
+        networkLossW: 0.004, efficiencyPct: 60,
+      },
+      frontBackDb: 8.5,
+    };
+    useAntennaStore.setState({
+      antennaType: 'dipole',
+      result: {
+        computeTimeMs: 10, maxGainDbi: 2, takeoffElevationDeg: 15,
+        takeoffAzimuthDeg: 0, impedance: { R: 50, X: 0 }, swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+        terminationDiagnostics: diagnostics,
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+    const { container } = render(<StatsReadout />);
+    expect(container.textContent).not.toContain('Termination effectiveness');
+    expect(container.textContent).not.toContain('Termination reduces reflections');
+  });
+
+  it('renders termination section and note for v-beam with diagnostics', () => {
+    const diagnostics: TerminationDiagnostics = {
+      currentRippleByTag: [
+        { tagNo: 1, magnitudes: [2e-3, 1e-3], ripple: 2, rippleDb: 6.02 },
+        { tagNo: 2, magnitudes: [1.5e-3, 0.5e-3], ripple: 3, rippleDb: 9.54 },
+      ],
+      powerBudget: {
+        inputW: 0.01, radiatedW: 0.006, structureLossW: 0,
+        networkLossW: 0.004, efficiencyPct: 60,
+      },
+      frontBackDb: 8.5,
+    };
+    useAntennaStore.setState({
+      antennaType: 'v-beam',
+      result: {
+        computeTimeMs: 10, maxGainDbi: 7, takeoffElevationDeg: 15,
+        takeoffAzimuthDeg: 0, impedance: { R: 600, X: 0 }, swr: 12.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+        terminationDiagnostics: diagnostics,
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+    const { container, getByText } = render(<StatsReadout />);
+    expect(getByText('Termination effectiveness')).not.toBeNull();
+    expect(container.textContent).toContain('Termination reduces reflections');
+    expect(container.textContent).toContain('Left leg ripple');
+    expect(container.textContent).toContain('Right leg ripple');
+    expect(container.textContent).toContain('Front/back ratio');
   });
 
   it('renders NVIS stats when mode is nvis', () => {

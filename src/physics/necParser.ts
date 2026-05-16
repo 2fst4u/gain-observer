@@ -7,13 +7,17 @@
 // NEC-2 formats these with fixed-width columns but the whitespace is
 // consistent, so regex-based scanning is robust.
 
-import type { GainPattern, ImpedanceResult } from './types';
+import type { GainPattern, ImpedanceResult, SegmentCurrent, PowerBudget } from './types';
 
 export interface ParsedNecOutput {
   impedance: ImpedanceResult | null;
   pattern: GainPattern | null;
   /** Excitation power (watts). Needed to sanity-check gain. */
   excitationPowerW: number | null;
+  /** Per-segment currents from the CURRENTS AND LOCATION block. */
+  currents: SegmentCurrent[];
+  /** NEC POWER BUDGET block. */
+  powerBudget: PowerBudget | null;
   /** Any warnings/notes encountered (surfaced in UI). */
   notices: string[];
 }
@@ -148,6 +152,78 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
   };
 }
 
+/**
+ * Parses the CURRENTS AND LOCATION block.
+ *
+ * Each data row has the form:
+ *   SEG  TAG    X      Y      Z    LEN    REAL       IMAG       MAGN      PHASE
+ *     1    1  -0.215  0.000  0.237  0.043  1.69E-03  9.65E-04  1.95E-03  29.688
+ *
+ * Coordinates are in wavelengths (NEC normalises them).
+ * We extract seg, tag, x, y, z, magnitude, and phase.
+ */
+export function parseNecCurrents(text: string): SegmentCurrent[] {
+  const blockStart = text.indexOf('CURRENTS AND LOCATION');
+  if (blockStart < 0) return [];
+
+  const results: SegmentCurrent[] = [];
+  // Match: seg tag x y z (length – discarded) real imag magn phase
+  const rowRe =
+    /^\s+(\d+)\s+(\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+\d+\.\d+\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+)/;
+
+  const lines = text.slice(blockStart).split('\n');
+  for (const line of lines) {
+    const m = rowRe.exec(line);
+    if (!m) continue;
+    results.push({
+      segNo: parseInt(m[1]!, 10),
+      tagNo: parseInt(m[2]!, 10),
+      x: parseFloat(m[3]!),
+      y: parseFloat(m[4]!),
+      z: parseFloat(m[5]!),
+      magnitude: parseFloat(m[8]!),
+      phase: parseFloat(m[9]!),
+    });
+  }
+  return results;
+}
+
+/**
+ * Parses the POWER BUDGET block.
+ *
+ * Format:
+ *   INPUT POWER   =  5.2785E-03 Watts
+ *   RADIATED POWER=  5.2785E-03 Watts
+ *   STRUCTURE LOSS=  0.0000E+00 Watts
+ *   NETWORK LOSS  =  0.0000E+00 Watts
+ *   EFFICIENCY    =  100.00 Percent
+ *
+ * NETWORK LOSS includes power dissipated in NT-card resistors (termination).
+ */
+export function parseNecPowerBudget(text: string): PowerBudget | null {
+  const blockStart = text.indexOf('POWER BUDGET');
+  if (blockStart < 0) return null;
+
+  // Scan enough chars to capture all five data lines regardless of indentation.
+  const block = text.slice(blockStart, blockStart + 500);
+
+  const inputM = /INPUT POWER\s*=\s*(-?\d+\.\d+E[+-]\d+)/.exec(block);
+  const radiatedM = /RADIATED POWER\s*=\s*(-?\d+\.\d+E[+-]\d+)/.exec(block);
+  const structM = /STRUCTURE LOSS\s*=\s*(-?\d+\.\d+E[+-]\d+)/.exec(block);
+  const netM = /NETWORK LOSS\s*=\s*(-?\d+\.\d+E[+-]\d+)/.exec(block);
+  const effM = /EFFICIENCY\s*=\s*(-?\d+\.\d+)/.exec(block);
+
+  if (!inputM || !radiatedM) return null;
+
+  return {
+    inputW: parseFloat(inputM[1]!),
+    radiatedW: parseFloat(radiatedM[1]!),
+    structureLossW: structM ? parseFloat(structM[1]!) : 0,
+    networkLossW: netM ? parseFloat(netM[1]!) : 0,
+    efficiencyPct: effM ? parseFloat(effM[1]!) : 0,
+  };
+}
+
 export function parseNecOutput(
   text: string,
   expectedThetaSteps: number,
@@ -155,6 +231,8 @@ export function parseNecOutput(
 ): ParsedNecOutput {
   const { impedance, power } = parseNecImpedance(text);
   const pattern = parsePattern(text, expectedThetaSteps, expectedPhiSteps);
+  const currents = parseNecCurrents(text);
+  const powerBudget = parseNecPowerBudget(text);
 
   const notices: string[] = [];
   if (/RUN TIME/i.test(text) && !impedance) {
@@ -171,6 +249,8 @@ export function parseNecOutput(
     impedance,
     pattern,
     excitationPowerW: power,
+    currents,
+    powerBudget,
     notices,
   };
 }
