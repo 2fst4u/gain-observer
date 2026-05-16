@@ -21,7 +21,7 @@
 import { buildNecCards } from './necCard';
 import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
 import { computeTerminationDiagnostics } from './terminationDiagnostics';
-import { swr } from './impedance';
+import { swr, mismatchLossFactor } from './impedance';
 import type { Engine, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 
 interface EmscriptenFS {
@@ -225,14 +225,30 @@ export class Nec2Engine implements Engine {
         phiDeg,
       );
 
+      const efficiency = parsed.powerBudget ? parsed.powerBudget.efficiencyPct / 100 : undefined;
+
+      // Directivity: D = G / η  →  D(dBi) = G(dBi) − 10·log10(η)
+      // Only defined when the power budget is available and η > 0.
+      const maxDirectivityDbi =
+        efficiency && efficiency > 1e-6
+          ? maxGain - 10 * Math.log10(efficiency)
+          : undefined;
+
+      // Realized gain: deducts feedpoint mismatch loss vs 50 Ω source.
+      // G_r(dBi) = G(dBi) + 10·log10(1 − |Γ|²)
+      const mlf = mismatchLossFactor(parsed.impedance);
+      const maxRealizedGainDbi = mlf > 0 ? maxGain + 10 * Math.log10(mlf) : undefined;
+
       return {
         pattern: parsed.pattern,
         maxGainDbi: maxGain,
+        maxDirectivityDbi,
+        maxRealizedGainDbi,
         takeoffElevationDeg: elevationDeg,
         takeoffAzimuthDeg: phiDeg,
         impedance: parsed.impedance,
         swr: swr(parsed.impedance),
-        efficiency: parsed.powerBudget ? parsed.powerBudget.efficiencyPct / 100 : undefined,
+        efficiency,
         computeTimeMs,
         terminationDiagnostics,
       };

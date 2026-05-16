@@ -273,6 +273,19 @@ export interface SimulationResult {
    * Undefined only when the power budget block could not be parsed.
    */
   readonly efficiency?: number;
+  /**
+   * Peak directivity in dBi. Directivity describes pattern shape only,
+   * normalised to radiated power (excluding all losses).
+   * D(dBi) = G(dBi) − 10·log10(η)  where η = efficiency.
+   * Undefined when the NEC power budget cannot be parsed or η ≈ 0.
+   */
+  readonly maxDirectivityDbi?: number;
+  /**
+   * Peak realized gain in dBi, accounting for feedpoint mismatch vs 50 Ω.
+   * G_realized(dBi) = G(dBi) + 10·log10(1 − |Γ|²)
+   * Undefined when the impedance result is unavailable.
+   */
+  readonly maxRealizedGainDbi?: number;
   /** Wall-clock compute time in milliseconds. */
   readonly computeTimeMs: number;
   /**

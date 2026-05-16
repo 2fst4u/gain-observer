@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { swr } from '../src/physics/impedance';
+import { swr, mismatchLossFactor } from '../src/physics/impedance';
 
 describe('reflection coefficient and SWR', () => {
   it('perfect match => |Γ|=0, SWR=1', () => {
@@ -37,5 +37,32 @@ describe('reflection coefficient and SWR', () => {
     // With Z0 = 50, Z = -50 + j0 gives denR = -50 + 50 = 0 and denX = 0 => den = 0.
     // When |Γ| = 1, SWR is clamped at 999.
     expect(swr({ R: -50, X: 0 })).toBe(999);
+  });
+});
+
+describe('mismatchLossFactor', () => {
+  it('perfect match gives factor 1 (no loss)', () => {
+    expect(mismatchLossFactor({ R: 50, X: 0 })).toBeCloseTo(1, 10);
+  });
+
+  it('open circuit gives factor ~0 (total reflection)', () => {
+    expect(mismatchLossFactor({ R: 1e15, X: 0 })).toBeCloseTo(0, 3);
+  });
+
+  it('SWR 3:1 real load gives expected mismatch loss', () => {
+    // Z = 150 Ω, Z0 = 50 Ω → |Γ| = 100/200 = 0.5 → factor = 1 - 0.25 = 0.75
+    expect(mismatchLossFactor({ R: 150, X: 0 })).toBeCloseTo(0.75, 6);
+  });
+
+  it('SWR 2:1 real load gives 11% mismatch loss', () => {
+    // Z = 100 Ω, Z0 = 50 Ω → |Γ| = 50/150 = 1/3 → factor = 1 - 1/9 ≈ 0.889
+    expect(mismatchLossFactor({ R: 100, X: 0 })).toBeCloseTo(8 / 9, 6);
+  });
+
+  it('reactive load has mismatch loss consistent with SWR', () => {
+    // Pure reactive load (R = 50, X = 50): |Γ| from complex impedance
+    const mlf = mismatchLossFactor({ R: 50, X: 50 });
+    expect(mlf).toBeGreaterThan(0);
+    expect(mlf).toBeLessThan(1);
   });
 });
