@@ -11,7 +11,7 @@ export function ModeSelector() {
   const mode = useAntennaStore((s) => s.mode);
   const setMode = useAntennaStore((s) => s.setMode);
   return (
-    <div className="panel-section">
+    <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2 id="mode-selector-heading">Mode</h2>
       <div className="button-group" role="group" aria-labelledby="mode-selector-heading" aria-describedby="mode-hint">
@@ -28,6 +28,6 @@ export function ModeSelector() {
       <div id="mode-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         {MODES.find((m) => m.id === mode)!.hint}
       </div>
-    </div>
+    </section>
   );
 }

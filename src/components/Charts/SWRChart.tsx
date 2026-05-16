@@ -246,16 +246,16 @@ export function SWRChart() {
 
   if (!result || sweep.length === 0) {
     return (
-      <div className="panel-section" style={{ minHeight: 220 }}>
+      <section className="panel-section" style={{ minHeight: 220 }}>
         {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
         <h2>SWR sweep</h2>
         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Computing frequency sweep…</div>
-      </div>
+      </section>
     );
   }
 
   return (
-    <div className="panel-section" style={{ minHeight: 220 }}>
+    <section className="panel-section" style={{ minHeight: 220 }}>
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>SWR sweep</h2>
       <div style={{ height: 130 }}>
@@ -283,7 +283,7 @@ export function SWRChart() {
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }
 

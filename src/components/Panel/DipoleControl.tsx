@@ -81,7 +81,7 @@ export function DipoleControl() {
   };
 
   return (
-    <div className="panel-section">
+    <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Antenna</h2>
 
@@ -219,7 +219,7 @@ export function DipoleControl() {
           </button>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 

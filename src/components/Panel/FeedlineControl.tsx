@@ -50,7 +50,7 @@ export function FeedlineControl() {
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
 
   return (
-    <div className="panel-section">
+    <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Feedline</h2>
       <label htmlFor="feedline-preset">Cable</label>
@@ -163,6 +163,6 @@ export function FeedlineControl() {
           </div>
         </>
       )}
-    </div>
+    </section>
   );
 }

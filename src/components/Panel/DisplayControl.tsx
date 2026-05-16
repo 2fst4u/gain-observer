@@ -20,7 +20,7 @@ export function DisplayControl() {
   const setShowPolarCuts = useAntennaStore((s) => s.setShowPolarCuts);
 
   return (
-    <div className="panel-section">
+    <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Display</h2>
       <label id="colormap-label">Colormap</label>
@@ -73,6 +73,6 @@ export function DisplayControl() {
           Polar plots
         </label>
       </div>
-    </div>
+    </section>
   );
 }
