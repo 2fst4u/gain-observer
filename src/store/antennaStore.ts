@@ -30,6 +30,7 @@ import {
   findGroundPreset,
   referenceLength,
   halfWaveLength,
+  wavelengthMeters,
 } from '../physics/constants';
 import type { UnitSystem } from '../physics/units';
 import { buildInvertedVWires, orientationVector, type OrientationPreset, type Orientation } from './antennaGeometry';
@@ -435,6 +436,88 @@ const FEEDLINE_SHIELD_SEGMENTS = 11;
 const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
 const FEEDLINE_GROUND_GAP_M = 0.1;
 
+/**
+ * Calculates the effective downward slope for a V-topology,
+ * clamping it so the wire tips stay at or above SLOPING_V_MIN_TIP_Z_M.
+ */
+export function computeEffectiveSlope(
+  state: Pick<AntennaState, 'length' | 'height' | 'legSlope'>,
+) {
+  const half = state.length / 2;
+  const h = state.height;
+  const requestedDeg = state.legSlope;
+
+  const maxSin = half > 0 ? Math.max(0, h - SLOPING_V_MIN_TIP_Z_M) / half : 0;
+  const maxSlopeRad = Math.asin(Math.min(1, maxSin));
+  const requestedRad = (requestedDeg * Math.PI) / 180;
+
+  const clamped = requestedRad > maxSlopeRad + 1e-7;
+  const effectiveRad = Math.min(requestedRad, maxSlopeRad);
+  const effectiveDeg = (effectiveRad * 180) / Math.PI;
+  const tipHeightM = h - half * Math.sin(effectiveRad);
+
+  return {
+    requestedDeg,
+    effectiveDeg,
+    tipHeightM,
+    clamped,
+  };
+}
+
+function buildSlopingVWires(
+  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'>,
+): Wire[] {
+  const half = state.length / 2;
+  const h = state.height;
+  const { effectiveDeg } = computeEffectiveSlope(state);
+  const effectiveSlopeRad = (effectiveDeg * Math.PI) / 180;
+
+  const [dx, dy] = orientationVector(state.orientation);
+  const [px, py] = [-dy, dx];
+
+  const halfV = ((state.vAngle / 2) * Math.PI) / 180;
+  const cosS = Math.cos(effectiveSlopeRad);
+  const sinS = Math.sin(effectiveSlopeRad);
+  const cosV = Math.cos(halfV);
+  const sinV = Math.sin(halfV);
+
+  function legPointAt(axis: number, side: number): [number, number, number] {
+    const horizontalDist = axis * cosS;
+    const lz = -axis * sinS;
+
+    const la = horizontalDist * cosV;
+    const lp = horizontalDist * sinV * side;
+
+    const wx = dx * la + px * lp;
+    const wy = dy * la + py * lp;
+    const wz = h + lz;
+
+    const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+    return [cleanZero(wx), cleanZero(wy), cleanZero(wz)];
+  }
+
+  const lambda = wavelengthMeters(state.frequency);
+  const minSegPerLeg = Math.ceil((20 * half) / lambda);
+  const segmentsPerLeg = Math.max(9, minSegPerLeg, Math.round(state.segments / 2));
+
+  return [
+    {
+      start: legPointAt(half, -1),
+      end: legPointAt(0, 0),
+      radius: state.wireRadius,
+      segments: segmentsPerLeg,
+      tag: DIPOLE_LEFT_TAG,
+    },
+    {
+      start: legPointAt(0, 0),
+      end: legPointAt(half, 1),
+      radius: state.wireRadius,
+      segments: segmentsPerLeg,
+      tag: DIPOLE_RIGHT_TAG,
+    },
+  ];
+}
+
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
@@ -455,58 +538,16 @@ export function buildWires(
     });
   }
 
-  const [dx, dy] = orientationVector(state.orientation);
-  const [px, py] = [-dy, dx];
-  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
-
-  const slopeDeg = antennaType === 'sloping-v' ? (state.legSlope ?? 0) : 0;
-  const vAngleDeg = antennaType === 'sloping-v' ? (state.vAngle ?? 180) : 180;
-
-  const maxSin = half > 0 ? (h - SLOPING_V_MIN_TIP_Z_M) / half : 0;
-  const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
-  const requestedSlopeRad = (slopeDeg * Math.PI) / 180;
-  const effectiveSlopeRad = Math.min(requestedSlopeRad, maxSlopeRad);
-
-  const cosS = Math.cos(effectiveSlopeRad);
-  const sinS = Math.sin(effectiveSlopeRad);
-
-  const openingHalfRad = ((180 - vAngleDeg) / 2 * Math.PI) / 180;
-  const cosV = Math.cos(openingHalfRad);
-  const sinV = Math.sin(openingHalfRad);
-
-  function legPointAt(axis: number, side: number): [number, number, number] {
-    const lx = axis * cosS * cosV * side;
-    const ly = axis * cosS * sinV;
-    const lz = -axis * sinS;
-
-    const wx = dx * lx + px * ly;
-    const wy = dy * lx + py * ly;
-    const wz = h + lz;
-
-    return [cleanZero(wx), cleanZero(wy), cleanZero(wz)];
+  if (antennaType === 'sloping-v') {
+    return buildSlopingVWires(state);
   }
+
+  const [dx, dy] = orientationVector(state.orientation);
+  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
   const layout = computeFeedlineLayout(state);
 
   if (!layout) {
-    if (antennaType === 'sloping-v' || vAngleDeg < 180 || slopeDeg > 0) {
-      return [
-        {
-          start: legPointAt(half, -1),
-          end: legPointAt(0, 0),
-          radius: state.wireRadius,
-          segments: Math.max(1, Math.round(state.segments / 2)),
-          tag: DIPOLE_TAG,
-        },
-        {
-          start: legPointAt(0, 0),
-          end: legPointAt(half, 1),
-          radius: state.wireRadius,
-          segments: Math.max(1, Math.round(state.segments / 2)),
-          tag: DIPOLE_TAG,
-        },
-      ];
-    }
     return [{
       start: [cleanZero(-half * dx), cleanZero(-half * dy), h],
       end: [cleanZero(half * dx), cleanZero(half * dy), h],
@@ -518,11 +559,20 @@ export function buildWires(
 
   const offset = layout.offset;
   const bridgeHalf = FEEDLINE_BRIDGE_LENGTH_M / 2;
-  const bridgeStart = legPointAt(offset - bridgeHalf, offset < 0 ? -1 : 1);
-  const bridgeEnd = legPointAt(offset + bridgeHalf, offset < 0 ? -1 : 1);
 
-  const leftTip = legPointAt(half, -1);
-  const rightTip = legPointAt(half, 1);
+  const bridgeStart: [number, number, number] = [
+    cleanZero((offset - bridgeHalf) * dx),
+    cleanZero((offset - bridgeHalf) * dy),
+    h,
+  ];
+  const bridgeEnd: [number, number, number] = [
+    cleanZero((offset + bridgeHalf) * dx),
+    cleanZero((offset + bridgeHalf) * dy),
+    h,
+  ];
+
+  const leftTip: [number, number, number] = [cleanZero(-half * dx), cleanZero(-half * dy), h];
+  const rightTip: [number, number, number] = [cleanZero(half * dx), cleanZero(half * dy), h];
 
   const dist = (p1: [number, number, number], p2: [number, number, number]) =>
     Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2);
@@ -636,8 +686,8 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     excitation = { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
   } else if (feedlineActive) {
     excitation = { wireTag: FEED_BRIDGE_TAG, segment: 1 };
-  } else if (state.antennaType === 'inverted-v') {
-    const leftLeg = wires.find(w => w.tag === DIPOLE_LEFT_TAG)!;
+  } else if (state.antennaType === 'inverted-v' || state.antennaType === 'sloping-v') {
+    const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
     excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
   } else {
     const dipoleCentreSeg = Math.ceil(state.segments / 2);
