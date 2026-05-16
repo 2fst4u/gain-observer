@@ -17,7 +17,7 @@ describe('ThemeToggle', () => {
     render(<ThemeToggle />);
     const button = screen.getByRole('button', { name: 'Switch to light mode' });
     expect(button).toBeDefined();
-    expect(button.title).toBe('Switch to light');
+    expect(button.title).toBe('Switch to light (T)');
     expect(button.textContent).toBe('☀');
   });
 
@@ -26,7 +26,7 @@ describe('ThemeToggle', () => {
     render(<ThemeToggle />);
     const button = screen.getByRole('button', { name: 'Switch to dark mode' });
     expect(button).toBeDefined();
-    expect(button.title).toBe('Switch to dark');
+    expect(button.title).toBe('Switch to dark (T)');
     expect(button.textContent).toBe('☾');
   });
 

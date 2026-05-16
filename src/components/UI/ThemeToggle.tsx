@@ -6,7 +6,8 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+      title={theme === 'dark' ? 'Switch to light (T)' : 'Switch to dark (T)'}
+      aria-keyshortcuts="t"
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       {theme === 'dark' ? '☀' : '☾'}

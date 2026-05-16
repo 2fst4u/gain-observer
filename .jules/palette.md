@@ -34,3 +34,7 @@
 ## 2026-05-13 - Loading Spinner Alignment
 **Learning:** Adding a spinner to a button with text requires adjusting the display properties to `flex` and aligning items to the center, along with a gap, to prevent the spinner from sitting awkwardly above or below the text.
 **Action:** When adding inline spinners to buttons, ensure the button has `display: 'flex', alignItems: 'center', gap: '6px'` to maintain visual balance and layout.
+
+## 2024-05-26 - Exposing Keyboard Shortcuts
+**Learning:** Hidden keyboard shortcuts are great for power users, but they lack discoverability. Additionally, screen readers are not aware of custom JavaScript-based keybindings unless explicitly told.
+**Action:** When adding global keyboard shortcuts (like `T` for theme toggle, `U` for unit toggle, or `M`/`N`/`C` for mode switching), always append the shortcut to the visual `title` tooltip (e.g. `(T)`) and add the `aria-keyshortcuts` attribute to the corresponding interactive element.
