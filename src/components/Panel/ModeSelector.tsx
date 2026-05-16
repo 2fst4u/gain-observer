@@ -1,10 +1,10 @@
 import { useAntennaStore } from '../../store/antennaStore';
 import type { Mode } from '../../store/antennaStore';
 
-const MODES: Array<{ id: Mode; label: string; hint: string }> = [
-  { id: 'normal', label: 'Normal', hint: 'Standard DX pattern view' },
-  { id: 'nvis', label: 'NVIS', hint: 'Highlights zenith lobe for regional comms' },
-  { id: 'comparison', label: 'Compare', hint: 'Side-by-side two configs' },
+const MODES: Array<{ id: Mode; label: string; hint: string; shortcut: string }> = [
+  { id: 'normal', label: 'Normal', hint: 'Standard DX pattern view', shortcut: 'm' },
+  { id: 'nvis', label: 'NVIS', hint: 'Highlights zenith lobe for regional comms', shortcut: 'n' },
+  { id: 'comparison', label: 'Compare', hint: 'Side-by-side two configs', shortcut: 'c' },
 ];
 
 export function ModeSelector() {
@@ -20,7 +20,8 @@ export function ModeSelector() {
             key={m.id}
             className={mode === m.id ? 'active' : ''}
             onClick={() => setMode(m.id)}
-            title={m.hint}
+            title={`${m.hint} (${m.shortcut.toUpperCase()})`}
+            aria-keyshortcuts={m.shortcut}
             aria-pressed={mode === m.id}
           >{m.label}</button>
         ))}
