@@ -7,8 +7,9 @@ import type { TerminationDiagnostics } from '../src/physics/types';
 describe('StatsReadout', () => {
   beforeEach(() => {
     cleanup();
-    // Reset store before each test
+    // Reset store before each test; include antennaType to prevent state bleed
     useAntennaStore.setState({
+      antennaType: 'dipole',
       result: null,
       mode: 'standard',
       comparisonReference: null,
