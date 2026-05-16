@@ -173,7 +173,7 @@ export function PolarPlots() {
   if (!showPolarCuts || !result || !azData || !elDataBroadside || !elDataEndOn) return null;
 
   return (
-    <div className="panel-section">
+    <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Polar cuts</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
@@ -244,6 +244,6 @@ export function PolarPlots() {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

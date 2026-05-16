@@ -32,7 +32,7 @@ export function GroundControl() {
   }
 
   return (
-    <div className="panel-section">
+    <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>
         Ground
@@ -100,6 +100,6 @@ export function GroundControl() {
           />
         </>
       )}
-    </div>
+    </section>
   );
 }

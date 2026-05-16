@@ -6,15 +6,15 @@ export function StatsReadout() {
   const reference = useAntennaStore((s) => s.comparisonReference);
   if (!result) {
     return (
-      <div className="panel-section">
+      <section className="panel-section">
         {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
         <h2>Results</h2>
         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Computing…</div>
-      </div>
+      </section>
     );
   }
   return (
-    <div className="panel-section">
+    <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Results <span className="badge">{result.computeTimeMs.toFixed(0)} ms</span></h2>
       <div className="stat">
@@ -51,7 +51,7 @@ export function StatsReadout() {
         <strong>Note:</strong> Termination reduces reflections along the antenna wire.
         It does not guarantee a 50 Ω feedpoint impedance.
       </div>
-    </div>
+    </section>
   );
 }
 

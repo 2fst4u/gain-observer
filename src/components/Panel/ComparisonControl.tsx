@@ -17,7 +17,8 @@ export function ComparisonControl() {
   const unit = displayLengthUnit(units);
 
   return (
-    <div className="panel-section">
+    /* SEO: Upgrade generic div wrapper to semantic section tag to improve document outlining for search engines */
+    <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Comparison</h2>
       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -82,7 +83,7 @@ export function ComparisonControl() {
       ) : (
         <div className="compare-empty">Capture a solved configuration to enable side-by-side comparison.</div>
       )}
-    </div>
+    </section>
   );
 }
 
