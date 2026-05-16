@@ -166,6 +166,79 @@ export interface ImpedanceResult {
   readonly X: number;
 }
 
+/**
+ * One segment's current from the NEC CURRENTS AND LOCATION block.
+ * Positions are in wavelengths (NEC normalises them).
+ */
+export interface SegmentCurrent {
+  readonly segNo: number;
+  readonly tagNo: number;
+  /** Centre-of-segment X position, in wavelengths. */
+  readonly x: number;
+  /** Centre-of-segment Y position, in wavelengths. */
+  readonly y: number;
+  /** Centre-of-segment Z position, in wavelengths. */
+  readonly z: number;
+  /** Current magnitude, amperes. */
+  readonly magnitude: number;
+  /** Current phase, degrees. */
+  readonly phase: number;
+}
+
+/** NEC POWER BUDGET block values. */
+export interface PowerBudget {
+  /** Total power accepted by the antenna from the source, watts. */
+  readonly inputW: number;
+  /** Power leaving as far-field radiation, watts. */
+  readonly radiatedW: number;
+  /** Ohmic loss in wire conductors, watts. */
+  readonly structureLossW: number;
+  /**
+   * Power absorbed by NT (network) cards, watts.
+   * For a terminated V-beam this equals the power dissipated in the
+   * far-end resistor — the primary termination-effectiveness metric.
+   */
+  readonly networkLossW: number;
+  /** Radiation efficiency, percent (= 100 × radiatedW / inputW). */
+  readonly efficiencyPct: number;
+}
+
+/** Per-tag current ripple diagnostic. */
+export interface CurrentRipple {
+  readonly tagNo: number;
+  /** Current magnitudes for every segment on this wire, amperes. */
+  readonly magnitudes: readonly number[];
+  /**
+   * max(|I|) / min(|I|).
+   * 1.0 = perfectly uniform (ideal travelling wave).
+   * High values indicate a standing-wave component.
+   */
+  readonly ripple: number;
+  /** 20 × log10(ripple), dB. 0 dB = perfectly uniform. */
+  readonly rippleDb: number;
+}
+
+/**
+ * Termination-effectiveness diagnostics derived from NEC output.
+ *
+ * These measure whether the far-end termination is absorbing the
+ * travelling wave.  They are NOT feedpoint-match metrics.
+ */
+export interface TerminationDiagnostics {
+  /** Current ripple for each wire tag present in the NEC output. */
+  readonly currentRippleByTag: readonly CurrentRipple[];
+  /**
+   * Full NEC power budget.  powerBudget.networkLossW is the power
+   * absorbed by the termination resistor (NT card).
+   */
+  readonly powerBudget: PowerBudget | null;
+  /**
+   * Gain at peak direction minus gain at 180° opposite, in dB.
+   * Null when the pattern has too few phi steps to sample the rear.
+   */
+  readonly frontBackDb: number | null;
+}
+
 export interface SimulationResult {
   readonly pattern: GainPattern;
   readonly maxGainDbi: number;
@@ -188,6 +261,12 @@ export interface SimulationResult {
   readonly efficiency?: number;
   /** Wall-clock compute time in milliseconds. */
   readonly computeTimeMs: number;
+  /**
+   * Termination-effectiveness diagnostics (current ripple, power budget,
+   * front/back ratio).  Present whenever the NEC run produced a full
+   * output; absent only if currents could not be extracted.
+   */
+  readonly terminationDiagnostics?: TerminationDiagnostics;
 }
 
 /** Result of a frequency sweep for SWR/impedance analysis. */

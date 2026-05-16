@@ -20,6 +20,7 @@
 
 import { buildNecCards } from './necCard';
 import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
+import { computeTerminationDiagnostics } from './terminationDiagnostics';
 import { swr } from './impedance';
 import type { Engine, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 
@@ -216,6 +217,14 @@ export class Nec2Engine implements Engine {
 
       const computeTimeMs = performance.now() - t0;
 
+      const terminationDiagnostics = computeTerminationDiagnostics(
+        parsed.currents,
+        parsed.powerBudget,
+        parsed.pattern,
+        elevationDeg,
+        phiDeg,
+      );
+
       return {
         pattern: parsed.pattern,
         maxGainDbi: maxGain,
@@ -224,6 +233,7 @@ export class Nec2Engine implements Engine {
         impedance: parsed.impedance,
         swr: swr(parsed.impedance),
         computeTimeMs,
+        terminationDiagnostics,
       };
     } finally {
       release();

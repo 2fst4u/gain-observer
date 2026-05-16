@@ -1,4 +1,5 @@
-import { useAntennaStore } from '../../store/antennaStore';
+import { useAntennaStore, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG } from '../../store/antennaStore';
+import type { TerminationDiagnostics } from '../../physics/types';
 
 export function StatsReadout() {
   const result = useAntennaStore((s) => s.result);
@@ -47,6 +48,7 @@ export function StatsReadout() {
       {mode === 'nvis' && (
         <NvisStats />
       )}
+      <TerminationSection diagnostics={result.terminationDiagnostics} />
       <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
         <strong>Note:</strong> Termination reduces reflections along the antenna wire.
         It does not guarantee a 50 Ω feedpoint impedance.
@@ -95,6 +97,79 @@ function ComparisonStats({
 function formatSigned(value: number, digits: number): string {
   const sign = value > 0 ? '+' : '';
   return `${sign}${value.toFixed(digits)}`;
+}
+
+function rippleColor(rippleDb: number): string {
+  if (!Number.isFinite(rippleDb)) return 'var(--danger)';
+  if (rippleDb < 3) return 'var(--success)';
+  if (rippleDb < 10) return 'var(--warning)';
+  return 'var(--danger)';
+}
+
+function legLabel(tagNo: number): string {
+  if (tagNo === DIPOLE_LEFT_TAG) return 'Left leg ripple';
+  if (tagNo === DIPOLE_RIGHT_TAG) return 'Right leg ripple';
+  return `Tag ${tagNo} ripple`;
+}
+
+/**
+ * Shows termination-effectiveness metrics for V-beam and sloping-V antennas.
+ * These are NOT feedpoint-match metrics — they measure whether the far-end
+ * termination is absorbing the travelling wave.
+ */
+function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnostics | undefined }) {
+  const antennaType = useAntennaStore((s) => s.antennaType);
+
+  if (!diagnostics) return null;
+  if (antennaType !== 'v-beam' && antennaType !== 'sloping-v') return null;
+
+  const { currentRippleByTag, powerBudget, frontBackDb } = diagnostics;
+  const legRipples = currentRippleByTag.filter(
+    (r) => r.tagNo === DIPOLE_LEFT_TAG || r.tagNo === DIPOLE_RIGHT_TAG,
+  );
+
+  const hasContent =
+    legRipples.length > 0 || powerBudget !== null || frontBackDb !== null;
+  if (!hasContent) return null;
+
+  return (
+    <>
+      <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+        Termination effectiveness
+      </div>
+      {legRipples.map((r) => (
+        <div className="stat" key={r.tagNo}>
+          <span className="stat-label">{legLabel(r.tagNo)}</span>
+          <span className="stat-value" style={{ color: rippleColor(r.rippleDb) }}>
+            {Number.isFinite(r.rippleDb) ? `${r.rippleDb.toFixed(1)} dB` : '∞ dB'}
+          </span>
+        </div>
+      ))}
+      {frontBackDb !== null && (
+        <div className="stat">
+          <span className="stat-label">Front/back ratio</span>
+          <span className="stat-value">{frontBackDb.toFixed(1)} dB</span>
+        </div>
+      )}
+      {powerBudget !== null && (
+        <>
+          <div className="stat">
+            <span className="stat-label">Termination load</span>
+            <span className="stat-value">
+              {(powerBudget.networkLossW * 1000).toFixed(2)} mW
+            </span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Radiated power</span>
+            <span className="stat-value">
+              {(powerBudget.radiatedW * 1000).toFixed(2)} mW
+            </span>
+          </div>
+        </>
+      )}
+    </>
+  );
 }
 
 function NvisStats() {

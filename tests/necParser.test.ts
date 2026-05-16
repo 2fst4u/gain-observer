@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseNecImpedance, parseNecOutput } from '../src/physics/necParser';
+import { parseNecImpedance, parseNecOutput, parseNecCurrents, parseNecPowerBudget } from '../src/physics/necParser';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -122,5 +122,129 @@ RADIATION PATTERNS
     `;
     const parsed = parseNecOutput(mockOutput, 1, 1);
     expect(parsed.pattern).toBeNull();
+  });
+
+  it('parseNecOutput includes currents and powerBudget fields', () => {
+    const parsed = parseNecOutput(fullOutput, 5, 8);
+    expect(Array.isArray(parsed.currents)).toBe(true);
+    expect(parsed.powerBudget).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseNecCurrents
+// ---------------------------------------------------------------------------
+
+const CURRENTS_BLOCK = `
+                           -------- CURRENTS AND LOCATION --------
+                                  DISTANCES IN WAVELENGTHS
+
+   SEG  TAG    COORDINATES OF SEGM CENTER     SEGM    ------------- CURRENT (AMPS) -------------
+   No:  No:       X         Y         Z      LENGTH     REAL      IMAGINARY    MAGN        PHASE
+     1    1   -0.2153    0.0000    0.2368   0.04306  1.6925E-03  9.6489E-04  1.9482E-03   29.688
+     2    1   -0.1722    0.0000    0.2368   0.04306  4.6480E-03  2.7004E-03  5.3755E-03   30.156
+     3    1   -0.1292    0.0000    0.2368   0.04306  7.1088E-03  4.2185E-03  8.2663E-03   30.685
+     1    2    0.1292    0.0000    0.2368   0.04306  3.1000E-03  1.8000E-03  3.5861E-03   30.100
+     2    2    0.1722    0.0000    0.2368   0.04306  1.8000E-03  1.0000E-03  2.0616E-03   29.054
+`;
+
+describe('parseNecCurrents', () => {
+  it('returns empty array when no CURRENTS AND LOCATION block present', () => {
+    expect(parseNecCurrents('')).toEqual([]);
+    expect(parseNecCurrents('ANTENNA INPUT PARAMETERS\n  some data')).toEqual([]);
+  });
+
+  it('parses segment number, tag, position and magnitude', () => {
+    const currents = parseNecCurrents(CURRENTS_BLOCK);
+    expect(currents).toHaveLength(5);
+
+    expect(currents[0]!.segNo).toBe(1);
+    expect(currents[0]!.tagNo).toBe(1);
+    expect(currents[0]!.magnitude).toBeCloseTo(1.9482e-3, 6);
+
+    expect(currents[3]!.segNo).toBe(1);
+    expect(currents[3]!.tagNo).toBe(2);
+    expect(currents[3]!.magnitude).toBeCloseTo(3.5861e-3, 6);
+  });
+
+  it('groups correctly: three segments for tag 1, two for tag 2', () => {
+    const currents = parseNecCurrents(CURRENTS_BLOCK);
+    const tag1 = currents.filter((c) => c.tagNo === 1);
+    const tag2 = currents.filter((c) => c.tagNo === 2);
+    expect(tag1).toHaveLength(3);
+    expect(tag2).toHaveLength(2);
+  });
+
+  it('parses all 11 segments from the dipole fixture', () => {
+    const fixtureDir = path.join(__dirname, 'fixtures/nec');
+    const fullOutput = fs.readFileSync(path.join(fixtureDir, 'dipole-7.1-free.nout'), 'utf8');
+    const currents = parseNecCurrents(fullOutput);
+    expect(currents).toHaveLength(11);
+    // Dipole: all segments belong to tag 1
+    for (const c of currents) {
+      expect(c.tagNo).toBe(1);
+    }
+    // Current at segment 6 (centre) should be maximum
+    const mags = currents.map((c) => c.magnitude);
+    const maxMag = Math.max(...mags);
+    expect(currents[5]!.magnitude).toBeCloseTo(maxMag, 10);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseNecPowerBudget
+// ---------------------------------------------------------------------------
+
+const POWER_BUDGET_BLOCK = `
+                               ---------- POWER BUDGET ---------
+                               INPUT POWER   =  5.2785E-03 Watts
+                               RADIATED POWER=  5.2785E-03 Watts
+                               STRUCTURE LOSS=  0.0000E+00 Watts
+                               NETWORK LOSS  =  0.0000E+00 Watts
+                               EFFICIENCY    =  100.00 Percent
+`;
+
+const POWER_BUDGET_WITH_LOSS = `
+                               ---------- POWER BUDGET ---------
+                               INPUT POWER   =  1.0000E-02 Watts
+                               RADIATED POWER=  6.0000E-03 Watts
+                               STRUCTURE LOSS=  5.0000E-04 Watts
+                               NETWORK LOSS  =  3.5000E-03 Watts
+                               EFFICIENCY    =  60.00 Percent
+`;
+
+describe('parseNecPowerBudget', () => {
+  it('returns null when block is absent', () => {
+    expect(parseNecPowerBudget('')).toBeNull();
+    expect(parseNecPowerBudget('ANTENNA INPUT PARAMETERS\n')).toBeNull();
+  });
+
+  it('parses all five fields from a no-loss block', () => {
+    const budget = parseNecPowerBudget(POWER_BUDGET_BLOCK);
+    expect(budget).not.toBeNull();
+    expect(budget!.inputW).toBeCloseTo(5.2785e-3, 10);
+    expect(budget!.radiatedW).toBeCloseTo(5.2785e-3, 10);
+    expect(budget!.structureLossW).toBeCloseTo(0, 10);
+    expect(budget!.networkLossW).toBeCloseTo(0, 10);
+    expect(budget!.efficiencyPct).toBeCloseTo(100, 5);
+  });
+
+  it('parses non-zero NETWORK LOSS (termination resistor power)', () => {
+    const budget = parseNecPowerBudget(POWER_BUDGET_WITH_LOSS);
+    expect(budget).not.toBeNull();
+    expect(budget!.inputW).toBeCloseTo(1.0e-2, 10);
+    expect(budget!.networkLossW).toBeCloseTo(3.5e-3, 10);
+    expect(budget!.efficiencyPct).toBeCloseTo(60, 5);
+  });
+
+  it('parses the dipole fixture power budget', () => {
+    const fixtureDir = path.join(__dirname, 'fixtures/nec');
+    const fullOutput = fs.readFileSync(path.join(fixtureDir, 'dipole-7.1-free.nout'), 'utf8');
+    const budget = parseNecPowerBudget(fullOutput);
+    expect(budget).not.toBeNull();
+    // Lossless dipole: input ≈ radiated, network loss = 0
+    expect(budget!.networkLossW).toBeCloseTo(0, 10);
+    expect(budget!.efficiencyPct).toBeCloseTo(100, 1);
+    expect(budget!.inputW).toBeGreaterThan(0);
   });
 });
