@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { useAntennaStore, buildWires, selectSimulationInput } from '../src/store/antennaStore';
+import { useAntennaStore, selectSimulationInput } from '../src/store/antennaStore';
 import { buildNecCards } from '../src/physics/necCard';
 import { parseGwLine, getNecLines, expectExcitation } from './necInspect';
 import { FEED_BRIDGE_TAG, DIPOLE_RIGHT_TAG } from '../src/physics/constants';

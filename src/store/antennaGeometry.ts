@@ -222,7 +222,6 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   const sideLen = perimeter / 3;
   const h = params.height;
   const [dx, dy] = orientationVector(params.orientation);
-  const [px, py] = [-dy, dx]; // Perpendicular for the "width" of the triangle
 
   // Apex at (0,0,h). Equilateral triangle in the plane defined by orientation.
   // Height of equilateral triangle = sideLen * sqrt(3)/2.

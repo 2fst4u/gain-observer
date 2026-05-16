@@ -30,7 +30,6 @@ import {
   findGroundPreset,
   referenceLength,
   halfWaveLength,
-  wavelengthMeters,
   DIPOLE_TAG,
   DIPOLE_LEFT_TAG,
   DIPOLE_RIGHT_TAG,

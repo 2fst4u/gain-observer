@@ -5,7 +5,6 @@ import {
   selectSimulationInput,
   computeEffectiveSlope,
   DIPOLE_LEFT_TAG,
-  DIPOLE_RIGHT_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
 
