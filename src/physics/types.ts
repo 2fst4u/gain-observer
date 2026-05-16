@@ -257,16 +257,21 @@ export interface SimulationResult {
    * necessarily resulting in a 50 Ω feedpoint impedance.
    */
   readonly swr: number;
-  /** Radiation efficiency (0..1) when provided by solver; undefined if unknown. */
+  /**
+   * Radiation efficiency (0..1) from the NEC POWER BUDGET block.
+   * Equals terminationDiagnostics.powerBudget.efficiencyPct / 100.
+   * Undefined only when the power budget block could not be parsed.
+   */
   readonly efficiency?: number;
   /** Wall-clock compute time in milliseconds. */
   readonly computeTimeMs: number;
   /**
    * Termination-effectiveness diagnostics (current ripple, power budget,
-   * front/back ratio).  Present whenever the NEC run produced a full
-   * output; absent only if currents could not be extracted.
+   * front/back ratio).  Always present in results from Nec2Engine —
+   * parseNecCurrents never returns null and computeTerminationDiagnostics
+   * always returns a result.
    */
-  readonly terminationDiagnostics?: TerminationDiagnostics;
+  readonly terminationDiagnostics: TerminationDiagnostics;
 }
 
 /** Result of a frequency sweep for SWR/impedance analysis. */

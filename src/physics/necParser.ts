@@ -204,8 +204,8 @@ export function parseNecPowerBudget(text: string): PowerBudget | null {
   const blockStart = text.indexOf('POWER BUDGET');
   if (blockStart < 0) return null;
 
-  // Scan ~300 chars after the header — the block is short.
-  const block = text.slice(blockStart, blockStart + 350);
+  // Scan enough chars to capture all five data lines regardless of indentation.
+  const block = text.slice(blockStart, blockStart + 500);
 
   const inputM = /INPUT POWER\s*=\s*(-?\d+\.\d+E[+-]\d+)/.exec(block);
   const radiatedM = /RADIATED POWER\s*=\s*(-?\d+\.\d+E[+-]\d+)/.exec(block);

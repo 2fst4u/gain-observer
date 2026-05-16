@@ -232,6 +232,7 @@ export class Nec2Engine implements Engine {
         takeoffAzimuthDeg: phiDeg,
         impedance: parsed.impedance,
         swr: swr(parsed.impedance),
+        efficiency: parsed.powerBudget ? parsed.powerBudget.efficiencyPct / 100 : undefined,
         computeTimeMs,
         terminationDiagnostics,
       };

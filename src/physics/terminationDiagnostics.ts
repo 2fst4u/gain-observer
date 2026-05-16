@@ -39,8 +39,8 @@ export function computeCurrentRippleByTag(currents: SegmentCurrent[]): CurrentRi
   const result: CurrentRipple[] = [];
   for (const [tagNo, mags] of byTag) {
     if (mags.length < 2) continue;
-    const maxMag = Math.max(...mags);
-    const minMag = Math.min(...mags);
+    const maxMag = mags.reduce((a, b) => (b > a ? b : a));
+    const minMag = mags.reduce((a, b) => (b < a ? b : a));
     const ripple = minMag > 0 ? maxMag / minMag : Infinity;
     const rippleDb = Number.isFinite(ripple) ? 20 * Math.log10(ripple) : Infinity;
     result.push({ tagNo, magnitudes: mags, ripple, rippleDb });
@@ -70,6 +70,8 @@ export function computeFrontBackDb(
 
   // NEC theta = 0 at zenith; elevation = 0 at horizon.
   const thetaDeg = 90 - takeoffElevationDeg;
+  // When thetaSteps === 1, dTheta is Infinity and Math.round(x/Infinity) === 0,
+  // which correctly maps to the single available row (index 0).
   const ti = Math.round(thetaDeg / pattern.dTheta);
   if (ti < 0 || ti >= pattern.thetaSteps) return null;
 

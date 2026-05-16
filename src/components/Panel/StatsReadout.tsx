@@ -49,10 +49,6 @@ export function StatsReadout() {
         <NvisStats />
       )}
       <TerminationSection diagnostics={result.terminationDiagnostics} />
-      <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-        <strong>Note:</strong> Termination reduces reflections along the antenna wire.
-        It does not guarantee a 50 Ω feedpoint impedance.
-      </div>
     </section>
   );
 }
@@ -117,10 +113,9 @@ function legLabel(tagNo: number): string {
  * These are NOT feedpoint-match metrics — they measure whether the far-end
  * termination is absorbing the travelling wave.
  */
-function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnostics | undefined }) {
+function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnostics }) {
   const antennaType = useAntennaStore((s) => s.antennaType);
 
-  if (!diagnostics) return null;
   if (antennaType !== 'v-beam' && antennaType !== 'sloping-v') return null;
 
   const { currentRippleByTag, powerBudget, frontBackDb } = diagnostics;
@@ -168,6 +163,10 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
           </div>
         </>
       )}
+      <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+        <strong>Note:</strong> Termination reduces reflections along the antenna wire.
+        It does not guarantee a 50 Ω feedpoint impedance.
+      </div>
     </>
   );
 }
