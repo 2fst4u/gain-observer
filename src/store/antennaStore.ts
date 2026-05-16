@@ -30,10 +30,33 @@ import {
   findGroundPreset,
   referenceLength,
   halfWaveLength,
-  wavelengthMeters,
+  DIPOLE_TAG,
+  DIPOLE_LEFT_TAG,
+  DIPOLE_RIGHT_TAG,
+  FEED_BRIDGE_TAG,
+  FEEDLINE_SHIELD_TAG,
+  FEED_BRIDGE_LENGTH_M,
 } from '../physics/constants';
+
+// Re-export geometry tags for UI and tests.
+export {
+  DIPOLE_TAG,
+  DIPOLE_LEFT_TAG,
+  DIPOLE_RIGHT_TAG,
+  FEED_BRIDGE_TAG,
+  FEEDLINE_SHIELD_TAG,
+  FEED_BRIDGE_LENGTH_M,
+};
 import type { UnitSystem } from '../physics/units';
-import { buildInvertedVWires, orientationVector, type OrientationPreset, type Orientation } from './antennaGeometry';
+import {
+  buildInvertedVWires,
+  buildSlopingVWires,
+  buildVBeamWires,
+  buildDeltaLoopWires,
+  orientationVector,
+  type OrientationPreset,
+  type Orientation,
+} from './antennaGeometry';
 
 // Re-export shared types for UI and geometry.
 export type { AntennaType };
@@ -228,7 +251,8 @@ export const useAntennaStore = create<AntennaState>()(
 
       setAntennaType: (type) => set((s) => {
         s.antennaType = type;
-        if (type !== 'dipole') {
+        const supportFeedline = type === 'dipole';
+        if (!supportFeedline) {
           s.feedlineId = 'none';
           s.feedlineLength = 0;
           s.feedlineOffset = 0;
@@ -242,12 +266,18 @@ export const useAntennaStore = create<AntennaState>()(
         } else if (type === 'sloping-v') {
           s.vAngle = 90;
           s.legSlope = 30;
+        } else if (type === 'v-beam') {
+          s.vAngle = 90;
+          s.legSlope = 0;
         } else if (type === 'inverted-v') {
           s.vAngle = 120;
           s.legSlope = 0;
+        } else if (type === 'delta-loop') {
+          s.vAngle = 180;
+          s.legSlope = 0;
         }
 
-        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
@@ -255,13 +285,13 @@ export const useAntennaStore = create<AntennaState>()(
       setLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
         s.length = Math.max(0.1, meters);
-        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
       setHalfWaveLength: () => set((s) => {
         s.length = calculateDefaultLength(s.antennaType, s.frequency);
-        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
@@ -316,7 +346,7 @@ export const useAntennaStore = create<AntennaState>()(
       }),
       setFeedlineOffset: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
-        const limit = Math.max(0, s.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+        const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
         s.feedlineOffset = Math.max(-limit, Math.min(limit, meters));
       }),
       setBalunEnabled: (enabled) => set((s) => { s.balunEnabled = !!enabled; }),
@@ -426,14 +456,7 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
 
 // --------------- Selectors ---------------
 
-export const DIPOLE_TAG = 1;          // single-wire dipole (no feedline)
-export const DIPOLE_LEFT_TAG = 1;     // left half of split dipole
-export const DIPOLE_RIGHT_TAG = 2;    // right half of split dipole
-export const FEED_BRIDGE_TAG = 3;     // 1-segment source bridge
-export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
-
 const FEEDLINE_SHIELD_SEGMENTS = 11;
-const FEEDLINE_BRIDGE_LENGTH_M = 0.05;
 const FEEDLINE_GROUND_GAP_M = 0.1;
 
 /**
@@ -464,60 +487,6 @@ export function computeEffectiveSlope(
   };
 }
 
-function buildSlopingVWires(
-  state: Pick<AntennaState, 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'>,
-): Wire[] {
-  const half = state.length / 2;
-  const h = state.height;
-  const { effectiveDeg } = computeEffectiveSlope(state);
-  const effectiveSlopeRad = (effectiveDeg * Math.PI) / 180;
-
-  const [dx, dy] = orientationVector(state.orientation);
-  const [px, py] = [-dy, dx];
-
-  const halfV = ((state.vAngle / 2) * Math.PI) / 180;
-  const cosS = Math.cos(effectiveSlopeRad);
-  const sinS = Math.sin(effectiveSlopeRad);
-  const cosV = Math.cos(halfV);
-  const sinV = Math.sin(halfV);
-
-  function legPointAt(axis: number, side: number): [number, number, number] {
-    const horizontalDist = axis * cosS;
-    const lz = -axis * sinS;
-
-    const la = horizontalDist * cosV;
-    const lp = horizontalDist * sinV * side;
-
-    const wx = dx * la + px * lp;
-    const wy = dy * la + py * lp;
-    const wz = h + lz;
-
-    const cleanZero = (v: number): number => (v === 0 ? 0 : v);
-    return [cleanZero(wx), cleanZero(wy), cleanZero(wz)];
-  }
-
-  const lambda = wavelengthMeters(state.frequency);
-  const minSegPerLeg = Math.ceil((20 * half) / lambda);
-  const segmentsPerLeg = Math.max(9, minSegPerLeg, Math.round(state.segments / 2));
-
-  return [
-    {
-      start: legPointAt(half, -1),
-      end: legPointAt(0, 0),
-      radius: state.wireRadius,
-      segments: segmentsPerLeg,
-      tag: DIPOLE_LEFT_TAG,
-    },
-    {
-      start: legPointAt(0, 0),
-      end: legPointAt(half, 1),
-      radius: state.wireRadius,
-      segments: segmentsPerLeg,
-      tag: DIPOLE_RIGHT_TAG,
-    },
-  ];
-}
-
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
@@ -542,6 +511,21 @@ export function buildWires(
     return buildSlopingVWires(state);
   }
 
+  if (antennaType === 'v-beam') {
+    return buildVBeamWires(state);
+  }
+
+  if (antennaType === 'delta-loop') {
+    return buildDeltaLoopWires({
+      length: state.length,
+      height: h,
+      orientation: state.orientation,
+      wireRadius: state.wireRadius,
+      segments: state.segments,
+      frequency: state.frequency,
+    });
+  }
+
   const [dx, dy] = orientationVector(state.orientation);
   const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
@@ -558,7 +542,7 @@ export function buildWires(
   }
 
   const offset = layout.offset;
-  const bridgeHalf = FEEDLINE_BRIDGE_LENGTH_M / 2;
+  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
 
   const bridgeStart: [number, number, number] = [
     cleanZero((offset - bridgeHalf) * dx),
@@ -628,7 +612,8 @@ function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
     Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): FeedlineLayout | null {
-  if (state.antennaType !== 'dipole') return null;
+  const supportFeedline = state.antennaType === 'dipole';
+  if (!supportFeedline) return null;
 
   const id = state.feedlineId;
   if (!id || id === 'none') return null;
@@ -638,7 +623,7 @@ function computeFeedlineLayout(
   const len = state.feedlineLength;
   if (typeof len !== 'number' || !Number.isFinite(len) || len <= 0) return null;
 
-  const limit = Math.max(0, state.length / 2 - FEEDLINE_BRIDGE_LENGTH_M);
+  const limit = Math.max(0, state.length / 2 - FEED_BRIDGE_LENGTH_M);
   const rawOffset = state.feedlineOffset ?? 0;
   const offset = Math.max(-limit, Math.min(limit, rawOffset));
 
@@ -679,16 +664,17 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
   const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
   const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
-  const feedlineActive = hasBridge && state.antennaType === 'dipole';
+  const feedlineSupport = state.antennaType === 'dipole';
+  const feedlineActive = hasBridge && feedlineSupport;
 
   let excitation;
   if (feedlineActive && hasShield) {
     excitation = { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
-  } else if (feedlineActive) {
+  } else if (hasBridge) {
     excitation = { wireTag: FEED_BRIDGE_TAG, segment: 1 };
-  } else if (state.antennaType === 'inverted-v' || state.antennaType === 'sloping-v') {
-    const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
+  } else if (state.antennaType === 'delta-loop') {
+    const bottomWire = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+    excitation = { wireTag: DIPOLE_RIGHT_TAG, segment: Math.ceil(bottomWire.segments / 2) };
   } else {
     const dipoleCentreSeg = Math.ceil(state.segments / 2);
     excitation = { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
