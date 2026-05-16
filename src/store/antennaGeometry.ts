@@ -9,6 +9,19 @@ import {
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
+/** Minimum number of NEC segments per wavelength along each V leg. */
+export const SEGS_PER_WAVELENGTH = 20;
+
+/** Absolute minimum segments per leg/side regardless of electrical length. */
+export const MIN_SEGS_PER_LEG = 9;
+
+/**
+ * Hard cap on segments per leg to bound NEC runtime for very long or high-frequency
+ * antennas. At 100 segments/leg the worst-case per-leg segment length stays
+ * above ~0.1λ even for a 5λ leg, which is adequate for pattern accuracy.
+ */
+export const MAX_SEGS_PER_LEG = 100;
+
 export type OrientationPreset = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
 export type Orientation = OrientationPreset | number;
 
@@ -77,8 +90,11 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
   }
 
   const lambda = wavelengthMeters(params.frequency);
-  const minSegPerLeg = Math.ceil((20 * legLen) / lambda);
-  const segmentsPerLeg = Math.max(9, minSegPerLeg, Math.round(params.segments / 2));
+  const minSegPerLeg = Math.ceil((SEGS_PER_WAVELENGTH * legLen) / lambda);
+  const segmentsPerLeg = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minSegPerLeg, Math.round(params.segments / 2)),
+  );
 
   const apexLeft = legPointAt(0, -1);
   const apexRight = legPointAt(0, 1);
@@ -167,8 +183,11 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   }
 
   const lambda = wavelengthMeters(params.frequency);
-  const minSegPerLeg = Math.ceil((20 * legLen) / lambda);
-  const segmentsPerLeg = Math.max(9, minSegPerLeg, Math.round(params.segments / 2));
+  const minSegPerLeg = Math.ceil((SEGS_PER_WAVELENGTH * legLen) / lambda);
+  const segmentsPerLeg = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minSegPerLeg, Math.round(params.segments / 2)),
+  );
 
   const apexLeft = legPointAt(0, -1);
   const apexRight = legPointAt(0, 1);
@@ -246,8 +265,11 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   ];
 
   const lambda = wavelengthMeters(params.frequency);
-  const minSegPerSide = Math.ceil((20 * sideLen) / lambda);
-  const segmentsPerSide = Math.max(9, minSegPerSide, Math.round(params.segments / 3));
+  const minSegPerSide = Math.ceil((SEGS_PER_WAVELENGTH * sideLen) / lambda);
+  const segmentsPerSide = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minSegPerSide, Math.round(params.segments / 3)),
+  );
   const bottomSegments = segmentsPerSide % 2 === 0 ? segmentsPerSide + 1 : segmentsPerSide;
 
   return [
