@@ -37,11 +37,66 @@ describe('StatsReadout', () => {
     const { getByText, container } = render(<StatsReadout />);
 
     expect(getByText('15 ms')).not.toBeNull();
+    // Gain label replaces the old ambiguous "Max gain"
+    expect(getByText('Gain')).not.toBeNull();
     expect(getByText('5.50 dBi')).not.toBeNull();
     expect(getByText('25.0°')).not.toBeNull();
     expect(getByText('90°')).not.toBeNull();
     expect(getByText('1.20:1')).not.toBeNull();
     expect(container.textContent).toContain('45.0 +j10.0 Ω');
+    // SWR label updated to "vs 50 Ω"
+    expect(container.textContent).toContain('SWR (vs 50 Ω)');
+  });
+
+  it('renders directivity and efficiency when power budget data is provided', () => {
+    useAntennaStore.setState({
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 3.0,
+        // efficiency = 0.5 → directivity = 3.0 - 10*log10(0.5) ≈ 3.0 + 3.01 ≈ 6.01 dBi
+        efficiency: 0.5,
+        maxDirectivityDbi: 3.0 - 10 * Math.log10(0.5),
+        // mismatch loss = 0 (perfect match) → realized gain = gain
+        maxRealizedGainDbi: 3.0,
+        takeoffElevationDeg: 15,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 50, X: 0 },
+        swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { getByText } = render(<StatsReadout />);
+
+    expect(getByText('Gain')).not.toBeNull();
+    expect(getByText('Directivity')).not.toBeNull();
+    expect(getByText('Realized gain')).not.toBeNull();
+    expect(getByText('Efficiency')).not.toBeNull();
+    expect(getByText('50.0%')).not.toBeNull();
+    // Directivity = 3.0 + 10·log10(2) ≈ 6.01 dBi
+    expect(getByText('6.01 dBi')).not.toBeNull();
+  });
+
+  it('omits directivity and efficiency when power budget is unavailable', () => {
+    useAntennaStore.setState({
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 2.15,
+        // no efficiency / maxDirectivityDbi fields
+        maxRealizedGainDbi: 1.8,
+        takeoffElevationDeg: 20,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 73, X: 0 },
+        swr: 1.46,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { container, getByText } = render(<StatsReadout />);
+    expect(getByText('Gain')).not.toBeNull();
+    expect(container.textContent).not.toContain('Directivity');
+    expect(container.textContent).not.toContain('Efficiency');
+    expect(getByText('Realized gain')).not.toBeNull();
   });
 
   it('renders comparison stats when mode is comparison and reference exists', () => {

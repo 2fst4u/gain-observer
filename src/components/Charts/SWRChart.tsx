@@ -75,7 +75,7 @@ export function SWRChart() {
     }
 
     datasets.push({
-      label: comparisonActive ? 'Current' : 'SWR (raw 50 Ω)',
+      label: comparisonActive ? 'Current' : 'SWR (vs 50 Ω)',
       data: sweep.map((point) => ({ x: point.frequencyMHz, y: point.swr })),
       borderColor: accent,
       backgroundColor: currentFill,
@@ -218,7 +218,7 @@ export function SWRChart() {
           max: yMax,
           ticks: { color: chartText },
           grid: { color: chartGrid },
-          title: { display: true, text: 'SWR (raw 50 Ω)', color: chartText },
+          title: { display: true, text: 'SWR (vs 50 Ω)', color: chartText },
         },
         x: {
           type: 'linear',

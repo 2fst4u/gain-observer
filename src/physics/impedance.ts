@@ -31,3 +31,15 @@ export function swr(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
   const s = (1 + gamma) / (1 - gamma);
   return Math.min(s, 999);
 }
+
+/**
+ * Mismatch loss factor: fraction of available power transferred to the load.
+ * = 1 − |Γ|²  (0 = total reflection, 1 = perfect match)
+ *
+ * Used to convert antenna gain to realized gain:
+ *   G_realized(dBi) = G(dBi) + 10·log10(mismatchLossFactor)
+ */
+export function mismatchLossFactor(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
+  const gamma = reflectionCoefficientMag(z, z0);
+  return 1 - gamma * gamma;
+}

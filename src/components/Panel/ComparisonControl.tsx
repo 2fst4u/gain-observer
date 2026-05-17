@@ -72,7 +72,10 @@ export function ComparisonControl() {
             <span className="stat-value">{formatGround(reference.groundId)}</span>
           </div>
           <div className="stat">
-            <span className="stat-label">Max gain</span>
+            <span
+              className="stat-label"
+              title="Antenna gain (dBi): NEC total power gain, normalised to accepted input power. Includes all ohmic and termination losses."
+            >Gain</span>
             <span className="stat-value accent">{reference.result.maxGainDbi.toFixed(2)} dBi</span>
           </div>
           <div className="stat">

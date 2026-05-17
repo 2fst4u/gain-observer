@@ -19,9 +19,39 @@ export function StatsReadout() {
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Results <span className="badge">{result.computeTimeMs.toFixed(0)} ms</span></h2>
       <div className="stat">
-        <span className="stat-label">Max gain</span>
+        <span
+          className="stat-label"
+          title="Antenna gain (dBi): NEC total power gain relative to isotropic, normalised to accepted input power. Includes all ohmic and termination losses."
+        >Gain</span>
         <span className="stat-value accent">{result.maxGainDbi.toFixed(2)} dBi</span>
       </div>
+      {result.maxDirectivityDbi != null && (
+        <div className="stat">
+          <span
+            className="stat-label"
+            title="Directivity (dBi): normalised to radiated power only, excluding all losses. = Gain / efficiency."
+          >Directivity</span>
+          <span className="stat-value">{result.maxDirectivityDbi.toFixed(2)} dBi</span>
+        </div>
+      )}
+      {result.maxRealizedGainDbi != null && (
+        <div className="stat">
+          <span
+            className="stat-label"
+            title="Realized gain (dBi): gain accounting for feedpoint mismatch loss vs 50 Ω source. = Gain × (1 − |Γ|²)."
+          >Realized gain</span>
+          <span className="stat-value">{result.maxRealizedGainDbi.toFixed(2)} dBi</span>
+        </div>
+      )}
+      {result.efficiency != null && (
+        <div className="stat">
+          <span
+            className="stat-label"
+            title="Radiation efficiency: radiated power / accepted input power. Losses include wire conductors and any termination resistors."
+          >Efficiency</span>
+          <span className="stat-value">{(result.efficiency * 100).toFixed(1)}%</span>
+        </div>
+      )}
       <div className="stat">
         <span className="stat-label">Take-off elevation</span>
         <span className="stat-value">{result.takeoffElevationDeg.toFixed(1)}°</span>
@@ -37,7 +67,7 @@ export function StatsReadout() {
         </span>
       </div>
       <div className="stat">
-        <span className="stat-label">SWR (raw 50 Ω)</span>
+        <span className="stat-label">SWR (vs 50 Ω)</span>
         <span className="stat-value" style={{
           color: result.swr > 2 ? 'var(--danger)' : result.swr > 1.5 ? 'var(--warning)' : 'var(--success)',
         }}>{result.swr.toFixed(2)}:1</span>
@@ -75,7 +105,7 @@ function ComparisonStats({
         <span className="stat-value">{formatSigned(current.takeoffElevationDeg - reference.takeoffElevationDeg, 1)}°</span>
       </div>
       <div className="stat">
-        <span className="stat-label">SWR delta (raw 50 Ω)</span>
+        <span className="stat-label">SWR delta (vs 50 Ω)</span>
         <span className="stat-value">{formatSigned(current.swr - reference.swr, 2)}</span>
       </div>
       <div className="stat">
