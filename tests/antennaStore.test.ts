@@ -471,11 +471,11 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
     });
 
-    it('setAntennaType("sloping-v") sets default terminatingResistor=600 when currently 0', () => {
+    it('setAntennaType("sloping-v") sets default terminatingResistor=300 when currently 0', () => {
       const store = useAntennaStore.getState();
       store.setTerminatingResistor(0);
       store.setAntennaType('sloping-v');
-      expect(useAntennaStore.getState().terminatingResistor).toBe(600);
+      expect(useAntennaStore.getState().terminatingResistor).toBe(300);
     });
 
     it('setAntennaType("sloping-v") preserves a pre-set non-zero terminatingResistor', () => {
@@ -742,6 +742,7 @@ describe('antennaStore actions', () => {
         height: 10,
         legSlope: 15,
         vAngle: 90,
+        terminatingResistor: 0, // no stubs; test focuses on excitation placement
       };
       const input = selectSimulationInput(state as AntennaState);
       expect(input.wires).toHaveLength(3);

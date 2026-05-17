@@ -37,6 +37,9 @@ import {
   FEEDLINE_SHIELD_TAG,
   FEED_BRIDGE_LENGTH_M,
   DELTA_BASE_TAG,
+  SLOPING_V_LEFT_STUB_TAG,
+  SLOPING_V_RIGHT_STUB_TAG,
+  SLOPING_V_STUB_BOTTOM_Z_M,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -48,6 +51,8 @@ export {
   FEEDLINE_SHIELD_TAG,
   FEED_BRIDGE_LENGTH_M,
   DELTA_BASE_TAG,
+  SLOPING_V_LEFT_STUB_TAG,
+  SLOPING_V_RIGHT_STUB_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
@@ -292,8 +297,8 @@ export const useAntennaStore = create<AntennaState>()(
           // can then adjust it via the slider.
           s.vAngle = computeOptimalVAngleDeg(s.length, s.frequency);
           s.legSlope = 0;
-          // Default to a typical earthed termination.
-          if (s.terminatingResistor === 0) s.terminatingResistor = 600;
+          // Default ~300 Ω per leg matches the reference design (antenna.be/sv.html).
+          if (s.terminatingResistor === 0) s.terminatingResistor = 300;
         } else if (type === 'v-beam') {
           s.vAngle = 90;
           s.legSlope = 0;
@@ -790,16 +795,51 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const isVTopology = state.antennaType === 'sloping-v' || state.antennaType === 'v-beam';
   if (isVTopology && state.terminatingResistor > 0) {
     const R = state.terminatingResistor;
-    const rightWire = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-    // Series resistance at each tip models individual tip-to-earth terminating
-    // resistors (the standard physical configuration for sloping-V/V-beam).
-    // An NT tip-to-tip network would be ineffective here because both tips
-    // reach the same potential on a symmetric V, giving zero differential
-    // current through the network.
-    loads.push(
-      { type: 4, wireTag: DIPOLE_LEFT_TAG,  segmentStart: 1,                  segmentEnd: 1,                  param1: R, param2: 0 },
-      { type: 4, wireTag: DIPOLE_RIGHT_TAG, segmentStart: rightWire.segments, segmentEnd: rightWire.segments, param1: R, param2: 0 },
-    );
+
+    if (state.antennaType === 'sloping-v') {
+      // Model the physical tip-to-earth terminating resistor correctly:
+      // add a short vertical stub wire from each tip down to near-ground
+      // (SLOPING_V_STUB_BOTTOM_Z_M), then place the resistance in that stub.
+      //
+      // This creates an explicit NEC current path from the wire tip toward
+      // the ground plane, matching the real antenna where the resistor
+      // connects the wire end to a driven ground rod. A series LD on the
+      // leg end alone does not create this shunt-to-earth current path.
+      const leftLeg  = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+      const rightLeg = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+      const leftTip  = leftLeg.start;   // left leg runs tip → apex
+      const rightTip = rightLeg.end;    // right leg runs apex → tip
+
+      wires.push(
+        {
+          start: leftTip,
+          end: [leftTip[0], leftTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
+          radius: state.wireRadius,
+          segments: 1,
+          tag: SLOPING_V_LEFT_STUB_TAG,
+        },
+        {
+          start: rightTip,
+          end: [rightTip[0], rightTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
+          radius: state.wireRadius,
+          segments: 1,
+          tag: SLOPING_V_RIGHT_STUB_TAG,
+        },
+      );
+      loads.push(
+        { type: 4, wireTag: SLOPING_V_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+        { type: 4, wireTag: SLOPING_V_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+      );
+    } else {
+      // V-beam: tips are high above ground; model each tip termination as a
+      // series LD on the final leg segment (the current path to ground via
+      // the image is adequate at typical V-beam tip heights).
+      const rightWire = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+      loads.push(
+        { type: 4, wireTag: DIPOLE_LEFT_TAG,  segmentStart: 1,                  segmentEnd: 1,                  param1: R, param2: 0 },
+        { type: 4, wireTag: DIPOLE_RIGHT_TAG, segmentStart: rightWire.segments, segmentEnd: rightWire.segments, param1: R, param2: 0 },
+      );
+    }
   }
 
   return {
