@@ -700,6 +700,9 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     excitation = { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
   } else if (hasBridge) {
     excitation = { wireTag: FEED_BRIDGE_TAG, segment: 1 };
+  } else if (state.antennaType === 'v-beam') {
+    const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+    excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftWire.segments };
   } else if (state.antennaType === 'delta-loop') {
     const bottomWire = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
     excitation = { wireTag: DIPOLE_RIGHT_TAG, segment: Math.ceil(bottomWire.segments / 2) };
