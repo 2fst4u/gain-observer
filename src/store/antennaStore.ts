@@ -290,6 +290,16 @@ export const useAntennaStore = create<AntennaState>()(
         } else if (type === 'sloping-v') {
           s.vAngle = 90;
           s.legSlope = 30;
+          // Lift the mast so the default 30° slope keeps tips above the
+          // near-ground zone (≈ λ/8) where traveling-wave directional
+          // behavior breaks down and the main lobe flips backward.
+          const legLen = Math.max(0.1, (s.length - FEED_BRIDGE_LENGTH_M) / 2);
+          const lambda = 299.792458 / s.frequency;
+          const minTipZ = Math.max(2.0, lambda / 8);
+          const hNeeded = legLen * Math.sin((30 * Math.PI) / 180) + minTipZ;
+          if (s.height < hNeeded) {
+            s.height = Math.ceil(hNeeded);
+          }
         } else if (type === 'v-beam') {
           s.vAngle = 90;
           s.legSlope = 0;
