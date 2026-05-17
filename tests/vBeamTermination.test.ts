@@ -3,7 +3,7 @@ import { useAntennaStore, selectSimulationInput } from '../src/store/antennaStor
 import { buildNecCards } from '../src/physics/necCard';
 import {
   getNecLines,
-  parseNtLine,
+  parseLdLine,
   expectNoGroundTouchingWires,
   expectExcitation,
 } from './necInspect';
@@ -34,170 +34,187 @@ function setupSlopingV(terminatingResistor?: number) {
   }
 }
 
-describe('V-antenna termination topology (Option A: NT across tips)', () => {
+/** Returns only the LD type-4 cards associated with V-topology tip termination. */
+function getTerminationLdLines(deck: string): string[] {
+  return getNecLines(deck, 'LD').filter((line) => {
+    const ld = parseLdLine(line);
+    return ld.type === 4 && (ld.tag === DIPOLE_LEFT_TAG || ld.tag === DIPOLE_RIGHT_TAG);
+  });
+}
+
+describe('V-antenna termination topology (per-tip LD loads)', () => {
   beforeEach(() => {
     useAntennaStore.getState().setTerminatingResistor(0);
   });
 
-  it('v-beam: no NT card when unterminated (terminatingResistor=0)', () => {
+  it('v-beam: no termination LD cards when unterminated (terminatingResistor=0)', () => {
     setupVBeam(0);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    expect(getNecLines(deck, 'NT')).toHaveLength(0);
-    expect(input.networks).toBeUndefined();
+    expect(getTerminationLdLines(deck)).toHaveLength(0);
+    const termLoads = (input.loads ?? []).filter(
+      (l) => l.wireTag === DIPOLE_LEFT_TAG || l.wireTag === DIPOLE_RIGHT_TAG,
+    );
+    expect(termLoads).toHaveLength(0);
   });
 
-  it('sloping-v: no NT card when unterminated (terminatingResistor=0)', () => {
+  it('sloping-v: no termination LD cards when unterminated (terminatingResistor=0)', () => {
     setupSlopingV(0);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    expect(getNecLines(deck, 'NT')).toHaveLength(0);
-    expect(input.networks).toBeUndefined();
+    expect(getTerminationLdLines(deck)).toHaveLength(0);
   });
 
-  it('v-beam: exactly one NT card when terminatingResistor > 0', () => {
+  it('v-beam: exactly two LD cards when terminatingResistor > 0', () => {
     setupVBeam(800);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    expect(getNecLines(deck, 'NT')).toHaveLength(1);
-    expect(input.networks).toHaveLength(1);
+    expect(getTerminationLdLines(deck)).toHaveLength(2);
+    const termLoads = (input.loads ?? []).filter(
+      (l) => l.wireTag === DIPOLE_LEFT_TAG || l.wireTag === DIPOLE_RIGHT_TAG,
+    );
+    expect(termLoads).toHaveLength(2);
   });
 
-  it('sloping-v: exactly one NT card when terminatingResistor > 0', () => {
+  it('sloping-v: exactly two LD cards when terminatingResistor > 0', () => {
     setupSlopingV(800);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    expect(getNecLines(deck, 'NT')).toHaveLength(1);
-    expect(input.networks).toHaveLength(1);
+    expect(getTerminationLdLines(deck)).toHaveLength(2);
   });
 
-  it('v-beam: NT card connects left far tip (tag 1, seg 1) to right far tip (tag 2, seg N)', () => {
+  it('v-beam: LD cards placed at left far tip (tag 1, seg 1) and right far tip (tag 2, seg N)', () => {
     setupVBeam(800);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    const nt = parseNtLine(getNecLines(deck, 'NT')[0]);
+    const ldLines = getTerminationLdLines(deck);
     const rightWire = input.wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-    expect(nt.tag1).toBe(DIPOLE_LEFT_TAG);
-    expect(nt.seg1).toBe(1);
-    expect(nt.tag2).toBe(DIPOLE_RIGHT_TAG);
-    expect(nt.seg2).toBe(rightWire.segments);
+
+    const leftLd = ldLines.map(parseLdLine).find((l) => l.tag === DIPOLE_LEFT_TAG)!;
+    expect(leftLd.segmentStart).toBe(1);
+    expect(leftLd.segmentEnd).toBe(1);
+
+    const rightLd = ldLines.map(parseLdLine).find((l) => l.tag === DIPOLE_RIGHT_TAG)!;
+    expect(rightLd.segmentStart).toBe(rightWire.segments);
+    expect(rightLd.segmentEnd).toBe(rightWire.segments);
   });
 
-  it('sloping-v: NT card connects left far tip to right far tip', () => {
+  it('sloping-v: LD cards at left and right far tips', () => {
     setupSlopingV(800);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    const nt = parseNtLine(getNecLines(deck, 'NT')[0]);
+    const ldLines = getTerminationLdLines(deck);
     const rightWire = input.wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-    expect(nt.tag1).toBe(DIPOLE_LEFT_TAG);
-    expect(nt.seg1).toBe(1);
-    expect(nt.tag2).toBe(DIPOLE_RIGHT_TAG);
-    expect(nt.seg2).toBe(rightWire.segments);
+
+    const leftLd = ldLines.map(parseLdLine).find((l) => l.tag === DIPOLE_LEFT_TAG)!;
+    expect(leftLd.segmentStart).toBe(1);
+
+    const rightLd = ldLines.map(parseLdLine).find((l) => l.tag === DIPOLE_RIGHT_TAG)!;
+    expect(rightLd.segmentStart).toBe(rightWire.segments);
   });
 
-  it('v-beam: NT Y-params are correct for R=800 (G=1/R, all imaginary parts zero)', () => {
+  it('v-beam: LD resistance equals terminatingResistor (per-leg value)', () => {
     const R = 800;
     setupVBeam(R);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    const nt = parseNtLine(getNecLines(deck, 'NT')[0]);
-    expect(nt.y11Real).toBeCloseTo(1 / R, 9);
-    expect(nt.y11Imag).toBeCloseTo(0, 9);
-    expect(nt.y12Real).toBeCloseTo(-1 / R, 9);
-    expect(nt.y12Imag).toBeCloseTo(0, 9);
-    expect(nt.y22Real).toBeCloseTo(1 / R, 9);
-    expect(nt.y22Imag).toBeCloseTo(0, 9);
+    const ldLines = getTerminationLdLines(deck);
+    for (const line of ldLines) {
+      const ld = parseLdLine(line);
+      expect(ld.p1).toBeCloseTo(R, 6);
+      expect(ld.p2).toBeCloseTo(0, 6);
+    }
   });
 
-  it('sloping-v: NT Y-params are correct for R=500', () => {
+  it('sloping-v: LD resistance equals terminatingResistor for R=500', () => {
     const R = 500;
     setupSlopingV(R);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    const nt = parseNtLine(getNecLines(deck, 'NT')[0]);
-    expect(nt.y11Real).toBeCloseTo(1 / R, 9);
-    expect(nt.y12Real).toBeCloseTo(-1 / R, 9);
-    expect(nt.y22Real).toBeCloseTo(1 / R, 9);
+    const ldLines = getTerminationLdLines(deck);
+    for (const line of ldLines) {
+      const ld = parseLdLine(line);
+      expect(ld.p1).toBeCloseTo(R, 6);
+    }
   });
 
-  it('v-beam: halving terminatingResistor doubles the conductance G', () => {
+  it('v-beam: halving terminatingResistor halves the LD resistance', () => {
     setupVBeam(1000);
-    const input1 = selectSimulationInput(useAntennaStore.getState());
-    const nt1 = parseNtLine(getNecLines(buildNecCards(input1), 'NT')[0]);
+    const deck1 = buildNecCards(selectSimulationInput(useAntennaStore.getState()));
+    const r1 = parseLdLine(getTerminationLdLines(deck1)[0]).p1;
 
     useAntennaStore.getState().setTerminatingResistor(500);
-    const input2 = selectSimulationInput(useAntennaStore.getState());
-    const nt2 = parseNtLine(getNecLines(buildNecCards(input2), 'NT')[0]);
+    const deck2 = buildNecCards(selectSimulationInput(useAntennaStore.getState()));
+    const r2 = parseLdLine(getTerminationLdLines(deck2)[0]).p1;
 
-    expect(nt2.y11Real).toBeCloseTo(nt1.y11Real * 2, 9);
+    expect(r2).toBeCloseTo(r1 / 2, 6);
   });
 
   it('v-beam terminated: no wires touch ground', () => {
     setupVBeam(800);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    expectNoGroundTouchingWires(buildNecCards(input));
+    expectNoGroundTouchingWires(buildNecCards(selectSimulationInput(useAntennaStore.getState())));
   });
 
   it('sloping-v terminated: no wires touch ground', () => {
     setupSlopingV(800);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    expectNoGroundTouchingWires(buildNecCards(input));
+    expectNoGroundTouchingWires(buildNecCards(selectSimulationInput(useAntennaStore.getState())));
   });
 
   it('v-beam terminated: excitation remains on apex bridge (tag 3, seg 1)', () => {
     setupVBeam(800);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    expectExcitation(buildNecCards(input), FEED_BRIDGE_TAG, 1);
+    expectExcitation(buildNecCards(selectSimulationInput(useAntennaStore.getState())), FEED_BRIDGE_TAG, 1);
   });
 
   it('sloping-v terminated: excitation remains on apex bridge (tag 3, seg 1)', () => {
     setupSlopingV(800);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    expectExcitation(buildNecCards(input), FEED_BRIDGE_TAG, 1);
+    expectExcitation(buildNecCards(selectSimulationInput(useAntennaStore.getState())), FEED_BRIDGE_TAG, 1);
   });
 
-  it('dipole: terminatingResistor has no effect (no NT card emitted)', () => {
+  it('dipole: terminatingResistor has no effect (no termination LD cards)', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('dipole');
     store.setTerminatingResistor(800);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    expect(getNecLines(buildNecCards(input), 'NT')).toHaveLength(0);
-    expect(input.networks).toBeUndefined();
+    const deck = buildNecCards(selectSimulationInput(useAntennaStore.getState()));
+    expect(getTerminationLdLines(deck)).toHaveLength(0);
   });
 
-  it('inverted-v: terminatingResistor has no effect (no NT card emitted)', () => {
+  it('inverted-v: terminatingResistor has no effect (no termination LD cards)', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('inverted-v');
     store.setTerminatingResistor(800);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    expect(getNecLines(buildNecCards(input), 'NT')).toHaveLength(0);
-    expect(input.networks).toBeUndefined();
+    const deck = buildNecCards(selectSimulationInput(useAntennaStore.getState()));
+    expect(getTerminationLdLines(deck)).toHaveLength(0);
   });
 
-  it('delta-loop: terminatingResistor has no effect (no NT card emitted)', () => {
+  it('delta-loop: terminatingResistor has no effect on V-topology termination (no tip LD cards)', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('delta-loop');
     store.setTerminatingResistor(800);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    expect(getNecLines(buildNecCards(input), 'NT')).toHaveLength(0);
-    expect(input.networks).toBeUndefined();
+    const deck = buildNecCards(selectSimulationInput(useAntennaStore.getState()));
+    expect(getTerminationLdLines(deck)).toHaveLength(0);
   });
 
   it('setTerminatingResistor clamps negative values to 0 (unterminated)', () => {
     setupVBeam();
     useAntennaStore.getState().setTerminatingResistor(-100);
     expect(useAntennaStore.getState().terminatingResistor).toBe(0);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    expect(input.networks).toBeUndefined();
+    const deck = buildNecCards(selectSimulationInput(useAntennaStore.getState()));
+    expect(getTerminationLdLines(deck)).toHaveLength(0);
   });
 
-  it('terminatingResistor is documented as total across-tip resistance (not per-leg)', () => {
-    // R=400 total → G = 1/400. A per-leg model would give G = 1/200.
+  it('terminatingResistor is the per-leg resistance (each tip individually loaded to earth)', () => {
+    // R=400 per leg → each LD card has R=400.
+    // The old tip-to-tip model would have needed R=800 to get the same
+    // per-leg equivalent, so this confirms the per-leg interpretation.
     const R = 400;
     setupVBeam(R);
     const input = selectSimulationInput(useAntennaStore.getState());
-    expect(input.networks).toHaveLength(1);
-    expect(input.networks![0].y11Real).toBeCloseTo(1 / R, 9);
-    expect(input.networks![0].y12Real).toBeCloseTo(-1 / R, 9);
+    const termLoads = (input.loads ?? []).filter(
+      (l) => l.wireTag === DIPOLE_LEFT_TAG || l.wireTag === DIPOLE_RIGHT_TAG,
+    );
+    expect(termLoads).toHaveLength(2);
+    for (const load of termLoads) {
+      expect(load.param1).toBeCloseTo(R, 9);
+    }
   });
 });

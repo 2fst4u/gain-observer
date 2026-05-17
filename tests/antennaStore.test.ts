@@ -467,27 +467,18 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
     });
 
-    it('setAntennaType("sloping-v") lifts height so tips clear the near-ground zone', () => {
+    it('setAntennaType("sloping-v") sets default terminatingResistor=600 when currently 0', () => {
       const store = useAntennaStore.getState();
-      const freq = 7.1;
-      const lambda = 299.792458 / freq;
-      store.setFrequency(freq);
-      store.setHeight(10); // too low for 30° slope at this length
-
+      store.setTerminatingResistor(0);
       store.setAntennaType('sloping-v');
-      const s = useAntennaStore.getState();
-      const legLen = (s.length - 0.1) / 2;
-      const minTipZ = Math.max(2.0, lambda / 8);
-      const tipZ = s.height - legLen * Math.sin((s.legSlope * Math.PI) / 180);
-      expect(tipZ).toBeGreaterThanOrEqual(minTipZ - 0.01);
+      expect(useAntennaStore.getState().terminatingResistor).toBe(600);
     });
 
-    it('setAntennaType("sloping-v") does not reduce height when already sufficient', () => {
+    it('setAntennaType("sloping-v") preserves a pre-set non-zero terminatingResistor', () => {
       const store = useAntennaStore.getState();
-      store.setFrequency(7.1);
-      store.setHeight(50);
+      store.setTerminatingResistor(400);
       store.setAntennaType('sloping-v');
-      expect(useAntennaStore.getState().height).toBe(50);
+      expect(useAntennaStore.getState().terminatingResistor).toBe(400);
     });
 
     it('setHalfWaveLength is topology-aware', () => {
@@ -769,6 +760,7 @@ describe('antennaStore actions', () => {
       frequency: 7.1,
       vAngle: 60,
       legSlope: 0,
+      terminatingResistor: 0,
     };
 
     it('generates exactly 3 GW wires (2 legs + 1 bridge, no termination)', () => {
@@ -918,6 +910,7 @@ describe('antennaStore actions', () => {
       frequency: 7.1,
       vAngle: 180,
       legSlope: 0,
+      terminatingResistor: 0,
     };
 
     it('produces exactly 3 wires with distinct tags', () => {

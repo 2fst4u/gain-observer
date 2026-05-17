@@ -17,7 +17,6 @@ import type {
   Wire,
   TransmissionLine,
   SegmentLoad,
-  NetworkLoad,
   AntennaType,
 } from '../physics/types';
 import {
@@ -290,16 +289,10 @@ export const useAntennaStore = create<AntennaState>()(
         } else if (type === 'sloping-v') {
           s.vAngle = 90;
           s.legSlope = 30;
-          // Lift the mast so the default 30° slope keeps tips above the
-          // near-ground zone (≈ λ/8) where traveling-wave directional
-          // behavior breaks down and the main lobe flips backward.
-          const legLen = Math.max(0.1, (s.length - FEED_BRIDGE_LENGTH_M) / 2);
-          const lambda = 299.792458 / s.frequency;
-          const minTipZ = Math.max(2.0, lambda / 8);
-          const hNeeded = legLen * Math.sin((30 * Math.PI) / 180) + minTipZ;
-          if (s.height < hNeeded) {
-            s.height = Math.ceil(hNeeded);
-          }
+          // Default to a typical earthed termination. Without it the
+          // standing-wave pattern can point backward; with it the
+          // traveling-wave forward lobe dominates.
+          if (s.terminatingResistor === 0) s.terminatingResistor = 600;
         } else if (type === 'v-beam') {
           s.vAngle = 90;
           s.legSlope = 0;
@@ -766,20 +759,19 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     });
   }
 
-  const networks: NetworkLoad[] = [];
   const isVTopology = state.antennaType === 'sloping-v' || state.antennaType === 'v-beam';
   if (isVTopology && state.terminatingResistor > 0) {
     const R = state.terminatingResistor;
     const rightWire = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-    networks.push({
-      fromTag: DIPOLE_LEFT_TAG,
-      fromSegment: 1,
-      toTag: DIPOLE_RIGHT_TAG,
-      toSegment: rightWire.segments,
-      y11Real: 1 / R,
-      y12Real: -1 / R,
-      y22Real: 1 / R,
-    });
+    // Series resistance at each tip models individual tip-to-earth terminating
+    // resistors (the standard physical configuration for sloping-V/V-beam).
+    // An NT tip-to-tip network would be ineffective here because both tips
+    // reach the same potential on a symmetric V, giving zero differential
+    // current through the network.
+    loads.push(
+      { type: 4, wireTag: DIPOLE_LEFT_TAG,  segmentStart: 1,                  segmentEnd: 1,                  param1: R, param2: 0 },
+      { type: 4, wireTag: DIPOLE_RIGHT_TAG, segmentStart: rightWire.segments, segmentEnd: rightWire.segments, param1: R, param2: 0 },
+    );
   }
 
   return {
@@ -793,7 +785,6 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     },
     transmissionLines: transmissionLines.length > 0 ? transmissionLines : undefined,
     loads: loads.length > 0 ? loads : undefined,
-    networks: networks.length > 0 ? networks : undefined,
   };
 }
 
