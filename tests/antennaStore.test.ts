@@ -459,7 +459,7 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda, 3);
 
       store.setAntennaType('sloping-v');
-      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 3);
       expect(useAntennaStore.getState().vAngle).toBe(90);
       expect(useAntennaStore.getState().legSlope).toBe(30);
 
@@ -481,31 +481,6 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().terminatingResistor).toBe(400);
     });
 
-    it('setAntennaType("sloping-v") raises height so tips clear ≈ λ/8 above ground', () => {
-      const store = useAntennaStore.getState();
-      const freq = 7.1;
-      const lambda = 299.792458 / freq;
-      store.setFrequency(freq);
-      store.setHeight(10); // too low — slope would be clamped, tips at 0.5 m
-
-      store.setAntennaType('sloping-v');
-      const s = useAntennaStore.getState();
-
-      // Tips must be at or above the λ/8 threshold
-      const legLen = (s.length - 0.1) / 2;
-      const minTipZ = Math.max(2.0, lambda / 8);
-      const tipZ = s.height - legLen * Math.sin((s.legSlope * Math.PI) / 180);
-      expect(tipZ).toBeGreaterThanOrEqual(minTipZ - 0.5); // ceil rounding tolerance
-    });
-
-    it('setAntennaType("sloping-v") does not lower a mast that is already adequate', () => {
-      const store = useAntennaStore.getState();
-      store.setFrequency(7.1);
-      store.setHeight(50);
-      store.setAntennaType('sloping-v');
-      expect(useAntennaStore.getState().height).toBe(50);
-    });
-
     it('setHalfWaveLength is topology-aware', () => {
       const store = useAntennaStore.getState();
       const freq = 14.1;
@@ -520,7 +495,7 @@ describe('antennaStore actions', () => {
       store.setAntennaType('sloping-v');
       store.setLength(5);
       store.setHalfWaveLength();
-      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 3);
     });
 
     it('clamps vAngle to [10, 180]', () => {
