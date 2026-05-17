@@ -289,10 +289,21 @@ export const useAntennaStore = create<AntennaState>()(
         } else if (type === 'sloping-v') {
           s.vAngle = 90;
           s.legSlope = 30;
-          // Default to a typical earthed termination. Without it the
-          // standing-wave pattern can point backward; with it the
-          // traveling-wave forward lobe dominates.
+          // Default to a typical earthed termination.
           if (s.terminatingResistor === 0) s.terminatingResistor = 600;
+          // With a 10 m mast the 30° slope gets clamped and tips end up at
+          // SLOPING_V_MIN_TIP_Z_M (0.5 m = λ/84 at 40 m band).  At that
+          // electrical height the ground coupling overwhelms the traveling-wave
+          // directivity even with proper termination.  Raise the mast so the
+          // 30° slope keeps tips above ≈ λ/8 — the empirical threshold below
+          // which the main lobe flips backward.
+          const legLen = Math.max(0.1, (s.length - FEED_BRIDGE_LENGTH_M) / 2);
+          const lambda = 299.792458 / s.frequency;
+          const minTipZ = Math.max(2.0, lambda / 8);
+          const hNeeded = legLen * Math.sin((30 * Math.PI) / 180) + minTipZ;
+          if (s.height < hNeeded) {
+            s.height = Math.ceil(hNeeded);
+          }
         } else if (type === 'v-beam') {
           s.vAngle = 90;
           s.legSlope = 0;
