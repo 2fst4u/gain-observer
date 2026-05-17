@@ -4,7 +4,6 @@ import { buildNecCards } from '../src/physics/necCard';
 import {
   getNecLines,
   parseLdLine,
-  parseGwLine,
   expectNoGroundTouchingWires,
   expectExcitation,
 } from './necInspect';
