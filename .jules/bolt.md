@@ -1,4 +1,3 @@
-
 ## 2024-05-18 - Expensive 3D computations in tight loops
 **Learning:** In Three.js geometry generation, recalculating vertex angles (spherical coordinates from Cartesian) for `thetaDeg` and `phiDeg` on every frame or state change can be significantly expensive and redundant, especially when LOD details stay the same. Caching these arrays separately from visual attributes drastically improves performance.
 **Action:** When mapping scalar data to 3D meshes (like antenna radiation patterns), cache structural calculations (like vertex spherical angles) separately from dynamic visual state (like colors or scale) using separate `useMemo` hooks.
@@ -25,3 +24,6 @@
 ## 2025-05-18 - Maintainability in Inner Loops
 **Learning:** Reconstructing complex state strings (like `LinkQuality`) from integer rank metrics (like `0`/`1`/`2`) inside an inner loop using ternary operators is brittle and presents a maintainability hazard. If rank values or the states they represent ever evolve, the hardcoded ternary mappings become bugs.
 **Action:** Instead of dynamically reconstructing states from arbitrary integer ranks, simply maintain explicit variables representing the best actual states found along with the rank used for comparison (e.g. `let bestLinkQuality: LinkQuality = 'unusable'`). This completely eliminates brittle conversions and avoids logic duplication later when producing output.
+## 2024-05-17 - Optimize multiple Zustand selectors with useShallow
+**Learning:** Selecting multiple separate fields from a Zustand store using separate `useStore(s => s.field)` calls incurs significant React hook overhead in highly-re-rendering components.
+**Action:** When a component needs to select many fields from the store (e.g. 18 separate values), group them into a single object returned from a single hook call wrapped in `useShallow` from `zustand/react/shallow`. This cuts down overhead and batches state checks efficiently.

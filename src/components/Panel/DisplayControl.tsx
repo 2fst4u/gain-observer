@@ -1,23 +1,41 @@
 import { useAntennaStore } from '../../store/antennaStore';
 import type { Colormap } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 
 const COLORMAPS: Colormap[] = ['viridis', 'turbo', 'jet'];
 
 export function DisplayControl() {
-  const colormap = useAntennaStore((s) => s.colormap);
-  const dbRange = useAntennaStore((s) => s.dbRange);
-  const colorMaxDb = useAntennaStore((s) => s.colorMaxDb);
-  const patternScale = useAntennaStore((s) => s.patternScale);
-  const showGrid = useAntennaStore((s) => s.showGrid);
-  const showAxes = useAntennaStore((s) => s.showAxes);
-  const showPolarCuts = useAntennaStore((s) => s.showPolarCuts);
-  const setColormap = useAntennaStore((s) => s.setColormap);
-  const setDbRange = useAntennaStore((s) => s.setDbRange);
-  const setColorMaxDb = useAntennaStore((s) => s.setColorMaxDb);
-  const setPatternScale = useAntennaStore((s) => s.setPatternScale);
-  const setShowGrid = useAntennaStore((s) => s.setShowGrid);
-  const setShowAxes = useAntennaStore((s) => s.setShowAxes);
-  const setShowPolarCuts = useAntennaStore((s) => s.setShowPolarCuts);
+  const {
+    colormap,
+    dbRange,
+    colorMaxDb,
+    patternScale,
+    showGrid,
+    showAxes,
+    showPolarCuts,
+    setColormap,
+    setDbRange,
+    setColorMaxDb,
+    setPatternScale,
+    setShowGrid,
+    setShowAxes,
+    setShowPolarCuts,
+  } = useAntennaStore(useShallow((s) => ({
+    colormap: s.colormap,
+    dbRange: s.dbRange,
+    colorMaxDb: s.colorMaxDb,
+    patternScale: s.patternScale,
+    showGrid: s.showGrid,
+    showAxes: s.showAxes,
+    showPolarCuts: s.showPolarCuts,
+    setColormap: s.setColormap,
+    setDbRange: s.setDbRange,
+    setColorMaxDb: s.setColorMaxDb,
+    setPatternScale: s.setPatternScale,
+    setShowGrid: s.setShowGrid,
+    setShowAxes: s.setShowAxes,
+    setShowPolarCuts: s.setShowPolarCuts,
+  })));
 
   return (
     <section className="panel-section">
