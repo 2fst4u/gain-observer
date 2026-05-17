@@ -460,8 +460,11 @@ describe('antennaStore actions', () => {
 
       store.setAntennaType('sloping-v');
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 1, 3);
-      expect(useAntennaStore.getState().vAngle).toBe(90);
-      expect(useAntennaStore.getState().legSlope).toBe(30);
+      // V-angle snaps to the value giving maximum forward gain
+      // (cos(halfV) = 1 − 0.371·λ/L_leg) for the default 1λ total length.
+      expect(useAntennaStore.getState().vAngle).toBeCloseTo(150.31, 1);
+      // legSlope is unused for sloping-V (slope is auto-computed); reset to 0.
+      expect(useAntennaStore.getState().legSlope).toBe(0);
 
       store.setAntennaType('v-beam');
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
