@@ -461,9 +461,9 @@ describe('antennaStore actions', () => {
       store.setAntennaType('sloping-v');
       // Default is 2λ total (1λ per leg) — minimum for end-fire travelling-wave behaviour.
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
-      // V-angle snaps to the value giving maximum forward gain
-      // (cos(halfV) = 1 − 0.371·λ/L_leg) for the default 2λ total = 1λ per leg.
-      expect(useAntennaStore.getState().vAngle).toBeCloseTo(102.14, 1);
+      // V-angle snaps to slope-corrected Kraus: V_kraus × cos(slope)^1.5.
+      // At h=10m, 7.1 MHz: slope≈13°, correction≈0.962 → V≈98.2°.
+      expect(useAntennaStore.getState().vAngle).toBeCloseTo(98.20, 1);
       // legSlope is unused for sloping-V (slope is auto-computed); reset to 0.
       expect(useAntennaStore.getState().legSlope).toBe(0);
 
