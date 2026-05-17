@@ -17,6 +17,7 @@ import {
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { useAntennaStore } from '../../store/antennaStore';
+import { swr as computeSwr, transformImpedance } from '../../physics/impedance';
 import type { AnnotationOptions } from 'chartjs-plugin-annotation';
 import { useMemo } from 'react';
 
@@ -37,6 +38,9 @@ export function SWRChart() {
   const theme = useAntennaStore((s) => s.theme);
   const mode = useAntennaStore((s) => s.mode);
   const reference = useAntennaStore((s) => s.comparisonReference);
+
+  const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
+  const transformerRatio = useAntennaStore((s) => s.transformerRatio);
 
   const chartText = getCssVar('--chart-text') || '#aaa';
   const chartGrid = getCssVar('--chart-grid') || 'rgba(255,255,255,0.1)';
@@ -74,8 +78,16 @@ export function SWRChart() {
       });
     }
 
+    const rawLabel = comparisonActive && transformerEnabled
+      ? 'Current (raw)'
+      : comparisonActive
+        ? 'Current'
+        : transformerEnabled
+          ? 'Raw (vs 50 Ω)'
+          : 'SWR (vs 50 Ω)';
+
     datasets.push({
-      label: comparisonActive ? 'Current' : 'SWR (vs 50 Ω)',
+      label: rawLabel,
       data: sweep.map((point) => ({ x: point.frequencyMHz, y: point.swr })),
       borderColor: accent,
       backgroundColor: currentFill,
@@ -86,8 +98,26 @@ export function SWRChart() {
       pointBackgroundColor: accent,
     });
 
+    if (transformerEnabled && transformerRatio > 0) {
+      datasets.push({
+        label: `After ${transformerRatio}:1 xfmr`,
+        data: sweep.map((point) => ({
+          x: point.frequencyMHz,
+          y: computeSwr(transformImpedance({ R: point.R, X: point.X }, transformerRatio)),
+        })),
+        borderColor: 'rgba(80, 200, 120, 0.9)',
+        backgroundColor: 'rgba(80, 200, 120, 0.1)',
+        fill: false,
+        tension: 0.18,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        pointBackgroundColor: '#50c878',
+        borderDash: [6, 3],
+      });
+    }
+
     return { datasets };
-  }, [accent, comparisonActive, currentFill, reference, referenceFill, sweep]);
+  }, [accent, comparisonActive, currentFill, reference, referenceFill, sweep, transformerEnabled, transformerRatio]);
 
   const xBounds = useMemo(() => {
     const allFrequencies = [
@@ -140,6 +170,9 @@ export function SWRChart() {
     const values = [
       ...sweep.map((point) => point.swr),
       ...(comparisonActive && reference ? reference.sweep.map((point) => point.swr) : []),
+      ...(transformerEnabled && transformerRatio > 0
+        ? sweep.map((point) => computeSwr(transformImpedance({ R: point.R, X: point.X }, transformerRatio)))
+        : []),
     ];
     if (values.length === 0) return 5;
 
@@ -154,7 +187,7 @@ export function SWRChart() {
 
     // If we have some points below 2:1, we want to see the 2:1 crossing context.
     return Math.min(999, Math.max(5, Math.ceil(maxVal * 1.1)));
-  }, [comparisonActive, reference, sweep]);
+  }, [comparisonActive, reference, sweep, transformerEnabled, transformerRatio]);
 
   const options = useMemo<ChartOptions<'line'>>(() => {
     const annotations: Record<string, AnnotationOptions> = {
@@ -234,7 +267,7 @@ export function SWRChart() {
       },
       plugins: {
         legend: {
-          display: comparisonActive,
+          display: comparisonActive || transformerEnabled,
           labels: { color: chartText },
         },
         annotation: {
@@ -242,7 +275,7 @@ export function SWRChart() {
         },
       },
     };
-  }, [accent, chartGrid, chartText, comparisonActive, frequency, xBounds.max, xBounds.min, yMax, stats]);
+  }, [accent, chartGrid, chartText, comparisonActive, transformerEnabled, frequency, xBounds.max, xBounds.min, yMax, stats]);
 
   if (!result || sweep.length === 0) {
     return (

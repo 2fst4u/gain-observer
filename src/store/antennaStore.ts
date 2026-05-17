@@ -142,6 +142,11 @@ export interface AntennaState {
   showAxes: boolean;
   showPolarCuts: boolean;
 
+  // Ideal transformer post-processing display (does not affect NEC simulation)
+  transformerEnabled: boolean;
+  /** Impedance transformation ratio n² (e.g. 9 for a 3:1 turns-ratio transformer). */
+  transformerRatio: number;
+
   // Propagation
   tIndex: number;
   latitudeDeg: number | null;
@@ -188,6 +193,8 @@ export interface AntennaState {
   setShowGrid(v: boolean): void;
   setShowAxes(v: boolean): void;
   setShowPolarCuts(v: boolean): void;
+  setTransformerEnabled(enabled: boolean): void;
+  setTransformerRatio(ratio: number): void;
   captureComparisonReference(): void;
   clearComparisonReference(): void;
 
@@ -244,6 +251,8 @@ export const useAntennaStore = create<AntennaState>()(
       showGrid: true,
       showAxes: true,
       showPolarCuts: true,
+      transformerEnabled: false,
+      transformerRatio: 9,
 
       tIndex: 30,
       latitudeDeg: null,
@@ -381,6 +390,11 @@ export const useAntennaStore = create<AntennaState>()(
       setShowGrid: (v) => set((s) => { s.showGrid = v; }),
       setShowAxes: (v) => set((s) => { s.showAxes = v; }),
       setShowPolarCuts: (v) => set((s) => { s.showPolarCuts = v; }),
+      setTransformerEnabled: (enabled) => set((s) => { s.transformerEnabled = !!enabled; }),
+      setTransformerRatio: (ratio) => set((s) => {
+        if (!Number.isFinite(ratio) || ratio <= 0) return;
+        s.transformerRatio = Math.max(1, ratio);
+      }),
       captureComparisonReference: () => set((s) => {
         s.comparisonReference = createComparisonSnapshot(s);
       }),
