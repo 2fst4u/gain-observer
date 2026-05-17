@@ -459,7 +459,7 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda, 3);
 
       store.setAntennaType('sloping-v');
-      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 3);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 1, 3);
       expect(useAntennaStore.getState().vAngle).toBe(90);
       expect(useAntennaStore.getState().legSlope).toBe(30);
 
@@ -495,7 +495,7 @@ describe('antennaStore actions', () => {
       store.setAntennaType('sloping-v');
       store.setLength(5);
       store.setHalfWaveLength();
-      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.5 * 0.95, 3);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 1, 3);
     });
 
     it('clamps vAngle to [10, 180]', () => {

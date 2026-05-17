@@ -481,7 +481,7 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
     case 'delta-loop':
       return lambda;
     case 'sloping-v':
-      return lambda * 0.5 * 0.95;
+      return lambda * 1;
     case 'v-beam':
       return lambda * 2;
     default:
