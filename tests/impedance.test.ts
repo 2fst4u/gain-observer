@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor } from '../src/physics/impedance';
+import { swr, mismatchLossFactor, transformImpedance } from '../src/physics/impedance';
 
 describe('reflection coefficient and SWR', () => {
   it('perfect match => |Γ|=0, SWR=1', () => {
@@ -64,5 +64,53 @@ describe('mismatchLossFactor', () => {
     const mlf = mismatchLossFactor({ R: 50, X: 50 });
     expect(mlf).toBeGreaterThan(0);
     expect(mlf).toBeLessThan(1);
+  });
+});
+
+describe('transformImpedance', () => {
+  it('450+j0 with ratio 9 gives 50+j0 and SWR ~1:1', () => {
+    const z = transformImpedance({ R: 450, X: 0 }, 9);
+    expect(z.R).toBeCloseTo(50, 6);
+    expect(z.X).toBeCloseTo(0, 6);
+    expect(swr(z)).toBeCloseTo(1, 5);
+  });
+
+  it('ratio 1 leaves impedance unchanged', () => {
+    const z = transformImpedance({ R: 73, X: 42 }, 1);
+    expect(z.R).toBeCloseTo(73, 6);
+    expect(z.X).toBeCloseTo(42, 6);
+  });
+
+  it('transforms both R and X', () => {
+    const z = transformImpedance({ R: 400, X: 200 }, 4);
+    expect(z.R).toBeCloseTo(100, 6);
+    expect(z.X).toBeCloseTo(50, 6);
+  });
+
+  it('raw SWR is unaffected by calling transformImpedance', () => {
+    const original = { R: 450, X: 0 };
+    const rawSwr = swr(original);
+    transformImpedance(original, 9);
+    // Ensure the original object is not mutated
+    expect(swr(original)).toBe(rawSwr);
+    expect(original.R).toBe(450);
+  });
+
+  it('invalid ratio (0) returns original impedance unchanged', () => {
+    const original = { R: 100, X: 50 };
+    const result = transformImpedance(original, 0);
+    expect(result).toBe(original);
+  });
+
+  it('invalid ratio (negative) returns original impedance unchanged', () => {
+    const original = { R: 100, X: 50 };
+    const result = transformImpedance(original, -1);
+    expect(result).toBe(original);
+  });
+
+  it('invalid ratio (NaN) returns original impedance unchanged', () => {
+    const original = { R: 100, X: 50 };
+    const result = transformImpedance(original, NaN);
+    expect(result).toBe(original);
   });
 });
