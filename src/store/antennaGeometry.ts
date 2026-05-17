@@ -250,20 +250,40 @@ export function buildVBeamWires(params: SlopingVWiresParams): Wire[] {
     Math.max(MIN_SEGS_PER_LEG, minSegPerLeg, Math.round(params.segments / 2)),
   );
 
+  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
+
+  const apexLeft: [number, number, number] = [
+    cleanZero(-bridgeHalf * dx),
+    cleanZero(-bridgeHalf * dy),
+    h,
+  ];
+  const apexRight: [number, number, number] = [
+    cleanZero(bridgeHalf * dx),
+    cleanZero(bridgeHalf * dy),
+    h,
+  ];
+
   return [
     {
       start: leftTip,
-      end: apex,
+      end: apexLeft,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
       tag: DIPOLE_LEFT_TAG,
     },
     {
-      start: apex,
+      start: apexRight,
       end: rightTip,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
       tag: DIPOLE_RIGHT_TAG,
+    },
+    {
+      start: apexLeft,
+      end: apexRight,
+      radius: params.wireRadius,
+      segments: 1,
+      tag: FEED_BRIDGE_TAG,
     },
   ];
 }
