@@ -230,8 +230,6 @@ export function buildVBeamWires(params: SlopingVWiresParams): Wire[] {
 
   const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
-  const apex: [number, number, number] = [0, 0, h];
-
   const leftTip: [number, number, number] = [
     cleanZero(dx * legLen * cosV - px * legLen * sinV),
     cleanZero(dy * legLen * cosV - py * legLen * sinV),

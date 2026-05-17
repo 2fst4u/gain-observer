@@ -8,6 +8,7 @@ import {
   DIPOLE_RIGHT_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
+import { FEED_BRIDGE_TAG } from '../src/physics/constants';
 
 describe('antennaStore selectors', () => {
   describe('buildWires', () => {
@@ -746,9 +747,9 @@ describe('antennaStore actions', () => {
       legSlope: 0,
     };
 
-    it('generates exactly 2 GW wires (no bridge, no termination)', () => {
+    it('generates exactly 3 GW wires (2 legs + 1 bridge, no termination)', () => {
       const wires = buildWires(commonState);
-      expect(wires).toHaveLength(2);
+      expect(wires).toHaveLength(3);
     });
 
     it('both leg endpoints are at z=height (horizontal legs, no z=0)', () => {
@@ -761,24 +762,19 @@ describe('antennaStore actions', () => {
       }
     });
 
-    it('apex is shared at (0, 0, height)', () => {
+    it('apex is bridged across (0, 0, height)', () => {
       const wires = buildWires(commonState);
       const left = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
       const right = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+      const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
 
-      // Left leg ends at apex; right leg starts at apex.
-      expect(left.end[0]).toBeCloseTo(0);
-      expect(left.end[1]).toBeCloseTo(0);
-      expect(left.end[2]).toBeCloseTo(commonState.height);
-
-      expect(right.start[0]).toBeCloseTo(0);
-      expect(right.start[1]).toBeCloseTo(0);
-      expect(right.start[2]).toBeCloseTo(commonState.height);
-
-      expect(left.end).toEqual(right.start);
+      expect(bridge.start[2]).toBeCloseTo(commonState.height);
+      expect(bridge.end[2]).toBeCloseTo(commonState.height);
+      expect(left.end).toEqual(bridge.start);
+      expect(right.start).toEqual(bridge.end);
     });
 
-    it('each leg length equals half the total antenna length', () => {
+    it('each leg length roughly equals half the total antenna length minus bridge', () => {
       const wires = buildWires(commonState);
       const left = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
       const right = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
@@ -786,18 +782,17 @@ describe('antennaStore actions', () => {
       const dist = (a: [number, number, number], b: [number, number, number]) =>
         Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2);
 
-      expect(dist(left.start, left.end)).toBeCloseTo(commonState.length / 2, 5);
-      expect(dist(right.start, right.end)).toBeCloseTo(commonState.length / 2, 5);
+      // We expect the leg to be length / 2, minus a small bridge part, but roughly half.
+      expect(dist(left.start, left.end)).toBeCloseTo(commonState.length / 2, 0);
+      expect(dist(right.start, right.end)).toBeCloseTo(commonState.length / 2, 0);
     });
 
-    it('excitation is at the apex segment of the left leg', () => {
+    it('excitation is on the apex bridge', () => {
       const state = { ...useAntennaStore.getState(), ...commonState };
       const input = selectSimulationInput(state as AntennaState);
 
-      const left = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-      expect(input.excitation.wireTag).toBe(DIPOLE_LEFT_TAG);
-      // Left leg runs tip→apex, so the last segment is at the apex.
-      expect(input.excitation.segment).toBe(left.segments);
+      expect(input.excitation.wireTag).toBe(FEED_BRIDGE_TAG);
+      expect(input.excitation.segment).toBe(1);
     });
 
     it('has no transmission lines or loads', () => {
