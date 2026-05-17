@@ -218,7 +218,54 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
 }
 
 export function buildVBeamWires(params: SlopingVWiresParams): Wire[] {
-  return buildSlopingVWires({ ...params, legSlope: 0 });
+  const h = params.height;
+  const legLen = Math.max(0.1, params.length / 2);
+
+  const [dx, dy] = orientationVector(params.orientation);
+  const [px, py] = [-dy, dx];
+
+  const halfV = ((params.vAngle / 2) * Math.PI) / 180;
+  const cosV = Math.cos(halfV);
+  const sinV = Math.sin(halfV);
+
+  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+
+  const apex: [number, number, number] = [0, 0, h];
+
+  const leftTip: [number, number, number] = [
+    cleanZero(dx * legLen * cosV - px * legLen * sinV),
+    cleanZero(dy * legLen * cosV - py * legLen * sinV),
+    h,
+  ];
+  const rightTip: [number, number, number] = [
+    cleanZero(dx * legLen * cosV + px * legLen * sinV),
+    cleanZero(dy * legLen * cosV + py * legLen * sinV),
+    h,
+  ];
+
+  const lambda = wavelengthMeters(params.frequency);
+  const minSegPerLeg = Math.ceil((SEGS_PER_WAVELENGTH * legLen) / lambda);
+  const segmentsPerLeg = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minSegPerLeg, Math.round(params.segments / 2)),
+  );
+
+  return [
+    {
+      start: leftTip,
+      end: apex,
+      radius: params.wireRadius,
+      segments: segmentsPerLeg,
+      tag: DIPOLE_LEFT_TAG,
+    },
+    {
+      start: apex,
+      end: rightTip,
+      radius: params.wireRadius,
+      segments: segmentsPerLeg,
+      tag: DIPOLE_RIGHT_TAG,
+    },
+  ];
 }
 
 export interface DeltaLoopWiresParams {
