@@ -115,7 +115,7 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
   const rowRe = /^\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)/;
 
   const expected = thetaSteps * phiSteps;
-  const data = new Float32Array(expected);
+  const data = new Float32Array(expected).fill(-100);
   let count = 0;
 
   // Track the order we see (theta, phi) so we can verify NEC emitted in the
