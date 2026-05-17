@@ -252,14 +252,18 @@ function GeometryStatus() {
   const unit = displayLengthUnit(units);
 
   return (
-    <div style={{
-      marginTop: 12,
-      padding: '8px 10px',
-      fontSize: 12,
-      borderRadius: 4,
-      background: isClamped ? 'rgba(255, 107, 107, 0.1)' : 'var(--bg-accent)',
-      border: `1px solid ${isClamped ? '#ff6b6b' : 'var(--border)'}`,
-    }}>
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        marginTop: 12,
+        padding: '8px 10px',
+        fontSize: 12,
+        borderRadius: 4,
+        background: isClamped ? 'rgba(255, 107, 107, 0.1)' : 'var(--bg-accent)',
+        border: `1px solid ${isClamped ? '#ff6b6b' : 'var(--border)'}`,
+      }}
+    >
       <div style={{ fontWeight: 600, marginBottom: 4, color: isClamped ? '#ff6b6b' : 'inherit' }}>
         {isClamped ? '⚠️ Geometry Clamped' : 'Geometry Status'}
       </div>

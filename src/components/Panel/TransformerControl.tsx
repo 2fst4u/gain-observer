@@ -42,13 +42,14 @@ export function TransformerControl() {
             max={10000}
             step={1}
             value={transformerRatio}
+            aria-describedby="transformer-hint"
             onChange={(e) => {
               const v = parseFloat(e.target.value);
               if (Number.isFinite(v) && v >= 1) setTransformerRatio(v);
             }}
             style={{ width: '100%', marginTop: 4 }}
           />
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div id="transformer-hint" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
             Z_transformed = Z_feedpoint / ratio (ideal, lossless)
           </div>
 

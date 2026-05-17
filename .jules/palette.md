@@ -38,3 +38,7 @@
 ## 2024-05-26 - Exposing Keyboard Shortcuts
 **Learning:** Hidden keyboard shortcuts are great for power users, but they lack discoverability. Additionally, screen readers are not aware of custom JavaScript-based keybindings unless explicitly told.
 **Action:** When adding global keyboard shortcuts (like `T` for theme toggle, `U` for unit toggle, or `M`/`N`/`C` for mode switching), always append the shortcut to the visual `title` tooltip (e.g. `(T)`) and add the `aria-keyshortcuts` attribute to the corresponding interactive element.
+
+## 2024-05-27 - Inline Constraint Warnings (Geometry Status)
+**Learning:** Found that when a user's requested numeric input (e.g., Sloping V angle) is silently clamped by the system to satisfy physical constraints (e.g., minimum tip height), visual warnings alone are insufficient for accessibility. Without proper ARIA announcements, screen reader users miss the fact that their requested input was overridden by the system, leading to confusion about the actual state of the simulation.
+**Action:** When creating inline warning components that display dynamic constraint violations or system overrides (like `GeometryStatus`), always wrap the notification in a container with `role="status"` and `aria-live="polite"` so screen readers are audibly notified of the clamp.
