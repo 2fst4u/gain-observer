@@ -114,9 +114,12 @@ export interface AntennaState {
   legSlope: number;
 
   /**
-   * For sloping-V and V-beam: far-end terminating resistor across the two tips.
-   * 0 = unterminated. Any positive value inserts one NEC NT card representing
-   * the total across-tip resistance (not per-leg-to-ground).
+   * Far-end terminating resistor (ohms).
+   * 0 = unterminated.
+   *
+   * - sloping-V / v-beam: inserts one NEC NT card representing the total
+   *   across-tip resistance (not per-leg-to-ground).
+   * - delta-loop: inserts one NEC LD 4 card at the centre of the base wire.
    */
   terminatingResistor: number;
 
@@ -738,6 +741,19 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
         param2: 0,
       });
     }
+  }
+
+  if (state.antennaType === 'delta-loop' && state.terminatingResistor > 0) {
+    const baseWire = wires.find((w) => w.tag === DELTA_BASE_TAG)!;
+    const centerSeg = Math.ceil(baseWire.segments / 2);
+    loads.push({
+      type: 4,
+      wireTag: DELTA_BASE_TAG,
+      segmentStart: centerSeg,
+      segmentEnd: centerSeg,
+      param1: state.terminatingResistor,
+      param2: 0,
+    });
   }
 
   const networks: NetworkLoad[] = [];
