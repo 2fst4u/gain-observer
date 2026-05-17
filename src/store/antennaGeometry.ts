@@ -5,7 +5,7 @@ import {
   DIPOLE_RIGHT_TAG,
   FEED_BRIDGE_TAG,
   FEED_BRIDGE_LENGTH_M,
-  DELTA_LOOP_RIGHT_LEG_TAG,
+  DELTA_BASE_TAG,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -296,68 +296,79 @@ export interface DeltaLoopWiresParams {
 }
 
 /**
- * Builds the wires for a Delta Loop antenna (Apex-up equilateral).
- * Tag 1: Left leg
- * Tag 2: Bottom wire (fed at center)
- * Tag 5: Right leg
+ * Builds the wires for a Delta Loop antenna (apex-up, apex-fed).
+ *
+ * Produces an isosceles triangle whose perimeter always equals params.length.
+ * When the equilateral triangle height fits within the mast height, the result
+ * is equilateral. When the mast is too short the triangle is flattened while
+ * preserving the full perimeter.
+ *
+ * Tags:
+ *   DIPOLE_LEFT_TAG  (1) — left leg:  leftCorner → apex
+ *   DIPOLE_RIGHT_TAG (2) — right leg: apex → rightCorner
+ *   DELTA_BASE_TAG   (6) — base wire: leftCorner → rightCorner
+ *
+ * Excitation is placed on the last segment of DIPOLE_LEFT_TAG (the apex end).
  */
 export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   const perimeter = params.length;
-  const sideLen = perimeter / 3;
   const h = params.height;
   const [dx, dy] = orientationVector(params.orientation);
 
-  // Apex at (0,0,h). Equilateral triangle in the plane defined by orientation.
-  // Height of equilateral triangle = sideLen * sqrt(3)/2.
-  let triHeight = (sideLen * Math.sqrt(3)) / 2;
+  // Maximum available triangle height given the mast height.
+  const equilateralHeight = (perimeter * Math.sqrt(3)) / 6;
+  const maxAvailable = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
+  const triHeight = Math.min(equilateralHeight, maxAvailable);
 
-  // Clamp height to avoid wires touching ground.
-  if (triHeight > h - SLOPING_V_MIN_TIP_Z_M) {
-    triHeight = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
-  }
   const bottomZ = h - triHeight;
 
+  // Isosceles triangle with fixed perimeter P and height t:
+  //   leg  = t²/P + P/4
+  //   base = P − 2·leg  →  halfBase = P/4 − t²/P
+  const legLength = (triHeight * triHeight) / perimeter + perimeter / 4;
+  const halfBase = perimeter / 4 - (triHeight * triHeight) / perimeter;
+
   const apex: [number, number, number] = [0, 0, h];
-  const leftCorner: [number, number, number] = [
-    -(sideLen / 2) * dx,
-    -(sideLen / 2) * dy,
-    bottomZ,
-  ];
-  const rightCorner: [number, number, number] = [
-    (sideLen / 2) * dx,
-    (sideLen / 2) * dy,
-    bottomZ,
-  ];
+  const leftCorner: [number, number, number] = [-halfBase * dx, -halfBase * dy, bottomZ];
+  const rightCorner: [number, number, number] = [halfBase * dx, halfBase * dy, bottomZ];
 
   const lambda = wavelengthMeters(params.frequency);
-  const minSegPerSide = Math.ceil((SEGS_PER_WAVELENGTH * sideLen) / lambda);
-  const segmentsPerSide = Math.min(
+
+  const minLegSegs = Math.ceil((SEGS_PER_WAVELENGTH * legLength) / lambda);
+  const segmentsPerLeg = Math.min(
     MAX_SEGS_PER_LEG,
-    Math.max(MIN_SEGS_PER_LEG, minSegPerSide, Math.round(params.segments / 3)),
+    Math.max(MIN_SEGS_PER_LEG, minLegSegs, Math.round(params.segments / 3)),
   );
-  const bottomSegments = segmentsPerSide % 2 === 0 ? segmentsPerSide + 1 : segmentsPerSide;
+
+  const baseLength = halfBase * 2;
+  const minBaseSegs = Math.ceil((SEGS_PER_WAVELENGTH * baseLength) / lambda);
+  const rawBaseSegs = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minBaseSegs, Math.round(params.segments / 3)),
+  );
+  const baseSegments = rawBaseSegs % 2 === 0 ? rawBaseSegs + 1 : rawBaseSegs;
 
   return [
     {
       start: leftCorner,
       end: apex,
       radius: params.wireRadius,
-      segments: segmentsPerSide,
+      segments: segmentsPerLeg,
       tag: DIPOLE_LEFT_TAG,
     },
     {
       start: apex,
       end: rightCorner,
       radius: params.wireRadius,
-      segments: segmentsPerSide,
-      tag: DELTA_LOOP_RIGHT_LEG_TAG,
+      segments: segmentsPerLeg,
+      tag: DIPOLE_RIGHT_TAG,
     },
     {
       start: leftCorner,
       end: rightCorner,
       radius: params.wireRadius,
-      segments: bottomSegments,
-      tag: DIPOLE_RIGHT_TAG, // Tag 2
+      segments: baseSegments,
+      tag: DELTA_BASE_TAG,
     },
   ];
 }

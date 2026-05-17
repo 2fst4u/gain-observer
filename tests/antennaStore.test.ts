@@ -6,6 +6,7 @@ import {
   computeEffectiveSlope,
   DIPOLE_LEFT_TAG,
   DIPOLE_RIGHT_TAG,
+  DELTA_BASE_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
 import { FEED_BRIDGE_TAG } from '../src/physics/constants';
@@ -874,6 +875,112 @@ describe('antennaStore actions', () => {
 
     it('emits no transmission lines or loads for Inverted V', () => {
       const state = { ...useAntennaStore.getState(), ...commonState, antennaType: 'inverted-v' };
+      const input = selectSimulationInput(state as AntennaState);
+      expect(input.transmissionLines).toBeUndefined();
+      expect(input.loads).toBeUndefined();
+    });
+  });
+
+  describe('Delta Loop Geometry', () => {
+    // λ at 7.1 MHz ≈ 42.224 m; default delta loop perimeter = 1λ
+    const lambda = 299.792458 / 7.1;
+
+    const baseState = {
+      antennaType: 'delta-loop' as const,
+      length: lambda,         // perimeter = 1λ
+      height: 15,
+      orientation: 'EW' as const,
+      wireRadius: 0.001,
+      segments: 21,
+      frequency: 7.1,
+      vAngle: 180,
+      legSlope: 0,
+    };
+
+    it('produces exactly 3 wires with distinct tags', () => {
+      const wires = buildWires(baseState);
+      expect(wires).toHaveLength(3);
+      const tags = wires.map((w) => w.tag).sort((a, b) => a - b);
+      expect(tags).toEqual([DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG, DELTA_BASE_TAG]);
+    });
+
+    it('apex is at full mast height on all leg endpoints', () => {
+      const wires = buildWires(baseState);
+      const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+      const rightLeg = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+      // Left leg: start = leftCorner, end = apex
+      expect(leftLeg.end[2]).toBeCloseTo(baseState.height);
+      // Right leg: start = apex, end = rightCorner
+      expect(rightLeg.start[2]).toBeCloseTo(baseState.height);
+      // Apex coordinates agree between the two legs
+      expect(leftLeg.end[0]).toBeCloseTo(rightLeg.start[0]);
+      expect(leftLeg.end[1]).toBeCloseTo(rightLeg.start[1]);
+      expect(leftLeg.end[2]).toBeCloseTo(rightLeg.start[2]);
+    });
+
+    it('equilateral triangle when mast height allows it (7.1 MHz, 15 m)', () => {
+      // P = λ ≈ 42.224 m. Equilateral height = P * sqrt(3) / 6 ≈ 12.18 m.
+      // 15 m - 0.5 m = 14.5 m available, so equilateral fits.
+      const wires = buildWires(baseState);
+      const equilateralHeight = (lambda * Math.sqrt(3)) / 6;
+      const sideLen = lambda / 3;
+
+      const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+      const base = wires.find((w) => w.tag === DELTA_BASE_TAG)!;
+
+      // Base width = side length (equilateral)
+      const baseWidth = Math.sqrt(
+        (base.start[0] - base.end[0]) ** 2 + (base.start[1] - base.end[1]) ** 2,
+      );
+      expect(baseWidth).toBeCloseTo(sideLen, 2);
+
+      // Triangle height: apex z - base z
+      const triHeight = leftLeg.end[2] - leftLeg.start[2];
+      expect(triHeight).toBeCloseTo(equilateralHeight, 2);
+    });
+
+    it('preserves full perimeter when height forces isosceles shape', () => {
+      // Mast height 5 m: equilateral height ≈ 12.18 m, but available is 4.5 m.
+      const shortState = { ...baseState, height: 5 };
+      const wires = buildWires(shortState);
+
+      const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+      const rightLeg = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+      const base = wires.find((w) => w.tag === DELTA_BASE_TAG)!;
+
+      const dist3d = (
+        a: readonly [number, number, number],
+        b: readonly [number, number, number],
+      ) => Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2);
+
+      const leftLen = dist3d(leftLeg.start, leftLeg.end);
+      const rightLen = dist3d(rightLeg.start, rightLeg.end);
+      const baseLen = dist3d(base.start, base.end);
+      const actualPerimeter = leftLen + rightLen + baseLen;
+
+      expect(actualPerimeter).toBeCloseTo(lambda, 1);
+    });
+
+    it('base corners stay above minimum height (SLOPING_V_MIN_TIP_Z_M = 0.5 m)', () => {
+      // Very short mast — base must not go below 0.5 m.
+      const shortState = { ...baseState, height: 2 };
+      const wires = buildWires(shortState);
+      const base = wires.find((w) => w.tag === DELTA_BASE_TAG)!;
+      expect(base.start[2]).toBeGreaterThanOrEqual(0.49);
+      expect(base.end[2]).toBeGreaterThanOrEqual(0.49);
+    });
+
+    it('excitation lands on the left leg at its last (apex) segment', () => {
+      const state = { ...useAntennaStore.getState(), ...baseState };
+      const input = selectSimulationInput(state as AntennaState);
+
+      const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+      expect(input.excitation.wireTag).toBe(DIPOLE_LEFT_TAG);
+      expect(input.excitation.segment).toBe(leftLeg.segments);
+    });
+
+    it('emits no transmission lines or loads', () => {
+      const state = { ...useAntennaStore.getState(), ...baseState };
       const input = selectSimulationInput(state as AntennaState);
       expect(input.transmissionLines).toBeUndefined();
       expect(input.loads).toBeUndefined();

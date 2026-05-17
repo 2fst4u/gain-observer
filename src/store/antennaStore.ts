@@ -37,6 +37,7 @@ import {
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   FEED_BRIDGE_LENGTH_M,
+  DELTA_BASE_TAG,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -47,6 +48,7 @@ export {
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   FEED_BRIDGE_LENGTH_M,
+  DELTA_BASE_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
@@ -704,8 +706,8 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
     excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftWire.segments };
   } else if (state.antennaType === 'delta-loop') {
-    const bottomWire = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-    excitation = { wireTag: DIPOLE_RIGHT_TAG, segment: Math.ceil(bottomWire.segments / 2) };
+    const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+    excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
   } else {
     const dipoleCentreSeg = Math.ceil(state.segments / 2);
     excitation = { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };

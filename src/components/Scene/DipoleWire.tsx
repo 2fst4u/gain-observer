@@ -117,18 +117,15 @@ export function DipoleWire({
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);
   const dipoleSingle = rendered.find((s) => s.tag === DIPOLE_TAG && !bridge);
-  const deltaLoopBottom = rendered.find((s) => type === 'delta-loop' && s.tag === DIPOLE_RIGHT_TAG);
   const shield = rendered.find((s) => s.isShield);
 
-  // V-Beam: left leg runs tip→apex (sceneEnd = apex). DIPOLE_TAG === DIPOLE_LEFT_TAG,
-  // so dipoleSingle would match the left leg and place the marker at its midpoint;
-  // use sceneEnd (the apex) instead.
+  // V-Beam and Delta Loop: left leg runs tip→apex; sceneEnd is the apex point.
   const vBeamLeft = type === 'v-beam' ? (rendered.find((s) => s.tag === DIPOLE_LEFT_TAG) ?? null) : null;
+  const deltaLoopLeft = type === 'delta-loop' ? (rendered.find((s) => s.tag === DIPOLE_LEFT_TAG) ?? null) : null;
 
-  // The feedpoint is at the bridge midpoint when split, else at the dipole
-  // wire's midpoint (legacy single-wire layout).
-  // For Delta Loop, it's at the center of the bottom wire.
-  const feedpoint = bridge?.feedMid ?? deltaLoopBottom?.feedMid ?? vBeamLeft?.sceneEnd ?? dipoleSingle?.feedMid ?? null;
+  // Feedpoint: bridge midpoint (split-fed) > delta loop apex > v-beam apex >
+  // dipole wire midpoint (single-wire legacy).
+  const feedpoint = bridge?.feedMid ?? deltaLoopLeft?.sceneEnd ?? vBeamLeft?.sceneEnd ?? dipoleSingle?.feedMid ?? null;
 
   return (
     <group>
