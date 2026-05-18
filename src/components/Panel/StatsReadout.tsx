@@ -8,6 +8,8 @@ export function StatsReadout() {
   const reference = useAntennaStore((s) => s.comparisonReference);
   const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
   const transformerRatio = useAntennaStore((s) => s.transformerRatio);
+  const feedlineId = useAntennaStore((s) => s.feedlineId);
+  const feedlineActive = feedlineId !== 'none';
   if (!result) {
     return (
       <section className="panel-section">
@@ -24,6 +26,14 @@ export function StatsReadout() {
     const mlf = mismatchLossFactor(transformedZ);
     if (mlf > 0) transformedRealizedGainDbi = result.maxGainDbi + 10 * Math.log10(mlf);
   }
+
+  const impedanceLabel = feedlineActive ? 'Source impedance (R + jX)' : 'Feedpoint (R + jX)';
+  const impedanceTitle = feedlineActive
+    ? 'Impedance at the source end of the feedline (what the radio sees). With a feedline configured, NEC places the excitation source at the radio end of the cable, so this is the cable-transformed impedance — not the antenna terminals. To see the antenna terminals directly, set Feedline = none.'
+    : 'Impedance at the antenna feedpoint. With no feedline configured, NEC places the excitation directly at the antenna terminals.';
+  const swrTitle = feedlineActive
+    ? 'Voltage SWR at the source end of the feedline against 50 Ω. This is what your radio\'s SWR meter would see. A lossless cable cannot improve SWR — it can only rotate the impedance around the Smith chart. To improve SWR you need matching at the antenna or a tuner at the radio.'
+    : 'Voltage SWR at the antenna feedpoint against 50 Ω. Measured directly at the antenna terminals with no feedline in the chain.';
 
   return (
     <section className="panel-section">
@@ -49,7 +59,12 @@ export function StatsReadout() {
         <div className="stat">
           <span
             className="stat-label"
-            title="Realized gain, raw 50 Ω (dBi): gain accounting for mismatch loss between the raw NEC feedpoint impedance and a 50 Ω source. = Gain × (1 − |Γ|²). Does not include the Ideal transformer post-processing option."
+            title={
+              (feedlineActive
+                ? 'Realized gain, raw 50 Ω (dBi): gain accounting for mismatch loss at the source end of the feedline against a 50 Ω source. With a feedline in the chain, mismatch loss is computed at the radio end of the cable. = Gain × (1 − |Γ|²).'
+                : 'Realized gain, raw 50 Ω (dBi): gain accounting for mismatch loss between the antenna feedpoint impedance and a 50 Ω source. = Gain × (1 − |Γ|²).')
+              + ' Does not include the Ideal transformer post-processing option.'
+            }
           >Realized gain{transformerEnabled ? ' (raw)' : ''}</span>
           <span className="stat-value">{result.maxRealizedGainDbi.toFixed(2)} dBi</span>
         </div>
@@ -81,13 +96,13 @@ export function StatsReadout() {
         <span className="stat-value">{result.takeoffAzimuthDeg.toFixed(0)}°</span>
       </div>
       <div className="stat">
-        <span className="stat-label">Feedpoint (R + jX)</span>
+        <span className="stat-label" title={impedanceTitle}>{impedanceLabel}</span>
         <span className="stat-value">
           {result.impedance.R.toFixed(1)} {result.impedance.X >= 0 ? '+' : '−'}j{Math.abs(result.impedance.X).toFixed(1)} Ω
         </span>
       </div>
       <div className="stat">
-        <span className="stat-label">SWR (vs 50 Ω)</span>
+        <span className="stat-label" title={swrTitle}>SWR (vs 50 Ω)</span>
         <span className="stat-value" style={{
           color: result.swr > 2 ? 'var(--danger)' : result.swr > 1.5 ? 'var(--warning)' : 'var(--success)',
         }}>{result.swr.toFixed(2)}:1</span>

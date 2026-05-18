@@ -54,3 +54,53 @@ export function transformImpedance(z: ImpedanceResult, ratio: number): Impedance
   if (!Number.isFinite(ratio) || ratio <= 0) return z;
   return { R: z.R / ratio, X: z.X / ratio };
 }
+
+/**
+ * De-embeds an impedance reading taken at the source end of a lossless
+ * transmission line: given Z measured at the source, returns the load-side
+ * impedance at the far end of the line.
+ *
+ *   Z_load = Z0 · (Z_src − j·Z0·tan(βd)) / (Z0 − j·Z_src·tan(βd))
+ *
+ * `lengthLambdas` is the electrical length of the line (physical length
+ * divided by the cable's in-line wavelength, i.e. `length / (vf · λ_air)`).
+ *
+ * NEC's TL card is lossless; the matching inverse-transform here is also
+ * lossless, so for the differential signal this is exact. It does NOT
+ * account for any common-mode current on the cable shield (modelled as a
+ * separate wire in NEC), so for antennas with significant shield current
+ * the de-embedded value is an estimate of the antenna terminals only.
+ */
+export function deembedThroughLine(
+  zSrc: ImpedanceResult,
+  z0Line: number,
+  lengthLambdas: number,
+): ImpedanceResult {
+  if (!Number.isFinite(lengthLambdas) || !Number.isFinite(z0Line) || z0Line <= 0) {
+    return zSrc;
+  }
+  const betaL = 2 * Math.PI * lengthLambdas;
+  const t = Math.tan(betaL);
+  if (!Number.isFinite(t)) {
+    // tan diverges at ¼-wavelength multiples; in the limit Z_load = Z0² / Z_src.
+    const denMag2 = zSrc.R * zSrc.R + zSrc.X * zSrc.X;
+    if (denMag2 === 0) return zSrc;
+    return {
+      R: (z0Line * z0Line * zSrc.R) / denMag2,
+      X: -(z0Line * z0Line * zSrc.X) / denMag2,
+    };
+  }
+  // numerator = Z_src − j·Z0·t = zSrc.R + j·(zSrc.X − Z0·t)
+  const numR = zSrc.R;
+  const numI = zSrc.X - z0Line * t;
+  // denominator = Z0 − j·Z_src·t = (Z0 + zSrc.X·t) + j·(−zSrc.R·t)
+  const denR = z0Line + zSrc.X * t;
+  const denI = -zSrc.R * t;
+  const denMag2 = denR * denR + denI * denI;
+  if (denMag2 === 0) return zSrc;
+  // Z0 · (num / den), complex division.
+  return {
+    R: (z0Line * (numR * denR + numI * denI)) / denMag2,
+    X: (z0Line * (numI * denR - numR * denI)) / denMag2,
+  };
+}
