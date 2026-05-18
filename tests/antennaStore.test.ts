@@ -461,9 +461,9 @@ describe('antennaStore actions', () => {
       store.setAntennaType('sloping-v');
       // Default is 2λ total (1λ per leg) — minimum for end-fire travelling-wave behaviour.
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
-      // V-angle snaps to slope-corrected Kraus: V_kraus × cos(slope)^1.5.
-      // At h=10m, 7.1 MHz: slope≈13°, correction≈0.962 → V≈98.2°.
-      expect(useAntennaStore.getState().vAngle).toBeCloseTo(98.20, 1);
+      // V-angle from physics formula: cosV = (1 − 0.371λ/L) / cos(slope).
+      // At h=10m, 7.1 MHz, 2λ total: slope≈13°, cosSlope≈0.974 → V≈99.6°.
+      expect(useAntennaStore.getState().vAngle).toBeCloseTo(99.65, 1);
       // legSlope is unused for sloping-V (slope is auto-computed); reset to 0.
       expect(useAntennaStore.getState().legSlope).toBe(0);
 

@@ -485,16 +485,25 @@ function clampSegments(n: number): number {
  * Returns the V-opening angle (degrees) that maximises forward gain for a
  * traveling-wave V antenna of the given total length at the given frequency.
  *
- * Base derivation (Kraus / ARRL): a long wire of length L radiates its first
- * peak at angle θ from the wire axis where `cos(θ) ≈ 1 − 0.371·λ/L`. In a
- * V-beam the two legs combine constructively along the V-axis when the leg
- * half-angle equals θ → optimal opening = 2·θ.
+ * Derivation (Kraus / ARRL): a long wire of length L radiates its first peak
+ * at angle θ from the wire axis where `cos(θ) ≈ 1 − 0.371·λ/L`. In a V the
+ * two legs combine constructively along the bisector when the projection of
+ * each leg's unit direction onto the bisector equals cos(θ).
  *
- * Slope correction for sloping-V: the Kraus formula assumes horizontal legs.
- * NEC sweep results show that sloping legs (apex at height h, tips near ground)
- * need a narrower V-angle: V_sloping ≈ V_kraus × cos(slopeAngle)^1.5.
- * At zero slope the correction is 1 (Kraus unchanged). Pass `heightM` only for
- * sloping-V geometry; omit (or pass undefined) for horizontal V-beams.
+ * For a *horizontal* V-beam the leg direction makes angle halfV with the
+ * bisector, so projection = cos(halfV). Setting cos(halfV) = 1 − 0.371λ/L
+ * gives the Kraus formula.
+ *
+ * For a *sloping-V* each leg is tilted downward at slope angle α from
+ * horizontal. Its unit direction is (sinV·cosα, cosV·cosα, −sinα). The
+ * projection onto the forward bisector [0,1,0] is cosV·cosα. Setting
+ * cosV·cosα = 1 − 0.371λ/L gives:
+ *
+ *   cosV = (1 − 0.371·λ/L) / cos(α)
+ *
+ * At α = 0 (horizontal) this reduces to the Kraus formula exactly. Pass
+ * `heightM` only for sloping-V geometry; omit (or pass undefined) for
+ * horizontal V-beams.
  *
  * Clamped to [10°, 180°].
  */
@@ -505,19 +514,18 @@ export function computeOptimalVAngleDeg(
 ): number {
   const lambda = 299.792458 / frequencyMHz;
   const legLen = Math.max(0.01, (totalLengthM - FEED_BRIDGE_LENGTH_M) / 2);
-  const cosHalfV = 1 - (0.371 * lambda) / legLen;
-  const halfVRad = Math.acos(Math.max(-1, Math.min(1, cosHalfV)));
-  let vAngleDeg = (2 * halfVRad * 180) / Math.PI;
+  let cosHalfV = 1 - (0.371 * lambda) / legLen;
 
   if (heightM !== undefined && heightM > SLOPING_V_MIN_TIP_Z_M) {
-    const sinSlope = Math.min(1, Math.max(0, heightM - SLOPING_V_MIN_TIP_Z_M) / legLen);
-    const slopeRad = Math.asin(sinSlope);
-    // Empirical correction from NEC sweep: forward lobe peaks at forward bisector
-    // only for narrower angles than Kraus; cos^1.5 matches NEC at ~33° slope.
-    vAngleDeg = vAngleDeg * Math.pow(Math.cos(slopeRad), 1.5);
+    const sinSlope = Math.min(1, Math.max(0, (heightM - SLOPING_V_MIN_TIP_Z_M) / legLen));
+    const cosSlope = Math.sqrt(1 - sinSlope * sinSlope);
+    if (cosSlope > 1e-6) {
+      cosHalfV = cosHalfV / cosSlope;
+    }
   }
 
-  return Math.max(10, Math.min(180, vAngleDeg));
+  const halfVRad = Math.acos(Math.max(-1, Math.min(1, cosHalfV)));
+  return Math.max(10, Math.min(180, (2 * halfVRad * 180) / Math.PI));
 }
 
 function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number {
