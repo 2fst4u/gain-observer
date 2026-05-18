@@ -249,7 +249,7 @@ describe('antennaStore selectors', () => {
         feedlineId: 'rg58',
         feedlineLength: 8,
         feedlineOffset: 0,
-        balunEnabled: false,
+        transformerEnabled: false,
       };
 
       const input = selectSimulationInput(testState);
@@ -371,7 +371,7 @@ describe('antennaStore selectors', () => {
       expect(rightWires[rightWires.length - 1]!.end[2]).toBeCloseTo(0.5, 5);
     });
 
-    it('adds an LD choke balun on the shield when balun is enabled', () => {
+    it('adds an LD choke on the shield when transformer is fitted at the antenna', () => {
       const state = useAntennaStore.getState();
       const testState = {
         ...state,
@@ -380,7 +380,7 @@ describe('antennaStore selectors', () => {
         feedlineId: 'rg213',
         feedlineLength: 6,
         feedlineOffset: 0,
-        balunEnabled: true,
+        transformerEnabled: true,
       };
 
       const input = selectSimulationInput(testState);
@@ -408,7 +408,7 @@ describe('antennaStore selectors', () => {
         feedlineId: 'rg58',
         feedlineLength: 8,
         feedlineOffset: 0,
-        balunEnabled: false,
+        transformerEnabled: false,
       });
 
       // bridge + 2 legs + shield (no stubs since terminatingResistor=0)
@@ -691,7 +691,7 @@ describe('antennaStore actions', () => {
       store.setFeedline('rg58');
       store.setFeedlineLength(15);
       store.setFeedlineOffset(2);
-      store.setBalunEnabled(true);
+      store.setTransformerEnabled(true);
 
       store.setAntennaType('sloping-v');
 
@@ -700,7 +700,7 @@ describe('antennaStore actions', () => {
       expect(s.feedlineId).toBe('rg58');
       expect(s.feedlineLength).toBe(15);
       expect(s.feedlineOffset).toBe(0);
-      expect(s.balunEnabled).toBe(true);
+      expect(s.transformerEnabled).toBe(true);
     });
 
     it('updates feedline preset id', () => {
@@ -726,12 +726,12 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().feedlineLength).toBe(15);
     });
 
-    it('toggles balun enabled flag', () => {
+    it('toggles transformer enabled flag', () => {
       const store = useAntennaStore.getState();
-      store.setBalunEnabled(true);
-      expect(useAntennaStore.getState().balunEnabled).toBe(true);
-      store.setBalunEnabled(false);
-      expect(useAntennaStore.getState().balunEnabled).toBe(false);
+      store.setTransformerEnabled(true);
+      expect(useAntennaStore.getState().transformerEnabled).toBe(true);
+      store.setTransformerEnabled(false);
+      expect(useAntennaStore.getState().transformerEnabled).toBe(false);
     });
 
     it('clamps feedline offset to ±length/2', () => {
@@ -953,7 +953,7 @@ describe('antennaStore actions', () => {
         feedlineId: 'rg58',
         feedlineLength: 8,
         feedlineOffset: 0,
-        balunEnabled: false,
+        transformerEnabled: false,
       };
       const input = selectSimulationInput(state as AntennaState);
       // 4 wires: left leg (1), right leg (2), bridge (3), shield (4)
@@ -1087,7 +1087,7 @@ describe('antennaStore actions', () => {
         feedlineId: 'rg58',
         feedlineLength: 10,
         feedlineOffset: 0,
-        balunEnabled: false,
+        transformerEnabled: false,
       };
       const input = selectSimulationInput(state as AntennaState);
       // 5 wires: left leg (1), right leg (2), bridge (3), shield (4), base (6)

@@ -1,6 +1,6 @@
 // Impedance/SWR helpers.
 
-import { Z0_SYSTEM } from './constants';
+import { Z0_SYSTEM, TRANSFORMER_INSERTION_LOSS_DB } from './constants';
 import type { ImpedanceResult } from './types';
 
 /**
@@ -53,6 +53,96 @@ export function mismatchLossFactor(z: ImpedanceResult, z0: number = Z0_SYSTEM): 
 export function transformImpedance(z: ImpedanceResult, ratio: number): ImpedanceResult {
   if (!Number.isFinite(ratio) || ratio <= 0) return z;
   return { R: z.R / ratio, X: z.X / ratio };
+}
+
+/**
+ * Forward propagation through a lossless transmission line: given the load
+ * (far-end) impedance, returns the input (near-end) impedance seen looking
+ * into a line of characteristic impedance `z0Line` and electrical length
+ * `lengthLambdas` (cable length / cable wavelength).
+ *
+ *   Z_in = Z0 · (Z_load + j·Z0·tan(βd)) / (Z0 + j·Z_load·tan(βd))
+ */
+export function transformThroughLine(
+  zLoad: ImpedanceResult,
+  z0Line: number,
+  lengthLambdas: number,
+): ImpedanceResult {
+  if (!Number.isFinite(lengthLambdas) || !Number.isFinite(z0Line) || z0Line <= 0) {
+    return zLoad;
+  }
+  const betaL = 2 * Math.PI * lengthLambdas;
+  const t = Math.tan(betaL);
+  if (!Number.isFinite(t)) {
+    const denMag2 = zLoad.R * zLoad.R + zLoad.X * zLoad.X;
+    if (denMag2 === 0) return zLoad;
+    return {
+      R: (z0Line * z0Line * zLoad.R) / denMag2,
+      X: -(z0Line * z0Line * zLoad.X) / denMag2,
+    };
+  }
+  // numerator = Z_load + j·Z0·t = zLoad.R + j·(zLoad.X + Z0·t)
+  const numR = zLoad.R;
+  const numI = zLoad.X + z0Line * t;
+  // denominator = Z0 + j·Z_load·t = (Z0 − zLoad.X·t) + j·(zLoad.R·t)
+  const denR = z0Line - zLoad.X * t;
+  const denI = zLoad.R * t;
+  const denMag2 = denR * denR + denI * denI;
+  if (denMag2 === 0) return zLoad;
+  return {
+    R: (z0Line * (numR * denR + numI * denI)) / denMag2,
+    X: (z0Line * (numI * denR - numR * denI)) / denMag2,
+  };
+}
+
+/**
+ * Computes the impedance the radio sees when an ideal `n²`-ratio transformer
+ * is fitted at the antenna terminals (between antenna and feedline).
+ *
+ * If `lineLengthLambdas` is 0 or undefined (no feedline), this is just the
+ * antenna impedance divided by the ratio. With a feedline present, the
+ * antenna feedpoint is de-embedded from the NEC-reported source-side Z,
+ * divided by the ratio (the transformer's effect on the load presented to
+ * the cable), then re-embedded through the cable to get what the radio
+ * sees.
+ *
+ * De-embedding accuracy depends on the absence of significant common-mode
+ * current on the cable shield — which is guaranteed in the simulation
+ * because enabling a transformer also engages a choke on the shield.
+ */
+export function transformWithTransformerAtAntenna(
+  zSrcReportedByNec: ImpedanceResult,
+  ratio: number,
+  z0Line: number = Z0_SYSTEM,
+  lineLengthLambdas: number = 0,
+): ImpedanceResult {
+  if (!Number.isFinite(ratio) || ratio <= 0) return zSrcReportedByNec;
+  if (lineLengthLambdas === 0 || !Number.isFinite(lineLengthLambdas)) {
+    // No feedline → NEC's reported Z is the antenna feedpoint directly.
+    return { R: zSrcReportedByNec.R / ratio, X: zSrcReportedByNec.X / ratio };
+  }
+  const zAntenna = deembedThroughLine(zSrcReportedByNec, z0Line, lineLengthLambdas);
+  const zXfmrPrimary = { R: zAntenna.R / ratio, X: zAntenna.X / ratio };
+  return transformThroughLine(zXfmrPrimary, z0Line, lineLengthLambdas);
+}
+
+/**
+ * Realized gain after a transformer fitted at the antenna terminals: the
+ * NEC-computed `gainDbi` (intrinsic radiation) minus the mismatch loss
+ * computed against the radio-side impedance with the transformer in
+ * place, minus a fixed insertion loss for the transformer hardware.
+ */
+export function realizedGainWithTransformer(
+  gainDbi: number,
+  zSrcReportedByNec: ImpedanceResult,
+  ratio: number,
+  z0Line: number = Z0_SYSTEM,
+  lineLengthLambdas: number = 0,
+): number | undefined {
+  const zRadio = transformWithTransformerAtAntenna(zSrcReportedByNec, ratio, z0Line, lineLengthLambdas);
+  const mlf = mismatchLossFactor(zRadio);
+  if (mlf <= 0) return undefined;
+  return gainDbi + 10 * Math.log10(mlf) - TRANSFORMER_INSERTION_LOSS_DB;
 }
 
 /**

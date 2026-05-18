@@ -56,7 +56,7 @@ export function DipoleWire({
   feedlineOffset,
 }: DipoleWireProps) {
   const theme = useAntennaStore((s) => s.theme);
-  const balunEnabled = useAntennaStore((s) => s.balunEnabled);
+  const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
   const vAngle = useAntennaStore((s) => s.vAngle);
   const legSlope = useAntennaStore((s) => s.legSlope);
   const frequency = useAntennaStore((s) => s.frequency);
@@ -149,9 +149,10 @@ export function DipoleWire({
           />
         </mesh>
       )}
-      {shield && balunEnabled && (
-        // Choke balun marker: a small torus near the top of the shield wire
-        // (immediately below the antenna feedpoint).
+      {shield && transformerEnabled && (
+        // Transformer/choke marker: a small torus near the top of the
+        // shield wire (immediately below the antenna feedpoint). Any
+        // transformer ratio — including 1:1 — engages the choke.
         <mesh
           position={[
             shield.sceneStart[0],

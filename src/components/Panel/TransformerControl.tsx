@@ -1,22 +1,16 @@
 import { useAntennaStore } from '../../store/antennaStore';
-import { swr, transformImpedance } from '../../physics/impedance';
+import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 
 export function TransformerControl() {
-  const result = useAntennaStore((s) => s.result);
   const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
   const transformerRatio = useAntennaStore((s) => s.transformerRatio);
   const setTransformerEnabled = useAntennaStore((s) => s.setTransformerEnabled);
   const setTransformerRatio = useAntennaStore((s) => s.setTransformerRatio);
 
-  const transformedZ = result && transformerEnabled
-    ? transformImpedance(result.impedance, transformerRatio)
-    : null;
-  const transformedSwr = transformedZ !== null ? swr(transformedZ) : null;
-
   return (
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2>Ideal transformer</h2>
+      <h2>Transformer at feedpoint</h2>
       <label
         htmlFor="transformer-enable"
         style={{ display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, margin: 0, fontSize: 12 }}
@@ -27,7 +21,7 @@ export function TransformerControl() {
           checked={transformerEnabled}
           onChange={(e) => setTransformerEnabled(e.target.checked)}
         />
-        Show post-processing view
+        Fit transformer / balun at the antenna
       </label>
 
       {transformerEnabled && (
@@ -49,72 +43,21 @@ export function TransformerControl() {
             }}
             style={{ width: '100%', marginTop: 4 }}
           />
-          <div id="transformer-hint" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
-            Z_transformed = Z_feedpoint / ratio (ideal, lossless)
+          <div id="transformer-hint" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.4 }}>
+            {transformerRatio === 1
+              ? 'Ratio 1:1 — a current ("choke") balun. Suppresses common-mode current on the feedline shield, leaves antenna impedance unchanged.'
+              : `Ratio ${transformerRatio}:1 — divides antenna feedpoint impedance by ${transformerRatio} and chokes common-mode current on the shield.`}
+            {' '}Insertion loss: {TRANSFORMER_INSERTION_LOSS_DB.toFixed(1)} dB.
           </div>
-
-          {result && transformedZ !== null && transformedSwr !== null && (
-            <>
-              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-                After {transformerRatio}:1 transformer
-              </div>
-              <div className="stat">
-                <span
-                  className="stat-label"
-                  title="Raw feedpoint impedance from NEC — unchanged by transformer setting."
-                >Feedpoint (raw R + jX)</span>
-                <span className="stat-value">
-                  {result.impedance.R.toFixed(1)} {result.impedance.X >= 0 ? '+' : '−'}j{Math.abs(result.impedance.X).toFixed(1)} Ω
-                </span>
-              </div>
-              <div className="stat">
-                <span
-                  className="stat-label"
-                  title="Raw SWR vs 50 Ω at the feedpoint — unchanged by transformer setting."
-                >Raw SWR (vs 50 Ω)</span>
-                <span
-                  className="stat-value"
-                  style={{
-                    color: result.swr > 2 ? 'var(--danger)' : result.swr > 1.5 ? 'var(--warning)' : 'var(--success)',
-                  }}
-                >
-                  {result.swr.toFixed(2)}:1
-                </span>
-              </div>
-              <div className="stat">
-                <span
-                  className="stat-label"
-                  title="Transformed impedance = feedpoint impedance ÷ ratio. Post-processing only."
-                >Transformed (R + jX)</span>
-                <span className="stat-value">
-                  {transformedZ.R.toFixed(1)} {transformedZ.X >= 0 ? '+' : '−'}j{Math.abs(transformedZ.X).toFixed(1)} Ω
-                </span>
-              </div>
-              <div className="stat">
-                <span
-                  className="stat-label"
-                  title="SWR vs 50 Ω after ideal transformer. Post-processing only."
-                >Transformed SWR (vs 50 Ω)</span>
-                <span
-                  className="stat-value"
-                  style={{
-                    color: transformedSwr > 2 ? 'var(--danger)' : transformedSwr > 1.5 ? 'var(--warning)' : 'var(--success)',
-                  }}
-                >
-                  {transformedSwr.toFixed(2)}:1
-                </span>
-              </div>
-              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                <strong>Note:</strong> Transformer values are ideal post-processing calculations.
-                Actual transformer losses, bandwidth limits, and physical effects are not modelled
-                unless explicitly added to the NEC geometry.
-                A fixed-ratio transformer scales impedance (R and X both divided by ratio) but does
-                not cancel reactance — if the raw feedpoint is highly reactive, transformed SWR and
-                realized gain may still be poor even when the resistive component is near 50 Ω.
-              </div>
-            </>
-          )}
         </>
+      )}
+
+      {!transformerEnabled && (
+        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+          No transformer fitted — the feedline shield carries common-mode current
+          and contributes to radiation (often skewing the pattern for off-centre or
+          unbalanced feeds).
+        </div>
       )}
     </section>
   );

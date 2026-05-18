@@ -19,11 +19,9 @@ export function FeedlineControl() {
   const feedlineId = useAntennaStore((s) => s.feedlineId);
   const feedlineLength = useAntennaStore((s) => s.feedlineLength);
   const feedlineOffset = useAntennaStore((s) => s.feedlineOffset);
-  const balunEnabled = useAntennaStore((s) => s.balunEnabled);
   const setFeedline = useAntennaStore((s) => s.setFeedline);
   const setFeedlineLength = useAntennaStore((s) => s.setFeedlineLength);
   const setFeedlineOffset = useAntennaStore((s) => s.setFeedlineOffset);
-  const setBalunEnabled = useAntennaStore((s) => s.setBalunEnabled);
 
   const preset = findFeedlinePreset(feedlineId);
   const enabled = preset.id !== 'none';
@@ -129,32 +127,6 @@ export function FeedlineControl() {
               </div>
             </>
           )}
-
-          <label
-            htmlFor="balun-toggle"
-            style={{
-              marginTop: 10,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-            }}
-          >
-            <input
-              id="balun-toggle"
-              type="checkbox"
-              checked={balunEnabled}
-              onChange={(e) => setBalunEnabled(e.target.checked)}
-              aria-describedby="balun-hint"
-              style={{ width: 'auto' }}
-            />
-            <span>1:1 current (choke) balun at feedpoint</span>
-          </label>
-          <div id="balun-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-            {balunEnabled
-              ? 'Suppresses common-mode current on shield (~2 kΩ choke).'
-              : 'Unchoked: shield can radiate. Pattern may distort.'}
-          </div>
 
           <div className="stat" style={{ marginTop: 10 }}>
             <span className="stat-label">Z₀ / VF</span>

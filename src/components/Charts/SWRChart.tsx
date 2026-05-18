@@ -17,9 +17,10 @@ import {
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { useAntennaStore } from '../../store/antennaStore';
-import { swr as computeSwr, transformImpedance } from '../../physics/impedance';
+import { swr as computeSwr, transformWithTransformerAtAntenna } from '../../physics/impedance';
+import { findFeedlinePreset, wavelengthMeters } from '../../physics/constants';
 import type { AnnotationOptions } from 'chartjs-plugin-annotation';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 ChartJS.register(
   LinearScale,
@@ -41,6 +42,21 @@ export function SWRChart() {
 
   const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
   const transformerRatio = useAntennaStore((s) => s.transformerRatio);
+  const feedlineId = useAntennaStore((s) => s.feedlineId);
+  const feedlineLength = useAntennaStore((s) => s.feedlineLength);
+
+  // Per-point post-transformer Z and SWR, accounting for cable at each freq.
+  const postXfmrSwrAt = useCallback((freqMHz: number, R: number, X: number): number => {
+    let z0Line = 50;
+    let lengthLambdas = 0;
+    if (feedlineId !== 'none') {
+      const preset = findFeedlinePreset(feedlineId);
+      z0Line = preset.z0;
+      const lambdaCable = preset.velocityFactor * wavelengthMeters(freqMHz);
+      lengthLambdas = feedlineLength / lambdaCable;
+    }
+    return computeSwr(transformWithTransformerAtAntenna({ R, X }, transformerRatio, z0Line, lengthLambdas));
+  }, [feedlineId, feedlineLength, transformerRatio]);
 
   const chartText = getCssVar('--chart-text') || '#aaa';
   const chartGrid = getCssVar('--chart-grid') || 'rgba(255,255,255,0.1)';
@@ -103,7 +119,7 @@ export function SWRChart() {
         label: `After ${transformerRatio}:1 xfmr`,
         data: sweep.map((point) => ({
           x: point.frequencyMHz,
-          y: computeSwr(transformImpedance({ R: point.R, X: point.X }, transformerRatio)),
+          y: postXfmrSwrAt(point.frequencyMHz, point.R, point.X),
         })),
         borderColor: 'rgba(80, 200, 120, 0.9)',
         backgroundColor: 'rgba(80, 200, 120, 0.1)',
@@ -117,7 +133,7 @@ export function SWRChart() {
     }
 
     return { datasets };
-  }, [accent, comparisonActive, currentFill, reference, referenceFill, sweep, transformerEnabled, transformerRatio]);
+  }, [accent, comparisonActive, currentFill, postXfmrSwrAt, reference, referenceFill, sweep, transformerEnabled, transformerRatio]);
 
   const xBounds = useMemo(() => {
     const allFrequencies = [
@@ -171,7 +187,7 @@ export function SWRChart() {
       ...sweep.map((point) => point.swr),
       ...(comparisonActive && reference ? reference.sweep.map((point) => point.swr) : []),
       ...(transformerEnabled && transformerRatio > 0
-        ? sweep.map((point) => computeSwr(transformImpedance({ R: point.R, X: point.X }, transformerRatio)))
+        ? sweep.map((point) => postXfmrSwrAt(point.frequencyMHz, point.R, point.X))
         : []),
     ];
     if (values.length === 0) return 5;
@@ -187,7 +203,7 @@ export function SWRChart() {
 
     // If we have some points below 2:1, we want to see the 2:1 crossing context.
     return Math.min(999, Math.max(5, Math.ceil(maxVal * 1.1)));
-  }, [comparisonActive, reference, sweep, transformerEnabled, transformerRatio]);
+  }, [comparisonActive, postXfmrSwrAt, reference, sweep, transformerEnabled, transformerRatio]);
 
   const options = useMemo<ChartOptions<'line'>>(() => {
     const annotations: Record<string, AnnotationOptions> = {

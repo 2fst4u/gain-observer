@@ -20,7 +20,7 @@ import type {
   AntennaType,
 } from '../physics/types';
 import {
-  DEFAULT_BALUN_IMPEDANCE_OHMS,
+  TRANSFORMER_CHOKE_OHMS,
   DEFAULT_FEEDLINE_ID,
   DEFAULT_FEEDLINE_LENGTH_M,
   DEFAULT_GROUND_ID,
@@ -88,7 +88,6 @@ export interface ComparisonSnapshot {
   readonly feedlineId: string;
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
-  readonly balunEnabled: boolean;
   readonly result: SimulationResult;
   readonly sweep: SweepPoint[];
   readonly capturedAt: number;
@@ -135,7 +134,6 @@ export interface AntennaState {
   feedlineId: string;
   feedlineLength: number;
   feedlineOffset: number;
-  balunEnabled: boolean;
 
   // Display / UI
   theme: Theme;
@@ -192,7 +190,6 @@ export interface AntennaState {
   setFeedline(id: string): void;
   setFeedlineLength(meters: number): void;
   setFeedlineOffset(meters: number): void;
-  setBalunEnabled(enabled: boolean): void;
   setTheme(t: Theme): void;
   toggleTheme(): void;
   setUnits(u: UnitSystem): void;
@@ -251,7 +248,6 @@ export const useAntennaStore = create<AntennaState>()(
       feedlineId: DEFAULT_FEEDLINE_ID,
       feedlineLength: DEFAULT_FEEDLINE_LENGTH_M,
       feedlineOffset: 0,
-      balunEnabled: false,
 
       theme: 'dark',
       units: 'metric',
@@ -287,7 +283,6 @@ export const useAntennaStore = create<AntennaState>()(
           s.feedlineId = 'none';
           s.feedlineLength = 0;
           s.feedlineOffset = 0;
-          s.balunEnabled = false;
         } else if (type !== 'dipole') {
           // Apex-fed antennas don't support an offset; reset it so UI is consistent.
           s.feedlineOffset = 0;
@@ -411,7 +406,6 @@ export const useAntennaStore = create<AntennaState>()(
         const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
         s.feedlineOffset = Math.max(-limit, Math.min(limit, meters));
       }),
-      setBalunEnabled: (enabled) => set((s) => { s.balunEnabled = !!enabled; }),
       setTheme: (t) => set((s) => { s.theme = t; }),
       toggleTheme: () => set((s) => { s.theme = s.theme === 'dark' ? 'light' : 'dark'; }),
       setUnits: (u) => set((s) => { s.units = u; }),
@@ -840,13 +834,19 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
       lengthM: electricalLength,
     });
 
-    if (state.balunEnabled) {
+    // A transformer (any ratio, including 1:1) fitted at the antenna
+    // feedpoint chokes off common-mode currents on the cable shield. We
+    // model this as a high-impedance series load at the shield end nearest
+    // the antenna. Without a transformer, the shield is left to radiate
+    // freely — that's intentional and visible in the pattern (skewed for
+    // dipoles, restored to symmetry once a transformer/choke is fitted).
+    if (state.transformerEnabled) {
       loads.push({
         type: 4,
         wireTag: FEEDLINE_SHIELD_TAG,
         segmentStart: 1,
         segmentEnd: 1,
-        param1: DEFAULT_BALUN_IMPEDANCE_OHMS,
+        param1: TRANSFORMER_CHOKE_OHMS,
         param2: 0,
       });
     }
@@ -939,7 +939,6 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     feedlineId: state.feedlineId,
     feedlineLength: state.feedlineLength,
     feedlineOffset: state.feedlineOffset,
-    balunEnabled: state.balunEnabled,
     result: state.result,
     sweep: [...state.sweep],
     capturedAt: Date.now(),
