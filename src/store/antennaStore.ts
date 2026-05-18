@@ -282,12 +282,15 @@ export const useAntennaStore = create<AntennaState>()(
 
       setAntennaType: (type) => set((s) => {
         s.antennaType = type;
-        const supportFeedline = type === 'dipole';
-        if (!supportFeedline) {
+        const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v'];
+        if (!feedlineSupportedTypes.includes(type)) {
           s.feedlineId = 'none';
           s.feedlineLength = 0;
           s.feedlineOffset = 0;
           s.balunEnabled = false;
+        } else if (type !== 'dipole') {
+          // Apex-fed antennas don't support an offset; reset it so UI is consistent.
+          s.feedlineOffset = 0;
         }
         s.length = calculateDefaultLength(type, s.frequency);
 
@@ -610,7 +613,8 @@ export function buildWires(
   const h = state.height;
 
   if (antennaType === 'inverted-v') {
-    return buildInvertedVWires({
+    const layout = computeFeedlineLayout(state);
+    const wires = buildInvertedVWires({
       length: state.length,
       height: h,
       orientation: state.orientation,
@@ -619,13 +623,40 @@ export function buildWires(
       frequency: state.frequency,
       vAngle: state.vAngle,
     });
+    if (layout?.shield) {
+      const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
+      wires.push({
+        start: bridge.end,
+        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
+        radius: layout.shield.radius,
+        segments: FEEDLINE_SHIELD_SEGMENTS,
+        tag: FEEDLINE_SHIELD_TAG,
+      });
+    }
+    return wires;
   }
 
   if (antennaType === 'sloping-v') {
-    return buildSlopingVWires(state);
+    const layout = computeFeedlineLayout(state);
+    const wires = buildSlopingVWires(state);
+    if (layout?.shield) {
+      const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
+      wires.push({
+        start: bridge.end,
+        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
+        radius: layout.shield.radius,
+        segments: FEEDLINE_SHIELD_SEGMENTS,
+        tag: FEEDLINE_SHIELD_TAG,
+      });
+    }
+    return wires;
   }
 
   if (antennaType === 'delta-loop') {
+    const layout = computeFeedlineLayout(state);
+    const feedlineShield = layout?.shield
+      ? { ...layout.shield, segments: FEEDLINE_SHIELD_SEGMENTS }
+      : null;
     return buildDeltaLoopWires({
       length: state.length,
       height: h,
@@ -633,6 +664,7 @@ export function buildWires(
       wireRadius: state.wireRadius,
       segments: state.segments,
       frequency: state.frequency,
+      feedlineShield,
     });
   }
 
@@ -722,8 +754,8 @@ function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
     Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): FeedlineLayout | null {
-  const supportFeedline = state.antennaType === 'dipole';
-  if (!supportFeedline) return null;
+  const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v'];
+  if (!feedlineSupportedTypes.includes(state.antennaType ?? '')) return null;
 
   const id = state.feedlineId;
   if (!id || id === 'none') return null;
@@ -733,8 +765,11 @@ function computeFeedlineLayout(
   const len = state.feedlineLength;
   if (typeof len !== 'number' || !Number.isFinite(len) || len <= 0) return null;
 
-  const limit = Math.max(0, state.length / 2 - FEED_BRIDGE_LENGTH_M);
-  const rawOffset = state.feedlineOffset ?? 0;
+  // Inverted-V and delta-loop are apex-fed: offset is meaningless, always 0.
+  const limit = state.antennaType === 'dipole'
+    ? Math.max(0, state.length / 2 - FEED_BRIDGE_LENGTH_M)
+    : 0;
+  const rawOffset = state.antennaType === 'dipole' ? (state.feedlineOffset ?? 0) : 0;
   const offset = Math.max(-limit, Math.min(limit, rawOffset));
 
   const topZ = state.height;
@@ -774,7 +809,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
   const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
   const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
-  const feedlineSupport = state.antennaType === 'dipole';
+  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v'].includes(state.antennaType);
   const feedlineActive = hasBridge && feedlineSupport;
 
   let excitation;

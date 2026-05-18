@@ -42,8 +42,7 @@ export function FeedlineControl() {
     }
   }
 
-  // Feedline modelling is restricted to dipoles for now.
-  if (antennaType !== 'dipole') return null;
+  if (!['dipole', 'inverted-v', 'delta-loop', 'sloping-v'].includes(antennaType)) return null;
 
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);
@@ -95,37 +94,41 @@ export function FeedlineControl() {
             }}
           />
 
-          <label htmlFor="feedline-offset" style={{ marginTop: 10 }}>
-            Attachment offset from centre ({unit}) — {dispOffset.toFixed(2)}
-          </label>
-          <div className="row">
-            <input
-              id="feedline-offset"
-              type="range"
-              min={-dispOffsetLimit}
-              max={dispOffsetLimit}
-              step={units === 'metric' ? 0.05 : 0.25}
-              value={dispOffset}
-              aria-describedby="feedline-offset-hint"
-              onChange={(e) => {
-                const val = parseFloat(e.target.value);
-                if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
-              }}
-            />
-            <button
-              onClick={() => setFeedlineOffset(0)}
-              disabled={Math.abs(feedlineOffset) < 1e-6}
-              title={Math.abs(feedlineOffset) < 1e-6 ? 'Feedpoint is already centred' : 'Centre feedpoint'}
-              style={{ flex: '0 0 auto' }}
-            >
-              Centre
-            </button>
-          </div>
-          <div id="feedline-offset-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-            {Math.abs(feedlineOffset) < 1e-6
-              ? 'Centred (perfectly balanced — no common-mode current).'
-              : `Shifted ${Math.abs(dispOffset).toFixed(2)} ${unit} ${feedlineOffset > 0 ? '+ axis' : '− axis'}; common-mode current will flow on the shield.`}
-          </div>
+          {antennaType === 'dipole' && (
+            <>
+              <label htmlFor="feedline-offset" style={{ marginTop: 10 }}>
+                Attachment offset from centre ({unit}) — {dispOffset.toFixed(2)}
+              </label>
+              <div className="row">
+                <input
+                  id="feedline-offset"
+                  type="range"
+                  min={-dispOffsetLimit}
+                  max={dispOffsetLimit}
+                  step={units === 'metric' ? 0.05 : 0.25}
+                  value={dispOffset}
+                  aria-describedby="feedline-offset-hint"
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
+                  }}
+                />
+                <button
+                  onClick={() => setFeedlineOffset(0)}
+                  disabled={Math.abs(feedlineOffset) < 1e-6}
+                  title={Math.abs(feedlineOffset) < 1e-6 ? 'Feedpoint is already centred' : 'Centre feedpoint'}
+                  style={{ flex: '0 0 auto' }}
+                >
+                  Centre
+                </button>
+              </div>
+              <div id="feedline-offset-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+                {Math.abs(feedlineOffset) < 1e-6
+                  ? 'Centred (perfectly balanced — no common-mode current).'
+                  : `Shifted ${Math.abs(dispOffset).toFixed(2)} ${unit} ${feedlineOffset > 0 ? '+ axis' : '− axis'}; common-mode current will flow on the shield.`}
+              </div>
+            </>
+          )}
 
           <label
             htmlFor="balun-toggle"

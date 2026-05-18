@@ -7,6 +7,7 @@ import { DELTA_BASE_TAG, DIPOLE_LEFT_TAG } from '../src/physics/constants';
 function setupDeltaLoop(terminatingResistor?: number) {
   const store = useAntennaStore.getState();
   store.setAntennaType('delta-loop');
+  store.setFeedline('none');
   store.setFrequency(7.1);
   store.setLength(42);
   store.setHeight(15);

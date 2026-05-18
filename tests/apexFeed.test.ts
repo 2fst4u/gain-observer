@@ -8,6 +8,7 @@ describe('Apex Feed and Geometry', () => {
   it('should generate a balanced bridge for Inverted V', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('inverted-v');
+    store.setFeedline('none');
     store.setFrequency(7.1);
     store.setLength(20.5);
     store.setHeight(10);
@@ -41,6 +42,7 @@ describe('Apex Feed and Geometry', () => {
   it('should generate a balanced bridge for Sloping V', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('sloping-v');
+    store.setFeedline('none');
     store.setFrequency(7.1);
     store.setLength(40); // 20m per leg
     store.setHeight(15);
@@ -62,6 +64,7 @@ describe('Apex Feed and Geometry', () => {
   it('should feed the apex (last segment of left leg) for Delta Loop', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('delta-loop');
+    store.setFeedline('none');
     store.setFrequency(7.1);
     store.setLength(42); // perimeter
     store.setHeight(15);

@@ -6,6 +6,7 @@ import {
   FEED_BRIDGE_TAG,
   FEED_BRIDGE_LENGTH_M,
   DELTA_BASE_TAG,
+  FEEDLINE_SHIELD_TAG,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -220,6 +221,12 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   ];
 }
 
+export interface FeedlineShield {
+  readonly bottomZ: number;
+  readonly radius: number;
+  readonly segments: number;
+}
+
 export interface DeltaLoopWiresParams {
   length: number; // perimeter
   height: number;
@@ -227,6 +234,7 @@ export interface DeltaLoopWiresParams {
   wireRadius: number;
   segments: number;
   frequency: number;
+  feedlineShield?: FeedlineShield | null;
 }
 
 /**
@@ -262,7 +270,18 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   const legLength = (triHeight * triHeight) / perimeter + perimeter / 4;
   const halfBase = perimeter / 4 - (triHeight * triHeight) / perimeter;
 
+  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
   const apex: [number, number, number] = [0, 0, h];
+
+  // When a feedline is active we split the apex with a source bridge so the
+  // TL card can connect to it, just like the dipole topology.
+  const apexLeft: [number, number, number] = params.feedlineShield
+    ? [-bridgeHalf * dx, -bridgeHalf * dy, h]
+    : apex;
+  const apexRight: [number, number, number] = params.feedlineShield
+    ? [bridgeHalf * dx, bridgeHalf * dy, h]
+    : apex;
+
   const leftCorner: [number, number, number] = [-halfBase * dx, -halfBase * dy, bottomZ];
   const rightCorner: [number, number, number] = [halfBase * dx, halfBase * dy, bottomZ];
 
@@ -282,16 +301,16 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   );
   const baseSegments = rawBaseSegs % 2 === 0 ? rawBaseSegs + 1 : rawBaseSegs;
 
-  return [
+  const wires: Wire[] = [
     {
       start: leftCorner,
-      end: apex,
+      end: apexLeft,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
       tag: DIPOLE_LEFT_TAG,
     },
     {
-      start: apex,
+      start: apexRight,
       end: rightCorner,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
@@ -305,4 +324,23 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
       tag: DELTA_BASE_TAG,
     },
   ];
+
+  if (params.feedlineShield) {
+    wires.push({
+      start: apexLeft,
+      end: apexRight,
+      radius: params.wireRadius,
+      segments: 1,
+      tag: FEED_BRIDGE_TAG,
+    });
+    wires.push({
+      start: apexRight,
+      end: [apexRight[0], apexRight[1], params.feedlineShield.bottomZ],
+      radius: params.feedlineShield.radius,
+      segments: params.feedlineShield.segments,
+      tag: FEEDLINE_SHIELD_TAG,
+    });
+  }
+
+  return wires;
 }

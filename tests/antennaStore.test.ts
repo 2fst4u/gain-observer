@@ -378,19 +378,29 @@ describe('antennaStore selectors', () => {
       expect(ld.param2).toBe(0);
     });
 
-    it('does NOT include feedline logic for non-dipoles even if state is somehow set', () => {
+    it('adds shield wire and TL card for sloping-v with feedline', () => {
       const state = useAntennaStore.getState();
       const input = selectSimulationInput({
         ...state,
         antennaType: 'sloping-v',
+        length: 80,
+        height: 10,
+        vAngle: 90,
+        legSlope: 0,
+        terminatingResistor: 0,
         feedlineId: 'rg58',
-        feedlineLength: 10,
+        feedlineLength: 8,
+        feedlineOffset: 0,
+        balunEnabled: false,
       });
 
-      // Even if feedline state is present, selectSimulationInput should
-      // ignore it for non-dipoles.
-      expect(input.wires.some(w => w.tag === 4)).toBe(false);
-      expect(input.transmissionLines).toBeUndefined();
+      // bridge + 2 legs + shield (no stubs since terminatingResistor=0)
+      expect(input.wires.some(w => w.tag === 4)).toBe(true);
+      expect(input.excitation.wireTag).toBe(4);
+      expect(input.transmissionLines).toHaveLength(1);
+      const tl = input.transmissionLines![0];
+      expect(tl.fromTag).toBe(3);
+      expect(tl.toTag).toBe(4);
     });
 
     it('clamps shield bottom above ground when feedline length exceeds height', () => {
@@ -424,18 +434,46 @@ describe('antennaStore actions', () => {
       expect(s.legSlope).toBe(0);
     });
 
-    it('setAntennaType(non-dipole) clears feedline state for unsupported types', () => {
+    it('setAntennaType(sloping-v) preserves feedline cable/length but resets offset', () => {
       const store = useAntennaStore.getState();
+      store.setAntennaType('dipole');
       store.setFeedline('rg58');
       store.setFeedlineLength(10);
       store.setFeedlineOffset(1);
 
-      // Sloping-v does NOT support feedlines per spec.
       store.setAntennaType('sloping-v');
       const s = useAntennaStore.getState();
       expect(s.antennaType).toBe('sloping-v');
-      expect(s.feedlineId).toBe('none');
-      expect(s.feedlineLength).toBe(0);
+      expect(s.feedlineId).toBe('rg58');
+      expect(s.feedlineLength).toBe(10);
+      expect(s.feedlineOffset).toBe(0);
+    });
+
+    it('setAntennaType(inverted-v) preserves feedline cable/length but resets offset', () => {
+      const store = useAntennaStore.getState();
+      store.setAntennaType('dipole');
+      store.setFeedline('rg58');
+      store.setFeedlineLength(10);
+      store.setFeedlineOffset(2);
+
+      store.setAntennaType('inverted-v');
+      const s = useAntennaStore.getState();
+      expect(s.feedlineId).toBe('rg58');
+      expect(s.feedlineLength).toBe(10);
+      expect(s.feedlineOffset).toBe(0);
+    });
+
+    it('setAntennaType(delta-loop) preserves feedline cable/length but resets offset', () => {
+      const store = useAntennaStore.getState();
+      store.setAntennaType('dipole');
+      store.setFeedline('rg213');
+      store.setFeedlineLength(15);
+      store.setFeedlineOffset(3);
+
+      store.setAntennaType('delta-loop');
+      const s = useAntennaStore.getState();
+      expect(s.feedlineId).toBe('rg213');
+      expect(s.feedlineLength).toBe(15);
       expect(s.feedlineOffset).toBe(0);
     });
 
@@ -630,7 +668,7 @@ describe('antennaStore actions', () => {
   });
 
   describe('feedline', () => {
-    it('clears feedline state when switching from dipole to non-dipole', () => {
+    it('clears feedline state when switching to sloping-v preserves cable but resets offset', () => {
       const store = useAntennaStore.getState();
       store.setAntennaType('dipole');
       store.setFeedline('rg58');
@@ -638,18 +676,14 @@ describe('antennaStore actions', () => {
       store.setFeedlineOffset(2);
       store.setBalunEnabled(true);
 
-      expect(useAntennaStore.getState().feedlineId).toBe('rg58');
-
-      // Act
       store.setAntennaType('sloping-v');
 
-      // Assert
       const s = useAntennaStore.getState();
       expect(s.antennaType).toBe('sloping-v');
-      expect(s.feedlineId).toBe('none');
-      expect(s.feedlineLength).toBe(0);
+      expect(s.feedlineId).toBe('rg58');
+      expect(s.feedlineLength).toBe(15);
       expect(s.feedlineOffset).toBe(0);
-      expect(s.balunEnabled).toBe(false);
+      expect(s.balunEnabled).toBe(true);
     });
 
     it('updates feedline preset id', () => {
@@ -804,7 +838,7 @@ describe('antennaStore actions', () => {
       expect(result.effectiveDeg).toBe(10);
     });
 
-    it('sets excitation on the apex bridge for sloping-v', () => {
+    it('sets excitation on the apex bridge for sloping-v (no feedline)', () => {
       const state = {
         ...useAntennaStore.getState(),
         antennaType: 'sloping-v' as const,
@@ -813,6 +847,7 @@ describe('antennaStore actions', () => {
         legSlope: 15,
         vAngle: 90,
         terminatingResistor: 0, // no stubs; test focuses on excitation placement
+        feedlineId: 'none',
       };
       const input = selectSimulationInput(state as AntennaState);
       expect(input.wires).toHaveLength(3);
@@ -862,8 +897,8 @@ describe('antennaStore actions', () => {
       expect(leftWire.start[2]).toBeLessThanOrEqual(0.51);
     });
 
-    it('places excitation on the apex bridge', () => {
-      const state = { ...useAntennaStore.getState(), ...commonState, antennaType: 'inverted-v' };
+    it('places excitation on the apex bridge when no feedline', () => {
+      const state = { ...useAntennaStore.getState(), ...commonState, antennaType: 'inverted-v', feedlineId: 'none' };
       const input = selectSimulationInput(state as AntennaState);
       expect(input.excitation.wireTag).toBe(3);
       expect(input.excitation.segment).toBe(1);
@@ -884,11 +919,39 @@ describe('antennaStore actions', () => {
       expect(longWires[0].segments).toBeGreaterThanOrEqual(40);
     });
 
-    it('emits no transmission lines or loads for Inverted V', () => {
-      const state = { ...useAntennaStore.getState(), ...commonState, antennaType: 'inverted-v' };
+    it('emits no transmission lines or loads for Inverted V without feedline', () => {
+      const state = { ...useAntennaStore.getState(), ...commonState, antennaType: 'inverted-v', feedlineId: 'none' };
       const input = selectSimulationInput(state as AntennaState);
       expect(input.transmissionLines).toBeUndefined();
       expect(input.loads).toBeUndefined();
+    });
+
+    it('adds shield wire and TL card for Inverted V with feedline', () => {
+      const state = {
+        ...useAntennaStore.getState(),
+        ...commonState,
+        antennaType: 'inverted-v' as const,
+        feedlineId: 'rg58',
+        feedlineLength: 8,
+        feedlineOffset: 0,
+        balunEnabled: false,
+      };
+      const input = selectSimulationInput(state as AntennaState);
+      // 4 wires: left leg (1), right leg (2), bridge (3), shield (4)
+      expect(input.wires).toHaveLength(4);
+      const tags = input.wires.map((w) => w.tag).sort();
+      expect(tags).toEqual([1, 2, 3, 4]);
+      // Excitation moves to the shield bottom
+      expect(input.excitation.wireTag).toBe(4);
+      // TL card connects bridge to shield
+      expect(input.transmissionLines).toHaveLength(1);
+      const tl = input.transmissionLines![0];
+      expect(tl.fromTag).toBe(3);
+      expect(tl.toTag).toBe(4);
+      expect(tl.z0).toBe(50);
+      // Shield top must be at apex height
+      const shield = input.wires.find((w) => w.tag === 4)!;
+      expect(shield.start[2]).toBeCloseTo(commonState.height);
     });
   });
 
@@ -982,8 +1045,8 @@ describe('antennaStore actions', () => {
       expect(base.end[2]).toBeGreaterThanOrEqual(0.49);
     });
 
-    it('excitation lands on the left leg at its last (apex) segment', () => {
-      const state = { ...useAntennaStore.getState(), ...baseState };
+    it('excitation lands on the left leg at its last (apex) segment when no feedline', () => {
+      const state = { ...useAntennaStore.getState(), ...baseState, feedlineId: 'none' };
       const input = selectSimulationInput(state as AntennaState);
 
       const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
@@ -991,11 +1054,37 @@ describe('antennaStore actions', () => {
       expect(input.excitation.segment).toBe(leftLeg.segments);
     });
 
-    it('emits no transmission lines or loads', () => {
-      const state = { ...useAntennaStore.getState(), ...baseState };
+    it('emits no transmission lines or loads without feedline', () => {
+      const state = { ...useAntennaStore.getState(), ...baseState, feedlineId: 'none' };
       const input = selectSimulationInput(state as AntennaState);
       expect(input.transmissionLines).toBeUndefined();
       expect(input.loads).toBeUndefined();
+    });
+
+    it('adds bridge + shield wire and TL card for delta loop with feedline', () => {
+      const state = {
+        ...useAntennaStore.getState(),
+        ...baseState,
+        feedlineId: 'rg58',
+        feedlineLength: 10,
+        feedlineOffset: 0,
+        balunEnabled: false,
+      };
+      const input = selectSimulationInput(state as AntennaState);
+      // 5 wires: left leg (1), right leg (2), bridge (3), shield (4), base (6)
+      expect(input.wires).toHaveLength(5);
+      const tags = input.wires.map((w) => w.tag).sort((a, b) => a - b);
+      expect(tags).toEqual([1, 2, 3, 4, 6]);
+      // Excitation moves to shield bottom
+      expect(input.excitation.wireTag).toBe(4);
+      // TL card connects bridge to shield
+      expect(input.transmissionLines).toHaveLength(1);
+      const tl = input.transmissionLines![0];
+      expect(tl.fromTag).toBe(3);
+      expect(tl.toTag).toBe(4);
+      // Shield top must be at apex height
+      const shield = input.wires.find((w) => w.tag === 4)!;
+      expect(shield.start[2]).toBeCloseTo(baseState.height);
     });
   });
 });
