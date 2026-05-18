@@ -1,10 +1,13 @@
 import { useAntennaStore, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG } from '../../store/antennaStore';
+import { mismatchLossFactor, transformImpedance } from '../../physics/impedance';
 import type { TerminationDiagnostics } from '../../physics/types';
 
 export function StatsReadout() {
   const result = useAntennaStore((s) => s.result);
   const mode = useAntennaStore((s) => s.mode);
   const reference = useAntennaStore((s) => s.comparisonReference);
+  const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
+  const transformerRatio = useAntennaStore((s) => s.transformerRatio);
   if (!result) {
     return (
       <section className="panel-section">
@@ -14,6 +17,14 @@ export function StatsReadout() {
       </section>
     );
   }
+
+  let transformedRealizedGainDbi: number | undefined;
+  if (transformerEnabled) {
+    const transformedZ = transformImpedance(result.impedance, transformerRatio);
+    const mlf = mismatchLossFactor(transformedZ);
+    if (mlf > 0) transformedRealizedGainDbi = result.maxGainDbi + 10 * Math.log10(mlf);
+  }
+
   return (
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
@@ -38,9 +49,18 @@ export function StatsReadout() {
         <div className="stat">
           <span
             className="stat-label"
-            title="Realized gain (dBi): gain accounting for feedpoint mismatch loss vs 50 Ω source. = Gain × (1 − |Γ|²)."
-          >Realized gain</span>
+            title="Realized gain, raw 50 Ω (dBi): gain accounting for mismatch loss between the raw NEC feedpoint impedance and a 50 Ω source. = Gain × (1 − |Γ|²). Does not include the Ideal transformer post-processing option."
+          >Realized gain{transformerEnabled ? ' (raw)' : ''}</span>
           <span className="stat-value">{result.maxRealizedGainDbi.toFixed(2)} dBi</span>
+        </div>
+      )}
+      {transformedRealizedGainDbi != null && (
+        <div className="stat">
+          <span
+            className="stat-label"
+            title="Realized gain after ideal transformer (dBi): antenna gain after mismatch loss using the transformed impedance. A transformer changes impedance ratio only — it does not cancel reactance. Transformer loss and bandwidth are not modelled."
+          >Realized gain (transformed)</span>
+          <span className="stat-value">{transformedRealizedGainDbi.toFixed(2)} dBi</span>
         </div>
       )}
       {result.efficiency != null && (

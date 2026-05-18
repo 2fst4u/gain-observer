@@ -108,6 +108,9 @@ export function TransformerControl() {
                 <strong>Note:</strong> Transformer values are ideal post-processing calculations.
                 Actual transformer losses, bandwidth limits, and physical effects are not modelled
                 unless explicitly added to the NEC geometry.
+                A fixed-ratio transformer scales impedance (R and X both divided by ratio) but does
+                not cancel reactance — if the raw feedpoint is highly reactive, transformed SWR and
+                realized gain may still be poor even when the resistive component is near 50 Ω.
               </div>
             </>
           )}
