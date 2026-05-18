@@ -100,7 +100,7 @@ describe('Delta Loop termination (LD 4 at base centre)', () => {
     expect(input.networks).toBeUndefined();
   });
 
-  it('v-beam: delta-loop termination does not add LD card', () => {
+  it('v-beam: delta-loop base LD is never emitted (v-beam uses per-tip LD loads instead)', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('v-beam');
     store.setFrequency(7.1);
@@ -109,8 +109,13 @@ describe('Delta Loop termination (LD 4 at base centre)', () => {
     store.setVAngle(90);
     store.setTerminatingResistor(600);
     const input = selectSimulationInput(useAntennaStore.getState());
-    expect(getNecLines(buildNecCards(input), 'LD')).toHaveLength(0);
-    expect(input.loads).toBeUndefined();
+    // No LD card should target the delta-loop base wire (DELTA_BASE_TAG).
+    const baseLd = getNecLines(buildNecCards(input), 'LD')
+      .map(parseLdLine)
+      .filter((l) => l.tag === DELTA_BASE_TAG);
+    expect(baseLd).toHaveLength(0);
+    const baseLoads = (input.loads ?? []).filter((l) => l.wireTag === DELTA_BASE_TAG);
+    expect(baseLoads).toHaveLength(0);
   });
 
   it('dipole: terminatingResistor has no effect on LD cards', () => {

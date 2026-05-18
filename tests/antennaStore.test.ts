@@ -4,6 +4,7 @@ import {
   buildWires,
   selectSimulationInput,
   computeEffectiveSlope,
+  legMultipleFromLength,
   DIPOLE_LEFT_TAG,
   DIPOLE_RIGHT_TAG,
   DELTA_BASE_TAG,
@@ -459,12 +460,30 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda, 3);
 
       store.setAntennaType('sloping-v');
+      // Default is 2λ total (1λ per leg) — minimum for end-fire travelling-wave behaviour.
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
-      expect(useAntennaStore.getState().vAngle).toBe(90);
-      expect(useAntennaStore.getState().legSlope).toBe(30);
+      // V-angle from physics formula: cosV = (1 − 0.371λ/L) / cos(slope).
+      // At h=10m, 7.1 MHz, 2λ total: slope≈13°, cosSlope≈0.974 → V≈99.6°.
+      expect(useAntennaStore.getState().vAngle).toBeCloseTo(99.65, 1);
+      // legSlope is unused for sloping-V (slope is auto-computed); reset to 0.
+      expect(useAntennaStore.getState().legSlope).toBe(0);
 
       store.setAntennaType('v-beam');
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
+    });
+
+    it('setAntennaType("sloping-v") sets default terminatingResistor=300 when currently 0', () => {
+      const store = useAntennaStore.getState();
+      store.setTerminatingResistor(0);
+      store.setAntennaType('sloping-v');
+      expect(useAntennaStore.getState().terminatingResistor).toBe(300);
+    });
+
+    it('setAntennaType("sloping-v") preserves a pre-set non-zero terminatingResistor', () => {
+      const store = useAntennaStore.getState();
+      store.setTerminatingResistor(400);
+      store.setAntennaType('sloping-v');
+      expect(useAntennaStore.getState().terminatingResistor).toBe(400);
     });
 
     it('setHalfWaveLength is topology-aware', () => {
@@ -481,7 +500,79 @@ describe('antennaStore actions', () => {
       store.setAntennaType('sloping-v');
       store.setLength(5);
       store.setHalfWaveLength();
+      // Length 5m is far less than 1λ, so legMultipleFromLength rounds to 1 → 2λ total.
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
+    });
+
+    it('setHalfWaveLength snaps to nearest whole-wavelength multiple at new frequency for travelling-wave types', () => {
+      const store = useAntennaStore.getState();
+      const freq = 14.1;
+      const lambda = 299.792458 / freq;
+      store.setFrequency(freq);
+      store.setAntennaType('sloping-v');
+      store.setLegLengthMultiple(3); // 3λ/leg = 6λ total
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 6, 2);
+
+      // Band change to 7.1 MHz: 3λ/leg at 14.1 MHz is ~1.5λ/leg at 7.1 MHz,
+      // which rounds to 2λ/leg — setHalfWaveLength snaps to the nearest clean
+      // multiple at the current frequency rather than preserving the old count.
+      const newFreq = 7.1;
+      const newLambda = 299.792458 / newFreq;
+      store.setFrequency(newFreq);
+      store.setHalfWaveLength();
+      // Rounds 1.5λ/leg → 2λ/leg = 4λ total
+      expect(useAntennaStore.getState().length).toBeCloseTo(newLambda * 4, 2);
+    });
+
+    it('setLegLengthMultiple sets length and snaps V-angle for sloping-v', () => {
+      const store = useAntennaStore.getState();
+      const freq = 14.1;
+      const lambda = 299.792458 / freq;
+      store.setFrequency(freq);
+      store.setAntennaType('sloping-v');
+      store.setHeight(12);
+
+      store.setLegLengthMultiple(2);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 4, 2);
+      // V-angle should be updated (2λ/leg at 14.1 MHz, h=12m gives ~64°)
+      const va = useAntennaStore.getState().vAngle;
+      expect(va).toBeGreaterThan(55);
+      expect(va).toBeLessThan(75);
+
+      store.setLegLengthMultiple(3);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 6, 2);
+      const va3 = useAntennaStore.getState().vAngle;
+      // 3λ/leg gives narrower angle (~54°)
+      expect(va3).toBeLessThan(va);
+
+      // Extended range: 8λ/leg and 10λ/leg are supported
+      store.setLegLengthMultiple(8);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 16, 2);
+
+      store.setLegLengthMultiple(10);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 20, 2);
+    });
+
+    it('setLegLengthMultiple is a no-op for non-travelling-wave types', () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(14.1);
+      store.setAntennaType('dipole');
+      const before = useAntennaStore.getState().length;
+      store.setLegLengthMultiple(3);
+      expect(useAntennaStore.getState().length).toBe(before);
+    });
+
+    it('legMultipleFromLength rounds to nearest integer', () => {
+      const freq = 14.1;
+      const lambda = 299.792458 / freq;
+      expect(legMultipleFromLength(lambda * 2, freq)).toBe(1);   // 1λ/leg
+      expect(legMultipleFromLength(lambda * 4, freq)).toBe(2);   // 2λ/leg
+      expect(legMultipleFromLength(lambda * 6, freq)).toBe(3);   // 3λ/leg
+      expect(legMultipleFromLength(lambda * 10, freq)).toBe(5);  // 5λ/leg
+      expect(legMultipleFromLength(lambda * 16, freq)).toBe(8);  // 8λ/leg
+      expect(legMultipleFromLength(lambda * 20, freq)).toBe(10); // 10λ/leg
+      // Slightly under a half-integer — rounds down
+      expect(legMultipleFromLength(lambda * 5, freq)).toBe(2);   // 2.499λ/leg → 2
     });
 
     it('clamps vAngle to [10, 180]', () => {
@@ -724,6 +815,7 @@ describe('antennaStore actions', () => {
         height: 10,
         legSlope: 15,
         vAngle: 90,
+        terminatingResistor: 0, // no stubs; test focuses on excitation placement
       };
       const input = selectSimulationInput(state as AntennaState);
       expect(input.wires).toHaveLength(3);
@@ -746,6 +838,7 @@ describe('antennaStore actions', () => {
       frequency: 7.1,
       vAngle: 60,
       legSlope: 0,
+      terminatingResistor: 0,
     };
 
     it('generates exactly 3 GW wires (2 legs + 1 bridge, no termination)', () => {
@@ -895,6 +988,7 @@ describe('antennaStore actions', () => {
       frequency: 7.1,
       vAngle: 180,
       legSlope: 0,
+      terminatingResistor: 0,
     };
 
     it('produces exactly 3 wires with distinct tags', () => {

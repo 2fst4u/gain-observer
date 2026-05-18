@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAntennaStore } from '../../store/antennaStore';
+import { useAntennaStore, legMultipleFromLength } from '../../store/antennaStore';
 import {
   toDisplayLength,
   fromDisplayLength,
@@ -9,22 +9,22 @@ import {
   type OrientationPreset,
   type AntennaType,
 } from '../../store/antennaStore';
-import { SLOPING_V_MIN_TIP_Z_M } from '../../physics/constants';
+import { FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../../physics/constants';
 
 export function DipoleControl() {
   const units = useAntennaStore((s) => s.units);
   const antennaType = useAntennaStore((s) => s.antennaType);
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
+  const frequency = useAntennaStore((s) => s.frequency);
   const orientation = useAntennaStore((s) => s.orientation);
-  const legSlope = useAntennaStore((s) => s.legSlope);
   const vAngle = useAntennaStore((s) => s.vAngle);
   const setAntennaType = useAntennaStore((s) => s.setAntennaType);
   const setLength = useAntennaStore((s) => s.setLength);
   const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
+  const setLegLengthMultiple = useAntennaStore((s) => s.setLegLengthMultiple);
   const setHeight = useAntennaStore((s) => s.setHeight);
   const setOrientation = useAntennaStore((s) => s.setOrientation);
-  const setLegSlope = useAntennaStore((s) => s.setLegSlope);
   const setVAngle = useAntennaStore((s) => s.setVAngle);
 
   const unit = displayLengthUnit(units);
@@ -63,6 +63,10 @@ export function DipoleControl() {
   }
 
   const maxHeight = units === 'metric' ? 40 : 131;
+
+  const isTravelingWave = antennaType === 'sloping-v' || antennaType === 'v-beam';
+  const currentLegMultiple = isTravelingWave ? legMultipleFromLength(length, frequency) : 1;
+  const lambda = 299.792458 / frequency;
 
   const resonateLabels: Record<AntennaType, string> = {
     'dipole': '½λ',
@@ -121,14 +125,32 @@ export function DipoleControl() {
             setLocalLen(dispLen.toFixed(2));
           }}
         />
-        <button
-          onClick={setHalfWaveLength}
-          title={resonateTitles[antennaType]}
-          aria-label={`${resonateLabels[antennaType]} (Resonate antenna length)`}
-        >
-          {resonateLabels[antennaType]}
-        </button>
+        {!isTravelingWave && (
+          <button
+            onClick={setHalfWaveLength}
+            title={resonateTitles[antennaType]}
+            aria-label={`${resonateLabels[antennaType]} (Resonate antenna length)`}
+          >
+            {resonateLabels[antennaType]}
+          </button>
+        )}
       </div>
+
+      {isTravelingWave && (
+        <div className="button-group" role="group" aria-label="Leg length in wavelengths">
+          {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map((n) => (
+            <button
+              key={n}
+              className={currentLegMultiple === n ? 'active' : ''}
+              onClick={() => setLegLengthMultiple(n)}
+              title={`Set each leg to ${n}λ — ${(n * 2 * lambda).toFixed(1)} m total`}
+              aria-pressed={currentLegMultiple === n}
+            >
+              {n}λ
+            </button>
+          ))}
+        </div>
+      )}
 
       <label htmlFor="dipole-height" style={{ marginTop: 10 }}>Height above ground ({unit}) — {dispHeight.toFixed(1)}</label>
       <input
@@ -143,24 +165,6 @@ export function DipoleControl() {
           if (!isNaN(val)) setHeight(fromDisplayLength(val, units));
         }}
       />
-
-      {antennaType === 'sloping-v' && (
-        <>
-          <label htmlFor="sloping-v-slope" style={{ marginTop: 10 }}>Slope angle (°) — {legSlope}°</label>
-          <input
-            id="sloping-v-slope"
-            type="range"
-            min={0}
-            max={90}
-            step={1}
-            value={legSlope}
-            onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val)) setLegSlope(val);
-            }}
-          />
-        </>
-      )}
 
       {(antennaType === 'sloping-v' || antennaType === 'inverted-v') && (
         <>
@@ -228,28 +232,55 @@ function GeometryStatus() {
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
   const vAngle = useAntennaStore((s) => s.vAngle);
-  const legSlope = useAntennaStore((s) => s.legSlope);
   const units = useAntennaStore((s) => s.units);
 
   if (antennaType !== 'sloping-v' && antennaType !== 'inverted-v') return null;
 
+  const unit = displayLengthUnit(units);
+
+  if (antennaType === 'sloping-v') {
+    // Sloping V: tips always at the ground floor; slope is fully determined
+    // by mast height and leg length.
+    const legLen = Math.max(0.01, (length - FEED_BRIDGE_LENGTH_M) / 2);
+    const sinSlope = Math.max(0, height - SLOPING_V_MIN_TIP_Z_M) / legLen;
+    const slopeRad = Math.asin(Math.max(0, Math.min(1, sinSlope)));
+    const slopeDeg = (slopeRad * 180) / Math.PI;
+    const tipZ = height - legLen * Math.sin(slopeRad);
+
+    return (
+      <div style={{
+        marginTop: 12,
+        padding: '8px 10px',
+        fontSize: 12,
+        borderRadius: 4,
+        background: 'var(--bg-accent)',
+        border: '1px solid var(--border)',
+      }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Geometry</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
+          <span style={{ color: 'var(--text-muted)' }}>Slope angle:</span>
+          <span>{slopeDeg.toFixed(1)}°</span>
+          <span style={{ color: 'var(--text-muted)' }}>Tip height:</span>
+          <span>{toDisplayLength(tipZ, units).toFixed(2)} {unit}</span>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 11, fontStyle: 'italic', lineHeight: 1.3, color: 'var(--text-muted)' }}>
+          Slope auto-snaps so tips sit at the ground floor for the current mast height and leg length.
+        </div>
+      </div>
+    );
+  }
+
+  // Inverted V: slope is derived from vAngle and may be clamped by mast height.
   const half = length / 2;
-  // Compute max allowable slope: h - half * sin(slope) >= MIN_TIP_Z
-  // sin(maxSlope) = (h - MIN_TIP_Z) / half
   const maxSin = half > 0 ? (height - SLOPING_V_MIN_TIP_Z_M) / half : 0;
   const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
   const maxSlopeDeg = (maxSlopeRad * 180) / Math.PI;
 
-  // For Inverted-V the slope is derived from vAngle; for Sloping-V it's user-set.
-  const requestedSlopeDeg =
-    antennaType === 'inverted-v' ? (180 - vAngle) / 2 : legSlope;
-
+  const requestedSlopeDeg = (180 - vAngle) / 2;
   const effectiveSlopeDeg = Math.min(requestedSlopeDeg, maxSlopeDeg);
   const effectiveSlopeRad = (effectiveSlopeDeg * Math.PI) / 180;
   const tipZ = height - half * Math.sin(effectiveSlopeRad);
-
   const isClamped = requestedSlopeDeg > maxSlopeDeg + 0.1;
-  const unit = displayLengthUnit(units);
 
   return (
     <div style={{

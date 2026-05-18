@@ -121,6 +121,22 @@ export const DEFAULT_GROUND_ID = 'pastoral';
  */
 export const SLOPING_V_MIN_TIP_Z_M = 0.5;
 
+/**
+ * Wire tags for the short vertical stub wires that connect each sloping-V
+ * tip to near-ground, modelling the physical tip-to-earth terminating
+ * resistor (a current path from the wire tip down to a ground rod).
+ */
+export const SLOPING_V_LEFT_STUB_TAG = 7;
+export const SLOPING_V_RIGHT_STUB_TAG = 8;
+
+/**
+ * Z-coordinate of the bottom endpoint of the sloping-V termination stubs,
+ * metres above ground.  Must be > 0 (NEC wires cannot touch z = 0).
+ * 0.01 m (1 cm) places the stub end essentially at ground level while
+ * remaining within the Sommerfeld-Norton model's accuracy envelope.
+ */
+export const SLOPING_V_STUB_BOTTOM_Z_M = 0.01;
+
 export function findGroundPreset(id: string): GroundPreset {
   const preset = GROUND_PRESETS.find((g) => g.id === id);
   if (!preset) {
