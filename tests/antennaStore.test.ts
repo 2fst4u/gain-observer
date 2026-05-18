@@ -378,17 +378,29 @@ describe('antennaStore selectors', () => {
       expect(ld.param2).toBe(0);
     });
 
-    it('does NOT include feedline logic for sloping-v (unsupported type)', () => {
+    it('adds shield wire and TL card for sloping-v with feedline', () => {
       const state = useAntennaStore.getState();
       const input = selectSimulationInput({
         ...state,
         antennaType: 'sloping-v',
+        length: 80,
+        height: 10,
+        vAngle: 90,
+        legSlope: 0,
+        terminatingResistor: 0,
         feedlineId: 'rg58',
-        feedlineLength: 10,
+        feedlineLength: 8,
+        feedlineOffset: 0,
+        balunEnabled: false,
       });
 
-      expect(input.wires.some(w => w.tag === 4)).toBe(false);
-      expect(input.transmissionLines).toBeUndefined();
+      // bridge + 2 legs + shield (no stubs since terminatingResistor=0)
+      expect(input.wires.some(w => w.tag === 4)).toBe(true);
+      expect(input.excitation.wireTag).toBe(4);
+      expect(input.transmissionLines).toHaveLength(1);
+      const tl = input.transmissionLines![0];
+      expect(tl.fromTag).toBe(3);
+      expect(tl.toTag).toBe(4);
     });
 
     it('clamps shield bottom above ground when feedline length exceeds height', () => {
@@ -422,8 +434,9 @@ describe('antennaStore actions', () => {
       expect(s.legSlope).toBe(0);
     });
 
-    it('setAntennaType(sloping-v) clears feedline state (unsupported type)', () => {
+    it('setAntennaType(sloping-v) preserves feedline cable/length but resets offset', () => {
       const store = useAntennaStore.getState();
+      store.setAntennaType('dipole');
       store.setFeedline('rg58');
       store.setFeedlineLength(10);
       store.setFeedlineOffset(1);
@@ -431,8 +444,8 @@ describe('antennaStore actions', () => {
       store.setAntennaType('sloping-v');
       const s = useAntennaStore.getState();
       expect(s.antennaType).toBe('sloping-v');
-      expect(s.feedlineId).toBe('none');
-      expect(s.feedlineLength).toBe(0);
+      expect(s.feedlineId).toBe('rg58');
+      expect(s.feedlineLength).toBe(10);
       expect(s.feedlineOffset).toBe(0);
     });
 
@@ -655,7 +668,7 @@ describe('antennaStore actions', () => {
   });
 
   describe('feedline', () => {
-    it('clears feedline state when switching to sloping-v (unsupported)', () => {
+    it('clears feedline state when switching to sloping-v preserves cable but resets offset', () => {
       const store = useAntennaStore.getState();
       store.setAntennaType('dipole');
       store.setFeedline('rg58');
@@ -663,16 +676,14 @@ describe('antennaStore actions', () => {
       store.setFeedlineOffset(2);
       store.setBalunEnabled(true);
 
-      expect(useAntennaStore.getState().feedlineId).toBe('rg58');
-
       store.setAntennaType('sloping-v');
 
       const s = useAntennaStore.getState();
       expect(s.antennaType).toBe('sloping-v');
-      expect(s.feedlineId).toBe('none');
-      expect(s.feedlineLength).toBe(0);
+      expect(s.feedlineId).toBe('rg58');
+      expect(s.feedlineLength).toBe(15);
       expect(s.feedlineOffset).toBe(0);
-      expect(s.balunEnabled).toBe(false);
+      expect(s.balunEnabled).toBe(true);
     });
 
     it('updates feedline preset id', () => {
@@ -827,7 +838,7 @@ describe('antennaStore actions', () => {
       expect(result.effectiveDeg).toBe(10);
     });
 
-    it('sets excitation on the apex bridge for sloping-v', () => {
+    it('sets excitation on the apex bridge for sloping-v (no feedline)', () => {
       const state = {
         ...useAntennaStore.getState(),
         antennaType: 'sloping-v' as const,
@@ -836,6 +847,7 @@ describe('antennaStore actions', () => {
         legSlope: 15,
         vAngle: 90,
         terminatingResistor: 0, // no stubs; test focuses on excitation placement
+        feedlineId: 'none',
       };
       const input = selectSimulationInput(state as AntennaState);
       expect(input.wires).toHaveLength(3);

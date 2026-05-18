@@ -89,7 +89,7 @@ This document defines the physical and mathematical model for all antenna types 
 - **NEC Excitation:** 1-segment source bridge at apex.
 - **Segment:** Segment 1 of bridge.
 - **Feed Type:** Balanced bridge segment.
-- **Feedline Support:** Not supported (Direct feed only).
+- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable).
 
 ### 3.3 Termination Definition
 - **Topology:** Differential resistor between the two leg tips.

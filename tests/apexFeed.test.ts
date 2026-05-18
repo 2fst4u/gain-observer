@@ -42,6 +42,7 @@ describe('Apex Feed and Geometry', () => {
   it('should generate a balanced bridge for Sloping V', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('sloping-v');
+    store.setFeedline('none');
     store.setFrequency(7.1);
     store.setLength(40); // 20m per leg
     store.setHeight(15);

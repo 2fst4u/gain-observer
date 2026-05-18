@@ -19,6 +19,7 @@ import {
 function setupSlopingV(terminatingResistor?: number) {
   const store = useAntennaStore.getState();
   store.setAntennaType('sloping-v');
+  store.setFeedline('none');
   store.setFrequency(7.1);
   store.setLength(84);
   store.setHeight(15);

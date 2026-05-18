@@ -282,7 +282,7 @@ export const useAntennaStore = create<AntennaState>()(
 
       setAntennaType: (type) => set((s) => {
         s.antennaType = type;
-        const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop'];
+        const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v'];
         if (!feedlineSupportedTypes.includes(type)) {
           s.feedlineId = 'none';
           s.feedlineLength = 0;
@@ -637,7 +637,19 @@ export function buildWires(
   }
 
   if (antennaType === 'sloping-v') {
-    return buildSlopingVWires(state);
+    const layout = computeFeedlineLayout(state);
+    const wires = buildSlopingVWires(state);
+    if (layout?.shield) {
+      const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
+      wires.push({
+        start: bridge.end,
+        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
+        radius: layout.shield.radius,
+        segments: FEEDLINE_SHIELD_SEGMENTS,
+        tag: FEEDLINE_SHIELD_TAG,
+      });
+    }
+    return wires;
   }
 
   if (antennaType === 'delta-loop') {
@@ -742,7 +754,7 @@ function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
     Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): FeedlineLayout | null {
-  const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop'];
+  const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v'];
   if (!feedlineSupportedTypes.includes(state.antennaType ?? '')) return null;
 
   const id = state.feedlineId;
@@ -797,7 +809,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
   const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
   const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
-  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop'].includes(state.antennaType);
+  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v'].includes(state.antennaType);
   const feedlineActive = hasBridge && feedlineSupport;
 
   let excitation;
