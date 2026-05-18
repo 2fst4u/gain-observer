@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor, transformImpedance } from '../src/physics/impedance';
+import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine } from '../src/physics/impedance';
 
 describe('reflection coefficient and SWR', () => {
   it('perfect match => |Γ|=0, SWR=1', () => {
@@ -112,5 +112,60 @@ describe('transformImpedance', () => {
     const original = { R: 100, X: 50 };
     const result = transformImpedance(original, NaN);
     expect(result).toBe(original);
+  });
+});
+
+describe('deembedThroughLine', () => {
+  it('zero-length line returns input unchanged', () => {
+    const z = { R: 73, X: 42 };
+    const result = deembedThroughLine(z, 50, 0);
+    expect(result.R).toBeCloseTo(73, 9);
+    expect(result.X).toBeCloseTo(42, 9);
+  });
+
+  it('half-wavelength line is identity', () => {
+    const z = { R: 200, X: -150 };
+    const result = deembedThroughLine(z, 50, 0.5);
+    expect(result.R).toBeCloseTo(200, 6);
+    expect(result.X).toBeCloseTo(-150, 6);
+  });
+
+  it('quarter-wave inverts: 25 Ω → 100 Ω with Z0=50', () => {
+    const result = deembedThroughLine({ R: 25, X: 0 }, 50, 0.25);
+    expect(result.R).toBeCloseTo(100, 6);
+    expect(result.X).toBeCloseTo(0, 6);
+  });
+
+  it('quarter-wave inverts: 100 Ω → 25 Ω with Z0=50', () => {
+    const result = deembedThroughLine({ R: 100, X: 0 }, 50, 0.25);
+    expect(result.R).toBeCloseTo(25, 6);
+    expect(result.X).toBeCloseTo(0, 6);
+  });
+
+  it('matched load is invariant on any line length', () => {
+    for (const lambdas of [0.1, 0.25, 0.5, 0.916, 1.7]) {
+      const result = deembedThroughLine({ R: 50, X: 0 }, 50, lambdas);
+      expect(result.R).toBeCloseTo(50, 6);
+      expect(result.X).toBeCloseTo(0, 6);
+    }
+  });
+
+  it('|Γ| is preserved along a lossless line (SWR conservation)', () => {
+    const zSource = { R: 9.7, X: 94.5 };
+    const zLoad = deembedThroughLine(zSource, 50, 0.916);
+    // SWR at both ends of a lossless line must match.
+    expect(swr(zLoad)).toBeCloseTo(swr(zSource), 4);
+  });
+
+  it('invalid z0 returns input unchanged', () => {
+    const original = { R: 100, X: 50 };
+    expect(deembedThroughLine(original, 0, 0.5)).toBe(original);
+    expect(deembedThroughLine(original, -50, 0.5)).toBe(original);
+  });
+
+  it('non-finite length returns input unchanged', () => {
+    const original = { R: 100, X: 50 };
+    expect(deembedThroughLine(original, 50, NaN)).toBe(original);
+    expect(deembedThroughLine(original, 50, Infinity)).toBe(original);
   });
 });

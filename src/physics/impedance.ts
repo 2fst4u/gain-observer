@@ -1,6 +1,6 @@
 // Impedance/SWR helpers.
 
-import { Z0_SYSTEM } from './constants';
+import { Z0_SYSTEM, TRANSFORMER_INSERTION_LOSS_DB } from './constants';
 import type { ImpedanceResult } from './types';
 
 /**
@@ -53,4 +53,144 @@ export function mismatchLossFactor(z: ImpedanceResult, z0: number = Z0_SYSTEM): 
 export function transformImpedance(z: ImpedanceResult, ratio: number): ImpedanceResult {
   if (!Number.isFinite(ratio) || ratio <= 0) return z;
   return { R: z.R / ratio, X: z.X / ratio };
+}
+
+/**
+ * Forward propagation through a lossless transmission line: given the load
+ * (far-end) impedance, returns the input (near-end) impedance seen looking
+ * into a line of characteristic impedance `z0Line` and electrical length
+ * `lengthLambdas` (cable length / cable wavelength).
+ *
+ *   Z_in = Z0 · (Z_load + j·Z0·tan(βd)) / (Z0 + j·Z_load·tan(βd))
+ */
+export function transformThroughLine(
+  zLoad: ImpedanceResult,
+  z0Line: number,
+  lengthLambdas: number,
+): ImpedanceResult {
+  if (!Number.isFinite(lengthLambdas) || !Number.isFinite(z0Line) || z0Line <= 0) {
+    return zLoad;
+  }
+  const betaL = 2 * Math.PI * lengthLambdas;
+  const t = Math.tan(betaL);
+  if (!Number.isFinite(t)) {
+    const denMag2 = zLoad.R * zLoad.R + zLoad.X * zLoad.X;
+    if (denMag2 === 0) return zLoad;
+    return {
+      R: (z0Line * z0Line * zLoad.R) / denMag2,
+      X: -(z0Line * z0Line * zLoad.X) / denMag2,
+    };
+  }
+  // numerator = Z_load + j·Z0·t = zLoad.R + j·(zLoad.X + Z0·t)
+  const numR = zLoad.R;
+  const numI = zLoad.X + z0Line * t;
+  // denominator = Z0 + j·Z_load·t = (Z0 − zLoad.X·t) + j·(zLoad.R·t)
+  const denR = z0Line - zLoad.X * t;
+  const denI = zLoad.R * t;
+  const denMag2 = denR * denR + denI * denI;
+  if (denMag2 === 0) return zLoad;
+  return {
+    R: (z0Line * (numR * denR + numI * denI)) / denMag2,
+    X: (z0Line * (numI * denR - numR * denI)) / denMag2,
+  };
+}
+
+/**
+ * Computes the impedance the radio sees when an ideal `n²`-ratio transformer
+ * is fitted at the antenna terminals (between antenna and feedline).
+ *
+ * If `lineLengthLambdas` is 0 or undefined (no feedline), this is just the
+ * antenna impedance divided by the ratio. With a feedline present, the
+ * antenna feedpoint is de-embedded from the NEC-reported source-side Z,
+ * divided by the ratio (the transformer's effect on the load presented to
+ * the cable), then re-embedded through the cable to get what the radio
+ * sees.
+ *
+ * De-embedding accuracy depends on the absence of significant common-mode
+ * current on the cable shield — which is guaranteed in the simulation
+ * because enabling a transformer also engages a choke on the shield.
+ */
+export function transformWithTransformerAtAntenna(
+  zSrcReportedByNec: ImpedanceResult,
+  ratio: number,
+  z0Line: number = Z0_SYSTEM,
+  lineLengthLambdas: number = 0,
+): ImpedanceResult {
+  if (!Number.isFinite(ratio) || ratio <= 0) return zSrcReportedByNec;
+  if (lineLengthLambdas === 0 || !Number.isFinite(lineLengthLambdas)) {
+    // No feedline → NEC's reported Z is the antenna feedpoint directly.
+    return { R: zSrcReportedByNec.R / ratio, X: zSrcReportedByNec.X / ratio };
+  }
+  const zAntenna = deembedThroughLine(zSrcReportedByNec, z0Line, lineLengthLambdas);
+  const zXfmrPrimary = { R: zAntenna.R / ratio, X: zAntenna.X / ratio };
+  return transformThroughLine(zXfmrPrimary, z0Line, lineLengthLambdas);
+}
+
+/**
+ * Realized gain after a transformer fitted at the antenna terminals: the
+ * NEC-computed `gainDbi` (intrinsic radiation) minus the mismatch loss
+ * computed against the radio-side impedance with the transformer in
+ * place, minus a fixed insertion loss for the transformer hardware.
+ */
+export function realizedGainWithTransformer(
+  gainDbi: number,
+  zSrcReportedByNec: ImpedanceResult,
+  ratio: number,
+  z0Line: number = Z0_SYSTEM,
+  lineLengthLambdas: number = 0,
+): number | undefined {
+  const zRadio = transformWithTransformerAtAntenna(zSrcReportedByNec, ratio, z0Line, lineLengthLambdas);
+  const mlf = mismatchLossFactor(zRadio);
+  if (mlf <= 0) return undefined;
+  return gainDbi + 10 * Math.log10(mlf) - TRANSFORMER_INSERTION_LOSS_DB;
+}
+
+/**
+ * De-embeds an impedance reading taken at the source end of a lossless
+ * transmission line: given Z measured at the source, returns the load-side
+ * impedance at the far end of the line.
+ *
+ *   Z_load = Z0 · (Z_src − j·Z0·tan(βd)) / (Z0 − j·Z_src·tan(βd))
+ *
+ * `lengthLambdas` is the electrical length of the line (physical length
+ * divided by the cable's in-line wavelength, i.e. `length / (vf · λ_air)`).
+ *
+ * NEC's TL card is lossless; the matching inverse-transform here is also
+ * lossless, so for the differential signal this is exact. It does NOT
+ * account for any common-mode current on the cable shield (modelled as a
+ * separate wire in NEC), so for antennas with significant shield current
+ * the de-embedded value is an estimate of the antenna terminals only.
+ */
+export function deembedThroughLine(
+  zSrc: ImpedanceResult,
+  z0Line: number,
+  lengthLambdas: number,
+): ImpedanceResult {
+  if (!Number.isFinite(lengthLambdas) || !Number.isFinite(z0Line) || z0Line <= 0) {
+    return zSrc;
+  }
+  const betaL = 2 * Math.PI * lengthLambdas;
+  const t = Math.tan(betaL);
+  if (!Number.isFinite(t)) {
+    // tan diverges at ¼-wavelength multiples; in the limit Z_load = Z0² / Z_src.
+    const denMag2 = zSrc.R * zSrc.R + zSrc.X * zSrc.X;
+    if (denMag2 === 0) return zSrc;
+    return {
+      R: (z0Line * z0Line * zSrc.R) / denMag2,
+      X: -(z0Line * z0Line * zSrc.X) / denMag2,
+    };
+  }
+  // numerator = Z_src − j·Z0·t = zSrc.R + j·(zSrc.X − Z0·t)
+  const numR = zSrc.R;
+  const numI = zSrc.X - z0Line * t;
+  // denominator = Z0 − j·Z_src·t = (Z0 + zSrc.X·t) + j·(−zSrc.R·t)
+  const denR = z0Line + zSrc.X * t;
+  const denI = -zSrc.R * t;
+  const denMag2 = denR * denR + denI * denI;
+  if (denMag2 === 0) return zSrc;
+  // Z0 · (num / den), complex division.
+  return {
+    R: (z0Line * (numR * denR + numI * denI)) / denMag2,
+    X: (z0Line * (numI * denR - numR * denI)) / denMag2,
+  };
 }

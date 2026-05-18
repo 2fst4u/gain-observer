@@ -1,6 +1,15 @@
 import { useAntennaStore, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG } from '../../store/antennaStore';
-import { mismatchLossFactor, transformImpedance } from '../../physics/impedance';
-import type { TerminationDiagnostics } from '../../physics/types';
+import {
+  mismatchLossFactor,
+  swr,
+  transformWithTransformerAtAntenna,
+} from '../../physics/impedance';
+import {
+  findFeedlinePreset,
+  TRANSFORMER_INSERTION_LOSS_DB,
+  wavelengthMeters,
+} from '../../physics/constants';
+import type { ImpedanceResult, TerminationDiagnostics } from '../../physics/types';
 
 export function StatsReadout() {
   const result = useAntennaStore((s) => s.result);
@@ -8,6 +17,10 @@ export function StatsReadout() {
   const reference = useAntennaStore((s) => s.comparisonReference);
   const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
   const transformerRatio = useAntennaStore((s) => s.transformerRatio);
+  const feedlineId = useAntennaStore((s) => s.feedlineId);
+  const feedlineLength = useAntennaStore((s) => s.feedlineLength);
+  const frequency = useAntennaStore((s) => s.frequency);
+  const feedlineActive = feedlineId !== 'none';
   if (!result) {
     return (
       <section className="panel-section">
@@ -18,12 +31,49 @@ export function StatsReadout() {
     );
   }
 
-  let transformedRealizedGainDbi: number | undefined;
-  if (transformerEnabled) {
-    const transformedZ = transformImpedance(result.impedance, transformerRatio);
-    const mlf = mismatchLossFactor(transformedZ);
-    if (mlf > 0) transformedRealizedGainDbi = result.maxGainDbi + 10 * Math.log10(mlf);
+  // Cable parameters needed for transformer-at-antenna math when feedline is active.
+  let cableZ0 = 50;
+  let cableLengthLambdas = 0;
+  if (feedlineActive) {
+    const preset = findFeedlinePreset(feedlineId);
+    cableZ0 = preset.z0;
+    const lambdaCable = preset.velocityFactor * wavelengthMeters(frequency);
+    cableLengthLambdas = feedlineLength / lambdaCable;
   }
+
+  // Apply the transformer at the antenna terminals: divide the antenna's
+  // feedpoint impedance by the ratio (the cable then sees that as its load).
+  // With no feedline this is just Z/ratio; with a feedline we de-embed →
+  // divide → re-embed. The accompanying choke (engaged by setting transformer
+  // = enabled) suppresses shield common-mode current, so the de-embed math is
+  // accurate.
+  const displayedZ: ImpedanceResult = transformerEnabled
+    ? transformWithTransformerAtAntenna(result.impedance, transformerRatio, cableZ0, cableLengthLambdas)
+    : result.impedance;
+  const displayedSwr = transformerEnabled ? swr(displayedZ) : result.swr;
+
+  let displayedRealizedGainDbi: number | undefined;
+  if (transformerEnabled) {
+    const mlf = mismatchLossFactor(displayedZ);
+    if (mlf > 0) {
+      displayedRealizedGainDbi =
+        result.maxGainDbi + 10 * Math.log10(mlf) - TRANSFORMER_INSERTION_LOSS_DB;
+    }
+  } else {
+    displayedRealizedGainDbi = result.maxRealizedGainDbi ?? undefined;
+  }
+
+  const impedanceLabel = feedlineActive ? 'Source impedance (R + jX)' : 'Feedpoint (R + jX)';
+  const impedanceTitle = feedlineActive
+    ? `Impedance at the source end of the feedline (what the radio sees)${transformerEnabled ? `, with the ${transformerRatio}:1 transformer fitted at the antenna terminals` : ''}. To see the antenna terminals directly, set Feedline = none.`
+    : transformerEnabled
+      ? `Impedance after the ${transformerRatio}:1 transformer fitted at the antenna terminals.`
+      : 'Impedance at the antenna feedpoint. NEC places the excitation directly at the antenna terminals.';
+  const swrTitle = feedlineActive
+    ? `Voltage SWR at the source end of the feedline against 50 Ω${transformerEnabled ? ` (with the transformer fitted at the antenna)` : ''}. This is what your radio's SWR meter would see.`
+    : transformerEnabled
+      ? `Voltage SWR at the radio side of the antenna's ${transformerRatio}:1 transformer against 50 Ω.`
+      : 'Voltage SWR at the antenna feedpoint against 50 Ω.';
 
   return (
     <section className="panel-section">
@@ -45,22 +95,17 @@ export function StatsReadout() {
           <span className="stat-value">{result.maxDirectivityDbi.toFixed(2)} dBi</span>
         </div>
       )}
-      {result.maxRealizedGainDbi != null && (
+      {displayedRealizedGainDbi != null && (
         <div className="stat">
           <span
             className="stat-label"
-            title="Realized gain, raw 50 Ω (dBi): gain accounting for mismatch loss between the raw NEC feedpoint impedance and a 50 Ω source. = Gain × (1 − |Γ|²). Does not include the Ideal transformer post-processing option."
-          >Realized gain{transformerEnabled ? ' (raw)' : ''}</span>
-          <span className="stat-value">{result.maxRealizedGainDbi.toFixed(2)} dBi</span>
-        </div>
-      )}
-      {transformedRealizedGainDbi != null && (
-        <div className="stat">
-          <span
-            className="stat-label"
-            title="Realized gain after ideal transformer (dBi): antenna gain after mismatch loss using the transformed impedance. A transformer changes impedance ratio only — it does not cancel reactance. Transformer loss and bandwidth are not modelled."
-          >Realized gain (transformed)</span>
-          <span className="stat-value">{transformedRealizedGainDbi.toFixed(2)} dBi</span>
+            title={
+              transformerEnabled
+                ? `Realized gain (dBi): antenna gain after mismatch loss against 50 Ω with the ${transformerRatio}:1 transformer fitted at the antenna terminals, minus ${TRANSFORMER_INSERTION_LOSS_DB.toFixed(1)} dB transformer insertion loss.`
+                : 'Realized gain (dBi): antenna gain after mismatch loss against 50 Ω. = Gain × (1 − |Γ|²).'
+            }
+          >Realized gain</span>
+          <span className="stat-value">{displayedRealizedGainDbi.toFixed(2)} dBi</span>
         </div>
       )}
       {result.efficiency != null && (
@@ -81,16 +126,16 @@ export function StatsReadout() {
         <span className="stat-value">{result.takeoffAzimuthDeg.toFixed(0)}°</span>
       </div>
       <div className="stat">
-        <span className="stat-label">Feedpoint (R + jX)</span>
+        <span className="stat-label" title={impedanceTitle}>{impedanceLabel}</span>
         <span className="stat-value">
-          {result.impedance.R.toFixed(1)} {result.impedance.X >= 0 ? '+' : '−'}j{Math.abs(result.impedance.X).toFixed(1)} Ω
+          {displayedZ.R.toFixed(1)} {displayedZ.X >= 0 ? '+' : '−'}j{Math.abs(displayedZ.X).toFixed(1)} Ω
         </span>
       </div>
       <div className="stat">
-        <span className="stat-label">SWR (vs 50 Ω)</span>
+        <span className="stat-label" title={swrTitle}>SWR (vs 50 Ω)</span>
         <span className="stat-value" style={{
-          color: result.swr > 2 ? 'var(--danger)' : result.swr > 1.5 ? 'var(--warning)' : 'var(--success)',
-        }}>{result.swr.toFixed(2)}:1</span>
+          color: displayedSwr > 2 ? 'var(--danger)' : displayedSwr > 1.5 ? 'var(--warning)' : 'var(--success)',
+        }}>{displayedSwr.toFixed(2)}:1</span>
       </div>
       {mode === 'comparison' && reference && (
         <ComparisonStats current={result} reference={reference.result} />

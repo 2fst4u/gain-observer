@@ -48,6 +48,44 @@ describe('StatsReadout', () => {
     expect(container.textContent).toContain('SWR (vs 50 Ω)');
   });
 
+  it('labels impedance as "Feedpoint" when no feedline is configured', () => {
+    useAntennaStore.setState({
+      feedlineId: 'none',
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 2.0,
+        takeoffElevationDeg: 30,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 70, X: 5 },
+        swr: 1.5,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { container } = render(<StatsReadout />);
+    expect(container.textContent).toContain('Feedpoint (R + jX)');
+    expect(container.textContent).not.toContain('Source impedance');
+  });
+
+  it('labels impedance as "Source impedance" when a feedline is active', () => {
+    useAntennaStore.setState({
+      feedlineId: 'rg58',
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 2.0,
+        takeoffElevationDeg: 30,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 70, X: 5 },
+        swr: 1.5,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { container } = render(<StatsReadout />);
+    expect(container.textContent).toContain('Source impedance (R + jX)');
+    expect(container.textContent).not.toContain('Feedpoint (R + jX)');
+  });
+
   it('renders directivity and efficiency when power budget data is provided', () => {
     useAntennaStore.setState({
       result: {

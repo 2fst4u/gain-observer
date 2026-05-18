@@ -16,7 +16,7 @@ describe('TransformerControl', () => {
 
   it('renders the section heading', () => {
     const { getByText } = render(<TransformerControl />);
-    expect(getByText('Ideal transformer')).not.toBeNull();
+    expect(getByText('Transformer at feedpoint')).not.toBeNull();
   });
 
   it('shows the enable checkbox unchecked by default', () => {
@@ -30,11 +30,24 @@ describe('TransformerControl', () => {
     expect(queryByLabelText(/Impedance ratio/i)).toBeNull();
   });
 
-  it('shows ratio input and note when enabled', () => {
+  it('shows ratio input and hint when enabled', () => {
     useAntennaStore.setState({ transformerEnabled: true });
     const { getByLabelText, container } = render(<TransformerControl />);
     expect(getByLabelText(/Impedance ratio/i)).not.toBeNull();
-    expect(container.textContent).toContain('Z_transformed = Z_feedpoint / ratio');
+    expect(container.textContent).toMatch(/Insertion loss: 0\.2 dB/);
+  });
+
+  it('describes ratio=1 as a current (choke) balun', () => {
+    useAntennaStore.setState({ transformerEnabled: true, transformerRatio: 1 });
+    const { container } = render(<TransformerControl />);
+    expect(container.textContent).toContain('current ("choke") balun');
+  });
+
+  it('describes ratio>1 as an impedance transformer', () => {
+    useAntennaStore.setState({ transformerEnabled: true, transformerRatio: 9 });
+    const { container } = render(<TransformerControl />);
+    expect(container.textContent).toContain('Ratio 9:1');
+    expect(container.textContent).toContain('divides antenna feedpoint impedance by 9');
   });
 
   it('enables transformer when checkbox is clicked', () => {
@@ -42,52 +55,6 @@ describe('TransformerControl', () => {
     const checkbox = getByRole('checkbox') as HTMLInputElement;
     fireEvent.click(checkbox);
     expect(useAntennaStore.getState().transformerEnabled).toBe(true);
-  });
-
-  it('shows transformed values when enabled and result is present', () => {
-    useAntennaStore.setState({
-      transformerEnabled: true,
-      transformerRatio: 9,
-      result: {
-        computeTimeMs: 10,
-        maxGainDbi: 7,
-        takeoffElevationDeg: 15,
-        takeoffAzimuthDeg: 0,
-        impedance: { R: 450, X: 0 },
-        swr: 9.0,
-        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
-      } as unknown as import('../src/physics/types').SimulationResult,
-    });
-
-    const { container } = render(<TransformerControl />);
-
-    // Raw values visible
-    expect(container.textContent).toContain('Feedpoint (raw R + jX)');
-    expect(container.textContent).toContain('Raw SWR (vs 50 Ω)');
-    // Transformed values visible: 450/9 = 50, SWR ≈ 1.00:1
-    expect(container.textContent).toContain('Transformed (R + jX)');
-    expect(container.textContent).toContain('50.0');
-    expect(container.textContent).toContain('Transformed SWR (vs 50 Ω)');
-    expect(container.textContent).toContain('1.00:1');
-  });
-
-  it('does not show transformed values when disabled even if result is present', () => {
-    useAntennaStore.setState({
-      transformerEnabled: false,
-      result: {
-        computeTimeMs: 10,
-        maxGainDbi: 7,
-        takeoffElevationDeg: 15,
-        takeoffAzimuthDeg: 0,
-        impedance: { R: 450, X: 0 },
-        swr: 9.0,
-        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
-      } as unknown as import('../src/physics/types').SimulationResult,
-    });
-
-    const { container } = render(<TransformerControl />);
-    expect(container.textContent).not.toContain('Transformed SWR');
-    expect(container.textContent).not.toContain('Raw SWR');
   });
 
   it('updates ratio when input changes', () => {
@@ -98,22 +65,8 @@ describe('TransformerControl', () => {
     expect(useAntennaStore.getState().transformerRatio).toBe(4);
   });
 
-  it('shows disclaimer note when enabled and result is present', () => {
-    useAntennaStore.setState({
-      transformerEnabled: true,
-      transformerRatio: 9,
-      result: {
-        computeTimeMs: 10,
-        maxGainDbi: 2,
-        takeoffElevationDeg: 15,
-        takeoffAzimuthDeg: 0,
-        impedance: { R: 450, X: 0 },
-        swr: 9.0,
-        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
-      } as unknown as import('../src/physics/types').SimulationResult,
-    });
-
+  it('shows shield-radiates hint when transformer is disabled', () => {
     const { container } = render(<TransformerControl />);
-    expect(container.textContent).toContain('ideal post-processing calculations');
+    expect(container.textContent).toContain('feedline shield carries common-mode current');
   });
 });

@@ -71,19 +71,24 @@ describe('V-antenna termination topology', () => {
     setupSlopingV(800);
     const input = selectSimulationInput(useAntennaStore.getState());
 
-    const leftLeg  = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    const rightLeg = input.wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+    // With graded segmentation each leg is multiple sub-wires sharing a tag:
+    //   LEFT  leg is emitted tip → apex (first sub-wire's `.start` is the tip)
+    //   RIGHT leg is emitted apex → tip (last sub-wire's `.end` is the tip)
+    const leftLegWires  = input.wires.filter((w) => w.tag === DIPOLE_LEFT_TAG);
+    const rightLegWires = input.wires.filter((w) => w.tag === DIPOLE_RIGHT_TAG);
+    const leftLegTip  = leftLegWires[0]!.start;
+    const rightLegTip = rightLegWires[rightLegWires.length - 1]!.end;
     const leftStub  = input.wires.find((w) => w.tag === SLOPING_V_LEFT_STUB_TAG)!;
     const rightStub = input.wires.find((w) => w.tag === SLOPING_V_RIGHT_STUB_TAG)!;
 
     // Stub starts exactly at the tip of each leg
-    expect(leftStub.start[0]).toBeCloseTo(leftLeg.start[0], 6);
-    expect(leftStub.start[1]).toBeCloseTo(leftLeg.start[1], 6);
-    expect(leftStub.start[2]).toBeCloseTo(leftLeg.start[2], 6);
+    expect(leftStub.start[0]).toBeCloseTo(leftLegTip[0], 6);
+    expect(leftStub.start[1]).toBeCloseTo(leftLegTip[1], 6);
+    expect(leftStub.start[2]).toBeCloseTo(leftLegTip[2], 6);
 
-    expect(rightStub.start[0]).toBeCloseTo(rightLeg.end[0], 6);
-    expect(rightStub.start[1]).toBeCloseTo(rightLeg.end[1], 6);
-    expect(rightStub.start[2]).toBeCloseTo(rightLeg.end[2], 6);
+    expect(rightStub.start[0]).toBeCloseTo(rightLegTip[0], 6);
+    expect(rightStub.start[1]).toBeCloseTo(rightLegTip[1], 6);
+    expect(rightStub.start[2]).toBeCloseTo(rightLegTip[2], 6);
 
     // Stub ends near the ground at the constant floor height
     expect(leftStub.end[2]).toBeCloseTo(SLOPING_V_STUB_BOTTOM_Z_M, 6);

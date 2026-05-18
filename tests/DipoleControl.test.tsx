@@ -14,13 +14,43 @@ vi.mock('../src/store/antennaStore', async () => {
 
 interface MockState {
   units: string;
+  antennaType: string;
   length: number;
   height: number;
+  frequency: number;
   orientation: string | number;
+  vAngle: number;
+  terminatingResistor: number;
+  setAntennaType: () => void;
   setLength: () => void;
   setHalfWaveLength: () => void;
+  setLegLengthMultiple: () => void;
   setHeight: () => void;
   setOrientation: (o: string | number) => void;
+  setVAngle: () => void;
+  setTerminatingResistor: () => void;
+}
+
+function buildMockState(overrides: Partial<MockState> = {}): MockState {
+  return {
+    units: 'metric',
+    antennaType: 'dipole',
+    length: 20,
+    height: 10,
+    frequency: 7.1,
+    orientation: 'EW',
+    vAngle: 120,
+    terminatingResistor: 0,
+    setAntennaType: vi.fn(),
+    setLength: vi.fn(),
+    setHalfWaveLength: vi.fn(),
+    setLegLengthMultiple: vi.fn(),
+    setHeight: vi.fn(),
+    setOrientation: vi.fn(),
+    setVAngle: vi.fn(),
+    setTerminatingResistor: vi.fn(),
+    ...overrides,
+  };
 }
 
 describe('DipoleControl', () => {
@@ -32,17 +62,7 @@ describe('DipoleControl', () => {
   it('updates orientation when numeric input changes', () => {
     const setOrientation = vi.fn();
     vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      const state: MockState = {
-        units: 'metric',
-        length: 20,
-        height: 10,
-        orientation: 'EW',
-        setLength: vi.fn(),
-        setHalfWaveLength: vi.fn(),
-        setHeight: vi.fn(),
-        setOrientation,
-      };
-      return selector(state);
+      return selector(buildMockState({ setOrientation }));
     });
 
     render(<DipoleControl />);
@@ -56,17 +76,7 @@ describe('DipoleControl', () => {
   it('updates orientation when preset buttons are clicked', () => {
     const setOrientation = vi.fn();
     vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      const state: MockState = {
-        units: 'metric',
-        length: 20,
-        height: 10,
-        orientation: 'EW',
-        setLength: vi.fn(),
-        setHalfWaveLength: vi.fn(),
-        setHeight: vi.fn(),
-        setOrientation,
-      };
-      return selector(state);
+      return selector(buildMockState({ setOrientation }));
     });
 
     render(<DipoleControl />);

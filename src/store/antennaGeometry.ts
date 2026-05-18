@@ -20,8 +20,63 @@ export const MIN_SEGS_PER_LEG = 9;
  * Hard cap on segments per leg to bound NEC runtime for very long or high-frequency
  * antennas. At 100 segments/leg the worst-case per-leg segment length stays
  * above ~0.1λ even for a 5λ leg, which is adequate for pattern accuracy.
+ *
+ * NOTE: Builders that use tapered/graded segmentation (e.g. `buildSlopingVWires`)
+ * derive segment count from segment-length physics rather than this cap, so the
+ * cap is bypassed when graded segmentation is in effect.
  */
 export const MAX_SEGS_PER_LEG = 100;
+
+/**
+ * Plan for tapered (graded) segmentation of a wire connected to a short
+ * feed segment. Used to satisfy NEC's adjacent-segment ratio rule: the
+ * moment-method solver requires neighbouring segments to differ by no more
+ * than ~2× in length, otherwise basis functions can't resolve the rapid
+ * current variation at the source.
+ */
+export interface GradedSegmentPlan {
+  /** Lengths of the geometrically-growing prefix segments (short → long). */
+  readonly prefixLens: number[];
+  /** Length of each uniform tail segment (0 if no tail). */
+  readonly tailLen: number;
+  /** Number of uniform tail segments (0 if no tail). */
+  readonly tailCount: number;
+}
+
+/**
+ * Builds a graded-segmentation plan for a wire of length `totalLen` where the
+ * end adjacent to the source has segments of `startSegLen` that grow by
+ * `growthRatio` each step until reaching `maxSegLen`, then continue uniformly.
+ *
+ * The plan's segment lengths sum to `totalLen` (within float precision). The
+ * uniform tail length is distributed evenly so the boundary ratio between the
+ * last graded segment and the first tail segment stays close to `growthRatio`.
+ */
+export function gradedSegmentPlan(
+  totalLen: number,
+  startSegLen: number,
+  maxSegLen: number,
+  growthRatio: number = 2,
+): GradedSegmentPlan {
+  if (totalLen <= 0) return { prefixLens: [], tailLen: 0, tailCount: 0 };
+
+  const prefixLens: number[] = [];
+  let accum = 0;
+  let cur = Math.max(startSegLen, 1e-9);
+  while (cur < maxSegLen && accum + cur < totalLen) {
+    prefixLens.push(cur);
+    accum += cur;
+    cur *= growthRatio;
+  }
+
+  const remaining = totalLen - accum;
+  if (remaining < 1e-9) {
+    return { prefixLens, tailLen: 0, tailCount: 0 };
+  }
+  const tailCount = Math.max(1, Math.round(remaining / Math.max(maxSegLen, 1e-9)));
+  const tailLen = remaining / tailCount;
+  return { prefixLens, tailLen, tailCount };
+}
 
 export type OrientationPreset = 'EW' | 'NS' | 'NE-SW' | 'NW-SE';
 export type Orientation = OrientationPreset | number;
@@ -143,6 +198,24 @@ export interface SlopingVWiresParams {
  * the tips rest at the ground floor (`SLOPING_V_MIN_TIP_Z_M`). The `legSlope`
  * field on the input is therefore ignored and retained only for state shape
  * compatibility.
+ *
+ * Each leg uses **graded (tapered) segmentation**: the segment adjacent to the
+ * apex matches the feed-bridge length, growing geometrically (×2 per step) up
+ * to ~λ/SEGS_PER_WAVELENGTH, then continuing uniformly to the tip. This
+ * satisfies NEC's adjacent-segment ratio rule at the source — uniform leg
+ * segments on a multi-wavelength leg would be 10×–20× longer than the 0.1 m
+ * bridge, which corrupts the moment-method solver's feedpoint impedance.
+ *
+ * A leg is emitted as one Wire per graded prefix segment plus one
+ * multi-segment Wire covering the uniform tail. All sub-wires of a given leg
+ * share the same tag (DIPOLE_LEFT_TAG / DIPOLE_RIGHT_TAG) so that current-
+ * ripple and load diagnostics continue to group by leg correctly.
+ *
+ * Convention:
+ *   LEFT leg  is emitted tip → apex (first Wire returned for the tag is the
+ *             tail-end at the tip; its `.start` is the tip).
+ *   RIGHT leg is emitted apex → tip (last Wire returned for the tag is the
+ *             tail-end at the tip; its `.end` is the tip).
  */
 export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   const h = params.height;
@@ -187,38 +260,89 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   }
 
   const lambda = wavelengthMeters(params.frequency);
-  const minSegPerLeg = Math.ceil((SEGS_PER_WAVELENGTH * legLen) / lambda);
-  const segmentsPerLeg = Math.min(
-    MAX_SEGS_PER_LEG,
-    Math.max(MIN_SEGS_PER_LEG, minSegPerLeg, Math.round(params.segments / 2)),
-  );
+  const maxSegLen = lambda / SEGS_PER_WAVELENGTH;
+  const plan = gradedSegmentPlan(legLen, FEED_BRIDGE_LENGTH_M, maxSegLen);
+
+  // Axis positions (distance from apex) at every segment boundary along a leg.
+  // `breakpoints[0] = 0` (apex), `breakpoints[K] = prefix end`, then a final
+  // `legLen` (tip) at the end of the tail wire.
+  const breakpoints: number[] = [0];
+  let pos = 0;
+  for (const pl of plan.prefixLens) {
+    pos += pl;
+    breakpoints.push(pos);
+  }
+  const prefixEnd = pos;
+
+  // Enforce a floor on total segments for very short legs (NEC needs enough
+  // basis functions to represent currents). When the natural graded plan
+  // gives too few segments, pad the tail count — NEC distributes them evenly
+  // along the tail wire's length.
+  let tailCount = plan.tailCount;
+  const naturalTotal = plan.prefixLens.length + tailCount;
+  if (naturalTotal < MIN_SEGS_PER_LEG && legLen > prefixEnd + 1e-9) {
+    tailCount = Math.max(1, MIN_SEGS_PER_LEG - plan.prefixLens.length);
+  }
 
   const apexLeft = legPointAt(0, -1);
   const apexRight = legPointAt(0, 1);
 
-  return [
-    {
+  const wires: Wire[] = [];
+
+  // LEFT leg: emit tip → apex.
+  // (1) Uniform tail wire from tip back to the end of the prefix.
+  if (tailCount > 0) {
+    wires.push({
       start: legPointAt(legLen, -1),
-      end: apexLeft,
+      end: legPointAt(prefixEnd, -1),
       radius: params.wireRadius,
-      segments: segmentsPerLeg,
+      segments: tailCount,
       tag: DIPOLE_LEFT_TAG,
-    },
-    {
-      start: apexRight,
-      end: legPointAt(legLen, 1),
-      radius: params.wireRadius,
-      segments: segmentsPerLeg,
-      tag: DIPOLE_RIGHT_TAG,
-    },
-    {
-      start: apexLeft,
-      end: apexRight,
+    });
+  }
+  // (2) Graded prefix wires in reverse (largest to smallest, toward apex).
+  for (let i = plan.prefixLens.length - 1; i >= 0; i--) {
+    wires.push({
+      start: legPointAt(breakpoints[i + 1]!, -1),
+      end: legPointAt(breakpoints[i]!, -1),
       radius: params.wireRadius,
       segments: 1,
-      tag: FEED_BRIDGE_TAG,
-    },
-  ];
+      tag: DIPOLE_LEFT_TAG,
+    });
+  }
+
+  // RIGHT leg: emit apex → tip.
+  // (1) Graded prefix wires in natural order (smallest to largest, away from apex).
+  for (let i = 0; i < plan.prefixLens.length; i++) {
+    wires.push({
+      start: legPointAt(breakpoints[i]!, 1),
+      end: legPointAt(breakpoints[i + 1]!, 1),
+      radius: params.wireRadius,
+      segments: 1,
+      tag: DIPOLE_RIGHT_TAG,
+    });
+  }
+  // (2) Uniform tail wire from end of prefix out to tip.
+  if (tailCount > 0) {
+    wires.push({
+      start: legPointAt(prefixEnd, 1),
+      end: legPointAt(legLen, 1),
+      radius: params.wireRadius,
+      segments: tailCount,
+      tag: DIPOLE_RIGHT_TAG,
+    });
+  }
+
+  // Apex feed bridge.
+  wires.push({
+    start: apexLeft,
+    end: apexRight,
+    radius: params.wireRadius,
+    segments: 1,
+    tag: FEED_BRIDGE_TAG,
+  });
+
+  return wires;
 }
 
 export interface FeedlineShield {
