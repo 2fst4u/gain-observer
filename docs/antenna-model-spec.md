@@ -48,15 +48,7 @@ We use the standard NEC-2 Cartesian coordinate system:
 - **Feedpoint**: The apex.
 - **Termination Support**: Supports termination at the far ends of the legs.
 
-### 2.4 V-Beam (Horizontal V)
-- **Structure**: Two horizontal wires forming a V-shape.
-- **Length**: Refers to the length of a **single leg**.
-- **Height**: The height of the entire structure above ground.
-- **Included Angle**: The angle between the legs.
-- **Feedpoint**: The apex.
-- **Termination Support**: Supports termination at the far ends of the legs.
-
-### 2.5 Delta Loop
+### 2.4 Delta Loop
 - **Structure**: A triangular loop of wire.
 - **Length**: The total perimeter of the loop.
 - **Configuration**: Apex-up or Apex-down.
@@ -72,7 +64,7 @@ We use the standard NEC-2 Cartesian coordinate system:
 A **terminated** antenna is a travelling-wave antenna where the end of the radiating element is connected to a non-inductive resistive load (terminator). This load absorbs the remaining energy of the forward wave, preventing reflections that would otherwise create a standing wave.
 
 ### 3.2 Termination Implementation
-- **Sloping V / V-Beam**: Termination consists of a resistor connected from the end of each leg to ground (for sloping/ground-return types) or across the ends (for certain loop-style V-beams).
+- **Sloping V**: Termination consists of a resistor connected from the end of each leg to ground via a short stub wire.
 - **Default Value**: Typically $300\text{--}600\,\Omega$ depending on the characteristic impedance of the wire over ground.
 - **Effect**: It converts the antenna from a resonant (standing-wave) bi-directional radiator into a broadband, uni-directional travelling-wave radiator.
 

@@ -468,8 +468,6 @@ describe('antennaStore actions', () => {
       // legSlope is unused for sloping-V (slope is auto-computed); reset to 0.
       expect(useAntennaStore.getState().legSlope).toBe(0);
 
-      store.setAntennaType('v-beam');
-      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
     });
 
     it('setAntennaType("sloping-v") sets default terminatingResistor=300 when currently 0', () => {
@@ -822,85 +820,6 @@ describe('antennaStore actions', () => {
 
       expect(input.excitation.wireTag).toBe(3); // FEED_BRIDGE_TAG
       expect(input.excitation.segment).toBe(1);
-    });
-  });
-
-  describe('V-Beam Geometry', () => {
-    // λ at 7.1 MHz ≈ 42.224 m; default v-beam length = 2λ ≈ 84.448 m
-    const lambda = 299.792458 / 7.1;
-    const commonState = {
-      antennaType: 'v-beam' as const,
-      length: lambda * 2,
-      height: 10,
-      orientation: 'EW' as const,
-      wireRadius: 0.001,
-      segments: 21,
-      frequency: 7.1,
-      vAngle: 60,
-      legSlope: 0,
-      terminatingResistor: 0,
-    };
-
-    it('generates exactly 3 GW wires (2 legs + 1 bridge, no termination)', () => {
-      const wires = buildWires(commonState);
-      expect(wires).toHaveLength(3);
-    });
-
-    it('both leg endpoints are at z=height (horizontal legs, no z=0)', () => {
-      const wires = buildWires(commonState);
-      for (const wire of wires) {
-        expect(wire.start[2]).toBeCloseTo(commonState.height);
-        expect(wire.end[2]).toBeCloseTo(commonState.height);
-        expect(wire.start[2]).not.toBeCloseTo(0);
-        expect(wire.end[2]).not.toBeCloseTo(0);
-      }
-    });
-
-    it('apex is bridged across (0, 0, height)', () => {
-      const wires = buildWires(commonState);
-      const left = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-      const right = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-      const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
-
-      expect(bridge.start[2]).toBeCloseTo(commonState.height);
-      expect(bridge.end[2]).toBeCloseTo(commonState.height);
-      expect(left.end).toEqual(bridge.start);
-      expect(right.start).toEqual(bridge.end);
-    });
-
-    it('each leg length roughly equals half the total antenna length minus bridge', () => {
-      const wires = buildWires(commonState);
-      const left = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-      const right = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-
-      const dist = (a: [number, number, number], b: [number, number, number]) =>
-        Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2);
-
-      // We expect the leg to be length / 2, minus a small bridge part, but roughly half.
-      expect(dist(left.start, left.end)).toBeCloseTo(commonState.length / 2, 0);
-      expect(dist(right.start, right.end)).toBeCloseTo(commonState.length / 2, 0);
-    });
-
-    it('excitation is on the apex bridge', () => {
-      const state = { ...useAntennaStore.getState(), ...commonState };
-      const input = selectSimulationInput(state as AntennaState);
-
-      expect(input.excitation.wireTag).toBe(FEED_BRIDGE_TAG);
-      expect(input.excitation.segment).toBe(1);
-    });
-
-    it('has no transmission lines or loads', () => {
-      const state = { ...useAntennaStore.getState(), ...commonState };
-      const input = selectSimulationInput(state as AntennaState);
-      expect(input.transmissionLines).toBeUndefined();
-      expect(input.loads).toBeUndefined();
-    });
-
-    it('uses at least SEGS_PER_WAVELENGTH segments per leg', () => {
-      const wires = buildWires(commonState);
-      // For 1λ leg at 7.1 MHz, minSegs = ceil(20 * λ / λ) = 20.
-      expect(wires[0].segments).toBeGreaterThanOrEqual(20);
-      expect(wires[1].segments).toBeGreaterThanOrEqual(20);
     });
   });
 

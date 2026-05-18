@@ -139,14 +139,14 @@ function legLabel(tagNo: number): string {
 }
 
 /**
- * Shows termination-effectiveness metrics for V-beam and sloping-V antennas.
+ * Shows termination-effectiveness metrics for sloping-V antennas.
  * These are NOT feedpoint-match metrics — they measure whether the far-end
  * termination is absorbing the travelling wave.
  */
 function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnostics }) {
   const antennaType = useAntennaStore((s) => s.antennaType);
 
-  if (antennaType !== 'v-beam' && antennaType !== 'sloping-v') return null;
+  if (antennaType !== 'sloping-v') return null;
 
   const { currentRippleByTag, powerBudget, frontBackDb } = diagnostics;
   const legRipples = currentRippleByTag.filter(

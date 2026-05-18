@@ -1,6 +1,6 @@
 // Termination-effectiveness diagnostics derived from NEC output.
 //
-// These metrics measure whether the far-end resistor on a V-beam or sloping-V
+// These metrics measure whether the far-end resistor on a sloping-V
 // is actually absorbing the travelling wave.  They are distinct from SWR
 // (which only measures feedpoint reflection) and must not be described as
 // feedpoint-match metrics in any UI copy.

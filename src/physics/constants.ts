@@ -38,7 +38,7 @@ export function halfWaveLength(frequencyMHz: number, endEffect = 0.95): number {
  *   - dipole: 0.475λ total (0.5λ × 0.95 end-effect).
  *   - inverted-v: 0.485λ total (0.5λ × 0.97 end-effect) per spec.
  *   - delta-loop: 1λ perimeter.
- *   - sloping-v / v-beam: 2λ total (1λ per leg).
+ *   - sloping-v: 2λ total (1λ per leg).
  *
  * Applies the standard HF end-effect factor k ~ 0.95 where noted.
  */
@@ -53,7 +53,6 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
     case 'delta-loop':
       return lambda * 1.0 * endEffect;
     case 'sloping-v':
-    case 'v-beam':
       return lambda * 2.0 * endEffect;
     default:
       return lambda * 0.5 * endEffect;
