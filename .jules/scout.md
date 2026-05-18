@@ -12,3 +12,8 @@
 
 **Learning:** Adding a dynamic `<title>` update based on user state (e.g., selected antenna and frequency) via `useEffect` in a top-level component (`App.tsx`) is a highly effective, <50-line SEO boost for single-page applications. It improves indexability and SERP snippets without altering visual design.
 **Action:** When working as Scout on SPAs without SSR, look for opportunities to dynamically update `document.title` based on the core application state to create unique titles for different configurations.
+
+## 2025-05-18 - [Semantic Upgrades and Rejections]
+
+**Learning:** Adding dynamic document titles to SPAs is not always a desirable SEO change, possibly due to specific project content strategies or avoiding excessive JavaScript-driven metadata updates.
+**Action:** Always verify if dynamic metadata generation is aligned with the project's specific SEO strategy before implementing.
