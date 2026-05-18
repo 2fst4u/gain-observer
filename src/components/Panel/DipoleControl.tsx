@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAntennaStore } from '../../store/antennaStore';
+import { useAntennaStore, legMultipleFromLength } from '../../store/antennaStore';
 import {
   toDisplayLength,
   fromDisplayLength,
@@ -16,11 +16,13 @@ export function DipoleControl() {
   const antennaType = useAntennaStore((s) => s.antennaType);
   const length = useAntennaStore((s) => s.length);
   const height = useAntennaStore((s) => s.height);
+  const frequency = useAntennaStore((s) => s.frequency);
   const orientation = useAntennaStore((s) => s.orientation);
   const vAngle = useAntennaStore((s) => s.vAngle);
   const setAntennaType = useAntennaStore((s) => s.setAntennaType);
   const setLength = useAntennaStore((s) => s.setLength);
   const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
+  const setLegLengthMultiple = useAntennaStore((s) => s.setLegLengthMultiple);
   const setHeight = useAntennaStore((s) => s.setHeight);
   const setOrientation = useAntennaStore((s) => s.setOrientation);
   const setVAngle = useAntennaStore((s) => s.setVAngle);
@@ -61,6 +63,10 @@ export function DipoleControl() {
   }
 
   const maxHeight = units === 'metric' ? 40 : 131;
+
+  const isTravelingWave = antennaType === 'sloping-v' || antennaType === 'v-beam';
+  const currentLegMultiple = isTravelingWave ? legMultipleFromLength(length, frequency) : 1;
+  const lambda = 299.792458 / frequency;
 
   const resonateLabels: Record<AntennaType, string> = {
     'dipole': '½λ',
@@ -119,14 +125,32 @@ export function DipoleControl() {
             setLocalLen(dispLen.toFixed(2));
           }}
         />
-        <button
-          onClick={setHalfWaveLength}
-          title={resonateTitles[antennaType]}
-          aria-label={`${resonateLabels[antennaType]} (Resonate antenna length)`}
-        >
-          {resonateLabels[antennaType]}
-        </button>
+        {!isTravelingWave && (
+          <button
+            onClick={setHalfWaveLength}
+            title={resonateTitles[antennaType]}
+            aria-label={`${resonateLabels[antennaType]} (Resonate antenna length)`}
+          >
+            {resonateLabels[antennaType]}
+          </button>
+        )}
       </div>
+
+      {isTravelingWave && (
+        <div className="button-group" role="group" aria-label="Leg length in wavelengths">
+          {([1, 2, 3, 4, 5] as const).map((n) => (
+            <button
+              key={n}
+              className={currentLegMultiple === n ? 'active' : ''}
+              onClick={() => setLegLengthMultiple(n)}
+              title={`Set each leg to ${n}λ — ${(n * 2 * lambda).toFixed(1)} m total`}
+              aria-pressed={currentLegMultiple === n}
+            >
+              {n}λ
+            </button>
+          ))}
+        </div>
+      )}
 
       <label htmlFor="dipole-height" style={{ marginTop: 10 }}>Height above ground ({unit}) — {dispHeight.toFixed(1)}</label>
       <input

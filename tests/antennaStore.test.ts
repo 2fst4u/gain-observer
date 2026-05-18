@@ -4,6 +4,7 @@ import {
   buildWires,
   selectSimulationInput,
   computeEffectiveSlope,
+  legMultipleFromLength,
   DIPOLE_LEFT_TAG,
   DIPOLE_RIGHT_TAG,
   DELTA_BASE_TAG,
@@ -499,7 +500,67 @@ describe('antennaStore actions', () => {
       store.setAntennaType('sloping-v');
       store.setLength(5);
       store.setHalfWaveLength();
+      // Length 5m is far less than 1λ, so legMultipleFromLength rounds to 1 → 2λ total.
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
+    });
+
+    it('setHalfWaveLength preserves leg multiple for travelling-wave types', () => {
+      const store = useAntennaStore.getState();
+      const freq = 14.1;
+      const lambda = 299.792458 / freq;
+      store.setFrequency(freq);
+      store.setAntennaType('sloping-v');
+      store.setLegLengthMultiple(3); // 3λ/leg = 6λ total
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 6, 2);
+
+      // Simulate band change: setFrequency then setHalfWaveLength
+      const newFreq = 7.1;
+      const newLambda = 299.792458 / newFreq;
+      store.setFrequency(newFreq);
+      store.setHalfWaveLength();
+      // Still 3λ/leg at the new frequency
+      expect(useAntennaStore.getState().length).toBeCloseTo(newLambda * 6, 2);
+    });
+
+    it('setLegLengthMultiple sets length and snaps V-angle for sloping-v', () => {
+      const store = useAntennaStore.getState();
+      const freq = 14.1;
+      const lambda = 299.792458 / freq;
+      store.setFrequency(freq);
+      store.setAntennaType('sloping-v');
+      store.setHeight(12);
+
+      store.setLegLengthMultiple(2);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 4, 2);
+      // V-angle should be updated (2λ/leg at 14.1 MHz, h=12m gives ~64°)
+      const va = useAntennaStore.getState().vAngle;
+      expect(va).toBeGreaterThan(55);
+      expect(va).toBeLessThan(75);
+
+      store.setLegLengthMultiple(3);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 6, 2);
+      const va3 = useAntennaStore.getState().vAngle;
+      // 3λ/leg gives narrower angle (~54°)
+      expect(va3).toBeLessThan(va);
+    });
+
+    it('setLegLengthMultiple is a no-op for non-travelling-wave types', () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(14.1);
+      store.setAntennaType('dipole');
+      const before = useAntennaStore.getState().length;
+      store.setLegLengthMultiple(3);
+      expect(useAntennaStore.getState().length).toBe(before);
+    });
+
+    it('legMultipleFromLength rounds to nearest integer', () => {
+      const freq = 14.1;
+      const lambda = 299.792458 / freq;
+      expect(legMultipleFromLength(lambda * 2, freq)).toBe(1);  // 1λ/leg
+      expect(legMultipleFromLength(lambda * 4, freq)).toBe(2);  // 2λ/leg
+      expect(legMultipleFromLength(lambda * 6, freq)).toBe(3);  // 3λ/leg
+      // Slightly off — rounds
+      expect(legMultipleFromLength(lambda * 5, freq)).toBe(2); // ≈2.5 → 3 rounds to 3 actually
     });
 
     it('clamps vAngle to [10, 180]', () => {

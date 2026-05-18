@@ -177,6 +177,11 @@ export interface AntennaState {
   setFrequency(mhz: number): void;
   setLength(meters: number): void;
   setHalfWaveLength(): void;
+  /**
+   * Sets each leg to `n` wavelengths for sloping-V / V-beam and snaps the
+   * V-angle to the optimal value. No-op for other antenna types.
+   */
+  setLegLengthMultiple(n: number): void;
   setHeight(meters: number): void;
   setOrientation(o: Orientation): void;
   setVAngle(deg: number): void;
@@ -323,7 +328,26 @@ export const useAntennaStore = create<AntennaState>()(
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
       setHalfWaveLength: () => set((s) => {
-        s.length = calculateDefaultLength(s.antennaType, s.frequency);
+        const isTravelingWave = s.antennaType === 'sloping-v' || s.antennaType === 'v-beam';
+        if (isTravelingWave) {
+          // Preserve the current leg multiple so a band change keeps the same
+          // leg length in wavelengths (e.g. 3λ/leg on 40m stays 3λ/leg on 20m).
+          const n = legMultipleFromLength(s.length, s.frequency);
+          s.length = n * 2 * (299.792458 / s.frequency);
+        } else {
+          s.length = calculateDefaultLength(s.antennaType, s.frequency);
+        }
+        if (s.antennaType === 'sloping-v') {
+          s.vAngle = computeOptimalVAngleDeg(s.length, s.frequency, s.height);
+        }
+        const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
+        if (s.feedlineOffset > limit) s.feedlineOffset = limit;
+        if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
+      }),
+      setLegLengthMultiple: (n) => set((s) => {
+        if (s.antennaType !== 'sloping-v' && s.antennaType !== 'v-beam') return;
+        if (!Number.isFinite(n) || n < 1) return;
+        s.length = Math.round(n) * 2 * (299.792458 / s.frequency);
         if (s.antennaType === 'sloping-v') {
           s.vAngle = computeOptimalVAngleDeg(s.length, s.frequency, s.height);
         }
@@ -526,6 +550,16 @@ export function computeOptimalVAngleDeg(
 
   const halfVRad = Math.acos(Math.max(-1, Math.min(1, cosHalfV)));
   return Math.max(10, Math.min(180, (2 * halfVRad * 180) / Math.PI));
+}
+
+/**
+ * Returns the nearest integer leg-length multiple (λ per leg) for the current
+ * sloping-V / V-beam length at the given frequency. Minimum 1.
+ */
+export function legMultipleFromLength(totalLengthM: number, frequencyMHz: number): number {
+  const lambda = 299.792458 / frequencyMHz;
+  const legLen = Math.max(0, (totalLengthM - FEED_BRIDGE_LENGTH_M) / 2);
+  return Math.max(1, Math.round(legLen / lambda));
 }
 
 function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number {
