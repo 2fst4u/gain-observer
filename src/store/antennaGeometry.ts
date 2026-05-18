@@ -137,18 +137,21 @@ export interface SlopingVWiresParams {
 
 /**
  * Builds the wires for a Sloping V or V-Beam antenna.
+ *
+ * The sloping V's leg slope is **not user-configurable**: it is always set so
+ * the tips rest at the ground floor (`SLOPING_V_MIN_TIP_Z_M`). The `legSlope`
+ * field on the input is therefore ignored and retained only for state shape
+ * compatibility.
  */
 export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   const h = params.height;
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
 
-  // Effective slope calculation (clamping to min tip height).
+  // Tips always at the ground floor: slope = arcsin((h − tipMinZ) / legLen).
   // Total radiating length is params.length. Each leg is (params.length - bridge) / 2.
   const legLen = Math.max(0.1, (params.length - FEED_BRIDGE_LENGTH_M) / 2);
-  const maxSin = legLen > 0 ? Math.max(0, h - SLOPING_V_MIN_TIP_Z_M) / legLen : 0;
-  const maxSlopeRad = Math.asin(Math.min(1, maxSin));
-  const requestedRad = (params.legSlope * Math.PI) / 180;
-  const effectiveSlopeRad = Math.min(requestedRad, maxSlopeRad);
+  const sinSlope = legLen > 0 ? Math.max(0, h - SLOPING_V_MIN_TIP_Z_M) / legLen : 0;
+  const effectiveSlopeRad = Math.asin(Math.min(1, sinSlope));
 
   const [dx, dy] = orientationVector(params.orientation);
   const [px, py] = [-dy, dx];
