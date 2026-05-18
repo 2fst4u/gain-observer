@@ -544,6 +544,13 @@ describe('antennaStore actions', () => {
       const va3 = useAntennaStore.getState().vAngle;
       // 3λ/leg gives narrower angle (~54°)
       expect(va3).toBeLessThan(va);
+
+      // Extended range: 8λ/leg and 10λ/leg are supported
+      store.setLegLengthMultiple(8);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 16, 2);
+
+      store.setLegLengthMultiple(10);
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 20, 2);
     });
 
     it('setLegLengthMultiple is a no-op for non-travelling-wave types', () => {
@@ -558,11 +565,14 @@ describe('antennaStore actions', () => {
     it('legMultipleFromLength rounds to nearest integer', () => {
       const freq = 14.1;
       const lambda = 299.792458 / freq;
-      expect(legMultipleFromLength(lambda * 2, freq)).toBe(1);  // 1λ/leg
-      expect(legMultipleFromLength(lambda * 4, freq)).toBe(2);  // 2λ/leg
-      expect(legMultipleFromLength(lambda * 6, freq)).toBe(3);  // 3λ/leg
-      // Slightly off — rounds
-      expect(legMultipleFromLength(lambda * 5, freq)).toBe(2); // ≈2.5 → 3 rounds to 3 actually
+      expect(legMultipleFromLength(lambda * 2, freq)).toBe(1);   // 1λ/leg
+      expect(legMultipleFromLength(lambda * 4, freq)).toBe(2);   // 2λ/leg
+      expect(legMultipleFromLength(lambda * 6, freq)).toBe(3);   // 3λ/leg
+      expect(legMultipleFromLength(lambda * 10, freq)).toBe(5);  // 5λ/leg
+      expect(legMultipleFromLength(lambda * 16, freq)).toBe(8);  // 8λ/leg
+      expect(legMultipleFromLength(lambda * 20, freq)).toBe(10); // 10λ/leg
+      // Slightly under a half-integer — rounds down
+      expect(legMultipleFromLength(lambda * 5, freq)).toBe(2);   // 2.499λ/leg → 2
     });
 
     it('clamps vAngle to [10, 180]', () => {
