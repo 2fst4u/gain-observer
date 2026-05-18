@@ -12,6 +12,7 @@ import { DipoleWire } from './DipoleWire';
 import { GroundPlane } from './GroundPlane';
 import { RadiationPattern } from './RadiationPattern';
 import { useAntennaStore, type ComparisonSnapshot } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { THEME_COLORS } from '../../utils/themeColors';
 
 interface AntennaSceneProps {
@@ -19,25 +20,47 @@ interface AntennaSceneProps {
 }
 
 export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
-  const liveType = useAntennaStore((s) => s.antennaType);
-  const liveLength = useAntennaStore((s) => s.length);
-  const liveHeight = useAntennaStore((s) => s.height);
-  const liveOrientation = useAntennaStore((s) => s.orientation);
-  const liveWireRadius = useAntennaStore((s) => s.wireRadius);
-  const liveSegments = useAntennaStore((s) => s.segments);
-  const liveGroundId = useAntennaStore((s) => s.groundId);
-  const liveResult = useAntennaStore((s) => s.result);
-  const liveFeedlineId = useAntennaStore((s) => s.feedlineId);
-  const liveFeedlineLength = useAntennaStore((s) => s.feedlineLength);
-  const liveFeedlineOffset = useAntennaStore((s) => s.feedlineOffset);
-  const showGrid = useAntennaStore((s) => s.showGrid);
-  const showAxes = useAntennaStore((s) => s.showAxes);
-  const patternScale = useAntennaStore((s) => s.patternScale);
-  const dbRange = useAntennaStore((s) => s.dbRange);
-  const colorMaxDb = useAntennaStore((s) => s.colorMaxDb);
-  const colormap = useAntennaStore((s) => s.colormap);
-  const mode = useAntennaStore((s) => s.mode);
-  const theme = useAntennaStore((s) => s.theme);
+  const {
+    liveType,
+    liveLength,
+    liveHeight,
+    liveOrientation,
+    liveWireRadius,
+    liveSegments,
+    liveGroundId,
+    liveResult,
+    liveFeedlineId,
+    liveFeedlineLength,
+    liveFeedlineOffset,
+    showGrid,
+    showAxes,
+    patternScale,
+    dbRange,
+    colorMaxDb,
+    colormap,
+    mode,
+    theme,
+  } = useAntennaStore(useShallow((s) => ({
+    liveType: s.antennaType,
+    liveLength: s.length,
+    liveHeight: s.height,
+    liveOrientation: s.orientation,
+    liveWireRadius: s.wireRadius,
+    liveSegments: s.segments,
+    liveGroundId: s.groundId,
+    liveResult: s.result,
+    liveFeedlineId: s.feedlineId,
+    liveFeedlineLength: s.feedlineLength,
+    liveFeedlineOffset: s.feedlineOffset,
+    showGrid: s.showGrid,
+    showAxes: s.showAxes,
+    patternScale: s.patternScale,
+    dbRange: s.dbRange,
+    colorMaxDb: s.colorMaxDb,
+    colormap: s.colormap,
+    mode: s.mode,
+    theme: s.theme,
+  })));
 
   const type = snapshot?.antennaType ?? liveType;
   const length = snapshot?.length ?? liveLength;
