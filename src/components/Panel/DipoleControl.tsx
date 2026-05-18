@@ -19,6 +19,7 @@ export function DipoleControl() {
   const frequency = useAntennaStore((s) => s.frequency);
   const orientation = useAntennaStore((s) => s.orientation);
   const vAngle = useAntennaStore((s) => s.vAngle);
+  const terminatingResistor = useAntennaStore((s) => s.terminatingResistor);
   const setAntennaType = useAntennaStore((s) => s.setAntennaType);
   const setLength = useAntennaStore((s) => s.setLength);
   const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
@@ -26,6 +27,7 @@ export function DipoleControl() {
   const setHeight = useAntennaStore((s) => s.setHeight);
   const setOrientation = useAntennaStore((s) => s.setOrientation);
   const setVAngle = useAntennaStore((s) => s.setVAngle);
+  const setTerminatingResistor = useAntennaStore((s) => s.setTerminatingResistor);
 
   const unit = displayLengthUnit(units);
   const dispLen = toDisplayLength(length, units);
@@ -39,6 +41,17 @@ export function DipoleControl() {
     setPrevDispLen(dispLen);
     if (!isFocused) {
       setLocalLen(dispLen.toFixed(2));
+    }
+  }
+
+  const [localResistor, setLocalResistor] = useState(terminatingResistor.toString());
+  const [isResistorFocused, setIsResistorFocused] = useState(false);
+
+  const [prevResistor, setPrevResistor] = useState(terminatingResistor);
+  if (terminatingResistor !== prevResistor) {
+    setPrevResistor(terminatingResistor);
+    if (!isResistorFocused) {
+      setLocalResistor(terminatingResistor.toString());
     }
   }
 
@@ -178,6 +191,50 @@ export function DipoleControl() {
               if (!isNaN(val)) setVAngle(val);
             }}
           />
+        </>
+      )}
+
+      {(antennaType === 'sloping-v' || antennaType === 'delta-loop') && (
+        <>
+          <label htmlFor="terminating-resistor" style={{ marginTop: 10 }}>
+            Termination resistance (Ω)
+          </label>
+          <div className="row">
+            <input
+              id="terminating-resistor"
+              type="number"
+              min={0}
+              step={10}
+              value={localResistor}
+              aria-describedby="terminating-resistor-hint"
+              onFocus={() => setIsResistorFocused(true)}
+              onChange={(e) => {
+                const s = e.target.value;
+                setLocalResistor(s);
+                const val = parseFloat(s);
+                if (!isNaN(val)) setTerminatingResistor(val);
+              }}
+              onBlur={() => {
+                setIsResistorFocused(false);
+                setLocalResistor(terminatingResistor.toString());
+              }}
+            />
+            <button
+              onClick={() => setTerminatingResistor(0)}
+              disabled={terminatingResistor === 0}
+              title="Remove termination (unterminated antenna)"
+              style={{ flex: '0 0 auto' }}
+            >
+              Off
+            </button>
+          </div>
+          <div id="terminating-resistor-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+            {terminatingResistor === 0
+              ? 'Unterminated: travelling wave reflects, creating a standing-wave pattern.'
+              : antennaType === 'sloping-v'
+                ? `${terminatingResistor} Ω resistors at each tip (to ground). Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
+                : `${terminatingResistor} Ω load at the base centre. Affects gain, directivity, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
+          </div>
         </>
       )}
 
