@@ -504,7 +504,7 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
     });
 
-    it('setHalfWaveLength preserves leg multiple for travelling-wave types', () => {
+    it('setHalfWaveLength snaps to nearest whole-wavelength multiple at new frequency for travelling-wave types', () => {
       const store = useAntennaStore.getState();
       const freq = 14.1;
       const lambda = 299.792458 / freq;
@@ -513,13 +513,15 @@ describe('antennaStore actions', () => {
       store.setLegLengthMultiple(3); // 3λ/leg = 6λ total
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 6, 2);
 
-      // Simulate band change: setFrequency then setHalfWaveLength
+      // Band change to 7.1 MHz: 3λ/leg at 14.1 MHz is ~1.5λ/leg at 7.1 MHz,
+      // which rounds to 2λ/leg — setHalfWaveLength snaps to the nearest clean
+      // multiple at the current frequency rather than preserving the old count.
       const newFreq = 7.1;
       const newLambda = 299.792458 / newFreq;
       store.setFrequency(newFreq);
       store.setHalfWaveLength();
-      // Still 3λ/leg at the new frequency
-      expect(useAntennaStore.getState().length).toBeCloseTo(newLambda * 6, 2);
+      // Rounds 1.5λ/leg → 2λ/leg = 4λ total
+      expect(useAntennaStore.getState().length).toBeCloseTo(newLambda * 4, 2);
     });
 
     it('setLegLengthMultiple sets length and snaps V-angle for sloping-v', () => {
