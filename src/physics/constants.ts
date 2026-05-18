@@ -39,6 +39,7 @@ export function halfWaveLength(frequencyMHz: number, endEffect = 0.95): number {
  *   - inverted-v: 0.485λ total (0.5λ × 0.97 end-effect) per spec.
  *   - delta-loop: 1λ perimeter.
  *   - sloping-v: 2λ total (1λ per leg).
+ *   - terminated-delta: 1λ perimeter (same triangle as delta-loop).
  *
  * Applies the standard HF end-effect factor k ~ 0.95 where noted.
  */
@@ -54,6 +55,11 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
       return lambda * 1.0 * endEffect;
     case 'sloping-v':
       return lambda * 2.0 * endEffect;
+    case 'terminated-delta':
+      // Same physical perimeter as a delta loop. Resonance is irrelevant in
+      // a true terminated configuration (the wave is absorbed before it can
+      // reflect), but 1λ is the canonical starting point.
+      return lambda * 1.0 * endEffect;
     default:
       return lambda * 0.5 * endEffect;
   }
@@ -127,6 +133,34 @@ export const SLOPING_V_MIN_TIP_Z_M = 0.5;
  */
 export const SLOPING_V_LEFT_STUB_TAG = 7;
 export const SLOPING_V_RIGHT_STUB_TAG = 8;
+
+/**
+ * Wire tags for the Terminated Delta antenna.
+ *
+ * The terminated delta is the same isosceles triangle as a delta loop with
+ * the apex at the top and feedpoint at the apex (DIPOLE_LEFT_TAG /
+ * DIPOLE_RIGHT_TAG carry the two top legs, exactly as in the delta loop).
+ *
+ * The base wire is **split** in the middle into two independent half-base
+ * wires, each running inward from its corner toward (but not touching) the
+ * centre. At the inner end of each half-base, a short vertical stub drops
+ * to near-ground and carries the terminating resistor — the same per-tip
+ * shunt-to-earth topology used by the sloping-V termination.
+ */
+export const TERMINATED_DELTA_LEFT_BASE_TAG = 9;
+export const TERMINATED_DELTA_RIGHT_BASE_TAG = 10;
+export const TERMINATED_DELTA_LEFT_STUB_TAG = 11;
+export const TERMINATED_DELTA_RIGHT_STUB_TAG = 12;
+
+/**
+ * Gap (metres) between the inner ends of the two terminated-delta
+ * half-base wires at the centre of the base. The two halves must not meet
+ * (otherwise they'd short across the termination), so we leave a small
+ * physical gap matched to FEED_BRIDGE_LENGTH_M so the geometry stays
+ * NEC-valid (no coincident wires) without materially altering the
+ * radiating perimeter.
+ */
+export const TERMINATED_DELTA_CENTRE_GAP_M = FEED_BRIDGE_LENGTH_M;
 
 /**
  * Z-coordinate of the bottom endpoint of the sloping-V termination stubs,

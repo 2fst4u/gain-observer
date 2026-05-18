@@ -7,6 +7,9 @@ import {
   FEED_BRIDGE_LENGTH_M,
   DELTA_BASE_TAG,
   FEEDLINE_SHIELD_TAG,
+  TERMINATED_DELTA_LEFT_BASE_TAG,
+  TERMINATED_DELTA_RIGHT_BASE_TAG,
+  TERMINATED_DELTA_CENTRE_GAP_M,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -446,6 +449,157 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
       radius: params.wireRadius,
       segments: baseSegments,
       tag: DELTA_BASE_TAG,
+    },
+  ];
+
+  if (params.feedlineShield) {
+    wires.push({
+      start: apexLeft,
+      end: apexRight,
+      radius: params.wireRadius,
+      segments: 1,
+      tag: FEED_BRIDGE_TAG,
+    });
+    wires.push({
+      start: apexRight,
+      end: [apexRight[0], apexRight[1], params.feedlineShield.bottomZ],
+      radius: params.feedlineShield.radius,
+      segments: params.feedlineShield.segments,
+      tag: FEEDLINE_SHIELD_TAG,
+    });
+  }
+
+  return wires;
+}
+
+export interface TerminatedDeltaWiresParams {
+  length: number; // perimeter
+  height: number;
+  orientation: Orientation;
+  wireRadius: number;
+  segments: number;
+  frequency: number;
+  feedlineShield?: FeedlineShield | null;
+}
+
+/**
+ * Builds the wires for a Terminated Delta antenna (apex-up, apex-fed).
+ *
+ * Geometry is identical to the Delta Loop's isosceles triangle: same
+ * perimeter-preserving leg/base math, same equilateral-when-possible
+ * shape, same apex feed convention. The only structural difference is
+ * that the base is **split in the middle** into two independent
+ * half-base wires separated by `TERMINATED_DELTA_CENTRE_GAP_M`. Each
+ * half-base ends near the centre and the termination network (vertical
+ * stub + LD-4 resistor) is added in selectSimulationInput when the user
+ * specifies a non-zero terminating resistance — mirroring the
+ * physically-correct sloping-V tip-to-earth shunt termination.
+ *
+ * Tags:
+ *   DIPOLE_LEFT_TAG               (1)  — top-left leg:  leftCorner → apex
+ *   DIPOLE_RIGHT_TAG              (2)  — top-right leg: apex → rightCorner
+ *   TERMINATED_DELTA_LEFT_BASE_TAG  (9)  — left half-base:  leftCorner → centreLeft
+ *   TERMINATED_DELTA_RIGHT_BASE_TAG (10) — right half-base: centreRight → rightCorner
+ *
+ * Excitation is placed on the last segment of DIPOLE_LEFT_TAG (the apex
+ * end), or on the feed bridge / shield when a feedline is active —
+ * exactly as for the delta loop.
+ */
+export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): Wire[] {
+  const perimeter = params.length;
+  const h = params.height;
+  const [dx, dy] = orientationVector(params.orientation);
+
+  // Maximum available triangle height given the mast height.
+  // Identical to the delta loop's geometry math so that the two
+  // antennas occupy the same physical envelope for the same length.
+  const equilateralHeight = (perimeter * Math.sqrt(3)) / 6;
+  const maxAvailable = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
+  const triHeight = Math.min(equilateralHeight, maxAvailable);
+
+  const bottomZ = h - triHeight;
+
+  // Isosceles triangle with fixed perimeter P and height t:
+  //   leg  = t²/P + P/4
+  //   base = P − 2·leg  →  halfBase = P/4 − t²/P
+  const legLength = (triHeight * triHeight) / perimeter + perimeter / 4;
+  const halfBase = perimeter / 4 - (triHeight * triHeight) / perimeter;
+
+  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
+  const apex: [number, number, number] = [0, 0, h];
+
+  // When a feedline is active we split the apex with a source bridge so
+  // the TL card can connect to it, just like the delta loop topology.
+  const apexLeft: [number, number, number] = params.feedlineShield
+    ? [-bridgeHalf * dx, -bridgeHalf * dy, h]
+    : apex;
+  const apexRight: [number, number, number] = params.feedlineShield
+    ? [bridgeHalf * dx, bridgeHalf * dy, h]
+    : apex;
+
+  const leftCorner: [number, number, number] = [-halfBase * dx, -halfBase * dy, bottomZ];
+  const rightCorner: [number, number, number] = [halfBase * dx, halfBase * dy, bottomZ];
+
+  // Inner ends of the two half-base wires. They sit slightly to the left
+  // and right of the geometric centre with a gap of TERMINATED_DELTA_CENTRE_GAP_M
+  // between them — the gap is electrically open in the unterminated case
+  // and is bridged by the stub+resistor pair to ground when terminated.
+  const innerOffset = Math.max(0, TERMINATED_DELTA_CENTRE_GAP_M / 2);
+  const innerHalfBase = Math.max(0.01, halfBase - innerOffset);
+  const centreLeft: [number, number, number] = [-innerOffset * dx, -innerOffset * dy, bottomZ];
+  const centreRight: [number, number, number] = [innerOffset * dx, innerOffset * dy, bottomZ];
+
+  const lambda = wavelengthMeters(params.frequency);
+
+  const minLegSegs = Math.ceil((SEGS_PER_WAVELENGTH * legLength) / lambda);
+  const segmentsPerLeg = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minLegSegs, Math.round(params.segments / 3)),
+  );
+
+  const minHalfBaseSegs = Math.ceil((SEGS_PER_WAVELENGTH * innerHalfBase) / lambda);
+  const halfBaseSegments = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minHalfBaseSegs, Math.round(params.segments / 6)),
+  );
+
+  // Half-base wires are oriented so that the segment adjacent to the
+  // termination is the LAST segment of the wire — analogous to the way
+  // the delta loop's left leg is oriented so its last segment is at the
+  // apex feed. This gives the termination diagnostics a consistent
+  // "current at the loaded end" interpretation.
+  //   LEFT  half-base:  leftCorner  → centreLeft   (last seg = inner end)
+  //   RIGHT half-base:  centreRight → rightCorner  (first seg = inner end)
+  // We keep the right-leg ordering "outward" for symmetry with the
+  // delta-loop's right-leg convention (apex → rightCorner).
+  const wires: Wire[] = [
+    {
+      start: leftCorner,
+      end: apexLeft,
+      radius: params.wireRadius,
+      segments: segmentsPerLeg,
+      tag: DIPOLE_LEFT_TAG,
+    },
+    {
+      start: apexRight,
+      end: rightCorner,
+      radius: params.wireRadius,
+      segments: segmentsPerLeg,
+      tag: DIPOLE_RIGHT_TAG,
+    },
+    {
+      start: leftCorner,
+      end: centreLeft,
+      radius: params.wireRadius,
+      segments: halfBaseSegments,
+      tag: TERMINATED_DELTA_LEFT_BASE_TAG,
+    },
+    {
+      start: centreRight,
+      end: rightCorner,
+      radius: params.wireRadius,
+      segments: halfBaseSegments,
+      tag: TERMINATED_DELTA_RIGHT_BASE_TAG,
     },
   ];
 

@@ -40,7 +40,7 @@ export function FeedlineControl() {
     }
   }
 
-  if (!['dipole', 'inverted-v', 'delta-loop', 'sloping-v'].includes(antennaType)) return null;
+  if (!['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'].includes(antennaType)) return null;
 
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);

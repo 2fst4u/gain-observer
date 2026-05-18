@@ -9,8 +9,11 @@ export type Vec3 = readonly [number, number, number];
  *   - dipole / inverted-v: ½λ total (standard resonant length).
  *   - delta-loop: 1λ perimeter.
  *   - sloping-v: 2λ total (1λ per leg).
+ *   - terminated-delta: 1λ perimeter (same triangle shape as a delta loop,
+ *     but the base is split in the middle and each half terminates to
+ *     ground through its own resistor, like a per-tip sloping-V termination).
  */
-export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v';
+export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta';
 
 export interface Wire {
   readonly start: Vec3;
