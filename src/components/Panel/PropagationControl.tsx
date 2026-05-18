@@ -267,8 +267,8 @@ export function PropagationControl() {
           units={units}
         />
       ) : (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>
-          Computing antenna pattern…
+        <div role="status" aria-live="polite" style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 0' }}>
+          <div className="spinner" aria-hidden="true" /> Computing antenna pattern…
         </div>
       )}
 

@@ -42,3 +42,7 @@
 ## 2024-05-27 - Inline Constraint Warnings (Geometry Status)
 **Learning:** Found that when a user's requested numeric input (e.g., Sloping V angle) is silently clamped by the system to satisfy physical constraints (e.g., minimum tip height), visual warnings alone are insufficient for accessibility. Without proper ARIA announcements, screen reader users miss the fact that their requested input was overridden by the system, leading to confusion about the actual state of the simulation.
 **Action:** When creating inline warning components that display dynamic constraint violations or system overrides (like `GeometryStatus`), always wrap the notification in a container with `role="status"` and `aria-live="polite"` so screen readers are audibly notified of the clamp.
+
+## 2024-05-28 - Inline Loading States and ARIA Roles
+**Learning:** Found that inline loading states for background computation (like computing SWR sweeps or radar patterns) lacked visual spinners and ARIA roles. While full-page or overlay states used these correctly, the localized components only used static text. This causes an inconsistent user experience and leaves screen reader users completely unaware that computation is occurring.
+**Action:** When creating or auditing localized/inline async loading states, always ensure they use visual indicators (like the `<div className="spinner" />`) properly aligned via flexbox, and explicitly define them as live regions (`role="status"`, `aria-live="polite"`) so they are announced by assistive technologies.
