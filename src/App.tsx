@@ -13,7 +13,6 @@ export function App() {
   useUnitsPersistence();
   usePhysicsEngine({ debounceMs: 150 });
   useKeyboardShortcuts();
-  useDynamicTitle();
 
   const mode = useAntennaStore((s) => s.mode);
   const error = useAntennaStore((s) => s.error);
@@ -138,17 +137,4 @@ function useKeyboardShortcuts(): void {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [toggleTheme, toggleUnits, setMode]);
-}
-
-function useDynamicTitle(): void {
-  const frequency = useAntennaStore((s) => s.frequency);
-  const antennaType = useAntennaStore((s) => s.antennaType);
-  useEffect(() => {
-    // SEO: Add dynamic <title> generation based on page content to improve SERP snippets
-    const formatType = antennaType
-      .split('-')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-    document.title = `${frequency.toFixed(3)} MHz ${formatType} - HF Gain Visualiser`;
-  }, [frequency, antennaType]);
 }
