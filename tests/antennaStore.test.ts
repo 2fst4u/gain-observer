@@ -10,7 +10,6 @@ import {
   DELTA_BASE_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
-import { FEED_BRIDGE_TAG } from '../src/physics/constants';
 
 describe('antennaStore selectors', () => {
   describe('buildWires', () => {
