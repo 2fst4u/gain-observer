@@ -5,3 +5,6 @@
 ## 2024-05-15 - Bumping coverage threshold for PolarPlots
 **Learning:** React Component Unit Tests for complex charts. When testing ChartJS components that use callbacks in deep properties (like `options.scales.r.ticks.callback`), simulating those specific nested functions in the mocked component allows testing internal branch logic safely without rendering real canvases.
 **Action:** Mock `react-chartjs-2` specifically testing the callbacks if necessary, rather than trying to load the full canvas.
+## 2026-05-18 - Explicit typing in mocked selectors
+**Learning:** The project's ESLint configuration strictly enforces `@typescript-eslint/no-explicit-any`. When writing tests or mocking functions (such as Zustand selectors), use `unknown` or precise typing instead of `any` to prevent linting failures.
+**Action:** Use `unknown` instead of `any` when mocking Zustand selectors in unit tests.
