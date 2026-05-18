@@ -119,13 +119,11 @@ export function DipoleWire({
   const dipoleSingle = rendered.find((s) => s.tag === DIPOLE_TAG && !bridge);
   const shield = rendered.find((s) => s.isShield);
 
-  // V-Beam and Delta Loop: left leg runs tip→apex; sceneEnd is the apex point.
-  const vBeamLeft = type === 'v-beam' ? (rendered.find((s) => s.tag === DIPOLE_LEFT_TAG) ?? null) : null;
+  // Delta Loop: left leg runs tip→apex; sceneEnd is the apex point.
   const deltaLoopLeft = type === 'delta-loop' ? (rendered.find((s) => s.tag === DIPOLE_LEFT_TAG) ?? null) : null;
 
-  // Feedpoint: bridge midpoint (split-fed) > delta loop apex > v-beam apex >
-  // dipole wire midpoint (single-wire legacy).
-  const feedpoint = bridge?.feedMid ?? deltaLoopLeft?.sceneEnd ?? vBeamLeft?.sceneEnd ?? dipoleSingle?.feedMid ?? null;
+  // Feedpoint: bridge midpoint (split-fed) > delta loop apex > dipole wire midpoint (single-wire legacy).
+  const feedpoint = bridge?.feedMid ?? deltaLoopLeft?.sceneEnd ?? dipoleSingle?.feedMid ?? null;
 
   return (
     <group>

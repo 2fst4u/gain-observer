@@ -155,35 +155,6 @@ describe('StatsReadout', () => {
     expect(container.textContent).not.toContain('Termination reduces reflections');
   });
 
-  it('renders termination section and note for v-beam with diagnostics', () => {
-    const diagnostics: TerminationDiagnostics = {
-      currentRippleByTag: [
-        { tagNo: 1, magnitudes: [2e-3, 1e-3], ripple: 2, rippleDb: 6.02 },
-        { tagNo: 2, magnitudes: [1.5e-3, 0.5e-3], ripple: 3, rippleDb: 9.54 },
-      ],
-      powerBudget: {
-        inputW: 0.01, radiatedW: 0.006, structureLossW: 0,
-        networkLossW: 0.004, efficiencyPct: 60,
-      },
-      frontBackDb: 8.5,
-    };
-    useAntennaStore.setState({
-      antennaType: 'v-beam',
-      result: {
-        computeTimeMs: 10, maxGainDbi: 7, takeoffElevationDeg: 15,
-        takeoffAzimuthDeg: 0, impedance: { R: 600, X: 0 }, swr: 12.0,
-        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
-        terminationDiagnostics: diagnostics,
-      } as unknown as import('../src/physics/types').SimulationResult,
-    });
-    const { container, getByText } = render(<StatsReadout />);
-    expect(getByText('Termination effectiveness')).not.toBeNull();
-    expect(container.textContent).toContain('Termination reduces reflections');
-    expect(container.textContent).toContain('Left leg ripple');
-    expect(container.textContent).toContain('Right leg ripple');
-    expect(container.textContent).toContain('Front/back ratio');
-  });
-
   it('renders NVIS stats when mode is nvis', () => {
     useAntennaStore.setState({
       mode: 'nvis',

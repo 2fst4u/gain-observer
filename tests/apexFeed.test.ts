@@ -59,21 +59,6 @@ describe('Apex Feed and Geometry', () => {
     expectExcitation(deck, FEED_BRIDGE_TAG, 1);
   });
 
-  it('should generate a balanced bridge for V-Beam', () => {
-    const store = useAntennaStore.getState();
-    store.setAntennaType('v-beam');
-    store.setHeight(15);
-    store.setVAngle(90);
-
-    const input = selectSimulationInput(useAntennaStore.getState());
-    const deck = buildNecCards(input);
-
-    const bridgeLine = getNecLines(deck, 'GW').find(l => parseGwLine(l).tag === FEED_BRIDGE_TAG);
-    expect(bridgeLine).toBeDefined();
-
-    expectExcitation(deck, FEED_BRIDGE_TAG, 1);
-  });
-
   it('should feed the apex (last segment of left leg) for Delta Loop', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('delta-loop');

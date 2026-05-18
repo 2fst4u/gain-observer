@@ -64,7 +64,7 @@ export function DipoleControl() {
 
   const maxHeight = units === 'metric' ? 40 : 131;
 
-  const isTravelingWave = antennaType === 'sloping-v' || antennaType === 'v-beam';
+  const isTravelingWave = antennaType === 'sloping-v';
   const currentLegMultiple = isTravelingWave ? legMultipleFromLength(length, frequency) : 1;
   const lambda = 299.792458 / frequency;
 
@@ -73,7 +73,6 @@ export function DipoleControl() {
     'inverted-v': '½λ',
     'delta-loop': '1λ',
     'sloping-v': '1λ/leg',
-    'v-beam': '1λ/leg',
   };
 
   const resonateTitles: Record<AntennaType, string> = {
@@ -81,7 +80,6 @@ export function DipoleControl() {
     'inverted-v': 'Set length to resonant ½λ',
     'delta-loop': 'Set perimeter to resonant 1λ',
     'sloping-v': 'Set total length to 2λ (1λ per leg)',
-    'v-beam': 'Set total length to 2λ (1λ per leg)',
   };
 
   return (
@@ -99,7 +97,6 @@ export function DipoleControl() {
         <option value="dipole">Horizontal Dipole</option>
         <option value="inverted-v">Inverted V</option>
         <option value="sloping-v">Sloping V</option>
-        <option value="v-beam">V-Beam</option>
         <option value="delta-loop">Delta Loop</option>
       </select>
 

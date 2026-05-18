@@ -8,9 +8,9 @@ export type Vec3 = readonly [number, number, number];
  * Different topologies have different reference lengths for resonance:
  *   - dipole / inverted-v: ½λ total (standard resonant length).
  *   - delta-loop: 1λ perimeter.
- *   - sloping-v / v-beam: 2λ total (1λ per leg).
+ *   - sloping-v: 2λ total (1λ per leg).
  */
-export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'v-beam';
+export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v';
 
 export interface Wire {
   readonly start: Vec3;
@@ -195,7 +195,7 @@ export interface PowerBudget {
   readonly structureLossW: number;
   /**
    * Power absorbed by NT (network) cards, watts.
-   * For a terminated V-beam this equals the power dissipated in the
+   * For a terminated sloping-V this equals the power dissipated in the
    * far-end resistor — the primary termination-effectiveness metric.
    */
   readonly networkLossW: number;

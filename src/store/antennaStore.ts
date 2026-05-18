@@ -58,7 +58,6 @@ import type { UnitSystem } from '../physics/units';
 import {
   buildInvertedVWires,
   buildSlopingVWires,
-  buildVBeamWires,
   buildDeltaLoopWires,
   orientationVector,
   type OrientationPreset,
@@ -106,7 +105,7 @@ export interface AntennaState {
   segments: number;
 
   /**
-   * For V-beam and sloping V: the interior angle between the two legs,
+   * For sloping V: the interior angle between the two legs,
    * degrees (10..180). For Inverted V: the interior angle at the apex.
    */
   vAngle: number;
@@ -121,8 +120,7 @@ export interface AntennaState {
    * Far-end terminating resistor (ohms).
    * 0 = unterminated.
    *
-   * - sloping-V / v-beam: inserts one NEC NT card representing the total
-   *   across-tip resistance (not per-leg-to-ground).
+   * - sloping-V: inserts stub wires with NEC LD cards for tip-to-earth termination.
    * - delta-loop: inserts one NEC LD 4 card at the centre of the base wire.
    */
   terminatingResistor: number;
@@ -178,7 +176,7 @@ export interface AntennaState {
   setLength(meters: number): void;
   setHalfWaveLength(): void;
   /**
-   * Sets each leg to `n` wavelengths for sloping-V / V-beam and snaps the
+   * Sets each leg to `n` wavelengths for sloping-V and snaps the
    * V-angle to the optimal value. No-op for other antenna types.
    */
   setLegLengthMultiple(n: number): void;
@@ -304,9 +302,6 @@ export const useAntennaStore = create<AntennaState>()(
           s.legSlope = 0;
           // Default ~300 Ω per leg matches the reference design (antenna.be/sv.html).
           if (s.terminatingResistor === 0) s.terminatingResistor = 300;
-        } else if (type === 'v-beam') {
-          s.vAngle = 90;
-          s.legSlope = 0;
         } else if (type === 'inverted-v') {
           s.vAngle = 120;
           s.legSlope = 0;
@@ -328,7 +323,7 @@ export const useAntennaStore = create<AntennaState>()(
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
       setHalfWaveLength: () => set((s) => {
-        const isTravelingWave = s.antennaType === 'sloping-v' || s.antennaType === 'v-beam';
+        const isTravelingWave = s.antennaType === 'sloping-v';
         if (isTravelingWave) {
           // Preserve the current leg multiple so a band change keeps the same
           // leg length in wavelengths (e.g. 3λ/leg on 40m stays 3λ/leg on 20m).
@@ -345,7 +340,7 @@ export const useAntennaStore = create<AntennaState>()(
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
       setLegLengthMultiple: (n) => set((s) => {
-        if (s.antennaType !== 'sloping-v' && s.antennaType !== 'v-beam') return;
+        if (s.antennaType !== 'sloping-v') return;
         if (!Number.isFinite(n) || n < 1) return;
         s.length = Math.round(n) * 2 * (299.792458 / s.frequency);
         if (s.antennaType === 'sloping-v') {
@@ -514,20 +509,14 @@ function clampSegments(n: number): number {
  * two legs combine constructively along the bisector when the projection of
  * each leg's unit direction onto the bisector equals cos(θ).
  *
- * For a *horizontal* V-beam the leg direction makes angle halfV with the
- * bisector, so projection = cos(halfV). Setting cos(halfV) = 1 − 0.371λ/L
- * gives the Kraus formula.
- *
- * For a *sloping-V* each leg is tilted downward at slope angle α from
+ * For a sloping-V each leg is tilted downward at slope angle α from
  * horizontal. Its unit direction is (sinV·cosα, cosV·cosα, −sinα). The
  * projection onto the forward bisector [0,1,0] is cosV·cosα. Setting
  * cosV·cosα = 1 − 0.371λ/L gives:
  *
  *   cosV = (1 − 0.371·λ/L) / cos(α)
  *
- * At α = 0 (horizontal) this reduces to the Kraus formula exactly. Pass
- * `heightM` only for sloping-V geometry; omit (or pass undefined) for
- * horizontal V-beams.
+ * At α = 0 (horizontal) this reduces to the Kraus formula exactly.
  *
  * Clamped to [10°, 180°].
  */
@@ -554,7 +543,7 @@ export function computeOptimalVAngleDeg(
 
 /**
  * Returns the nearest integer leg-length multiple (λ per leg) for the current
- * sloping-V / V-beam length at the given frequency. Minimum 1.
+ * sloping-V length at the given frequency. Minimum 1.
  */
 export function legMultipleFromLength(totalLengthM: number, frequencyMHz: number): number {
   const lambda = 299.792458 / frequencyMHz;
@@ -573,8 +562,6 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
     case 'delta-loop':
       return lambda;
     case 'sloping-v':
-      return lambda * 2;
-    case 'v-beam':
       return lambda * 2;
     default:
       return halfWaveLength(frequencyMHz);
@@ -636,10 +623,6 @@ export function buildWires(
 
   if (antennaType === 'sloping-v') {
     return buildSlopingVWires(state);
-  }
-
-  if (antennaType === 'v-beam') {
-    return buildVBeamWires(state);
   }
 
   if (antennaType === 'delta-loop') {
@@ -799,9 +782,6 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     excitation = { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
   } else if (hasBridge) {
     excitation = { wireTag: FEED_BRIDGE_TAG, segment: 1 };
-  } else if (state.antennaType === 'v-beam') {
-    const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftWire.segments };
   } else if (state.antennaType === 'delta-loop') {
     const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
     excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
@@ -850,54 +830,41 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     });
   }
 
-  const isVTopology = state.antennaType === 'sloping-v' || state.antennaType === 'v-beam';
-  if (isVTopology && state.terminatingResistor > 0) {
+  if (state.antennaType === 'sloping-v' && state.terminatingResistor > 0) {
     const R = state.terminatingResistor;
+    // Model the physical tip-to-earth terminating resistor correctly:
+    // add a short vertical stub wire from each tip down to near-ground
+    // (SLOPING_V_STUB_BOTTOM_Z_M), then place the resistance in that stub.
+    //
+    // This creates an explicit NEC current path from the wire tip toward
+    // the ground plane, matching the real antenna where the resistor
+    // connects the wire end to a driven ground rod. A series LD on the
+    // leg end alone does not create this shunt-to-earth current path.
+    const leftLeg  = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+    const rightLeg = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+    const leftTip  = leftLeg.start;   // left leg runs tip → apex
+    const rightTip = rightLeg.end;    // right leg runs apex → tip
 
-    if (state.antennaType === 'sloping-v') {
-      // Model the physical tip-to-earth terminating resistor correctly:
-      // add a short vertical stub wire from each tip down to near-ground
-      // (SLOPING_V_STUB_BOTTOM_Z_M), then place the resistance in that stub.
-      //
-      // This creates an explicit NEC current path from the wire tip toward
-      // the ground plane, matching the real antenna where the resistor
-      // connects the wire end to a driven ground rod. A series LD on the
-      // leg end alone does not create this shunt-to-earth current path.
-      const leftLeg  = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-      const rightLeg = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-      const leftTip  = leftLeg.start;   // left leg runs tip → apex
-      const rightTip = rightLeg.end;    // right leg runs apex → tip
-
-      wires.push(
-        {
-          start: leftTip,
-          end: [leftTip[0], leftTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
-          radius: state.wireRadius,
-          segments: 1,
-          tag: SLOPING_V_LEFT_STUB_TAG,
-        },
-        {
-          start: rightTip,
-          end: [rightTip[0], rightTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
-          radius: state.wireRadius,
-          segments: 1,
-          tag: SLOPING_V_RIGHT_STUB_TAG,
-        },
-      );
-      loads.push(
-        { type: 4, wireTag: SLOPING_V_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
-        { type: 4, wireTag: SLOPING_V_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
-      );
-    } else {
-      // V-beam: tips are high above ground; model each tip termination as a
-      // series LD on the final leg segment (the current path to ground via
-      // the image is adequate at typical V-beam tip heights).
-      const rightWire = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-      loads.push(
-        { type: 4, wireTag: DIPOLE_LEFT_TAG,  segmentStart: 1,                  segmentEnd: 1,                  param1: R, param2: 0 },
-        { type: 4, wireTag: DIPOLE_RIGHT_TAG, segmentStart: rightWire.segments, segmentEnd: rightWire.segments, param1: R, param2: 0 },
-      );
-    }
+    wires.push(
+      {
+        start: leftTip,
+        end: [leftTip[0], leftTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
+        radius: state.wireRadius,
+        segments: 1,
+        tag: SLOPING_V_LEFT_STUB_TAG,
+      },
+      {
+        start: rightTip,
+        end: [rightTip[0], rightTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
+        radius: state.wireRadius,
+        segments: 1,
+        tag: SLOPING_V_RIGHT_STUB_TAG,
+      },
+    );
+    loads.push(
+      { type: 4, wireTag: SLOPING_V_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+      { type: 4, wireTag: SLOPING_V_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+    );
   }
 
   return {

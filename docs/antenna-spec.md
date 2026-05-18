@@ -118,43 +118,9 @@ This document defines the physical and mathematical model for all antenna types 
 
 ---
 
-## 4. V-Beam (Terminated)
+## 4. Delta Loop
 
 ### 4.1 Geometry Definition
-- **Apex Location:** Apex at $(0, 0, \text{height})$.
-- **Leg Count & Length:** 2 legs, length $L$ per leg.
-- **Reference Length:** $2.0\lambda$ per leg.
-- **Angle/Slope:** Included angle $\alpha$. Entire antenna is horizontal ($z = \text{height}$).
-- **Tips:** Outer ends of legs.
-- **Min Height:** Height must be $\ge 0.1$ m.
-
-### 4.2 Feedpoint Definition
-- **NEC Excitation:** 1-segment source bridge at apex.
-- **Segment:** Segment 1 of bridge.
-- **Feed Type:** Balanced bridge segment.
-- **Feedline Support:** Not supported.
-
-### 4.3 Termination Definition
-- **Topology:** Differential resistor between tips (Identical to Sloping V).
-- **NEC Model:** `LD 4` on a non-radiating bridge wire between tips.
-- **Value:** Total differential resistance.
-
-### 4.4 SWR Convention
-- **Reference:** 50.0 Ω.
-- **Metric:** Raw feedpoint SWR.
-
-### 4.5 Segmentation Rules
-- **Density:** 20 segments per $\lambda$ minimum.
-- **Minimum:** 9 segments per radiating leg.
-
-### 4.6 Glossary
-- Same as Section 1.6.
-
----
-
-## 5. Delta Loop
-
-### 5.1 Geometry Definition
 - **Apex Location:** Highest point at $(0, 0, \text{height})$.
 - **Leg Count & Length:** 3 wires forming a triangle, total perimeter $L$.
 - **Reference Length:** $1.03\lambda$ (Resonance).
@@ -162,23 +128,23 @@ This document defines the physical and mathematical model for all antenna types 
 - **Tips:** Bottom corners.
 - **Min Height:** Bottom wire must be $\ge 0.1$ m above ground.
 
-### 5.2 Feedpoint Definition
+### 4.2 Feedpoint Definition
 - **NEC Excitation:** Center of the bottom horizontal wire (Tag 2).
 - **Segment:** Center segment of Tag 2.
 - **Feed Type:** Single-segment voltage source.
 - **Feedline Support:** Supported.
 
-### 5.3 Termination Definition
+### 4.3 Termination Definition
 - **Model:** None.
 
-### 5.4 SWR Convention
+### 4.4 SWR Convention
 - **Reference:** 50.0 Ω.
 - **Metric:** Raw feedpoint SWR.
 
-### 5.5 Segmentation Rules
+### 4.5 Segmentation Rules
 - **Density:** 20 segments per $\lambda$.
 - **Minimum:** 9 segments per side.
 - **Alignment:** Bottom wire should have an **odd** number of segments for center feed.
 
-### 5.6 Glossary
+### 4.6 Glossary
 - Same as Section 1.6.
