@@ -875,10 +875,15 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     // the ground plane, matching the real antenna where the resistor
     // connects the wire end to a driven ground rod. A series LD on the
     // leg end alone does not create this shunt-to-earth current path.
-    const leftLeg  = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    const rightLeg = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
-    const leftTip  = leftLeg.start;   // left leg runs tip → apex
-    const rightTip = rightLeg.end;    // right leg runs apex → tip
+    //
+    // With graded segmentation each leg may be emitted as multiple sub-wires
+    // sharing the leg's tag. By convention `buildSlopingVWires` emits the
+    // LEFT leg tip→apex (so the first sub-wire's `.start` is the tip) and
+    // the RIGHT leg apex→tip (so the last sub-wire's `.end` is the tip).
+    const leftLegWires  = wires.filter((w) => w.tag === DIPOLE_LEFT_TAG);
+    const rightLegWires = wires.filter((w) => w.tag === DIPOLE_RIGHT_TAG);
+    const leftTip  = leftLegWires[0]!.start;
+    const rightTip = rightLegWires[rightLegWires.length - 1]!.end;
 
     wires.push(
       {

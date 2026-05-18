@@ -307,17 +307,30 @@ describe('antennaStore selectors', () => {
       };
 
       const wires = buildWires(state);
-      expect(wires).toHaveLength(3); // Two legs + feed bridge
+      // Graded-segmentation sloping-V emits one Wire per graded-prefix segment
+      // plus one multi-segment tail Wire per leg, plus the apex bridge.
+      // Exact count depends on band, but there must be at least two leg
+      // sub-wires per side and one bridge.
+      const leftWires = wires.filter((w) => w.tag === 1);
+      const rightWires = wires.filter((w) => w.tag === 2);
+      const bridges = wires.filter((w) => w.tag === 3);
+      expect(leftWires.length).toBeGreaterThanOrEqual(2);
+      expect(rightWires.length).toBeGreaterThanOrEqual(2);
+      expect(bridges).toHaveLength(1);
+      const bridge = bridges[0]!;
 
-      // Left leg: Tip to ApexBridge connection
-      const left = wires.find((w) => w.tag === 1)!;
-      // Right leg: ApexBridge connection to Tip
-      const right = wires.find((w) => w.tag === 2)!;
-      // Bridge
-      const bridge = wires.find((w) => w.tag === 3)!;
+      // LEFT leg is emitted tip → apex: first sub-wire is the tail (at the
+      // tip); last sub-wire connects to the apex.
+      const leftTipWire = leftWires[0]!;
+      const leftApexWire = leftWires[leftWires.length - 1]!;
+      // RIGHT leg is emitted apex → tip: first sub-wire connects to the
+      // apex; last sub-wire is the tail (at the tip).
+      const rightApexWire = rightWires[0]!;
+      const rightTipWire = rightWires[rightWires.length - 1]!;
 
-      expect(left.end).toEqual(bridge.start);
-      expect(right.start).toEqual(bridge.end);
+      // Apex connections to the bridge.
+      expect(leftApexWire.end).toEqual(bridge.start);
+      expect(rightApexWire.start).toEqual(bridge.end);
 
       // Bridge is horizontal at apex height
       expect(bridge.start[2]).toBe(10);
@@ -328,8 +341,8 @@ describe('antennaStore selectors', () => {
       // maxSin = 9.5 / 39.95 ≈ 0.237.
       // maxSlope = asin(0.237) ≈ 13.7 deg.
       // 30 deg > 13.7 deg, so it should be clamped to 0.5m tip height.
-      expect(left.start[2]).toBeCloseTo(0.5, 5);
-      expect(right.end[2]).toBeCloseTo(0.5, 5);
+      expect(leftTipWire.start[2]).toBeCloseTo(0.5, 5);
+      expect(rightTipWire.end[2]).toBeCloseTo(0.5, 5);
     });
 
     it('clamps sloping-V slope to prevent tips hitting ground', () => {
@@ -350,8 +363,12 @@ describe('antennaStore selectors', () => {
       // maxSin = (10 - 0.5) / 50 = 9.5 / 50 = 0.19
       // maxSlope = asin(0.19) ≈ 10.95 deg
       // tip_z should be 0.5
-      expect(wires.find((w) => w.tag === 1)!.start[2]).toBeCloseTo(0.5, 5);
-      expect(wires.find((w) => w.tag === 2)!.end[2]).toBeCloseTo(0.5, 5);
+      const leftWires = wires.filter((w) => w.tag === 1);
+      const rightWires = wires.filter((w) => w.tag === 2);
+      // LEFT leg emitted tip → apex (first sub-wire's .start is the tip);
+      // RIGHT leg emitted apex → tip (last sub-wire's .end is the tip).
+      expect(leftWires[0]!.start[2]).toBeCloseTo(0.5, 5);
+      expect(rightWires[rightWires.length - 1]!.end[2]).toBeCloseTo(0.5, 5);
     });
 
     it('adds an LD choke balun on the shield when balun is enabled', () => {
@@ -850,7 +867,9 @@ describe('antennaStore actions', () => {
         feedlineId: 'none',
       };
       const input = selectSimulationInput(state as AntennaState);
-      expect(input.wires).toHaveLength(3);
+      // Graded segmentation produces multiple sub-wires per leg; only the
+      // bridge (tag 3) is guaranteed to be a single wire.
+      expect(input.wires.filter((w) => w.tag === 3)).toHaveLength(1);
 
       expect(input.excitation.wireTag).toBe(3); // FEED_BRIDGE_TAG
       expect(input.excitation.segment).toBe(1);
