@@ -40,6 +40,7 @@ export function GroundControl() {
           style={{ padding: '2px 8px', fontSize: 11 }}
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
+          aria-label={expanded ? 'Simple: Hide custom ground settings' : 'Custom: Show custom ground settings'}
           title={expanded ? 'Hide custom settings' : 'Show custom settings'}
         >
           {expanded ? 'Simple' : 'Custom'}
