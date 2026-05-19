@@ -41,7 +41,7 @@ export default defineConfig({
     host: true,
   },
   worker: {
-    format: 'es',
+    format: 'iife',
   },
   build: {
     target: 'es2022',
