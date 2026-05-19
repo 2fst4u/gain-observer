@@ -20,9 +20,7 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
 
   useEffect(() => {
     // Vite handles this URL pattern natively for workers.
-    const worker = new Worker(new URL('../workers/physicsWorker.ts', import.meta.url), {
-      type: 'module',
-    });
+    const worker = new Worker(new URL('../workers/physicsWorker.ts', import.meta.url));
     workerRef.current = worker;
 
     const handler = (ev: MessageEvent<WorkerResponse>) => {

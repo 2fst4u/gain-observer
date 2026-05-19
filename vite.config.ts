@@ -41,10 +41,10 @@ export default defineConfig({
     host: true,
   },
   worker: {
-    format: 'es',
+    format: 'iife',
   },
   build: {
-    target: 'esnext',
+    target: 'es2022',
     sourcemap: true,
   },
 });
