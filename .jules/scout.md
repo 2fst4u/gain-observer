@@ -17,3 +17,8 @@
 
 **Learning:** Adding dynamic document titles to SPAs is not always a desirable SEO change, possibly due to specific project content strategies or avoiding excessive JavaScript-driven metadata updates.
 **Action:** Always verify if dynamic metadata generation is aligned with the project's specific SEO strategy before implementing.
+
+## 2026-05-19 - [Preserving visual layout with Semantic Header Upgrades]
+
+**Learning:** When upgrading a generic `<div>` title to a semantic header like `<h3>` to establish a proper document outline for crawlers, you can preserve the exact original visual design by applying `style={{ fontSize: 'inherit', margin: 0 }}`. This prevents the browser's default block margins and larger font sizes for header tags from breaking the UI.
+**Action:** When working as Scout, utilize this inline style pattern safely when promoting pseudo-headers into actual semantic heading tags.

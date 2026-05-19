@@ -158,9 +158,9 @@ function ComparisonStats({
   return (
     <>
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+      <h3 style={{ fontSize: 11, margin: 0, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         Versus reference
-      </div>
+      </h3>
       <div className="stat">
         <span className="stat-label">Gain delta</span>
         <span className="stat-value">{formatSigned(current.maxGainDbi - reference.maxGainDbi, 2)} dB</span>
@@ -225,9 +225,9 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
   return (
     <>
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+      <h3 style={{ fontSize: 11, margin: 0, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         Termination effectiveness
-      </div>
+      </h3>
       {legRipples.map((r) => (
         <div className="stat" key={r.tagNo}>
           <span className="stat-label">{legLabel(r.tagNo)}</span>
