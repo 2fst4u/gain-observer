@@ -115,6 +115,7 @@ export function FeedlineControl() {
                   onClick={() => setFeedlineOffset(0)}
                   disabled={Math.abs(feedlineOffset) < 1e-6}
                   title={Math.abs(feedlineOffset) < 1e-6 ? 'Feedpoint is already centred' : 'Centre feedpoint'}
+                  aria-label="Centre feedpoint offset"
                   style={{ flex: '0 0 auto' }}
                 >
                   Centre

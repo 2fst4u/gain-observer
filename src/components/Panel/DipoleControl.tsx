@@ -227,6 +227,7 @@ export function DipoleControl() {
               onClick={() => setTerminatingResistor(0)}
               disabled={terminatingResistor === 0}
               title="Remove termination (unterminated antenna)"
+              aria-label="Turn off termination resistor"
               style={{ flex: '0 0 auto' }}
             >
               Off
