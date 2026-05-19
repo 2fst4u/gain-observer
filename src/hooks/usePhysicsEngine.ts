@@ -86,9 +86,23 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
 
     const unsub = useAntennaStore.subscribe((state, prev) => {
       // Re-run only when something affecting the simulation changed.
+      // We rely on selectSimulationInput to gather simulation state safely.
       const a = selectSimulationInput(state);
       const b = selectSimulationInput(prev);
-      if (JSON.stringify(a) !== JSON.stringify(b)) {
+
+      // Perform a shallow comparison instead of an expensive JSON.stringify.
+      const keys = Object.keys(a) as Array<keyof typeof a>;
+      let hasChanged = keys.length !== Object.keys(b).length;
+      if (!hasChanged) {
+        for (const k of keys) {
+          if (a[k] !== b[k]) {
+            hasChanged = true;
+            break;
+          }
+        }
+      }
+
+      if (hasChanged) {
         schedule();
       }
     });
