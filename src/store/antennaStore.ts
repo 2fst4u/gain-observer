@@ -40,6 +40,10 @@ import {
   SLOPING_V_LEFT_STUB_TAG,
   SLOPING_V_RIGHT_STUB_TAG,
   SLOPING_V_STUB_BOTTOM_Z_M,
+  TERMINATED_DELTA_LEFT_BASE_TAG,
+  TERMINATED_DELTA_RIGHT_BASE_TAG,
+  TERMINATED_DELTA_LEFT_STUB_TAG,
+  TERMINATED_DELTA_RIGHT_STUB_TAG,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -53,12 +57,17 @@ export {
   DELTA_BASE_TAG,
   SLOPING_V_LEFT_STUB_TAG,
   SLOPING_V_RIGHT_STUB_TAG,
+  TERMINATED_DELTA_LEFT_BASE_TAG,
+  TERMINATED_DELTA_RIGHT_BASE_TAG,
+  TERMINATED_DELTA_LEFT_STUB_TAG,
+  TERMINATED_DELTA_RIGHT_STUB_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
   buildInvertedVWires,
   buildSlopingVWires,
   buildDeltaLoopWires,
+  buildTerminatedDeltaWires,
   orientationVector,
   type OrientationPreset,
   type Orientation,
@@ -121,6 +130,8 @@ export interface AntennaState {
    *
    * - sloping-V: inserts stub wires with NEC LD cards for tip-to-earth termination.
    * - delta-loop: inserts one NEC LD 4 card at the centre of the base wire.
+   * - terminated-delta: inserts two stub wires (one at each inner half-base
+   *   end) with NEC LD cards, modelling per-resistor shunt-to-earth termination.
    */
   terminatingResistor: number;
 
@@ -278,7 +289,7 @@ export const useAntennaStore = create<AntennaState>()(
 
       setAntennaType: (type) => set((s) => {
         s.antennaType = type;
-        const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v'];
+        const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'];
         if (!feedlineSupportedTypes.includes(type)) {
           s.feedlineId = 'none';
           s.feedlineLength = 0;
@@ -306,6 +317,12 @@ export const useAntennaStore = create<AntennaState>()(
         } else if (type === 'delta-loop') {
           s.vAngle = 180;
           s.legSlope = 0;
+        } else if (type === 'terminated-delta') {
+          s.vAngle = 180;
+          s.legSlope = 0;
+          // Per-stub default mirrors the sloping-V (each tip independently
+          // terminated to ground); 300 Ω matches the canonical reference design.
+          if (s.terminatingResistor === 0) s.terminatingResistor = 300;
         }
 
         const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
@@ -560,6 +577,9 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
       return lambda;
     case 'sloping-v':
       return lambda * 2;
+    case 'terminated-delta':
+      // Same physical perimeter as a delta loop.
+      return lambda;
     default:
       return halfWaveLength(frequencyMHz);
   }
@@ -662,6 +682,22 @@ export function buildWires(
     });
   }
 
+  if (antennaType === 'terminated-delta') {
+    const layout = computeFeedlineLayout(state);
+    const feedlineShield = layout?.shield
+      ? { ...layout.shield, segments: FEEDLINE_SHIELD_SEGMENTS }
+      : null;
+    return buildTerminatedDeltaWires({
+      length: state.length,
+      height: h,
+      orientation: state.orientation,
+      wireRadius: state.wireRadius,
+      segments: state.segments,
+      frequency: state.frequency,
+      feedlineShield,
+    });
+  }
+
   const [dx, dy] = orientationVector(state.orientation);
   const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
@@ -748,7 +784,7 @@ function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
     Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): FeedlineLayout | null {
-  const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v'];
+  const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'];
   if (!feedlineSupportedTypes.includes(state.antennaType ?? '')) return null;
 
   const id = state.feedlineId;
@@ -803,7 +839,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
   const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
   const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
-  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v'].includes(state.antennaType);
+  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'].includes(state.antennaType);
   const feedlineActive = hasBridge && feedlineSupport;
 
   let excitation;
@@ -811,7 +847,9 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     excitation = { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
   } else if (hasBridge) {
     excitation = { wireTag: FEED_BRIDGE_TAG, segment: 1 };
-  } else if (state.antennaType === 'delta-loop') {
+  } else if (state.antennaType === 'delta-loop' || state.antennaType === 'terminated-delta') {
+    // Apex-fed: excitation lives on the last segment of the left leg
+    // (whose .end is the apex by convention in build*Wires).
     const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
     excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
   } else {
@@ -904,6 +942,46 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     loads.push(
       { type: 4, wireTag: SLOPING_V_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
       { type: 4, wireTag: SLOPING_V_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+    );
+  }
+
+  if (state.antennaType === 'terminated-delta' && state.terminatingResistor > 0) {
+    const R = state.terminatingResistor;
+    // Per-stub shunt termination to ground, mirroring the sloping-V
+    // tip-to-earth pattern exactly. Each half-base ends near the centre
+    // at z = bottomZ; a short vertical stub takes that point down to
+    // near-ground (SLOPING_V_STUB_BOTTOM_Z_M) and the LD-4 card places
+    // the resistance in the stub. This produces an explicit NEC current
+    // path through the resistor to the ground plane, which the
+    // Sommerfeld-Norton model resolves correctly.
+    //
+    // The LEFT half-base is emitted leftCorner → centreLeft so the
+    // inner end is the wire's `.end`. The RIGHT half-base is emitted
+    // centreRight → rightCorner so the inner end is the wire's `.start`.
+    const leftHalfBase  = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
+    const rightHalfBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
+    const leftInner  = leftHalfBase.end;
+    const rightInner = rightHalfBase.start;
+
+    wires.push(
+      {
+        start: leftInner,
+        end: [leftInner[0], leftInner[1], SLOPING_V_STUB_BOTTOM_Z_M],
+        radius: state.wireRadius,
+        segments: 1,
+        tag: TERMINATED_DELTA_LEFT_STUB_TAG,
+      },
+      {
+        start: rightInner,
+        end: [rightInner[0], rightInner[1], SLOPING_V_STUB_BOTTOM_Z_M],
+        radius: state.wireRadius,
+        segments: 1,
+        tag: TERMINATED_DELTA_RIGHT_STUB_TAG,
+      },
+    );
+    loads.push(
+      { type: 4, wireTag: TERMINATED_DELTA_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+      { type: 4, wireTag: TERMINATED_DELTA_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
     );
   }
 

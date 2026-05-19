@@ -11,7 +11,6 @@ import { PolarPlots } from '../Charts/PolarPlots';
 import { ThemeToggle } from '../UI/ThemeToggle';
 import { UnitToggle } from './UnitToggle';
 import { ComparisonControl } from './ComparisonControl';
-import { TransformerControl } from './TransformerControl';
 
 export function ControlPanel() {
   return (
@@ -44,7 +43,6 @@ export function ControlPanel() {
       <GroundControl />
       <FeedlineControl />
       <StatsReadout />
-      <TransformerControl />
       <SWRChart />
       <PolarPlots />
       <PropagationControl />
