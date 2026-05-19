@@ -313,7 +313,7 @@ function GeometryStatus() {
     const tipZ = height - legLen * Math.sin(slopeRad);
 
     return (
-      <div style={{
+      <section aria-labelledby="geometry-heading" style={{
         marginTop: 12,
         padding: '8px 10px',
         fontSize: 12,
@@ -321,7 +321,7 @@ function GeometryStatus() {
         background: 'var(--bg-accent)',
         border: '1px solid var(--border)',
       }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>Geometry</div>
+        <h3 id="geometry-heading" style={{ fontSize: 'inherit', margin: 0, fontWeight: 600, marginBottom: 4 }}>Geometry</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
           <span style={{ color: 'var(--text-muted)' }}>Slope angle:</span>
           <span>{slopeDeg.toFixed(1)}°</span>
@@ -331,7 +331,7 @@ function GeometryStatus() {
         <div style={{ marginTop: 6, fontSize: 11, fontStyle: 'italic', lineHeight: 1.3, color: 'var(--text-muted)' }}>
           Slope auto-snaps so tips sit at the ground floor for the current mast height and leg length.
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -348,7 +348,8 @@ function GeometryStatus() {
   const isClamped = requestedSlopeDeg > maxSlopeDeg + 0.1;
 
   return (
-    <div
+    <section
+      aria-labelledby="geometry-status-heading"
       role="status"
       aria-live="polite"
       style={{
@@ -360,9 +361,9 @@ function GeometryStatus() {
         border: `1px solid ${isClamped ? '#ff6b6b' : 'var(--border)'}`,
       }}
     >
-      <div style={{ fontWeight: 600, marginBottom: 4, color: isClamped ? '#ff6b6b' : 'inherit' }}>
+      <h3 id="geometry-status-heading" style={{ fontSize: 'inherit', margin: 0, fontWeight: 600, marginBottom: 4, color: isClamped ? '#ff6b6b' : 'inherit' }}>
         {isClamped ? '⚠️ Geometry Clamped' : 'Geometry Status'}
-      </div>
+      </h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
         <span style={{ color: 'var(--text-muted)' }}>Max slope:</span>
         <span>{maxSlopeDeg.toFixed(1)}°</span>
@@ -380,6 +381,6 @@ function GeometryStatus() {
           Slope reduced to keep tips at least {toDisplayLength(SLOPING_V_MIN_TIP_Z_M, units).toFixed(2)} {unit} above ground.
         </div>
       )}
-    </div>
+    </section>
   );
 }

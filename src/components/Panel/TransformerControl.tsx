@@ -15,8 +15,9 @@ export function TransformerControl() {
   const setTransformerRatio = useAntennaStore((s) => s.setTransformerRatio);
 
   return (
-    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+    <section aria-labelledby="transformer-heading" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
       <h3
+        id="transformer-heading"
         style={{
           fontSize: 12,
           fontWeight: 700,
@@ -76,6 +77,6 @@ export function TransformerControl() {
           unbalanced feeds).
         </div>
       )}
-    </div>
+    </section>
   );
 }
