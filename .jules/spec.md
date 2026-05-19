@@ -8,3 +8,7 @@
 ## 2026-05-18 - Explicit typing in mocked selectors
 **Learning:** The project's ESLint configuration strictly enforces `@typescript-eslint/no-explicit-any`. When writing tests or mocking functions (such as Zustand selectors), use `unknown` or precise typing instead of `any` to prevent linting failures.
 **Action:** Use `unknown` instead of `any` when mocking Zustand selectors in unit tests.
+
+## 2024-05-23 - Bumping coverage threshold for impedance transmission lines
+**Learning:** When increasing test coverage for heavily math-dependent algorithms (like those in src/physics/impedance.ts), we must carefully test edge cases like `tan()` returning `Infinity` or evaluating exact mathematical equivalents for branch conditionals. Additionally, adding new test files affects global coverage metrics, so adjust thresholds gracefully without forcing arbitrarily high vanity thresholds.
+**Action:** Added full coverage test suite for `transformThroughLine`, `deembedThroughLine`, and `realizedGainWithTransformer` to secure the physical simulation's matching network layer.

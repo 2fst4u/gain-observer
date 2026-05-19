@@ -1,5 +1,6 @@
+import { vi } from "vitest";
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine } from '../src/physics/impedance';
+import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer } from '../src/physics/impedance';
 
 describe('reflection coefficient and SWR', () => {
   it('perfect match => |Γ|=0, SWR=1', () => {
@@ -167,5 +168,211 @@ describe('deembedThroughLine', () => {
     const original = { R: 100, X: 50 };
     expect(deembedThroughLine(original, 50, NaN)).toBe(original);
     expect(deembedThroughLine(original, 50, Infinity)).toBe(original);
+  });
+});
+
+describe('transformThroughLine', () => {
+  it('zero-length line returns input unchanged', () => {
+    const zLoad = { R: 73, X: 42 };
+    const result = transformThroughLine(zLoad, 50, 0);
+    expect(result.R).toBeCloseTo(73, 9);
+    expect(result.X).toBeCloseTo(42, 9);
+  });
+
+  it('half-wavelength line is identity', () => {
+    const zLoad = { R: 200, X: -150 };
+    const result = transformThroughLine(zLoad, 50, 0.5);
+    expect(result.R).toBeCloseTo(200, 6);
+    expect(result.X).toBeCloseTo(-150, 6);
+  });
+
+  it('quarter-wave inverts: 25 Ω → 100 Ω with Z0=50', () => {
+    const result = transformThroughLine({ R: 25, X: 0 }, 50, 0.25);
+    expect(result.R).toBeCloseTo(100, 6);
+    expect(result.X).toBeCloseTo(0, 6);
+  });
+
+  it('quarter-wave inverts: 100 Ω → 25 Ω with Z0=50', () => {
+    const result = transformThroughLine({ R: 100, X: 0 }, 50, 0.25);
+    expect(result.R).toBeCloseTo(25, 6);
+    expect(result.X).toBeCloseTo(0, 6);
+  });
+
+  it('matched load is invariant on any line length', () => {
+    for (const lambdas of [0.1, 0.25, 0.5, 0.916, 1.7]) {
+      const result = transformThroughLine({ R: 50, X: 0 }, 50, lambdas);
+      expect(result.R).toBeCloseTo(50, 6);
+      expect(result.X).toBeCloseTo(0, 6);
+    }
+  });
+
+  it('|Γ| is preserved along a lossless line (SWR conservation)', () => {
+    const zLoad = { R: 9.7, X: 94.5 };
+    const zIn = transformThroughLine(zLoad, 50, 0.916);
+    expect(swr(zIn)).toBeCloseTo(swr(zLoad), 4);
+  });
+
+  it('invalid z0 returns input unchanged', () => {
+    const original = { R: 100, X: 50 };
+    expect(transformThroughLine(original, 0, 0.5)).toBe(original);
+    expect(transformThroughLine(original, -50, 0.5)).toBe(original);
+  });
+
+  it('non-finite length returns input unchanged', () => {
+    const original = { R: 100, X: 50 };
+    expect(transformThroughLine(original, 50, NaN)).toBe(original);
+    expect(transformThroughLine(original, 50, Infinity)).toBe(original);
+  });
+});
+
+describe('transformWithTransformerAtAntenna', () => {
+  it('returns original if ratio is invalid', () => {
+    const original = { R: 100, X: 50 };
+    expect(transformWithTransformerAtAntenna(original, 0)).toBe(original);
+    expect(transformWithTransformerAtAntenna(original, -1)).toBe(original);
+    expect(transformWithTransformerAtAntenna(original, NaN)).toBe(original);
+  });
+
+  it('handles zero-length line (or undefined line length)', () => {
+    const zSrc = { R: 400, X: 200 };
+    const result1 = transformWithTransformerAtAntenna(zSrc, 4, 50, 0);
+    expect(result1.R).toBeCloseTo(100, 6);
+    expect(result1.X).toBeCloseTo(50, 6);
+
+    const result2 = transformWithTransformerAtAntenna(zSrc, 4, 50, NaN);
+    expect(result2.R).toBeCloseTo(100, 6);
+    expect(result2.X).toBeCloseTo(50, 6);
+  });
+
+  it('transforms properly with line length present', () => {
+    const zSrc = { R: 25, X: 0 };
+    const result = transformWithTransformerAtAntenna(zSrc, 4, 50, 0.25);
+    expect(result.R).toBeCloseTo(100, 6);
+    expect(result.X).toBeCloseTo(0, 6);
+  });
+});
+
+describe('realizedGainWithTransformer', () => {
+  it('computes expected realized gain', () => {
+    const zSrc = { R: 50, X: 0 };
+    const result = realizedGainWithTransformer(2.15, zSrc, 1, 50, 0);
+    expect(result).toBeDefined();
+    expect(typeof result).toBe('number');
+  });
+
+  it('returns undefined if mismatch loss factor is <= 0', () => {
+    const result = realizedGainWithTransformer(2.15, { R: 0, X: 0 }, 1, 50, 0);
+    expect(result).toBeUndefined();
+  });
+});
+
+describe('transformThroughLine edge cases', () => {
+  it('handles denMag2 === 0 when t is non-finite', () => {
+    // This happens when tan diverges (e.g. at a quarter wavelength)
+    // We can simulate this by mocking Math.tan or by creating a huge number.
+    // However, JS Math.tan doesn't usually return Infinity.
+    // We can directly mock it:
+    const tanSpy = vi.spyOn(Math, 'tan').mockReturnValue(Infinity);
+    const zLoad = { R: 0, X: 0 };
+    const result = transformThroughLine(zLoad, 50, 0.25);
+    expect(result).toBe(zLoad);
+
+    const zLoad2 = { R: 10, X: 0 };
+    const result2 = transformThroughLine(zLoad2, 50, 0.25);
+    expect(result2.R).toBe((50 * 50 * 10) / (10 * 10));
+    expect(result2.X).toBe(-0); // (-50*50*0)/(10*10)
+
+    tanSpy.mockRestore();
+  });
+});
+
+describe('deembedThroughLine edge cases', () => {
+  it('handles denMag2 === 0 when t is non-finite', () => {
+    const tanSpy = vi.spyOn(Math, 'tan').mockReturnValue(Infinity);
+    const zSrc = { R: 0, X: 0 };
+    const result = deembedThroughLine(zSrc, 50, 0.25);
+    expect(result).toBe(zSrc);
+
+    const zSrc2 = { R: 10, X: 0 };
+    const result2 = deembedThroughLine(zSrc2, 50, 0.25);
+    expect(result2.R).toBe((50 * 50 * 10) / (10 * 10));
+    expect(result2.X).toBe(-0);
+
+    tanSpy.mockRestore();
+  });
+});
+
+
+describe('transformThroughLine edge cases 2', () => {
+  it('handles denMag2 === 0 when t is finite', () => {
+    // If denMag2 is 0, then denR^2 + denI^2 = 0, meaning both are 0.
+    // denR = z0Line - zLoad.X * t = 0 -> z0Line = zLoad.X * t
+    // denI = zLoad.R * t = 0
+    // To make denI = 0 without t=0, we need zLoad.R = 0
+    // So zLoad.R = 0.
+    // Let t = 1 (from betaL = pi/4 => lengthLambdas = 0.125)
+    // Then z0Line = zLoad.X * 1 -> zLoad.X = 50.
+    // Since JavaScript uses floating point, denMag2 might be slightly non-zero but we can mock it
+
+    // Instead of mocking the exact precision, we can mock Math.tan to return a specific value
+    // No, we can just use the values since 0 * 1 = 0 exactly.
+    // And 50 - 50 * 1 = 0 exactly.
+    // Let's set Math.tan(betaL) = 1 EXACTLY.
+    // 2 * Math.PI * 0.125 = Math.PI / 4
+    // Math.tan(Math.PI / 4) = 0.9999999999999999.
+
+    // So we spy on Math.tan
+    const tanSpy = vi.spyOn(Math, 'tan').mockReturnValue(1);
+
+    const zLoad = { R: 0, X: 50 };
+    const result = transformThroughLine(zLoad, 50, 0.125);
+    expect(result).toBe(zLoad);
+
+    tanSpy.mockRestore();
+  });
+});
+
+describe('deembedThroughLine edge cases 2', () => {
+  it('handles denMag2 === 0 when t is finite', () => {
+    // For deembed:
+    // denR = z0Line + zSrc.X * t = 0
+    // denI = -zSrc.R * t = 0
+    const tanSpy = vi.spyOn(Math, 'tan').mockReturnValue(1);
+
+    const zSrc = { R: 0, X: -50 };
+    const result = deembedThroughLine(zSrc, 50, 0.125);
+    expect(result).toBe(zSrc);
+
+    tanSpy.mockRestore();
+  });
+});
+
+describe('transformThroughLine edge cases 3', () => {
+  it('handles transformThroughLine NaN propagation', () => {
+    // Force Math.tan to return NaN
+    const tanSpy = vi.spyOn(Math, 'tan').mockReturnValue(NaN);
+
+    // According to Number.isFinite(NaN) -> false
+    // So it will trigger the if (!Number.isFinite(t)) block
+    const zLoad = { R: 0, X: 0 }; // denMag2 will be 0
+    const result = transformThroughLine(zLoad, 50, 0.125);
+    expect(result).toBe(zLoad);
+
+    tanSpy.mockRestore();
+  });
+});
+
+describe('deembedThroughLine edge cases 3', () => {
+  it('handles deembedThroughLine NaN propagation', () => {
+    // Force Math.tan to return NaN
+    const tanSpy = vi.spyOn(Math, 'tan').mockReturnValue(NaN);
+
+    // According to Number.isFinite(NaN) -> false
+    // So it will trigger the if (!Number.isFinite(t)) block
+    const zSrc = { R: 0, X: 0 }; // denMag2 will be 0
+    const result = deembedThroughLine(zSrc, 50, 0.125);
+    expect(result).toBe(zSrc);
+
+    tanSpy.mockRestore();
   });
 });
