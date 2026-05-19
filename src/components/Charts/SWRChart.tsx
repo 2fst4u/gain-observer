@@ -298,7 +298,9 @@ export function SWRChart() {
       <section className="panel-section" style={{ minHeight: 220 }}>
         {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
         <h2>SWR sweep</h2>
-        <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Computing frequency sweep…</div>
+        <div role="status" aria-live="polite" style={{ color: 'var(--text-muted)', fontSize: 12, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="spinner" aria-hidden="true" /> Computing frequency sweep…
+        </div>
       </section>
     );
   }
