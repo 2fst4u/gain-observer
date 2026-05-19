@@ -86,4 +86,19 @@ describe('DipoleControl', () => {
 
     expect(setOrientation).toHaveBeenCalledWith('NS');
   });
+
+  it('embeds the transformer subsection inside the Antenna panel', () => {
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
+      return selector(buildMockState());
+    });
+
+    render(<DipoleControl />);
+
+    // Both the Antenna section heading and the Transformer subheading
+    // should render under the same control — proves the Transformer
+    // controls have moved into the Antenna box.
+    expect(screen.getByRole('heading', { name: /Antenna/i })).toBeTruthy();
+    expect(screen.getByText('Transformer at feedpoint')).toBeTruthy();
+    expect(screen.getByLabelText(/Fit transformer \/ balun at the antenna/i)).toBeTruthy();
+  });
 });

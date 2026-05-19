@@ -10,6 +10,7 @@ import {
   type AntennaType,
 } from '../../store/antennaStore';
 import { FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../../physics/constants';
+import { TransformerControl } from './TransformerControl';
 
 export function DipoleControl() {
   const units = useAntennaStore((s) => s.units);
@@ -233,12 +234,12 @@ export function DipoleControl() {
           </div>
           <div id="terminating-resistor-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             {terminatingResistor === 0
-              ? 'Unterminated: travelling wave reflects, creating a standing-wave pattern.'
+              ? 'Unterminated: travelling wave reflects, creating a standing-wave pattern. Use this mode to check whether the antenna structure resonates at the design frequency.'
               : antennaType === 'sloping-v'
-                ? `${terminatingResistor} Ω resistors at each tip (to ground). Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
+                ? `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
                 : antennaType === 'terminated-delta'
-                  ? `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
-                  : `${terminatingResistor} Ω load at the base centre. Affects gain, directivity, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
+                  ? `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
+                  : `${terminatingResistor} Ω load at the base centre. Click Off to remove termination and inspect resonance. Affects gain, directivity, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
           </div>
         </>
       )}
@@ -282,6 +283,11 @@ export function DipoleControl() {
           </button>
         ))}
       </div>
+
+      {/* Transformer / balun: part of the antenna's feedpoint hardware
+          (applied before the NEC simulation), so it belongs in the Antenna
+          panel rather than as a separate top-level section. */}
+      <TransformerControl />
     </section>
   );
 }

@@ -1,6 +1,13 @@
 import { useAntennaStore } from '../../store/antennaStore';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 
+/**
+ * Transformer / balun controls. Rendered as an in-line sub-block (no outer
+ * panel-section) so it can be embedded inside the Antenna panel — the
+ * transformer is part of the antenna's feedpoint hardware (it applies
+ * before the simulation), so it belongs visually with the antenna geometry
+ * controls rather than as a separate top-level section.
+ */
 export function TransformerControl() {
   const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
   const transformerRatio = useAntennaStore((s) => s.transformerRatio);
@@ -8,9 +15,19 @@ export function TransformerControl() {
   const setTransformerRatio = useAntennaStore((s) => s.setTransformerRatio);
 
   return (
-    <section className="panel-section">
-      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2>Transformer at feedpoint</h2>
+    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+      <h3
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          color: 'var(--text-dim)',
+          margin: '0 0 8px 0',
+        }}
+      >
+        Transformer at feedpoint
+      </h3>
       <label
         htmlFor="transformer-enable"
         style={{ display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, margin: 0, fontSize: 12 }}
@@ -59,6 +76,6 @@ export function TransformerControl() {
           unbalanced feeds).
         </div>
       )}
-    </section>
+    </div>
   );
 }
