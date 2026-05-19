@@ -33,6 +33,7 @@ body {
 .app-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  height: 100vh;
   height: 100dvh;
   width: 100vw;
   background: var(--bg);
@@ -301,6 +302,7 @@ label {
 @media (max-width: 960px) {
   .app-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(42vh, 52vh) minmax(0, 1fr);
     grid-template-rows: minmax(42dvh, 52dvh) minmax(0, 1fr);
   }
 

@@ -44,7 +44,7 @@ export default defineConfig({
     format: 'es',
   },
   build: {
-    target: 'esnext',
+    target: 'es2022',
     sourcemap: true,
   },
 });
