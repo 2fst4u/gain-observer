@@ -12,3 +12,6 @@
 ## 2024-05-23 - Bumping coverage threshold for impedance transmission lines
 **Learning:** When increasing test coverage for heavily math-dependent algorithms (like those in src/physics/impedance.ts), we must carefully test edge cases like `tan()` returning `Infinity` or evaluating exact mathematical equivalents for branch conditionals. Additionally, adding new test files affects global coverage metrics, so adjust thresholds gracefully without forcing arbitrarily high vanity thresholds.
 **Action:** Added full coverage test suite for `transformThroughLine`, `deembedThroughLine`, and `realizedGainWithTransformer` to secure the physical simulation's matching network layer.
+## 2024-05-24 - Bumping coverage threshold for UI components
+**Learning:** Testing UI React components that have a large number of simple `onChange` or `onClick` handlers will significantly improve the lines, functions and branches coverage. It is often a quick win for reaching the mature business standard coverage of >70%.
+**Action:** Added full coverage tests for `DisplayControl.tsx` and `DipoleControl.tsx` (the `GeometryStatus` inner component) which bumped overall thresholds significantly.
