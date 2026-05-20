@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useAntennaStore, selectSimulationInput } from '../src/store/antennaStore';
 import { buildNecCards } from '../src/physics/necCard';
-import { getNecLines, parseLdLine, expectExcitation } from './necInspect';
-import { DELTA_BASE_TAG, DIPOLE_LEFT_TAG } from '../src/physics/constants';
+import { getNecLines, expectExcitation } from './necInspect';
+import { DIPOLE_LEFT_TAG } from '../src/physics/constants';
 
 function setupDeltaLoop(terminatingResistor?: number) {
   const store = useAntennaStore.getState();
