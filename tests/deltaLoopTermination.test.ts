@@ -16,78 +16,30 @@ function setupDeltaLoop(terminatingResistor?: number) {
   }
 }
 
-describe('Delta Loop termination (LD 4 at base centre)', () => {
+describe('Delta Loop termination (removed)', () => {
   beforeEach(() => {
     useAntennaStore.getState().setTerminatingResistor(0);
   });
 
-  it('no LD card when unterminated (terminatingResistor=0)', () => {
-    setupDeltaLoop(0);
+  it('no LD card even if terminatingResistor > 0 (logic removed)', () => {
+    setupDeltaLoop(600);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
     expect(getNecLines(deck, 'LD')).toHaveLength(0);
     expect(input.loads).toBeUndefined();
   });
 
-  it('exactly one LD card when terminatingResistor > 0', () => {
-    setupDeltaLoop(600);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    const deck = buildNecCards(input);
-    expect(getNecLines(deck, 'LD')).toHaveLength(1);
-    expect(input.loads).toHaveLength(1);
-  });
-
-  it('LD card is type 4', () => {
-    setupDeltaLoop(600);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    const deck = buildNecCards(input);
-    const ld = parseLdLine(getNecLines(deck, 'LD')[0]);
-    expect(ld.type).toBe(4);
-  });
-
-  it('LD card targets DELTA_BASE_TAG', () => {
-    setupDeltaLoop(600);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    const deck = buildNecCards(input);
-    const ld = parseLdLine(getNecLines(deck, 'LD')[0]);
-    expect(ld.tag).toBe(DELTA_BASE_TAG);
-  });
-
-  it('LD card targets the centre segment of the base wire', () => {
-    setupDeltaLoop(600);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    const baseWire = input.wires.find((w) => w.tag === DELTA_BASE_TAG)!;
-    const expectedCenter = Math.ceil(baseWire.segments / 2);
-    const deck = buildNecCards(input);
-    const ld = parseLdLine(getNecLines(deck, 'LD')[0]);
-    expect(ld.segmentStart).toBe(expectedCenter);
-    expect(ld.segmentEnd).toBe(expectedCenter);
-  });
-
-  it('LD resistance equals terminatingResistor directly (not halved)', () => {
-    const R = 600;
-    setupDeltaLoop(R);
-    const input = selectSimulationInput(useAntennaStore.getState());
-    const deck = buildNecCards(input);
-    const ld = parseLdLine(getNecLines(deck, 'LD')[0]);
-    expect(ld.p1).toBeCloseTo(R, 9);
-    expect(ld.p2).toBeCloseTo(0, 9);
-  });
-
-  it('LD resistance scales with terminatingResistor', () => {
-    setupDeltaLoop(1200);
-    const input1 = selectSimulationInput(useAntennaStore.getState());
-    const ld1 = parseLdLine(getNecLines(buildNecCards(input1), 'LD')[0]);
-
+  it('setAntennaType("delta-loop") resets terminatingResistor to 0', () => {
+    useAntennaStore.getState().setAntennaType('sloping-v');
     useAntennaStore.getState().setTerminatingResistor(600);
-    const input2 = selectSimulationInput(useAntennaStore.getState());
-    const ld2 = parseLdLine(getNecLines(buildNecCards(input2), 'LD')[0]);
+    expect(useAntennaStore.getState().terminatingResistor).toBe(600);
 
-    expect(ld2.p1).toBeCloseTo(ld1.p1 / 2, 9);
+    useAntennaStore.getState().setAntennaType('delta-loop');
+    expect(useAntennaStore.getState().terminatingResistor).toBe(0);
   });
 
   it('excitation remains on left leg (DIPOLE_LEFT_TAG) last segment', () => {
-    setupDeltaLoop(600);
+    setupDeltaLoop(0);
     const input = selectSimulationInput(useAntennaStore.getState());
     const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
     expectExcitation(buildNecCards(input), DIPOLE_LEFT_TAG, leftLeg.segments);

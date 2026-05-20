@@ -198,7 +198,7 @@ export function DipoleControl() {
         </>
       )}
 
-      {(antennaType === 'sloping-v' || antennaType === 'delta-loop' || antennaType === 'terminated-delta') && (
+      {(antennaType === 'sloping-v' || antennaType === 'terminated-delta') && (
         <>
           <label htmlFor="terminating-resistor" style={{ marginTop: 10 }}>
             Termination resistance (Ω)
@@ -238,9 +238,7 @@ export function DipoleControl() {
               ? 'Unterminated: travelling wave reflects, creating a standing-wave pattern. Use this mode to check whether the antenna structure resonates at the design frequency.'
               : antennaType === 'sloping-v'
                 ? `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
-                : antennaType === 'terminated-delta'
-                  ? `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
-                  : `${terminatingResistor} Ω load at the base centre. Click Off to remove termination and inspect resonance. Affects gain, directivity, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
+                : `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
           </div>
         </>
       )}
