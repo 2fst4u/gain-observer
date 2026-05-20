@@ -176,3 +176,44 @@ This document defines the physical and mathematical model for all antenna types 
 ### 4.6 Glossary
 
 - Same as Section 1.6.
+
+---
+
+## 5. Terminated Delta
+
+### 5.1 Geometry Definition
+
+- **Apex Location:** Highest point at $(0, 0, \text{height})$.
+- **Leg Count & Length:** 3 wires forming a triangle, total perimeter $L$.
+- **Reference Length:** $1.03\lambda$ (Resonance).
+- **Angle/Slope:** Equilateral triangle in the vertical plane.
+- **Tips:** Bottom corners. The bottom wire is split at the center with a gap (`TERMINATED_DELTA_CENTRE_GAP_M`).
+- **Min Height:** Bottom wire must be $\ge 0.1$ m above ground.
+
+### 5.2 Feedpoint Definition
+
+- **NEC Excitation:** 1-segment source bridge at apex.
+- **Segment:** Segment 1 of bridge.
+- **Feed Type:** Balanced bridge segment.
+- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable).
+
+### 5.3 Termination Definition
+
+- **Topology:** Resistor from each side of the split bottom center to ground via short stub wires.
+- **NEC Model:** `LD 4` loads on short vertical stub wires extending from the center ends down to near-ground (`TERMINATED_DELTA_STUB_BOTTOM_Z_M`).
+- **Value:** `terminatingResistor` is applied identically to both stubs.
+
+### 5.4 SWR Convention
+
+- **Reference:** 50.0 Ω.
+- **Metric:** Raw feedpoint SWR.
+
+### 5.5 Segmentation Rules
+
+- **Density:** 20 segments per $\lambda$.
+- **Minimum:** 9 segments per side.
+- **Alignment:** Base is split into two halves.
+
+### 5.6 Glossary
+
+- Same as Section 1.6.
