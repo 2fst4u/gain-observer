@@ -22,3 +22,8 @@
 
 **Learning:** The documentation for the Sloping V antenna claimed its termination was modeled as a differential resistor across the two tips without a path to ground. However, the engine (`src/store/antennaStore.ts`) actually creates short vertical stub wires from each tip down to near-ground to model realistic shunt-to-earth current paths. The docs had drifted from the active implementation physics.
 **Action:** The `docs/antenna-spec.md` was updated to accurately reflect the per-leg-to-ground stub topology.
+
+## 2026-05-20 - Terminated Delta Antenna Documentation Drift
+
+**Learning:** The "Terminated Delta" antenna topology, which splits the bottom wire of a delta loop and terminates it to ground, is fully implemented in the engine (`src/store/antennaGeometry.ts` via `buildTerminatedDeltaWires`) and physics types, but it was completely undocumented in `docs/antenna-spec.md`, `docs/antenna-model-spec.md`, and the `README.md` scope section.
+**Action:** The specifications were updated to explicitly include the geometry, feedpoint, termination, and segmentation rules for the Terminated Delta topology to match the actual implemented codebase.
