@@ -22,3 +22,8 @@
 
 **Learning:** When upgrading a generic `<div>` title to a semantic header like `<h3>` to establish a proper document outline for crawlers, you can preserve the exact original visual design by applying `style={{ fontSize: 'inherit', margin: 0 }}`. This prevents the browser's default block margins and larger font sizes for header tags from breaking the UI.
 **Action:** When working as Scout, utilize this inline style pattern safely when promoting pseudo-headers into actual semantic heading tags.
+
+## 2026-05-20 - [Execution Plan Constraints for Scout]
+
+**Learning:** When generating a plan as Scout, do not include conditional logic or exploratory tasks in the final execution plan. Also ensure that testing and linting steps are explicitly listed before the pre-commit step, and that the pre-commit step itself strictly follows the required format.
+**Action:** Always fully explore the codebase first, identify the specific DOM element and file to edit, and then formulate a plan with exact steps, including a dedicated test/lint verification step before the pre-commit step.

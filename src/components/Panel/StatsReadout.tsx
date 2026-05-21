@@ -279,6 +279,10 @@ function NvisStats() {
   return (
     <>
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+      {/* SEO: Added H3 to complete the document outline for NVIS stats, matching siblings */}
+      <h3 style={{ fontSize: 11, margin: 0, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+        NVIS effectiveness
+      </h3>
       <div className="stat">
         <span className="stat-label">Zenith gain (NVIS)</span>
         <span className="stat-value">{zenithGain.toFixed(2)} dBi</span>
