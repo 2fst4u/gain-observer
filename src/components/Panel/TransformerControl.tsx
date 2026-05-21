@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 
@@ -13,6 +14,19 @@ export function TransformerControl() {
   const transformerRatio = useAntennaStore((s) => s.transformerRatio);
   const setTransformerEnabled = useAntennaStore((s) => s.setTransformerEnabled);
   const setTransformerRatio = useAntennaStore((s) => s.setTransformerRatio);
+
+  // Local state to allow natural typing (including empty strings)
+  const [localRatio, setLocalRatio] = useState(transformerRatio.toString());
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Sync local state when the store value changes (e.g. from outside)
+  const [prevRatio, setPrevRatio] = useState(transformerRatio);
+  if (transformerRatio !== prevRatio) {
+    setPrevRatio(transformerRatio);
+    if (!isFocused) {
+      setLocalRatio(transformerRatio.toString());
+    }
+  }
 
   return (
     <section aria-labelledby="transformer-heading" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
@@ -53,11 +67,20 @@ export function TransformerControl() {
             min={1}
             max={10000}
             step={1}
-            value={transformerRatio}
+            value={localRatio}
             aria-describedby="transformer-hint"
+            onFocus={() => setIsFocused(true)}
             onChange={(e) => {
-              const v = parseFloat(e.target.value);
-              if (Number.isFinite(v) && v >= 1) setTransformerRatio(v);
+              const s = e.target.value;
+              setLocalRatio(s);
+              const v = parseFloat(s);
+              if (Number.isFinite(v) && v >= 1) {
+                setTransformerRatio(v);
+              }
+            }}
+            onBlur={() => {
+              setIsFocused(false);
+              setLocalRatio(transformerRatio.toString());
             }}
             style={{ width: '100%', marginTop: 4 }}
           />

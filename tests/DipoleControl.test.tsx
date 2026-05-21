@@ -21,6 +21,8 @@ interface MockState {
   orientation: string | number;
   vAngle: number;
   terminatingResistor: number;
+  transformerEnabled: boolean;
+  transformerRatio: number;
   setAntennaType: () => void;
   setLength: () => void;
   setHalfWaveLength: () => void;
@@ -29,6 +31,8 @@ interface MockState {
   setOrientation: (o: string | number) => void;
   setVAngle: () => void;
   setTerminatingResistor: () => void;
+  setTransformerEnabled: () => void;
+  setTransformerRatio: () => void;
 }
 
 function buildMockState(overrides: Partial<MockState> = {}): MockState {
@@ -41,6 +45,8 @@ function buildMockState(overrides: Partial<MockState> = {}): MockState {
     orientation: 'EW',
     vAngle: 120,
     terminatingResistor: 0,
+    transformerEnabled: false,
+    transformerRatio: 9,
     setAntennaType: vi.fn(),
     setLength: vi.fn(),
     setHalfWaveLength: vi.fn(),
@@ -49,6 +55,8 @@ function buildMockState(overrides: Partial<MockState> = {}): MockState {
     setOrientation: vi.fn(),
     setVAngle: vi.fn(),
     setTerminatingResistor: vi.fn(),
+    setTransformerEnabled: vi.fn(),
+    setTransformerRatio: vi.fn(),
     ...overrides,
   };
 }
