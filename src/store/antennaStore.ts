@@ -129,7 +129,6 @@ export interface AntennaState {
    * 0 = unterminated.
    *
    * - sloping-V: inserts stub wires with NEC LD cards for tip-to-earth termination.
-   * - delta-loop: inserts one NEC LD 4 card at the centre of the base wire.
    * - terminated-delta: inserts two stub wires (one at each inner half-base
    *   end) with NEC LD cards, modelling per-resistor shunt-to-earth termination.
    */
@@ -303,6 +302,7 @@ export const useAntennaStore = create<AntennaState>()(
         if (type === 'dipole') {
           s.vAngle = 180;
           s.legSlope = 0;
+          s.terminatingResistor = 0;
         } else if (type === 'sloping-v') {
           // Slope is auto-computed from height and leg length (tips at ground).
           // V-angle snaps to the value giving maximum forward gain; the user
@@ -314,9 +314,11 @@ export const useAntennaStore = create<AntennaState>()(
         } else if (type === 'inverted-v') {
           s.vAngle = 120;
           s.legSlope = 0;
+          s.terminatingResistor = 0;
         } else if (type === 'delta-loop') {
           s.vAngle = 180;
           s.legSlope = 0;
+          s.terminatingResistor = 0;
         } else if (type === 'terminated-delta') {
           s.vAngle = 180;
           s.legSlope = 0;
@@ -888,19 +890,6 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
         param2: 0,
       });
     }
-  }
-
-  if (state.antennaType === 'delta-loop' && state.terminatingResistor > 0) {
-    const baseWire = wires.find((w) => w.tag === DELTA_BASE_TAG)!;
-    const centerSeg = Math.ceil(baseWire.segments / 2);
-    loads.push({
-      type: 4,
-      wireTag: DELTA_BASE_TAG,
-      segmentStart: centerSeg,
-      segmentEnd: centerSeg,
-      param1: state.terminatingResistor,
-      param2: 0,
-    });
   }
 
   if (state.antennaType === 'sloping-v' && state.terminatingResistor > 0) {
