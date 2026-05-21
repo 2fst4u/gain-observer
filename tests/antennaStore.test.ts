@@ -1105,5 +1105,42 @@ describe('antennaStore actions', () => {
       const shield = input.wires.find((w) => w.tag === 4)!;
       expect(shield.start[2]).toBeCloseTo(baseState.height);
     });
+
+    describe('Delta Loop Preset Verification', () => {
+      it.each([
+        { name: '160m', mhz: 1.900 },
+        { name: '80m', mhz: 3.650 },
+        { name: '60m', mhz: 5.358 },
+      ])('generates valid geometry for %s preset at 10m height', ({ mhz }) => {
+        const lambda = 299.792458 / mhz;
+        const wires = buildWires({
+          antennaType: 'delta-loop',
+          length: lambda,
+          height: 10,
+          orientation: 'EW',
+          wireRadius: 0.001,
+          segments: 21,
+          frequency: mhz,
+          vAngle: 180,
+          legSlope: 0,
+          feedlineId: 'none',
+          feedlineLength: 0,
+          feedlineOffset: 0,
+        });
+
+        expect(wires.length).toBeGreaterThan(0);
+        for (const w of wires) {
+          expect(w.segments).toBeGreaterThan(0);
+          const len = Math.hypot(
+            w.end[0] - w.start[0],
+            w.end[1] - w.start[1],
+            w.end[2] - w.start[2],
+          );
+          expect(len).toBeGreaterThan(0.1);
+          w.start.forEach((v) => expect(v).not.toBeNaN());
+          w.end.forEach((v) => expect(v).not.toBeNaN());
+        }
+      });
+    });
   });
 });

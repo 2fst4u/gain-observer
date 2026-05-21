@@ -15,7 +15,6 @@
     "build:nec2": "bash nec2-build/build.sh"
   },
   "dependencies": {
-    "@playwright/test": "^1.60.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",
     "chart.js": "^4.5.0",
