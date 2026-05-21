@@ -1,17 +1,4 @@
-## 2024-05-10 - Bumping coverage threshold
-**Learning:** Adding new test files can alter the total codebase line count, which may cause a slight reduction in overall `lines` percentage (e.g., from 59% to 58%) even when `branches` or `functions` coverage increases.
-**Action:** Always verify final thresholds using `npm run test -- --coverage` and manually update vitest configuration thresholds (e.g. `lines` coverage from `69` to `70`) rather than chasing individual coverage numbers blindly.
+## 2024-10-24 - Mocking Worker in React Hooks Tests
 
-## 2024-05-15 - Bumping coverage threshold for PolarPlots
-**Learning:** React Component Unit Tests for complex charts. When testing ChartJS components that use callbacks in deep properties (like `options.scales.r.ticks.callback`), simulating those specific nested functions in the mocked component allows testing internal branch logic safely without rendering real canvases.
-**Action:** Mock `react-chartjs-2` specifically testing the callbacks if necessary, rather than trying to load the full canvas.
-## 2026-05-18 - Explicit typing in mocked selectors
-**Learning:** The project's ESLint configuration strictly enforces `@typescript-eslint/no-explicit-any`. When writing tests or mocking functions (such as Zustand selectors), use `unknown` or precise typing instead of `any` to prevent linting failures.
-**Action:** Use `unknown` instead of `any` when mocking Zustand selectors in unit tests.
-
-## 2024-05-23 - Bumping coverage threshold for impedance transmission lines
-**Learning:** When increasing test coverage for heavily math-dependent algorithms (like those in src/physics/impedance.ts), we must carefully test edge cases like `tan()` returning `Infinity` or evaluating exact mathematical equivalents for branch conditionals. Additionally, adding new test files affects global coverage metrics, so adjust thresholds gracefully without forcing arbitrarily high vanity thresholds.
-**Action:** Added full coverage test suite for `transformThroughLine`, `deembedThroughLine`, and `realizedGainWithTransformer` to secure the physical simulation's matching network layer.
-## 2024-05-24 - Bumping coverage threshold for UI components
-**Learning:** Testing UI React components that have a large number of simple `onChange` or `onClick` handlers will significantly improve the lines, functions and branches coverage. It is often a quick win for reaching the mature business standard coverage of >70%.
-**Action:** Added full coverage tests for `DisplayControl.tsx` and `DipoleControl.tsx` (the `GeometryStatus` inner component) which bumped overall thresholds significantly.
+**Learning:** When using `vi.stubGlobal('Worker', MockWorker)` in React hook tests, mock workers stored in an array for assertions need to be explicitly typed when retrieved (e.g., `as MockWorker`) because `unknown` will naturally trigger ESLint's `@typescript-eslint/no-unsafe-member-access` or `@typescript-eslint/no-explicit-any` rules if typed as `any`.
+**Action:** Use a well-defined class for `MockWorker` and cast instances back to it when asserting, avoiding `any` entirely to pass strict linting.
