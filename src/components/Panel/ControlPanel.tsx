@@ -57,10 +57,12 @@ export function ControlPanel() {
         color: 'var(--text-muted)',
         textAlign: 'center',
       }}>
+        {/* SEO: Add title attribute to external link for better context and discoverability */}
         <a
           href="https://github.com/2fst4u/gain-observer"
           target="_blank"
           rel="noopener noreferrer"
+          title="View source code on GitHub"
           style={{ color: 'inherit', textDecoration: 'none' }}
           onMouseOver={(e) => (e.currentTarget.style.textDecoration = 'underline')}
           onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
