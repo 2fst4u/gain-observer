@@ -11,6 +11,7 @@ import {
   type ChartOptions,
 } from 'chart.js';
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
 import type { GainPattern } from '../../physics/types';
 
@@ -91,11 +92,23 @@ function getCssVar(name: string): string {
 }
 
 export function PolarPlots() {
-  const result = useAntennaStore((s) => s.result);
-  const dbRange = useAntennaStore((s) => s.dbRange);
-  const showPolarCuts = useAntennaStore((s) => s.showPolarCuts);
-  const orientation = useAntennaStore((s) => s.orientation);
-  const theme = useAntennaStore((s) => s.theme); // Subscribe to theme to re-evaluate colors on toggle
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    result,
+    dbRange,
+    showPolarCuts,
+    orientation,
+    theme,
+  } = useAntennaStore(useShallow((s) => ({
+    result: s.result,
+    dbRange: s.dbRange,
+    showPolarCuts: s.showPolarCuts,
+    orientation: s.orientation,
+    theme: s.theme,
+  })));
 
   const azData = useMemo(() => {
     if (!result) return null;

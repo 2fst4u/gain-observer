@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAntennaStore, legMultipleFromLength } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import {
   toDisplayLength,
   fromDisplayLength,
@@ -13,22 +14,45 @@ import { FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../../physics/const
 import { TransformerControl } from './TransformerControl';
 
 export function DipoleControl() {
-  const units = useAntennaStore((s) => s.units);
-  const antennaType = useAntennaStore((s) => s.antennaType);
-  const length = useAntennaStore((s) => s.length);
-  const height = useAntennaStore((s) => s.height);
-  const frequency = useAntennaStore((s) => s.frequency);
-  const orientation = useAntennaStore((s) => s.orientation);
-  const vAngle = useAntennaStore((s) => s.vAngle);
-  const terminatingResistor = useAntennaStore((s) => s.terminatingResistor);
-  const setAntennaType = useAntennaStore((s) => s.setAntennaType);
-  const setLength = useAntennaStore((s) => s.setLength);
-  const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
-  const setLegLengthMultiple = useAntennaStore((s) => s.setLegLengthMultiple);
-  const setHeight = useAntennaStore((s) => s.setHeight);
-  const setOrientation = useAntennaStore((s) => s.setOrientation);
-  const setVAngle = useAntennaStore((s) => s.setVAngle);
-  const setTerminatingResistor = useAntennaStore((s) => s.setTerminatingResistor);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    units,
+    antennaType,
+    length,
+    height,
+    frequency,
+    orientation,
+    vAngle,
+    terminatingResistor,
+    setAntennaType,
+    setLength,
+    setHalfWaveLength,
+    setLegLengthMultiple,
+    setHeight,
+    setOrientation,
+    setVAngle,
+    setTerminatingResistor,
+  } = useAntennaStore(useShallow((s) => ({
+    units: s.units,
+    antennaType: s.antennaType,
+    length: s.length,
+    height: s.height,
+    frequency: s.frequency,
+    orientation: s.orientation,
+    vAngle: s.vAngle,
+    terminatingResistor: s.terminatingResistor,
+    setAntennaType: s.setAntennaType,
+    setLength: s.setLength,
+    setHalfWaveLength: s.setHalfWaveLength,
+    setLegLengthMultiple: s.setLegLengthMultiple,
+    setHeight: s.setHeight,
+    setOrientation: s.setOrientation,
+    setVAngle: s.setVAngle,
+    setTerminatingResistor: s.setTerminatingResistor,
+  })));
 
   const unit = displayLengthUnit(units);
   const dispLen = toDisplayLength(length, units);
@@ -292,11 +316,19 @@ export function DipoleControl() {
 }
 
 function GeometryStatus() {
-  const antennaType = useAntennaStore((s) => s.antennaType);
-  const length = useAntennaStore((s) => s.length);
-  const height = useAntennaStore((s) => s.height);
-  const vAngle = useAntennaStore((s) => s.vAngle);
-  const units = useAntennaStore((s) => s.units);
+  const {
+    antennaType,
+    length,
+    height,
+    vAngle,
+    units,
+  } = useAntennaStore(useShallow((s) => ({
+    antennaType: s.antennaType,
+    length: s.length,
+    height: s.height,
+    vAngle: s.vAngle,
+    units: s.units,
+  })));
 
   if (antennaType !== 'sloping-v' && antennaType !== 'inverted-v') return null;
 

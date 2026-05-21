@@ -17,6 +17,7 @@ import {
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { swr as computeSwr, transformWithTransformerAtAntenna } from '../../physics/impedance';
 import { findFeedlinePreset, wavelengthMeters } from '../../physics/constants';
 import type { AnnotationOptions } from 'chartjs-plugin-annotation';
@@ -33,17 +34,33 @@ ChartJS.register(
 );
 
 export function SWRChart() {
-  const result = useAntennaStore((s) => s.result);
-  const sweep = useAntennaStore((s) => s.sweep);
-  const frequency = useAntennaStore((s) => s.frequency);
-  const theme = useAntennaStore((s) => s.theme);
-  const mode = useAntennaStore((s) => s.mode);
-  const reference = useAntennaStore((s) => s.comparisonReference);
-
-  const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
-  const transformerRatio = useAntennaStore((s) => s.transformerRatio);
-  const feedlineId = useAntennaStore((s) => s.feedlineId);
-  const feedlineLength = useAntennaStore((s) => s.feedlineLength);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    result,
+    sweep,
+    frequency,
+    theme,
+    mode,
+    comparisonReference: reference,
+    transformerEnabled,
+    transformerRatio,
+    feedlineId,
+    feedlineLength,
+  } = useAntennaStore(useShallow((s) => ({
+    result: s.result,
+    sweep: s.sweep,
+    frequency: s.frequency,
+    theme: s.theme,
+    mode: s.mode,
+    comparisonReference: s.comparisonReference,
+    transformerEnabled: s.transformerEnabled,
+    transformerRatio: s.transformerRatio,
+    feedlineId: s.feedlineId,
+    feedlineLength: s.feedlineLength,
+  })));
 
   // Per-point post-transformer Z and SWR, accounting for cable at each freq.
   const postXfmrSwrAt = useCallback((freqMHz: number, R: number, X: number): number => {

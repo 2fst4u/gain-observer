@@ -27,3 +27,6 @@
 ## 2024-05-17 - Optimize multiple Zustand selectors with useShallow
 **Learning:** Selecting multiple separate fields from a Zustand store using separate `useStore(s => s.field)` calls incurs significant React hook overhead in highly-re-rendering components.
 **Action:** When a component needs to select many fields from the store (e.g. 18 separate values), group them into a single object returned from a single hook call wrapped in `useShallow` from `zustand/react/shallow`. This cuts down overhead and batches state checks efficiently.
+## 2025-05-18 - Batch Zustand React Hooks with useShallow
+**Learning:** Selecting multiple separate fields from a Zustand store using individual `useAntennaStore((s) => s.field)` calls creates excessive subscriber listeners and hook allocation overhead, noticeably impacting rendering performance when global state properties update rapidly in complex UI controls.
+**Action:** Use `useShallow` from `zustand/react/shallow` to group multiple properties into a single object return in one hook call. This pattern minimizes re-renders to only when the specific destructured fields change and reduces React hook lifecycle overhead.
