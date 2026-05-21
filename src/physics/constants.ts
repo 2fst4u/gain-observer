@@ -71,7 +71,6 @@ export const DIPOLE_LEFT_TAG = 1; // left half of split dipole
 export const DIPOLE_RIGHT_TAG = 2; // right half of split dipole
 export const FEED_BRIDGE_TAG = 3; // 1-segment source bridge
 export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
-export const DELTA_LOOP_RIGHT_LEG_TAG = 5; // right leg of delta loop (apex to right corner) — superseded by DIPOLE_RIGHT_TAG; kept for compatibility
 export const DELTA_BASE_TAG = 6; // base wire of delta loop (left corner to right corner)
 
 /**
