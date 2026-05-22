@@ -214,6 +214,7 @@ export function DipoleControl() {
             max={180}
             step={1}
             value={vAngle}
+            aria-label="V opening angle in degrees"
             onChange={(e) => {
               const val = parseFloat(e.target.value);
               if (!isNaN(val)) setVAngle(val);
