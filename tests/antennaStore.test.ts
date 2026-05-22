@@ -8,6 +8,7 @@ import {
   DIPOLE_LEFT_TAG,
   DIPOLE_RIGHT_TAG,
   DELTA_BASE_TAG,
+  FEEDLINE_SHIELD_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
 
@@ -1104,6 +1105,74 @@ describe('antennaStore actions', () => {
       // Shield top must be at apex height
       const shield = input.wires.find((w) => w.tag === 4)!;
       expect(shield.start[2]).toBeCloseTo(baseState.height);
+    });
+
+    describe('Delta Loop Preset Verification — low mast heights', () => {
+      // Regression: at h=8 and h=8.5 the feedline shield was incorrectly
+      // extended below the delta loop base wire, causing the NEC MOM solver
+      // to produce -999.99 sentinel gains and negative resistance. The fix
+      // clamps the shield bottom to the base wire z-coordinate so the shield
+      // never crosses the base wire plane.
+      it.each([
+        { name: '160m', mhz: 1.900, height: 8 },
+        { name: '160m', mhz: 1.900, height: 8.5 },
+        { name: '80m',  mhz: 3.650, height: 8 },
+        { name: '80m',  mhz: 3.650, height: 8.5 },
+        { name: '60m',  mhz: 5.358, height: 8 },
+        { name: '60m',  mhz: 5.358, height: 8.5 },
+        { name: '160m', mhz: 1.900, height: 10 },
+        { name: '80m',  mhz: 3.650, height: 10 },
+        { name: '60m',  mhz: 5.358, height: 10 },
+      ])('$name h=$height feedline=rg58: shield stays above base wire', ({ mhz, height }) => {
+        const lambda = 299.792458 / mhz;
+        const state = {
+          ...useAntennaStore.getState(),
+          antennaType: 'delta-loop' as const,
+          frequency: mhz,
+          length: lambda,
+          height,
+          orientation: 'EW' as const,
+          wireRadius: 0.001,
+          segments: 21,
+          vAngle: 180,
+          legSlope: 0,
+          terminatingResistor: 0,
+          feedlineId: 'rg58',
+          feedlineLength: 10,
+          feedlineOffset: 0,
+          transformerEnabled: false,
+        };
+        const input = selectSimulationInput(state as AntennaState);
+
+        const base = input.wires.find((w) => w.tag === DELTA_BASE_TAG)!;
+        const shield = input.wires.find((w) => w.tag === FEEDLINE_SHIELD_TAG)!;
+
+        // Base wire must be above ground.
+        expect(base.start[2]).toBeGreaterThanOrEqual(0.49);
+        expect(base.end[2]).toBeGreaterThanOrEqual(0.49);
+
+        // Shield must be present (feedline is active for delta-loop with rg58).
+        expect(shield).toBeDefined();
+
+        // Shield bottom must be at or above the base wire height.
+        // This is the NEC stability fix: a shield that crosses the base wire
+        // plane produces ill-conditioned MOM matrix entries.
+        const baseZ = base.start[2];
+        expect(shield.end[2]).toBeGreaterThanOrEqual(baseZ - 0.001);
+
+        // Basic geometry sanity.
+        for (const w of input.wires) {
+          expect(w.segments).toBeGreaterThan(0);
+          const len = Math.hypot(
+            w.end[0] - w.start[0],
+            w.end[1] - w.start[1],
+            w.end[2] - w.start[2],
+          );
+          expect(len).toBeGreaterThan(0.05);
+          w.start.forEach((v) => expect(v).not.toBeNaN());
+          w.end.forEach((v) => expect(v).not.toBeNaN());
+        }
+      });
     });
   });
 });
