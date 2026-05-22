@@ -460,9 +460,15 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
       segments: 1,
       tag: FEED_BRIDGE_TAG,
     });
+    // Clamp the shield bottom to be at or above the base wire (z = bottomZ) so
+    // the shield never crosses the base wire plane. When it does cross, the NEC
+    // impedance matrix becomes ill-conditioned: the excitation segment midpoint
+    // ends up on the opposite side of the nearby base wire, corrupting mutual-
+    // coupling integrals and producing -999.99 sentinel gains / negative R.
+    const shieldEndZ = Math.max(params.feedlineShield.bottomZ, bottomZ);
     wires.push({
       start: apexRight,
-      end: [apexRight[0], apexRight[1], params.feedlineShield.bottomZ],
+      end: [apexRight[0], apexRight[1], shieldEndZ],
       radius: params.feedlineShield.radius,
       segments: params.feedlineShield.segments,
       tag: FEEDLINE_SHIELD_TAG,
@@ -611,9 +617,12 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
       segments: 1,
       tag: FEED_BRIDGE_TAG,
     });
+    // Same base-wire crossing guard as buildDeltaLoopWires: clamp shield end
+    // to bottomZ so the shield never crosses the base wire plane.
+    const shieldEndZ = Math.max(params.feedlineShield.bottomZ, bottomZ);
     wires.push({
       start: apexRight,
-      end: [apexRight[0], apexRight[1], params.feedlineShield.bottomZ],
+      end: [apexRight[0], apexRight[1], shieldEndZ],
       radius: params.feedlineShield.radius,
       segments: params.feedlineShield.segments,
       tag: FEEDLINE_SHIELD_TAG,
