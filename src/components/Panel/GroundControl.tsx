@@ -1,13 +1,26 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { GROUND_PRESETS } from '../../physics/constants';
 
 export function GroundControl() {
-  const groundId = useAntennaStore((s) => s.groundId);
-  const sigma = useAntennaStore((s) => s.groundSigma);
-  const epsilon = useAntennaStore((s) => s.groundEpsilon);
-  const setGround = useAntennaStore((s) => s.setGround);
-  const setCustomGround = useAntennaStore((s) => s.setCustomGround);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    groundId,
+    groundSigma: sigma,
+    groundEpsilon: epsilon,
+    setGround,
+    setCustomGround,
+  } = useAntennaStore(useShallow((s) => ({
+    groundId: s.groundId,
+    groundSigma: s.groundSigma,
+    groundEpsilon: s.groundEpsilon,
+    setGround: s.setGround,
+    setCustomGround: s.setCustomGround,
+  })));
   const [expanded, setExpanded] = useState(false);
 
   const [localSigma, setLocalSigma] = useState(sigma.toString());

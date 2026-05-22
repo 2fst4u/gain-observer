@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 
 /**
@@ -10,10 +11,21 @@ import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
  * controls rather than as a separate top-level section.
  */
 export function TransformerControl() {
-  const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
-  const transformerRatio = useAntennaStore((s) => s.transformerRatio);
-  const setTransformerEnabled = useAntennaStore((s) => s.setTransformerEnabled);
-  const setTransformerRatio = useAntennaStore((s) => s.setTransformerRatio);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    transformerEnabled,
+    transformerRatio,
+    setTransformerEnabled,
+    setTransformerRatio,
+  } = useAntennaStore(useShallow((s) => ({
+    transformerEnabled: s.transformerEnabled,
+    transformerRatio: s.transformerRatio,
+    setTransformerEnabled: s.setTransformerEnabled,
+    setTransformerRatio: s.setTransformerRatio,
+  })));
 
   // Local state to allow natural typing (including empty strings)
   const [localRatio, setLocalRatio] = useState(transformerRatio.toString());

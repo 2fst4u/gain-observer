@@ -1,15 +1,30 @@
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { displayLengthUnit, formatLength } from '../../physics/units';
 import { findGroundPreset } from '../../physics/constants';
 
 export function ComparisonControl() {
-  const mode = useAntennaStore((s) => s.mode);
-  const units = useAntennaStore((s) => s.units);
-  const result = useAntennaStore((s) => s.result);
-  const sweep = useAntennaStore((s) => s.sweep);
-  const reference = useAntennaStore((s) => s.comparisonReference);
-  const captureReference = useAntennaStore((s) => s.captureComparisonReference);
-  const clearReference = useAntennaStore((s) => s.clearComparisonReference);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    mode,
+    units,
+    result,
+    sweep,
+    comparisonReference: reference,
+    captureComparisonReference: captureReference,
+    clearComparisonReference: clearReference,
+  } = useAntennaStore(useShallow((s) => ({
+    mode: s.mode,
+    units: s.units,
+    result: s.result,
+    sweep: s.sweep,
+    comparisonReference: s.comparisonReference,
+    captureComparisonReference: s.captureComparisonReference,
+    clearComparisonReference: s.clearComparisonReference,
+  })));
 
   if (mode !== 'comparison') return null;
 
