@@ -6,6 +6,7 @@ import { useTheme } from './hooks/useTheme';
 import { useUnitsPersistence } from './hooks/useUnits';
 import { usePhysicsEngine } from './hooks/usePhysicsEngine';
 import { useAntennaStore } from './store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { type ReactNode, useEffect } from 'react';
 
 export function App() {
@@ -14,12 +15,21 @@ export function App() {
   usePhysicsEngine({ debounceMs: 150 });
   useKeyboardShortcuts();
 
-  const mode = useAntennaStore((s) => s.mode);
-  const error = useAntennaStore((s) => s.error);
-  const loading = useAntennaStore((s) => s.loading);
-  const engineReady = useAntennaStore((s) => s.engineReady);
-  const comparisonReference = useAntennaStore((s) => s.comparisonReference);
-  const liveResult = useAntennaStore((s) => s.result);
+  const {
+    mode,
+    error,
+    loading,
+    engineReady,
+    comparisonReference,
+    result: liveResult,
+  } = useAntennaStore(useShallow((s) => ({
+    mode: s.mode,
+    error: s.error,
+    loading: s.loading,
+    engineReady: s.engineReady,
+    comparisonReference: s.comparisonReference,
+    result: s.result,
+  })));
 
   const showComparison = mode === 'comparison' && comparisonReference;
 
@@ -122,9 +132,11 @@ function sceneFallback(err: Error, reset: () => void) {
 }
 
 function useKeyboardShortcuts(): void {
-  const toggleTheme = useAntennaStore((s) => s.toggleTheme);
-  const toggleUnits = useAntennaStore((s) => s.toggleUnits);
-  const setMode = useAntennaStore((s) => s.setMode);
+  const { toggleTheme, toggleUnits, setMode } = useAntennaStore(useShallow((s) => ({
+    toggleTheme: s.toggleTheme,
+    toggleUnits: s.toggleUnits,
+    setMode: s.setMode,
+  })));
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;

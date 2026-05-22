@@ -15,6 +15,7 @@
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import { useShallow } from 'zustand/react/shallow';
 import {
   useAntennaStore,
   buildWires,
@@ -58,12 +59,25 @@ export function DipoleWire({
   feedlineLength,
   feedlineOffset,
 }: DipoleWireProps) {
-  const theme = useAntennaStore((s) => s.theme);
-  const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
-  const vAngle = useAntennaStore((s) => s.vAngle);
-  const legSlope = useAntennaStore((s) => s.legSlope);
-  const frequency = useAntennaStore((s) => s.frequency);
-  const terminatingResistor = useAntennaStore((s) => s.terminatingResistor);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    theme,
+    transformerEnabled,
+    vAngle,
+    legSlope,
+    frequency,
+    terminatingResistor,
+  } = useAntennaStore(useShallow((s) => ({
+    theme: s.theme,
+    transformerEnabled: s.transformerEnabled,
+    vAngle: s.vAngle,
+    legSlope: s.legSlope,
+    frequency: s.frequency,
+    terminatingResistor: s.terminatingResistor,
+  })));
 
   const rendered = useMemo(() => {
     const wires = buildWires({

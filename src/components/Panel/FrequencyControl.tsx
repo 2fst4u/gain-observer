@@ -1,11 +1,22 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { HF_BAND_PRESETS } from '../../physics/constants';
 
 export function FrequencyControl() {
-  const frequency = useAntennaStore((s) => s.frequency);
-  const setFrequency = useAntennaStore((s) => s.setFrequency);
-  const setHalfWaveLength = useAntennaStore((s) => s.setHalfWaveLength);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    frequency,
+    setFrequency,
+    setHalfWaveLength,
+  } = useAntennaStore(useShallow((s) => ({
+    frequency: s.frequency,
+    setFrequency: s.setFrequency,
+    setHalfWaveLength: s.setHalfWaveLength,
+  })));
 
   // Use local string state to allow natural typing (trailing dots/zeros)
   // without immediate snapping from the store's clamp logic.
