@@ -84,6 +84,9 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
 
     const unsub = useAntennaStore.subscribe((state, prev) => {
       // Re-run only when something affecting the simulation changed.
+      // JSON.stringify is intentional: selectSimulationInput returns freshly-allocated
+      // arrays and object literals on every call, so shallow reference equality (Object.keys
+      // + !==) would always fire. At ~3μs per call and ≤100 events/s this is negligible.
       const a = selectSimulationInput(state);
       const b = selectSimulationInput(prev);
       if (JSON.stringify(a) !== JSON.stringify(b)) {
