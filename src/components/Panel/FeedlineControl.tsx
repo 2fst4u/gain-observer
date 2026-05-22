@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import {
   FEEDLINE_PRESETS,
   feedlineLossDb,
@@ -12,16 +13,33 @@ import {
 } from '../../physics/units';
 
 export function FeedlineControl() {
-  const units = useAntennaStore((s) => s.units);
-  const antennaType = useAntennaStore((s) => s.antennaType);
-  const frequency = useAntennaStore((s) => s.frequency);
-  const dipoleLength = useAntennaStore((s) => s.length);
-  const feedlineId = useAntennaStore((s) => s.feedlineId);
-  const feedlineLength = useAntennaStore((s) => s.feedlineLength);
-  const feedlineOffset = useAntennaStore((s) => s.feedlineOffset);
-  const setFeedline = useAntennaStore((s) => s.setFeedline);
-  const setFeedlineLength = useAntennaStore((s) => s.setFeedlineLength);
-  const setFeedlineOffset = useAntennaStore((s) => s.setFeedlineOffset);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    units,
+    antennaType,
+    frequency,
+    length: dipoleLength,
+    feedlineId,
+    feedlineLength,
+    feedlineOffset,
+    setFeedline,
+    setFeedlineLength,
+    setFeedlineOffset,
+  } = useAntennaStore(useShallow((s) => ({
+    units: s.units,
+    antennaType: s.antennaType,
+    frequency: s.frequency,
+    length: s.length,
+    feedlineId: s.feedlineId,
+    feedlineLength: s.feedlineLength,
+    feedlineOffset: s.feedlineOffset,
+    setFeedline: s.setFeedline,
+    setFeedlineLength: s.setFeedlineLength,
+    setFeedlineOffset: s.setFeedlineOffset,
+  })));
 
   const preset = findFeedlinePreset(feedlineId);
   const enabled = preset.id !== 'none';

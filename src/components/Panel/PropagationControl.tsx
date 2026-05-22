@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { predictPropagation } from '../../physics/propagation';
 import { PropagationRadar } from '../Charts/PropagationRadar';
@@ -13,18 +14,37 @@ const MONTH_NAMES = [
 ];
 
 export function PropagationControl() {
-  const frequency = useAntennaStore((s) => s.frequency);
-  const tIndex = useAntennaStore((s) => s.tIndex);
-  const setTIndex = useAntennaStore((s) => s.setTIndex);
-  const latitudeDeg = useAntennaStore((s) => s.latitudeDeg);
-  const longitudeDeg = useAntennaStore((s) => s.longitudeDeg);
-  const setLatitude = useAntennaStore((s) => s.setLatitude);
-  const monthOverride = useAntennaStore((s) => s.monthOverride);
-  const utcHourOverride = useAntennaStore((s) => s.utcHourOverride);
-  const setMonthOverride = useAntennaStore((s) => s.setMonthOverride);
-  const setUtcHourOverride = useAntennaStore((s) => s.setUtcHourOverride);
-  const result = useAntennaStore((s) => s.result);
-  const units = useAntennaStore((s) => s.units);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    frequency,
+    tIndex,
+    setTIndex,
+    latitudeDeg,
+    longitudeDeg,
+    setLatitude,
+    monthOverride,
+    utcHourOverride,
+    setMonthOverride,
+    setUtcHourOverride,
+    result,
+    units,
+  } = useAntennaStore(useShallow((s) => ({
+    frequency: s.frequency,
+    tIndex: s.tIndex,
+    setTIndex: s.setTIndex,
+    latitudeDeg: s.latitudeDeg,
+    longitudeDeg: s.longitudeDeg,
+    setLatitude: s.setLatitude,
+    monthOverride: s.monthOverride,
+    utcHourOverride: s.utcHourOverride,
+    setMonthOverride: s.setMonthOverride,
+    setUtcHourOverride: s.setUtcHourOverride,
+    result: s.result,
+    units: s.units,
+  })));
 
   const { status: geoStatus, requestLocation } = useGeolocation();
 

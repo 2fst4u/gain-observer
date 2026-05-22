@@ -1,4 +1,5 @@
 import { useAntennaStore, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import {
   mismatchLossFactor,
   swr,
@@ -12,14 +13,29 @@ import {
 import type { ImpedanceResult, TerminationDiagnostics } from '../../physics/types';
 
 export function StatsReadout() {
-  const result = useAntennaStore((s) => s.result);
-  const mode = useAntennaStore((s) => s.mode);
-  const reference = useAntennaStore((s) => s.comparisonReference);
-  const transformerEnabled = useAntennaStore((s) => s.transformerEnabled);
-  const transformerRatio = useAntennaStore((s) => s.transformerRatio);
-  const feedlineId = useAntennaStore((s) => s.feedlineId);
-  const feedlineLength = useAntennaStore((s) => s.feedlineLength);
-  const frequency = useAntennaStore((s) => s.frequency);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const {
+    result,
+    mode,
+    comparisonReference: reference,
+    transformerEnabled,
+    transformerRatio,
+    feedlineId,
+    feedlineLength,
+    frequency,
+  } = useAntennaStore(useShallow((s) => ({
+    result: s.result,
+    mode: s.mode,
+    comparisonReference: s.comparisonReference,
+    transformerEnabled: s.transformerEnabled,
+    transformerRatio: s.transformerRatio,
+    feedlineId: s.feedlineId,
+    feedlineLength: s.feedlineLength,
+    frequency: s.frequency,
+  })));
   const feedlineActive = feedlineId !== 'none';
   if (!result) {
     return (
