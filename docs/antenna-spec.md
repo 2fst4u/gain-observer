@@ -179,29 +179,29 @@ This document defines the physical and mathematical model for all antenna types 
 
 ---
 
-## 5. Terminated Delta
+## 5. Terminated Delta (T2FD / aperiodic loop)
 
 ### 5.1 Geometry Definition
 
 - **Apex Location:** Highest point at $(0, 0, \text{height})$.
-- **Leg Count & Length:** 3 wires forming a triangle, total perimeter $L$.
-- **Reference Length:** $1.03\lambda$ (Resonance).
-- **Angle/Slope:** Equilateral triangle in the vertical plane.
-- **Tips:** Bottom corners. The bottom wire is split at the center with a gap (`TERMINATED_DELTA_CENTRE_GAP_M`).
+- **Leg Count & Length:** 3 wires forming a triangle, total perimeter $L$. The bottom wire is split at the centre, so the structure is emitted as two top legs + two half-base wires + one bridge wire across the gap (when terminated).
+- **Reference Length:** $1.0\lambda$ canonical, but resonance is not the design goal: a properly bridged termination flattens impedance across an octave or more, so the antenna is used multi-band rather than at a single design frequency.
+- **Angle/Slope:** Equilateral triangle in the vertical plane (flattens to isosceles when the mast height is below the equilateral height; perimeter preserved).
+- **Tips:** Bottom corners. The bottom wire is split at the centre with a gap (`TERMINATED_DELTA_CENTRE_GAP_M`).
 - **Min Height:** Bottom wire must be $\ge 0.1$ m above ground.
 
 ### 5.2 Feedpoint Definition
 
-- **NEC Excitation:** 1-segment source bridge at apex.
-- **Segment:** Segment 1 of bridge.
-- **Feed Type:** Balanced bridge segment.
-- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable).
+- **NEC Excitation:** Last segment of the LEFT leg (at the apex) when no feedline is fitted; 1-segment apex bridge when a feedline is present.
+- **Feed Type:** Apex feed (balanced).
+- **Feedline Support:** Supported (radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable). A 9:1 (or similar) unun is typically required at the rig end to bring the ~500–900 Ω feedpoint Z down to ~50 Ω.
 
 ### 5.3 Termination Definition
 
-- **Topology:** Resistor from each side of the split bottom center to ground via short stub wires.
-- **NEC Model:** `LD 4` loads on short vertical stub wires extending from the center ends down to near-ground (`TERMINATED_DELTA_STUB_BOTTOM_Z_M`).
-- **Value:** `terminatingResistor` is applied identically to both stubs.
+- **Topology:** A single horizontal *bridge wire* spans the gap between the two half-base inner ends. The terminating resistor sits on that bridge. This is the canonical T2FD / aperiodic-loop topology.
+- **NEC Model:** One `LD 4` load on the single segment of `TERMINATED_DELTA_BRIDGE_TAG`. No vertical stubs, no ground shunts.
+- **Value:** `terminatingResistor` should be close to the loop wire's characteristic impedance over real ground, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$. Default is 600 Ω.
+- **What this is NOT:** Not a unidirectional travelling-wave antenna. The geometry is bilaterally symmetric, so by symmetry the pattern is bidirectional/broadside (delta-loop-like). The termination buys broadband flat impedance, not directionality. For a unidirectional cardioid you need an asymmetric topology (e.g. corner-fed/corner-terminated K9AY-style), which this app does not currently model.
 
 ### 5.4 SWR Convention
 

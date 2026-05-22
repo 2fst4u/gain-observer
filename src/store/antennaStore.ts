@@ -42,8 +42,7 @@ import {
   SLOPING_V_STUB_BOTTOM_Z_M,
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
-  TERMINATED_DELTA_LEFT_STUB_TAG,
-  TERMINATED_DELTA_RIGHT_STUB_TAG,
+  TERMINATED_DELTA_BRIDGE_TAG,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -59,8 +58,7 @@ export {
   SLOPING_V_RIGHT_STUB_TAG,
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
-  TERMINATED_DELTA_LEFT_STUB_TAG,
-  TERMINATED_DELTA_RIGHT_STUB_TAG,
+  TERMINATED_DELTA_BRIDGE_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
@@ -129,8 +127,11 @@ export interface AntennaState {
    * 0 = unterminated.
    *
    * - sloping-V: inserts stub wires with NEC LD cards for tip-to-earth termination.
-   * - terminated-delta: inserts two stub wires (one at each inner half-base
-   *   end) with NEC LD cards, modelling per-resistor shunt-to-earth termination.
+   * - terminated-delta: inserts a single horizontal bridge wire across the
+   *   gap at the centre of the base, with one NEC LD card carrying the full
+   *   resistor value. This is the T2FD / aperiodic-loop topology — the
+   *   resistor absorbs the wave that propagates around the loop from the
+   *   apex feed, giving broadband flat impedance instead of a cardioid.
    */
   terminatingResistor: number;
 
@@ -322,9 +323,11 @@ export const useAntennaStore = create<AntennaState>()(
         } else if (type === 'terminated-delta') {
           s.vAngle = 180;
           s.legSlope = 0;
-          // Per-stub default mirrors the sloping-V (each tip independently
-          // terminated to ground); 300 Ω matches the canonical reference design.
-          if (s.terminatingResistor === 0) s.terminatingResistor = 300;
+          // 600 Ω is a typical match for the characteristic impedance of an
+          // HF wire loop over real ground (Z0 ≈ 60·ln(2h/a) ≈ 500–700 Ω at
+          // common HF heights). Sitting near loop-Z0 is what gives the
+          // bridge-terminated design its flat broadband impedance.
+          if (s.terminatingResistor === 0) s.terminatingResistor = 600;
         }
 
         const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
@@ -936,41 +939,34 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 
   if (state.antennaType === 'terminated-delta' && state.terminatingResistor > 0) {
     const R = state.terminatingResistor;
-    // Per-stub shunt termination to ground, mirroring the sloping-V
-    // tip-to-earth pattern exactly. Each half-base ends near the centre
-    // at z = bottomZ; a short vertical stub takes that point down to
-    // near-ground (SLOPING_V_STUB_BOTTOM_Z_M) and the LD-4 card places
-    // the resistance in the stub. This produces an explicit NEC current
-    // path through the resistor to the ground plane, which the
-    // Sommerfeld-Norton model resolves correctly.
+    // T2FD / aperiodic-loop termination: a single horizontal bridge wire
+    // spans the gap between the two half-base inner ends, and one LD-4
+    // card places R Ω on its single segment. The wave that propagates
+    // around the loop from the apex feed arrives at the bridge with
+    // ~equal-and-opposite drive from each side; matching R to the loop's
+    // characteristic impedance (~500–700 Ω over HF heights) flattens
+    // the feedpoint impedance across an octave or more, at the cost of
+    // efficiency on the fundamental.
     //
     // The LEFT half-base is emitted leftCorner → centreLeft so the
     // inner end is the wire's `.end`. The RIGHT half-base is emitted
     // centreRight → rightCorner so the inner end is the wire's `.start`.
+    // The bridge runs leftInner → rightInner, joining the two halves
+    // electrically through the resistor.
     const leftHalfBase  = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
     const rightHalfBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
     const leftInner  = leftHalfBase.end;
     const rightInner = rightHalfBase.start;
 
-    wires.push(
-      {
-        start: leftInner,
-        end: [leftInner[0], leftInner[1], SLOPING_V_STUB_BOTTOM_Z_M],
-        radius: state.wireRadius,
-        segments: 1,
-        tag: TERMINATED_DELTA_LEFT_STUB_TAG,
-      },
-      {
-        start: rightInner,
-        end: [rightInner[0], rightInner[1], SLOPING_V_STUB_BOTTOM_Z_M],
-        radius: state.wireRadius,
-        segments: 1,
-        tag: TERMINATED_DELTA_RIGHT_STUB_TAG,
-      },
-    );
+    wires.push({
+      start: leftInner,
+      end: rightInner,
+      radius: state.wireRadius,
+      segments: 1,
+      tag: TERMINATED_DELTA_BRIDGE_TAG,
+    });
     loads.push(
-      { type: 4, wireTag: TERMINATED_DELTA_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
-      { type: 4, wireTag: TERMINATED_DELTA_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+      { type: 4, wireTag: TERMINATED_DELTA_BRIDGE_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
     );
   }
 

@@ -4,8 +4,7 @@ import {
   selectSimulationInput,
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
-  TERMINATED_DELTA_LEFT_STUB_TAG,
-  TERMINATED_DELTA_RIGHT_STUB_TAG,
+  TERMINATED_DELTA_BRIDGE_TAG,
 } from '../src/store/antennaStore';
 import { buildNecCards } from '../src/physics/necCard';
 import {
@@ -21,7 +20,6 @@ import {
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   SLOPING_V_MIN_TIP_Z_M,
-  SLOPING_V_STUB_BOTTOM_Z_M,
   TERMINATED_DELTA_CENTRE_GAP_M,
   wavelengthMeters,
 } from '../src/physics/constants';
@@ -42,11 +40,7 @@ function setupTerminatedDelta(terminatingResistor?: number) {
 function getTermLdLines(deck: string): string[] {
   return getNecLines(deck, 'LD').filter((line) => {
     const ld = parseLdLine(line);
-    return (
-      ld.type === 4 &&
-      (ld.tag === TERMINATED_DELTA_LEFT_STUB_TAG ||
-        ld.tag === TERMINATED_DELTA_RIGHT_STUB_TAG)
-    );
+    return ld.type === 4 && ld.tag === TERMINATED_DELTA_BRIDGE_TAG;
   });
 }
 
@@ -64,11 +58,11 @@ describe('Terminated Delta — defaults & state', () => {
     expect(useAntennaStore.getState().length).toBeCloseTo(lambda, 6);
   });
 
-  it('switching to terminated-delta from unterminated defaults R to 300 Ω', () => {
+  it('switching to terminated-delta from unterminated defaults R to 600 Ω', () => {
     const store = useAntennaStore.getState();
     store.setTerminatingResistor(0);
     store.setAntennaType('terminated-delta');
-    expect(useAntennaStore.getState().terminatingResistor).toBe(300);
+    expect(useAntennaStore.getState().terminatingResistor).toBe(600);
   });
 
   it('switching to terminated-delta preserves an existing non-zero R', () => {
@@ -230,13 +224,12 @@ describe('Terminated Delta — unterminated', () => {
     useAntennaStore.getState().setTerminatingResistor(0);
   });
 
-  it('no stub wires and no termination LD when terminatingResistor=0', () => {
+  it('no bridge wire and no termination LD when terminatingResistor=0', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
     expect(getTermLdLines(deck)).toHaveLength(0);
-    expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_STUB_TAG)).toBeUndefined();
-    expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_STUB_TAG)).toBeUndefined();
+    expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_BRIDGE_TAG)).toBeUndefined();
   });
 
   it('unterminated input.loads is undefined (no LD cards anywhere)', () => {
@@ -246,70 +239,64 @@ describe('Terminated Delta — unterminated', () => {
   });
 });
 
-describe('Terminated Delta — terminated (per-stub shunt to ground)', () => {
+describe('Terminated Delta — terminated (T2FD-style bridge resistor)', () => {
   beforeEach(() => {
     useAntennaStore.getState().setTerminatingResistor(0);
   });
 
-  it('adds two stub wires and two LD cards when terminatingResistor > 0', () => {
-    setupTerminatedDelta(300);
+  it('adds a single bridge wire and one LD card when terminatingResistor > 0', () => {
+    setupTerminatedDelta(600);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    expect(getTermLdLines(deck)).toHaveLength(2);
-    expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_STUB_TAG)).toBeDefined();
-    expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_STUB_TAG)).toBeDefined();
+    expect(getTermLdLines(deck)).toHaveLength(1);
+    expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_BRIDGE_TAG)).toBeDefined();
   });
 
-  it('stubs are vertical, start at the inner half-base ends, end near ground', () => {
-    setupTerminatedDelta(300);
+  it('bridge is horizontal at bottomZ, spans the two inner half-base ends', () => {
+    setupTerminatedDelta(600);
     const input = selectSimulationInput(useAntennaStore.getState());
     const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
     const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
-    const leftStub = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_STUB_TAG)!;
-    const rightStub = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_STUB_TAG)!;
+    const bridge = input.wires.find((w) => w.tag === TERMINATED_DELTA_BRIDGE_TAG)!;
 
-    // Left stub starts at left half-base's inner end (.end).
-    expect(leftStub.start[0]).toBeCloseTo(leftHalfBase.end[0], 6);
-    expect(leftStub.start[1]).toBeCloseTo(leftHalfBase.end[1], 6);
-    expect(leftStub.start[2]).toBeCloseTo(leftHalfBase.end[2], 6);
-    // Right stub starts at right half-base's inner end (.start).
-    expect(rightStub.start[0]).toBeCloseTo(rightHalfBase.start[0], 6);
-    expect(rightStub.start[1]).toBeCloseTo(rightHalfBase.start[1], 6);
-    expect(rightStub.start[2]).toBeCloseTo(rightHalfBase.start[2], 6);
+    // Bridge starts at the LEFT half-base's inner end (.end).
+    expect(bridge.start[0]).toBeCloseTo(leftHalfBase.end[0], 6);
+    expect(bridge.start[1]).toBeCloseTo(leftHalfBase.end[1], 6);
+    expect(bridge.start[2]).toBeCloseTo(leftHalfBase.end[2], 6);
+    // Bridge ends at the RIGHT half-base's inner end (.start).
+    expect(bridge.end[0]).toBeCloseTo(rightHalfBase.start[0], 6);
+    expect(bridge.end[1]).toBeCloseTo(rightHalfBase.start[1], 6);
+    expect(bridge.end[2]).toBeCloseTo(rightHalfBase.start[2], 6);
 
-    // Stubs end at the constant floor height.
-    expect(leftStub.end[2]).toBeCloseTo(SLOPING_V_STUB_BOTTOM_Z_M, 6);
-    expect(rightStub.end[2]).toBeCloseTo(SLOPING_V_STUB_BOTTOM_Z_M, 6);
-
-    // Stubs are vertical (XY coords unchanged).
-    expect(leftStub.end[0]).toBeCloseTo(leftStub.start[0], 6);
-    expect(leftStub.end[1]).toBeCloseTo(leftStub.start[1], 6);
-    expect(rightStub.end[0]).toBeCloseTo(rightStub.start[0], 6);
-    expect(rightStub.end[1]).toBeCloseTo(rightStub.start[1], 6);
+    // Bridge is horizontal (same z at both ends).
+    expect(bridge.start[2]).toBeCloseTo(bridge.end[2], 6);
+    // Bridge length equals the configured gap.
+    const len = Math.hypot(
+      bridge.end[0] - bridge.start[0],
+      bridge.end[1] - bridge.start[1],
+      bridge.end[2] - bridge.start[2],
+    );
+    expect(len).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
   });
 
-  it('LD cards are type 4, on segment 1 of each stub, resistance per-stub equals terminatingResistor', () => {
+  it('LD card is type 4 on segment 1 of the bridge, resistance equals terminatingResistor', () => {
     const R = 500;
     setupTerminatedDelta(R);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
     const ldLines = getTermLdLines(deck);
-    expect(ldLines).toHaveLength(2);
-    for (const line of ldLines) {
-      const ld = parseLdLine(line);
-      expect(ld.type).toBe(4);
-      expect(ld.segmentStart).toBe(1);
-      expect(ld.segmentEnd).toBe(1);
-      expect(ld.p1).toBeCloseTo(R, 6);
-      expect(ld.p2).toBeCloseTo(0, 6);
-    }
-    // Each tag is loaded exactly once.
-    const tags = ldLines.map((l) => parseLdLine(l).tag).sort();
-    expect(tags).toEqual([TERMINATED_DELTA_LEFT_STUB_TAG, TERMINATED_DELTA_RIGHT_STUB_TAG]);
+    expect(ldLines).toHaveLength(1);
+    const ld = parseLdLine(ldLines[0]);
+    expect(ld.type).toBe(4);
+    expect(ld.tag).toBe(TERMINATED_DELTA_BRIDGE_TAG);
+    expect(ld.segmentStart).toBe(1);
+    expect(ld.segmentEnd).toBe(1);
+    expect(ld.p1).toBeCloseTo(R, 6);
+    expect(ld.p2).toBeCloseTo(0, 6);
   });
 
-  it('no LD cards on the radiating wires themselves (termination is in stubs only)', () => {
-    setupTerminatedDelta(300);
+  it('no LD cards on the radiating wires themselves (termination is on the bridge only)', () => {
+    setupTerminatedDelta(600);
     const input = selectSimulationInput(useAntennaStore.getState());
     const radiatingLoads = (input.loads ?? []).filter(
       (l) =>
@@ -322,19 +309,19 @@ describe('Terminated Delta — terminated (per-stub shunt to ground)', () => {
   });
 
   it('all wires remain strictly above z=0 when terminated', () => {
-    setupTerminatedDelta(300);
+    setupTerminatedDelta(600);
     expectNoGroundTouchingWires(buildNecCards(selectSimulationInput(useAntennaStore.getState())));
   });
 
-  it('no NT (two-port network) card emitted — termination uses LD cards only', () => {
-    setupTerminatedDelta(300);
+  it('no NT (two-port network) card emitted — termination uses an LD card only', () => {
+    setupTerminatedDelta(600);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
     expect(getNecLines(deck, 'NT')).toHaveLength(0);
     expect(input.networks).toBeUndefined();
   });
 
-  it('total per-stub resistance scales with terminatingResistor', () => {
+  it('bridge LD resistance scales with terminatingResistor', () => {
     setupTerminatedDelta(1200);
     const ld1 = parseLdLine(
       getTermLdLines(buildNecCards(selectSimulationInput(useAntennaStore.getState())))[0],
@@ -361,7 +348,7 @@ describe('Terminated Delta — excitation', () => {
   });
 
   it('terminated: excitation is still on the last segment of the left leg (apex)', () => {
-    setupTerminatedDelta(300);
+    setupTerminatedDelta(600);
     const input = selectSimulationInput(useAntennaStore.getState());
     const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
     expectExcitation(buildNecCards(input), DIPOLE_LEFT_TAG, leftLeg.segments);
@@ -419,7 +406,7 @@ describe('Terminated Delta — NEC deck sanity', () => {
   });
 
   it('every GW wire is well-formed (radius > 0, segments >= 1)', () => {
-    setupTerminatedDelta(300);
+    setupTerminatedDelta(600);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
     const gwLines = getNecLines(deck, 'GW');
@@ -432,16 +419,15 @@ describe('Terminated Delta — NEC deck sanity', () => {
   });
 
   it('cross-type isolation: switching to dipole removes all terminated-delta tags', () => {
-    setupTerminatedDelta(300);
+    setupTerminatedDelta(600);
     useAntennaStore.getState().setAntennaType('dipole');
     const input = selectSimulationInput(useAntennaStore.getState());
     expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)).toBeUndefined();
     expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)).toBeUndefined();
-    expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_STUB_TAG)).toBeUndefined();
-    expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_STUB_TAG)).toBeUndefined();
+    expect(input.wires.find((w) => w.tag === TERMINATED_DELTA_BRIDGE_TAG)).toBeUndefined();
   });
 
-  it('cross-type isolation: delta-loop with R > 0 does not emit terminated-delta stub LDs', () => {
+  it('cross-type isolation: delta-loop with R > 0 does not emit terminated-delta bridge LD', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('delta-loop');
     store.setTerminatingResistor(600);
@@ -449,7 +435,7 @@ describe('Terminated Delta — NEC deck sanity', () => {
     expect(getTermLdLines(deck)).toHaveLength(0);
   });
 
-  it('cross-type isolation: sloping-v with R > 0 does not emit terminated-delta stub LDs', () => {
+  it('cross-type isolation: sloping-v with R > 0 does not emit terminated-delta bridge LD', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('sloping-v');
     store.setTerminatingResistor(600);

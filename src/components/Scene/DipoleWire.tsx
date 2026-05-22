@@ -28,7 +28,6 @@ import {
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   type Orientation,
 } from '../../store/antennaStore';
-import { SLOPING_V_STUB_BOTTOM_Z_M } from '../../physics/constants';
 import type { AntennaType } from '../../physics/types';
 import { THEME_COLORS } from '../../utils/themeColors';
 
@@ -146,11 +145,12 @@ export function DipoleWire({
   const feedpoint = bridge?.feedMid ?? apexFedLeft?.sceneEnd ?? dipoleSingle?.feedMid ?? null;
 
   // Terminated Delta: locate the two half-base inner ends so we can render
-  // visible "split" markers (always) and the stub-to-ground + resistor
-  // decorations (only when termination is active). The half-base wires are
-  // oriented:
+  // visible "split" markers (always) and the bridge-resistor decoration
+  // (only when termination is active). The half-base wires are oriented:
   //   LEFT  half-base:  leftCorner  → centreLeft   → .sceneEnd is the inner end
   //   RIGHT half-base:  centreRight → rightCorner  → .sceneStart is the inner end
+  // The bridge runs horizontally across the gap between the two inner ends;
+  // the resistor sits on it.
   const terminatedDeltaSplit = useMemo(() => {
     if (type !== 'terminated-delta') return null;
     const leftHalfBase = rendered.find((s) => s.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
@@ -158,18 +158,33 @@ export function DipoleWire({
     if (!leftHalfBase || !rightHalfBase) return null;
     const leftInner = leftHalfBase.sceneEnd;
     const rightInner = rightHalfBase.sceneStart;
-    // Stub goes vertically down (in scene Y) from the inner end at the
-    // bottom-corner height to the near-ground floor used in the NEC model.
-    const stubLength = Math.max(0, leftInner[1] - SLOPING_V_STUB_BOTTOM_Z_M);
-    const leftStubMid: [number, number, number] = [leftInner[0], leftInner[1] - stubLength / 2, leftInner[2]];
-    const rightStubMid: [number, number, number] = [rightInner[0], rightInner[1] - stubLength / 2, rightInner[2]];
+    const bridgeMid: [number, number, number] = [
+      (leftInner[0] + rightInner[0]) / 2,
+      (leftInner[1] + rightInner[1]) / 2,
+      (leftInner[2] + rightInner[2]) / 2,
+    ];
+    const bridgeLen = Math.hypot(
+      rightInner[0] - leftInner[0],
+      rightInner[1] - leftInner[1],
+      rightInner[2] - leftInner[2],
+    );
+    // Quaternion that points a +Y cylinder along the bridge direction.
+    const bridgeQuat = new THREE.Quaternion();
+    if (bridgeLen > 1e-9) {
+      const dir = new THREE.Vector3(
+        rightInner[0] - leftInner[0],
+        rightInner[1] - leftInner[1],
+        rightInner[2] - leftInner[2],
+      ).normalize();
+      bridgeQuat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    }
     return {
       leftInner,
       rightInner,
-      leftStubMid,
-      rightStubMid,
-      stubLength,
-      stubRadius: Math.max(wireRadius * 8, 0.03),
+      bridgeMid,
+      bridgeLen,
+      bridgeQuat,
+      resistorRadius: Math.max(wireRadius * 8, 0.04),
     };
   }, [type, rendered, wireRadius]);
 
@@ -247,66 +262,30 @@ export function DipoleWire({
             />
           </mesh>
 
-          {/* When terminated (R > 0): render the vertical stub wires
-              dropping from each inner end to near-ground, with a small
-              red resistor marker on each stub. This matches the NEC deck
-              that selectSimulationInput emits and gives the user a clear
-              visual of "where the resistor sits". */}
-          {terminatingResistor > 0 && terminatedDeltaSplit.stubLength > 1e-3 && (
-            <>
-              <mesh position={terminatedDeltaSplit.leftStubMid}>
-                <cylinderGeometry args={[
-                  terminatedDeltaSplit.stubRadius,
-                  terminatedDeltaSplit.stubRadius,
-                  terminatedDeltaSplit.stubLength,
-                  12,
-                ]} />
-                <meshStandardMaterial
-                  color={THEME_COLORS[theme].wire}
-                  emissive={THEME_COLORS[theme].wire}
-                  emissiveIntensity={0.15}
-                  metalness={0.85}
-                  roughness={0.35}
-                />
-              </mesh>
-              <mesh position={terminatedDeltaSplit.rightStubMid}>
-                <cylinderGeometry args={[
-                  terminatedDeltaSplit.stubRadius,
-                  terminatedDeltaSplit.stubRadius,
-                  terminatedDeltaSplit.stubLength,
-                  12,
-                ]} />
-                <meshStandardMaterial
-                  color={THEME_COLORS[theme].wire}
-                  emissive={THEME_COLORS[theme].wire}
-                  emissiveIntensity={0.15}
-                  metalness={0.85}
-                  roughness={0.35}
-                />
-              </mesh>
-
-              {/* Resistor markers: short fat coloured cylinders straddling the
-                  stub midpoint. Same red as the conventional resistor body
-                  colour so it's instantly readable as "this is a resistor". */}
-              <mesh position={terminatedDeltaSplit.leftStubMid}>
-                <cylinderGeometry args={[
-                  terminatedDeltaSplit.stubRadius * 3.5,
-                  terminatedDeltaSplit.stubRadius * 3.5,
-                  Math.min(0.35, terminatedDeltaSplit.stubLength * 0.4),
-                  12,
-                ]} />
-                <meshStandardMaterial color="#c93434" emissive="#c93434" emissiveIntensity={0.35} metalness={0.2} roughness={0.6} />
-              </mesh>
-              <mesh position={terminatedDeltaSplit.rightStubMid}>
-                <cylinderGeometry args={[
-                  terminatedDeltaSplit.stubRadius * 3.5,
-                  terminatedDeltaSplit.stubRadius * 3.5,
-                  Math.min(0.35, terminatedDeltaSplit.stubLength * 0.4),
-                  12,
-                ]} />
-                <meshStandardMaterial color="#c93434" emissive="#c93434" emissiveIntensity={0.35} metalness={0.2} roughness={0.6} />
-              </mesh>
-            </>
+          {/* When terminated (R > 0): render a horizontal resistor body
+              bridging the gap between the two half-base inner ends. This
+              matches the NEC deck (one LD card on TERMINATED_DELTA_BRIDGE_TAG)
+              and gives the user a clear visual of "where the resistor sits"
+              — across the gap, not to ground. */}
+          {terminatingResistor > 0 && terminatedDeltaSplit.bridgeLen > 1e-3 && (
+            <mesh
+              position={terminatedDeltaSplit.bridgeMid}
+              quaternion={terminatedDeltaSplit.bridgeQuat}
+            >
+              <cylinderGeometry args={[
+                terminatedDeltaSplit.resistorRadius,
+                terminatedDeltaSplit.resistorRadius,
+                terminatedDeltaSplit.bridgeLen,
+                12,
+              ]} />
+              <meshStandardMaterial
+                color="#c93434"
+                emissive="#c93434"
+                emissiveIntensity={0.35}
+                metalness={0.2}
+                roughness={0.6}
+              />
+            </mesh>
           )}
         </>
       )}
