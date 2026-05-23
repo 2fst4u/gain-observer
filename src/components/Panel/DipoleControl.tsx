@@ -112,6 +112,7 @@ export function DipoleControl() {
     'delta-loop': '1λ',
     'sloping-v': '1λ/leg',
     'terminated-delta': '1λ',
+    'vertical-whip': '¼λ',
   };
 
   const resonateTitles: Record<AntennaType, string> = {
@@ -120,7 +121,14 @@ export function DipoleControl() {
     'delta-loop': 'Set perimeter to resonant 1λ',
     'sloping-v': 'Set total length to 2λ (1λ per leg)',
     'terminated-delta': 'Set perimeter to 1λ',
+    'vertical-whip': 'Set whip length to resonant ¼λ',
   };
+
+  const isVerticalWhip = antennaType === 'vertical-whip';
+  const lengthLabel = isVerticalWhip ? `Whip length (${unit})` : `Length (${unit})`;
+  const heightLabel = isVerticalWhip
+    ? `Base height above ground (${unit}) — ${dispHeight.toFixed(1)}`
+    : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
 
   return (
     <section className="panel-section">
@@ -139,9 +147,10 @@ export function DipoleControl() {
         <option value="sloping-v">Sloping V</option>
         <option value="delta-loop">Delta Loop</option>
         <option value="terminated-delta">Terminated Delta</option>
+        <option value="vertical-whip">Vertical Whip</option>
       </select>
 
-      <label htmlFor="dipole-length" style={{ marginTop: 10 }}>Length ({unit})</label>
+      <label htmlFor="dipole-length" style={{ marginTop: 10 }}>{lengthLabel}</label>
       <div className="row">
         <input
           id="dipole-length"
@@ -190,7 +199,7 @@ export function DipoleControl() {
         </div>
       )}
 
-      <label htmlFor="dipole-height" style={{ marginTop: 10 }}>Height above ground ({unit}) — {dispHeight.toFixed(1)}</label>
+      <label htmlFor="dipole-height" style={{ marginTop: 10 }}>{heightLabel}</label>
       <input
         id="dipole-height"
         type="range"
@@ -270,43 +279,47 @@ export function DipoleControl() {
 
       <GeometryStatus />
 
-      <label htmlFor="dipole-orientation" style={{ marginTop: 10 }}>Orientation (°)</label>
-      <div className="row">
-        <input
-          id="dipole-orientation"
-          type="number"
-          min={0}
-          max={359}
-          step={1}
-          value={localOrient}
-          onFocus={() => setIsOrientFocused(true)}
-          onChange={(e) => {
-            const s = e.target.value;
-            setLocalOrient(s);
-            const val = parseFloat(s);
-            if (!isNaN(val)) {
-              setOrientation(val);
-            }
-          }}
-          onBlur={() => {
-            setIsOrientFocused(false);
-            setLocalOrient(currentDegrees.toString());
-          }}
-        />
-      </div>
+      {!isVerticalWhip && (
+        <>
+          <label htmlFor="dipole-orientation" style={{ marginTop: 10 }}>Orientation (°)</label>
+          <div className="row">
+            <input
+              id="dipole-orientation"
+              type="number"
+              min={0}
+              max={359}
+              step={1}
+              value={localOrient}
+              onFocus={() => setIsOrientFocused(true)}
+              onChange={(e) => {
+                const s = e.target.value;
+                setLocalOrient(s);
+                const val = parseFloat(s);
+                if (!isNaN(val)) {
+                  setOrientation(val);
+                }
+              }}
+              onBlur={() => {
+                setIsOrientFocused(false);
+                setLocalOrient(currentDegrees.toString());
+              }}
+            />
+          </div>
 
-      <div className="button-group" role="group" aria-label="Orientation presets">
-        {orientations.map((o) => (
-          <button
-            key={o}
-            className={orientation === o ? 'active' : ''}
-            onClick={() => setOrientation(o)}
-            aria-pressed={orientation === o}
-          >
-            {o}
-          </button>
-        ))}
-      </div>
+          <div className="button-group" role="group" aria-label="Orientation presets">
+            {orientations.map((o) => (
+              <button
+                key={o}
+                className={orientation === o ? 'active' : ''}
+                onClick={() => setOrientation(o)}
+                aria-pressed={orientation === o}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Transformer / balun: part of the antenna's feedpoint hardware
           (applied before the NEC simulation), so it belongs in the Antenna

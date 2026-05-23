@@ -12,8 +12,11 @@ export type Vec3 = readonly [number, number, number];
  *   - terminated-delta: 1λ perimeter (same triangle shape as a delta loop,
  *     but the base is split in the middle and each half terminates to
  *     ground through its own resistor, like a per-tip sloping-V termination).
+ *   - vertical-whip: a single vertical wire fed at its base (monopole).
+ *     `length` is the whip length and `height` is the base height above
+ *     ground; resonant length is ¼λ.
  */
-export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta';
+export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip';
 
 export interface Wire {
   readonly start: Vec3;

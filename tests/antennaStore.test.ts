@@ -9,8 +9,10 @@ import {
   DIPOLE_RIGHT_TAG,
   DELTA_BASE_TAG,
   FEEDLINE_SHIELD_TAG,
+  VERTICAL_WHIP_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
+import { DEFAULT_WHIP_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M } from '../src/physics/constants';
 
 describe('antennaStore selectors', () => {
   describe('buildWires', () => {
@@ -1173,6 +1175,127 @@ describe('antennaStore actions', () => {
           w.end.forEach((v) => expect(v).not.toBeNaN());
         }
       });
+    });
+  });
+
+  describe('Vertical Whip Geometry', () => {
+    const baseState = {
+      antennaType: 'vertical-whip' as const,
+      length: DEFAULT_WHIP_LENGTH_M, // 32 ft default
+      height: 0,
+      orientation: 'EW' as const,
+      wireRadius: 0.001,
+      segments: 21,
+      frequency: 7.1,
+      vAngle: 180,
+      legSlope: 0,
+    };
+
+    it('produces exactly one vertical wire tagged VERTICAL_WHIP_TAG', () => {
+      const wires = buildWires(baseState);
+      expect(wires).toHaveLength(1);
+      const w = wires[0]!;
+      expect(w.tag).toBe(VERTICAL_WHIP_TAG);
+      // Lies on the +z axis (x=0, y=0 for both endpoints).
+      expect(w.start[0]).toBeCloseTo(0, 6);
+      expect(w.start[1]).toBeCloseTo(0, 6);
+      expect(w.end[0]).toBeCloseTo(0, 6);
+      expect(w.end[1]).toBeCloseTo(0, 6);
+    });
+
+    it('lifts the base by VERTICAL_WHIP_BASE_GAP_M when height = 0 (ground-mounted)', () => {
+      const wires = buildWires(baseState);
+      const w = wires[0]!;
+      expect(w.start[2]).toBeCloseTo(VERTICAL_WHIP_BASE_GAP_M, 6);
+      // Top = base + length.
+      expect(w.end[2]).toBeCloseTo(VERTICAL_WHIP_BASE_GAP_M + DEFAULT_WHIP_LENGTH_M, 6);
+    });
+
+    it('places base at the configured height when height > base gap', () => {
+      const wires = buildWires({ ...baseState, height: 3 });
+      const w = wires[0]!;
+      expect(w.start[2]).toBeCloseTo(3, 6);
+      expect(w.end[2]).toBeCloseTo(3 + DEFAULT_WHIP_LENGTH_M, 6);
+    });
+
+    it('feeds the base segment (segment 1 of the whip)', () => {
+      const state = { ...useAntennaStore.getState(), ...baseState } as AntennaState;
+      const input = selectSimulationInput(state);
+      expect(input.excitation.wireTag).toBe(VERTICAL_WHIP_TAG);
+      expect(input.excitation.segment).toBe(1);
+    });
+
+    it('keeps the configured ground when height = 0 (ground-mounted monopole)', () => {
+      const state = {
+        ...useAntennaStore.getState(),
+        ...baseState,
+        height: 0,
+        groundId: 'pastoral',
+      } as AntennaState;
+      const input = selectSimulationInput(state);
+      expect(input.ground.type).toBe('real');
+    });
+
+    it('does NOT change ground behavior for horizontal antennas at h=0 (still free space)', () => {
+      const state = useAntennaStore.getState();
+      const input = selectSimulationInput({ ...state, antennaType: 'dipole', height: 0 });
+      expect(input.ground.type).toBe('free');
+    });
+
+    it('emits no transmission lines, loads, or networks', () => {
+      const state = { ...useAntennaStore.getState(), ...baseState } as AntennaState;
+      const input = selectSimulationInput(state);
+      expect(input.transmissionLines).toBeUndefined();
+      expect(input.loads).toBeUndefined();
+      expect(input.networks).toBeUndefined();
+    });
+
+    it('uses at least SEGS_PER_WAVELENGTH segments per wavelength on the whip', () => {
+      const lambda = 299.792458 / 7.1;
+      // Use a longer whip so the natural segs/λ count exceeds MIN_SEGS_PER_LEG.
+      const longWhip = lambda; // 1λ tall (~42 m at 7.1 MHz)
+      const wires = buildWires({ ...baseState, length: longWhip });
+      const expected = Math.ceil(20 * (longWhip / lambda)); // SEGS_PER_WAVELENGTH=20
+      expect(wires[0]!.segments).toBeGreaterThanOrEqual(expected);
+    });
+  });
+
+  describe('Vertical Whip actions', () => {
+    it('setAntennaType("vertical-whip") sets defaults: length = 32 ft, height = 0', () => {
+      const store = useAntennaStore.getState();
+      store.setHeight(15);
+      store.setAntennaType('vertical-whip');
+      const s = useAntennaStore.getState();
+      expect(s.antennaType).toBe('vertical-whip');
+      expect(s.length).toBeCloseTo(DEFAULT_WHIP_LENGTH_M, 6);
+      expect(s.height).toBe(0);
+      // No V-angle / termination / slope state should leak into the whip.
+      expect(s.vAngle).toBe(180);
+      expect(s.legSlope).toBe(0);
+      expect(s.terminatingResistor).toBe(0);
+    });
+
+    it('setAntennaType("vertical-whip") clears any active feedline (verticals are unsupported by the feedline model)', () => {
+      const store = useAntennaStore.getState();
+      store.setAntennaType('dipole');
+      store.setFeedline('rg58');
+      store.setFeedlineLength(10);
+
+      store.setAntennaType('vertical-whip');
+      const s = useAntennaStore.getState();
+      expect(s.feedlineId).toBe('none');
+      expect(s.feedlineLength).toBe(0);
+    });
+
+    it('setHalfWaveLength sets the whip to resonant ¼λ', () => {
+      const store = useAntennaStore.getState();
+      const freq = 14.1;
+      const lambda = 299.792458 / freq;
+      store.setFrequency(freq);
+      store.setAntennaType('vertical-whip');
+      // Default after setAntennaType is 32 ft; tap the resonate button.
+      store.setHalfWaveLength();
+      expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 0.25 * 0.95, 4);
     });
   });
 });

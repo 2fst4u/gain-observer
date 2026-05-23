@@ -10,6 +10,8 @@ import {
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   TERMINATED_DELTA_CENTRE_GAP_M,
+  VERTICAL_WHIP_TAG,
+  VERTICAL_WHIP_BASE_GAP_M,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -630,4 +632,56 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
   }
 
   return wires;
+}
+
+export interface VerticalWhipWiresParams {
+  /** Whip length, metres (the radiating wire length). */
+  length: number;
+  /** Base height above ground, metres. 0 means ground-mounted. */
+  height: number;
+  wireRadius: number;
+  segments: number;
+  frequency: number;
+}
+
+/**
+ * Builds the wires for a vertical whip (monopole) antenna.
+ *
+ * Geometry is a single vertical wire from (0, 0, baseZ) up to
+ * (0, 0, baseZ + length). The wire is fed at its base — the first segment
+ * is at the bottom, so excitation goes on segment 1 in
+ * selectSimulationInput.
+ *
+ * When the user requests a ground-mounted whip (height = 0) the base is
+ * lifted by VERTICAL_WHIP_BASE_GAP_M (1 cm) so the wire does not touch
+ * z = 0 — NEC's Sommerfeld-Norton ground model is undefined for wires
+ * intersecting the ground plane. The cm-scale offset is well below the
+ * accuracy envelope of the model at HF.
+ *
+ * Segment count is sized to give at least SEGS_PER_WAVELENGTH segments per
+ * wavelength of whip, with the same MIN/MAX bounds used by the other
+ * builders, so that long whips at high frequencies still resolve the
+ * standing-wave structure correctly.
+ */
+export function buildVerticalWhipWires(params: VerticalWhipWiresParams): Wire[] {
+  const length = Math.max(0.1, params.length);
+  const baseZ = Math.max(VERTICAL_WHIP_BASE_GAP_M, params.height);
+  const topZ = baseZ + length;
+
+  const lambda = wavelengthMeters(params.frequency);
+  const minSegs = Math.ceil((SEGS_PER_WAVELENGTH * length) / lambda);
+  const segments = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minSegs, params.segments),
+  );
+
+  return [
+    {
+      start: [0, 0, baseZ],
+      end: [0, 0, topZ],
+      radius: params.wireRadius,
+      segments,
+      tag: VERTICAL_WHIP_TAG,
+    },
+  ];
 }

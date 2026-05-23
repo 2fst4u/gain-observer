@@ -15,7 +15,12 @@ interface GroundPlaneProps {
 
 export function GroundPlane({ groundId, height, showGrid }: GroundPlaneProps) {
   const theme = useAntennaStore((s) => s.theme);
-  if (height <= 0 || groundId === 'free') return null;
+  const antennaType = useAntennaStore((s) => s.antennaType);
+  // Vertical whips extend upward from their base, so a height of 0 still
+  // means a real, ground-mounted antenna and we keep the ground visible.
+  // Horizontal antennas at height=0 are treated as free-space (no ground).
+  const groundlessHeight = height <= 0 && antennaType !== 'vertical-whip';
+  if (groundlessHeight || groundId === 'free') return null;
 
   const colors = THEME_COLORS[theme].ground;
   const color = (colors as Record<string, string>)[groundId] ?? colors.pastoral;

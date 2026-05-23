@@ -26,6 +26,7 @@ import {
   FEEDLINE_SHIELD_TAG,
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
+  VERTICAL_WHIP_TAG,
   type Orientation,
 } from '../../store/antennaStore';
 import type { AntennaType } from '../../physics/types';
@@ -141,8 +142,19 @@ export function DipoleWire({
     ? (rendered.find((s) => s.tag === DIPOLE_LEFT_TAG) ?? null)
     : null;
 
-  // Feedpoint: bridge midpoint (split-fed) > apex-fed left-leg end > dipole wire midpoint (single-wire legacy).
-  const feedpoint = bridge?.feedMid ?? apexFedLeft?.sceneEnd ?? dipoleSingle?.feedMid ?? null;
+  // Vertical whip: the wire is emitted base → top, so .sceneStart is the
+  // base feedpoint. Falls through to dipoleSingle? otherwise.
+  const verticalWhip = type === 'vertical-whip'
+    ? (rendered.find((s) => s.tag === VERTICAL_WHIP_TAG) ?? null)
+    : null;
+
+  // Feedpoint: bridge midpoint (split-fed) > apex-fed left-leg end >
+  // vertical-whip base > dipole wire midpoint (single-wire legacy).
+  const feedpoint = bridge?.feedMid
+    ?? apexFedLeft?.sceneEnd
+    ?? verticalWhip?.sceneStart
+    ?? dipoleSingle?.feedMid
+    ?? null;
 
   // Terminated Delta: locate the two half-base inner ends so we can render
   // visible "split" markers (always) and the bridge-resistor decoration

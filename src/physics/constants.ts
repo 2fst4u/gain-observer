@@ -60,6 +60,9 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
       // a true terminated configuration (the wave is absorbed before it can
       // reflect), but 1λ is the canonical starting point.
       return lambda * 1.0 * endEffect;
+    case 'vertical-whip':
+      // Quarter-wave monopole resonant length.
+      return lambda * 0.25 * endEffect;
     default:
       return lambda * 0.5 * endEffect;
   }
@@ -154,6 +157,29 @@ export const SLOPING_V_RIGHT_STUB_TAG = 8;
 export const TERMINATED_DELTA_LEFT_BASE_TAG = 9;
 export const TERMINATED_DELTA_RIGHT_BASE_TAG = 10;
 export const TERMINATED_DELTA_BRIDGE_TAG = 11;
+
+/**
+ * Wire tag for the vertical whip (single-wire monopole).
+ * Distinct from DIPOLE_TAG so the renderer can place the feedpoint marker
+ * at the base of the whip rather than at its midpoint.
+ */
+export const VERTICAL_WHIP_TAG = 12;
+
+/**
+ * Default whip length in metres = 32 ft (32 × 0.3048).
+ * Chosen as a common ham-radio whip length (e.g. surplus military whips,
+ * MFJ-1979, full-size 40 m monopole when mast-mounted).
+ */
+export const DEFAULT_WHIP_LENGTH_M = 32 * 0.3048;
+
+/**
+ * Minimum base height above ground, metres, used when the user sets the
+ * whip's base height to 0 ("ground-mounted"). NEC wires cannot touch
+ * z = 0 under a real-ground (GN 2) model; 0.01 m places the base
+ * essentially at ground level while remaining within the Sommerfeld-Norton
+ * model's accuracy envelope (matches SLOPING_V_STUB_BOTTOM_Z_M).
+ */
+export const VERTICAL_WHIP_BASE_GAP_M = 0.01;
 
 /**
  * Gap (metres) between the inner ends of the two terminated-delta
