@@ -11,6 +11,9 @@ import {
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   TERMINATED_DELTA_CENTRE_GAP_M,
   VERTICAL_WHIP_TAG,
+  VERTICAL_WHIP_BASE_GAP_M,
+  VERTICAL_WHIP_RADIAL_TAG,
+  VERTICAL_WHIP_RADIAL_COUNT,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -636,37 +639,47 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
 export interface VerticalWhipWiresParams {
   /** Whip length, metres (the radiating wire length). */
   length: number;
-  /** Base height above ground, metres. 0 means ground-mounted. */
+  /** Base height above ground, metres. 0 means "sitting on the ground". */
   height: number;
   wireRadius: number;
   segments: number;
   frequency: number;
+  /**
+   * When true, deploy `VERTICAL_WHIP_RADIAL_COUNT` ¼λ horizontal radials
+   * meeting at the whip base, giving the source a proper low-loss return
+   * path. When false (default), the whip is freestanding — it has no
+   * counterpoise and NEC will report the near-open feedpoint behaviour
+   * that an ungrounded radial-less whip actually exhibits.
+   */
+  counterpoise: boolean;
 }
 
 /**
  * Builds the wires for a vertical whip (monopole) antenna.
  *
  * Geometry is a single vertical wire from (0, 0, baseZ) up to
- * (0, 0, baseZ + length). The wire is fed at its base — the first segment
- * is at the bottom, so excitation goes on segment 1 in
- * selectSimulationInput.
+ * (0, 0, baseZ + length), fed on segment 1 at the base. When height = 0
+ * the base is lifted by VERTICAL_WHIP_BASE_GAP_M (1 cm) so the wire is
+ * electrically isolated from ground — NEC would otherwise auto-bond the
+ * endpoint to its image and model a properly-grounded monopole, which is
+ * not the "whip sitting on a mount on the ground" picture the user has.
  *
- * When the user requests a ground-mounted whip (height = 0) the base sits
- * exactly at z = 0. NEC-2 connects wire endpoints that touch the ground
- * plane (with a GN card present) directly to their image, which is the
- * canonical monopole-over-ground feed: EX on segment 1 then acts as the
- * voltage source between the wire and the ground plane via image theory.
- * Lifting the base by even a centimetre breaks that current path and
- * NEC reports a near-open feedpoint (R OK, but X ≈ −15 kΩ).
+ * When `counterpoise` is true, VERTICAL_WHIP_RADIAL_COUNT horizontal
+ * radials of ¼λ length fan out from the base at z = baseZ in
+ * equally-spaced azimuths. They share the base junction with the whip,
+ * so the source on segment 1 of the whip drives the whip against the
+ * radials (the canonical ground-plane vertical model). Without the
+ * counterpoise the source has no proper return path and the feedpoint
+ * impedance goes deeply capacitive — physically correct for a radial-
+ * less whip.
  *
- * Segment count is sized to give at least SEGS_PER_WAVELENGTH segments per
- * wavelength of whip, with the same MIN/MAX bounds used by the other
- * builders, so that long whips at high frequencies still resolve the
- * standing-wave structure correctly.
+ * Segment count is sized to give at least SEGS_PER_WAVELENGTH segments
+ * per wavelength of conductor (both for the whip and for each radial),
+ * with the same MIN/MAX bounds used by the other builders.
  */
 export function buildVerticalWhipWires(params: VerticalWhipWiresParams): Wire[] {
   const length = Math.max(0.1, params.length);
-  const baseZ = Math.max(0, params.height);
+  const baseZ = Math.max(VERTICAL_WHIP_BASE_GAP_M, params.height);
   const topZ = baseZ + length;
 
   const lambda = wavelengthMeters(params.frequency);
@@ -676,7 +689,7 @@ export function buildVerticalWhipWires(params: VerticalWhipWiresParams): Wire[] 
     Math.max(MIN_SEGS_PER_LEG, minSegs, params.segments),
   );
 
-  return [
+  const wires: Wire[] = [
     {
       start: [0, 0, baseZ],
       end: [0, 0, topZ],
@@ -685,4 +698,27 @@ export function buildVerticalWhipWires(params: VerticalWhipWiresParams): Wire[] 
       tag: VERTICAL_WHIP_TAG,
     },
   ];
+
+  if (params.counterpoise) {
+    const radialLen = lambda * 0.25 * 0.95;
+    const minRadialSegs = Math.ceil((SEGS_PER_WAVELENGTH * radialLen) / lambda);
+    const radialSegs = Math.min(
+      MAX_SEGS_PER_LEG,
+      Math.max(MIN_SEGS_PER_LEG, minRadialSegs),
+    );
+    for (let i = 0; i < VERTICAL_WHIP_RADIAL_COUNT; i++) {
+      const theta = (2 * Math.PI * i) / VERTICAL_WHIP_RADIAL_COUNT;
+      const dx = Math.cos(theta);
+      const dy = Math.sin(theta);
+      wires.push({
+        start: [0, 0, baseZ],
+        end: [dx * radialLen, dy * radialLen, baseZ],
+        radius: params.wireRadius,
+        segments: radialSegs,
+        tag: VERTICAL_WHIP_RADIAL_TAG,
+      });
+    }
+  }
+
+  return wires;
 }

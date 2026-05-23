@@ -27,6 +27,7 @@ export function DipoleControl() {
     orientation,
     vAngle,
     terminatingResistor,
+    whipCounterpoise,
     setAntennaType,
     setLength,
     setHalfWaveLength,
@@ -35,6 +36,7 @@ export function DipoleControl() {
     setOrientation,
     setVAngle,
     setTerminatingResistor,
+    setWhipCounterpoise,
   } = useAntennaStore(useShallow((s) => ({
     units: s.units,
     antennaType: s.antennaType,
@@ -44,6 +46,7 @@ export function DipoleControl() {
     orientation: s.orientation,
     vAngle: s.vAngle,
     terminatingResistor: s.terminatingResistor,
+    whipCounterpoise: s.whipCounterpoise,
     setAntennaType: s.setAntennaType,
     setLength: s.setLength,
     setHalfWaveLength: s.setHalfWaveLength,
@@ -52,6 +55,7 @@ export function DipoleControl() {
     setOrientation: s.setOrientation,
     setVAngle: s.setVAngle,
     setTerminatingResistor: s.setTerminatingResistor,
+    setWhipCounterpoise: s.setWhipCounterpoise,
   })));
 
   const unit = displayLengthUnit(units);
@@ -273,6 +277,29 @@ export function DipoleControl() {
               : antennaType === 'sloping-v'
                 ? `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
                 : `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
+          </div>
+        </>
+      )}
+
+      {isVerticalWhip && (
+        <>
+          <label
+            htmlFor="whip-counterpoise"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, margin: '10px 0 0 0', fontSize: 12 }}
+          >
+            <input
+              id="whip-counterpoise"
+              type="checkbox"
+              checked={whipCounterpoise}
+              onChange={(e) => setWhipCounterpoise(e.target.checked)}
+              aria-describedby="whip-counterpoise-hint"
+            />
+            Add ¼λ counterpoise radials
+          </label>
+          <div id="whip-counterpoise-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+            {whipCounterpoise
+              ? '4 horizontal ¼λ radials fan out from the base, giving the source a proper low-loss return path (canonical ground-plane vertical).'
+              : 'Freestanding whip with no counterpoise. NEC will report the high reactance and poor SWR that a radial-less monopole actually exhibits — switch the toggle on to model a proper ground-plane vertical.'}
           </div>
         </>
       )}

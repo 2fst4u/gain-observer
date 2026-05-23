@@ -197,23 +197,36 @@ describe('Nec2Engine (real Wasm)', () => {
     expect(r.impedance.R).toBeGreaterThan(0);
   }, 30_000);
 
-  it('ground-mounted ¼λ vertical whip: positive gain, low take-off, sensible feedpoint Z', async () => {
-    // ¼λ vertical at 7.1 MHz: λ ≈ 42.224 m, so a 10.0 m whip ≈ 0.95 × λ/4
-    // (matches the standard end-effect factor used elsewhere in the app).
-    // The base sits exactly at z=0; NEC connects that endpoint to its
-    // image through the ground plane, which closes the current loop for
-    // the monopole. Excitation on segment 1 (the base) is the canonical
-    // monopole feed.
+  it('¼λ vertical whip with 4 ground radials: low take-off, sensible feedpoint Z', async () => {
+    // ¼λ vertical at 7.1 MHz: λ ≈ 42.224 m, so a 10.0 m whip ≈ 0.95 × λ/4.
+    // The base sits 1 cm above ground (electrically isolated from the soil)
+    // and four ¼λ horizontal radials fan out at NSEW, joining at the base
+    // to give the source a proper low-loss return path. EX on segment 1
+    // of the whip drives the whip against the radial system — canonical
+    // ground-plane vertical model.
     const freq = 7.1;
+    const lambda = 299.792458 / freq;
     const len = 10.0;
+    const baseZ = 0.01;
+    const radialLen = lambda * 0.25 * 0.95;
+    const radialSegs = Math.max(9, Math.ceil(20 * (radialLen / lambda)));
     const input: SimulationInput = {
-      wires: [{
-        start: [0, 0, 0],
-        end: [0, 0, len],
-        radius: 0.001,
-        segments: 21,
-        tag: 12,
-      }],
+      wires: [
+        {
+          start: [0, 0, baseZ],
+          end: [0, 0, baseZ + len],
+          radius: 0.001,
+          segments: 21,
+          tag: 12,
+        },
+        ...[0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((theta) => ({
+          start: [0, 0, baseZ] as const,
+          end: [Math.cos(theta) * radialLen, Math.sin(theta) * radialLen, baseZ] as const,
+          radius: 0.001,
+          segments: radialSegs,
+          tag: 13,
+        })),
+      ],
       frequencyMHz: freq,
       ground: { type: 'real', sigma: 0.005, epsilon: 13 },
       excitation: { wireTag: 12, segment: 1 },
@@ -223,21 +236,21 @@ describe('Nec2Engine (real Wasm)', () => {
     const r = await engine.simulate(input);
 
     expect(Number.isFinite(r.maxGainDbi)).toBe(true);
-    // A radial-less ¼λ vertical over average ground typically peaks
-    // between -6 dBi and +4 dBi depending on conductivity (perfect-ground
-    // theoretical value is ~+5.2 dBi; pastoral soil costs several dB to
-    // ground absorption).
-    expect(r.maxGainDbi).toBeGreaterThan(-8);
+    // A ¼λ vertical with 4 radials over average ground typically peaks
+    // between -3 dBi and +4 dBi (perfect-ground theoretical value is
+    // ~+5.2 dBi; pastoral soil costs a couple of dB to ground absorption).
+    expect(r.maxGainDbi).toBeGreaterThan(-6);
     expect(r.maxGainDbi).toBeLessThan(6);
     // Vertical pattern over real ground peaks at low elevation (the wave
     // angle of a ¼λ vertical over average ground is typically 15–30°).
     expect(r.takeoffElevationDeg).toBeGreaterThan(5);
     expect(r.takeoffElevationDeg).toBeLessThan(45);
-    // Feedpoint impedance near resonance: R is in the 30–100 Ω band
-    // (theoretical 36 Ω; ground loss adds some series resistance), and
-    // X is close to zero (slightly capacitive because the wire is 0.95×
-    // ¼λ). Pinning X within a generous ±200 Ω band catches the
-    // base-not-touching-ground regression where X blew up to ~-15 kΩ.
+    // With radials providing the return path, the feedpoint sits near
+    // the textbook 36 Ω (ground loss raises R a little, soil
+    // absorption a few ohms more). X is close to zero because the
+    // wire length is 0.95 × ¼λ — slightly capacitive but well-bounded.
+    // The ±200 Ω X band would catch any regression that breaks the
+    // radial-junction (a no-counterpoise whip blows X up to ~-15 kΩ).
     expect(r.impedance.R).toBeGreaterThan(20);
     expect(r.impedance.R).toBeLessThan(200);
     expect(Math.abs(r.impedance.X)).toBeLessThan(200);

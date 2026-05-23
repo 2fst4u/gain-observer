@@ -100,6 +100,7 @@ export interface ComparisonSnapshot {
   readonly feedlineId: string;
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
+  readonly whipCounterpoise: boolean;
   readonly result: SimulationResult;
   readonly sweep: SweepPoint[];
   readonly capturedAt: number;
@@ -139,6 +140,14 @@ export interface AntennaState {
    *   apex feed, giving broadband flat impedance instead of a cardioid.
    */
   terminatingResistor: number;
+
+  /**
+   * Vertical-whip only: when true, deploy a 4-radial counterpoise at the
+   * base. Without it the whip is freestanding and NEC reports the very
+   * high reactance / SWR that a radial-less monopole physically exhibits.
+   * Ignored for all other antenna types.
+   */
+  whipCounterpoise: boolean;
 
   // Environment
   groundId: string;
@@ -199,6 +208,7 @@ export interface AntennaState {
   setVAngle(deg: number): void;
   setLegSlope(deg: number): void;
   setTerminatingResistor(ohms: number): void;
+  setWhipCounterpoise(enabled: boolean): void;
   setWireRadius(meters: number): void;
   setSegments(n: number): void;
   setGround(id: string): void;
@@ -256,6 +266,7 @@ export const useAntennaStore = create<AntennaState>()(
       vAngle: 180,
       legSlope: 0,
       terminatingResistor: 0,
+      whipCounterpoise: false,
 
       groundId: DEFAULT_GROUND_ID,
       groundSigma: findGroundPreset(DEFAULT_GROUND_ID).sigma,
@@ -420,6 +431,9 @@ export const useAntennaStore = create<AntennaState>()(
       setTerminatingResistor: (ohms) => set((s) => {
         if (!Number.isFinite(ohms)) return;
         s.terminatingResistor = Math.max(0, ohms);
+      }),
+      setWhipCounterpoise: (enabled) => set((s) => {
+        s.whipCounterpoise = !!enabled;
       }),
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
@@ -656,7 +670,7 @@ export function computeEffectiveSlope(
 
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise'>>,
 ): Wire[] {
   const antennaType = state.antennaType;
   const half = state.length / 2;
@@ -741,6 +755,7 @@ export function buildWires(
       wireRadius: state.wireRadius,
       segments: state.segments,
       frequency: state.frequency,
+      counterpoise: state.whipCounterpoise ?? false,
     });
   }
 
@@ -1099,6 +1114,7 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     feedlineId: state.feedlineId,
     feedlineLength: state.feedlineLength,
     feedlineOffset: state.feedlineOffset,
+    whipCounterpoise: state.whipCounterpoise,
     result: state.result,
     sweep: [...state.sweep],
     capturedAt: Date.now(),

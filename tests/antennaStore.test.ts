@@ -12,7 +12,12 @@ import {
   VERTICAL_WHIP_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
-import { DEFAULT_WHIP_LENGTH_M } from '../src/physics/constants';
+import {
+  DEFAULT_WHIP_LENGTH_M,
+  VERTICAL_WHIP_BASE_GAP_M,
+  VERTICAL_WHIP_RADIAL_TAG,
+  VERTICAL_WHIP_RADIAL_COUNT,
+} from '../src/physics/constants';
 
 describe('antennaStore selectors', () => {
   describe('buildWires', () => {
@@ -1203,22 +1208,49 @@ describe('antennaStore actions', () => {
       expect(w.end[1]).toBeCloseTo(0, 6);
     });
 
-    it('sets the base exactly at z=0 when height = 0 (ground-mounted)', () => {
-      // NEC-2 connects wire endpoints at z=0 to their image when a GN card
-      // is present — that's how the monopole gets a current path to ground.
-      // Lifting the base even slightly (e.g. 1 cm) breaks that connection
-      // and the feedpoint reactance blows up to ~-15 kΩ.
+    it('lifts the base by VERTICAL_WHIP_BASE_GAP_M when height = 0 (sitting on ground)', () => {
+      // The whip is electrically isolated from ground (sitting on a mount).
+      // Without the 1 cm gap NEC would connect the z=0 endpoint to its
+      // image and silently turn the antenna into a properly-grounded
+      // monopole, which isn't what the user-visible "freestanding whip"
+      // model is supposed to be.
       const wires = buildWires(baseState);
-      const w = wires[0]!;
-      expect(w.start[2]).toBe(0);
-      expect(w.end[2]).toBeCloseTo(DEFAULT_WHIP_LENGTH_M, 6);
+      const w = wires.find((x) => x.tag === VERTICAL_WHIP_TAG)!;
+      expect(w.start[2]).toBeCloseTo(VERTICAL_WHIP_BASE_GAP_M, 6);
+      expect(w.end[2]).toBeCloseTo(VERTICAL_WHIP_BASE_GAP_M + DEFAULT_WHIP_LENGTH_M, 6);
     });
 
     it('places base at the configured height when height > base gap', () => {
       const wires = buildWires({ ...baseState, height: 3 });
-      const w = wires[0]!;
+      const w = wires.find((x) => x.tag === VERTICAL_WHIP_TAG)!;
       expect(w.start[2]).toBeCloseTo(3, 6);
       expect(w.end[2]).toBeCloseTo(3 + DEFAULT_WHIP_LENGTH_M, 6);
+    });
+
+    it('emits no radials by default (freestanding whip)', () => {
+      const wires = buildWires(baseState);
+      expect(wires).toHaveLength(1);
+      expect(wires.filter((w) => w.tag === VERTICAL_WHIP_RADIAL_TAG)).toHaveLength(0);
+    });
+
+    it('emits VERTICAL_WHIP_RADIAL_COUNT radials at the base when counterpoise is enabled', () => {
+      const wires = buildWires({ ...baseState, whipCounterpoise: true });
+      const whip = wires.find((w) => w.tag === VERTICAL_WHIP_TAG)!;
+      const radials = wires.filter((w) => w.tag === VERTICAL_WHIP_RADIAL_TAG);
+      expect(radials).toHaveLength(VERTICAL_WHIP_RADIAL_COUNT);
+      // Each radial starts at the whip base and lies in the horizontal
+      // plane (z stays constant at the base height).
+      const lambda = 299.792458 / 7.1;
+      const expectedLen = lambda * 0.25 * 0.95;
+      for (const r of radials) {
+        expect(r.start).toEqual(whip.start);
+        expect(r.end[2]).toBeCloseTo(whip.start[2], 6);
+        const horizontalLen = Math.hypot(
+          r.end[0] - r.start[0],
+          r.end[1] - r.start[1],
+        );
+        expect(horizontalLen).toBeCloseTo(expectedLen, 5);
+      }
     });
 
     it('feeds the base segment (segment 1 of the whip)', () => {
@@ -1297,6 +1329,24 @@ describe('antennaStore actions', () => {
 
       store.setAntennaType('vertical-whip');
       expect(useAntennaStore.getState().transformerEnabled).toBe(false);
+    });
+
+    it('setWhipCounterpoise toggles the radial-counterpoise flag', () => {
+      const store = useAntennaStore.getState();
+      store.setWhipCounterpoise(true);
+      expect(useAntennaStore.getState().whipCounterpoise).toBe(true);
+      store.setWhipCounterpoise(false);
+      expect(useAntennaStore.getState().whipCounterpoise).toBe(false);
+    });
+
+    it('setAntennaType preserves the whipCounterpoise setting across type switches', () => {
+      const store = useAntennaStore.getState();
+      store.setAntennaType('vertical-whip');
+      store.setWhipCounterpoise(true);
+      store.setAntennaType('dipole');
+      expect(useAntennaStore.getState().whipCounterpoise).toBe(true);
+      store.setAntennaType('vertical-whip');
+      expect(useAntennaStore.getState().whipCounterpoise).toBe(true);
     });
 
     it('setHalfWaveLength sets the whip to resonant ¼λ', () => {

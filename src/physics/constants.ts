@@ -173,6 +173,33 @@ export const VERTICAL_WHIP_TAG = 12;
 export const DEFAULT_WHIP_LENGTH_M = 32 * 0.3048;
 
 /**
+ * Mechanical gap between the whip's base and z = 0 when the user sets the
+ * base height to "ground level", metres. The whip is electrically isolated
+ * from ground (sitting on a mount, tripod, or insulator). Without this
+ * gap NEC would automatically connect a z = 0 endpoint to its image via
+ * the GN card and turn the antenna into a properly-grounded monopole,
+ * which is not what the user-visible "whip resting on the ground" model
+ * is meant to be.
+ */
+export const VERTICAL_WHIP_BASE_GAP_M = 0.01;
+
+/**
+ * Tag for the optional counterpoise radial wires deployed at the base of
+ * a vertical whip when the user enables the counterpoise toggle. All
+ * radials share the same tag so they group cleanly in NEC current /
+ * ripple diagnostics.
+ */
+export const VERTICAL_WHIP_RADIAL_TAG = 13;
+
+/**
+ * Number of counterpoise radials, equally spaced in azimuth, deployed
+ * when the counterpoise toggle is enabled. 4 is the commonly-cited
+ * minimum for a usable ground-plane vertical; more radials reduce ground
+ * loss but with rapidly diminishing returns past ~8 at HF.
+ */
+export const VERTICAL_WHIP_RADIAL_COUNT = 4;
+
+/**
  * Gap (metres) between the inner ends of the two terminated-delta
  * half-base wires at the centre of the base. The two halves must not meet
  * (otherwise they'd short across the termination), so we leave a small
