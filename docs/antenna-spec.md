@@ -198,7 +198,7 @@ This document defines the physical and mathematical model for all antenna types 
 
 ### 5.3 Termination Definition
 
-- **Topology:** A single horizontal *bridge wire* spans the gap between the two half-base inner ends. The terminating resistor sits on that bridge. This is the canonical T2FD / aperiodic-loop topology.
+- **Topology:** A single horizontal _bridge wire_ spans the gap between the two half-base inner ends. The terminating resistor sits on that bridge. This is the canonical T2FD / aperiodic-loop topology.
 - **NEC Model:** One `LD 4` load on the single segment of `TERMINATED_DELTA_BRIDGE_TAG`. No vertical stubs, no ground shunts.
 - **Value:** `terminatingResistor` should be close to the loop wire's characteristic impedance over real ground, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$. Default is 600 Ω.
 - **What this is NOT:** Not a unidirectional travelling-wave antenna. The geometry is bilaterally symmetric, so by symmetry the pattern is bidirectional/broadside (delta-loop-like). The termination buys broadband flat impedance, not directionality. For a unidirectional cardioid you need an asymmetric topology (e.g. corner-fed/corner-terminated K9AY-style), which this app does not currently model.

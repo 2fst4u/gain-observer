@@ -195,7 +195,7 @@ export interface SlopingVWiresParams {
 }
 
 /**
- * Builds the wires for a Sloping V or V-Beam antenna.
+ * Builds the wires for a Sloping V antenna.
  *
  * The sloping V's leg slope is **not user-configurable**: it is always set so
  * the tips rest at the ground floor (`SLOPING_V_MIN_TIP_Z_M`). The `legSlope`
