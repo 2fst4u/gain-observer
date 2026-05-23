@@ -134,3 +134,7 @@
 
 **Learning:** When checking string membership against a static, known list of options, defining an array inline and using `.includes()` requires reallocation on every execution and runs in $O(N)$ time. By extracting the static array into a module-scoped `Set`, we avoid memory reallocation and change the check to $O(1)$ time, yielding a measurable performance boost.
 **Action:** Always extract static membership checks (like enum-like string arrays) into a module-scoped `Set` and use `Set.has()` in frequently-executed render paths or hot loops.
+## 2025-05-18 - Single Pass Lookups
+
+**Learning:** Finding multiple unique elements within an array using repeated `Array.find()` calls creates a significant $O(N \times M)$ overhead, particularly in hot rendering paths.
+**Action:** Replace multiple sequential `Array.find()` calls with a single standard $O(N)$ `for` loop that captures all required elements simultaneously. This minimizes array traversal and improves render performance.
