@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { PropagationRadar } from '../../Charts/PropagationRadar';
-import type { PropagationResult } from '../../../physics/propagation';
+import type { PropagationPrediction, HopPrediction } from '../../../physics/propagation';
 
 function formatRange(km: number, units: 'metric' | 'imperial'): string {
   if (units === 'imperial') {
@@ -22,7 +22,7 @@ function qualityLabel(quality: 'useful' | 'weak' | 'unusable'): string {
 }
 
 interface ConditionsReadoutProps {
-  prediction: PropagationResult;
+  prediction: PropagationPrediction;
   haveTakeoff: boolean;
   units: 'metric' | 'imperial';
 }
@@ -79,7 +79,7 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: Conditions
       {/* Per-hop status text (machine-readable for screen readers and a
           quick textual summary alongside the radar) */}
       <div style={{ marginTop: 10 }}>
-        {prediction.hops.map((h) => (
+        {prediction.hops.map((h: HopPrediction) => (
           <div key={h.n} className="stat">
             <span className="stat-label">{h.n}× hop</span>
             <span
