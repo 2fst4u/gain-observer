@@ -44,9 +44,9 @@ We use the standard NEC-2 Cartesian coordinate system:
 - **Feedpoint**: The apex.
 - **Balanced**: Yes.
 
-### 2.3 Sloping V (Terminated or Unterminated)
+### 2.3 Sloping V / V-Beam (Terminated or Unterminated)
 
-- **Structure**: Two wires forming a V-shape, typically sloping from a high feedpoint toward the ground or lower supports.
+- **Structure**: Two wires forming a V-shape (also known as a V-Beam), typically sloping from a high feedpoint toward the ground or lower supports.
 - **Length**: Refers to the length of a **single leg**.
 - **Height**: Refers to the height of the feedpoint (apex).
 - **Included Angle**: The angle between the two legs in the plane of the V.
@@ -64,7 +64,7 @@ We use the standard NEC-2 Cartesian coordinate system:
 
 ### 2.5 Terminated Delta
 
-- **Structure**: A triangular loop of wire, split at the centre of the base, with a single horizontal *bridge wire* spanning the gap. The terminating resistor sits on the bridge (T2FD / aperiodic-loop topology).
+- **Structure**: A triangular loop of wire, split at the centre of the base, with a single horizontal _bridge wire_ spanning the gap. The terminating resistor sits on the bridge (T2FD / aperiodic-loop topology).
 - **Length**: The total perimeter of the loop.
 - **Height**: The highest point (apex).
 - **Feedpoint**: The apex.
@@ -79,12 +79,12 @@ We use the standard NEC-2 Cartesian coordinate system:
 A **terminated** antenna places a non-inductive resistive load somewhere on the radiating structure to absorb the wave that would otherwise reflect and form a standing wave. Two distinct families exist in this app, and they behave very differently:
 
 - **Asymmetric travelling-wave terminations** (Sloping V): the wave travels along a single asymmetric path, with the terminator at the far end. Result: cardioid pattern, broadband, unidirectional.
-- **Symmetric aperiodic loop terminations** (Terminated Delta, T2FD-style): the wave propagates around a closed loop from a symmetric feed point and is absorbed at a symmetric point opposite the feed via a single resistor *bridging the gap* (not shunted to ground). Result: bidirectional/broadside-ish pattern, broadband flat impedance, **not** unidirectional. Trades efficiency for flat SWR across an octave.
+- **Symmetric aperiodic loop terminations** (Terminated Delta, T2FD-style): the wave propagates around a closed loop from a symmetric feed point and is absorbed at a symmetric point opposite the feed via a single resistor _bridging the gap_ (not shunted to ground). Result: bidirectional/broadside-ish pattern, broadband flat impedance, **not** unidirectional. Trades efficiency for flat SWR across an octave.
 
 ### 3.2 Termination Implementation
 
 - **Sloping V**: Termination consists of a resistor connected from the end of each leg to ground via a short stub wire. Typical value $300\text{--}600\,\Omega$ (matches the leg's characteristic impedance against ground).
-- **Terminated Delta**: Termination is a single resistor on a short horizontal *bridge wire* spanning the gap at the centre of the base. Typical value $\sim 600\,\Omega$ (close to the loop wire's characteristic impedance over typical HF heights, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$). **Not** two resistors to ground — that topology is symmetric but fails to terminate the loop, leaving large reactive feedpoint impedance and high leg current ripple.
+- **Terminated Delta**: Termination is a single resistor on a short horizontal _bridge wire_ spanning the gap at the centre of the base. Typical value $\sim 600\,\Omega$ (close to the loop wire's characteristic impedance over typical HF heights, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$). **Not** two resistors to ground — that topology is symmetric but fails to terminate the loop, leaving large reactive feedpoint impedance and high leg current ripple.
 - **Effect (sloping V)**: converts a resonant bi-directional radiator into a broadband uni-directional travelling-wave radiator.
 - **Effect (terminated delta)**: converts a resonant narrowband loop into a broadband aperiodic loop. Pattern stays roughly delta-loop-shaped (broadside max, end-fire minimum). Multi-band usable with a 9:1 unun.
 
