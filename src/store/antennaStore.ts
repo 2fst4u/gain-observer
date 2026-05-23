@@ -1081,10 +1081,20 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
     // centreRight → rightCorner so the inner end is the wire's `.start`.
     // The bridge runs leftInner → rightInner, joining the two halves
     // electrically through the resistor.
-    const leftHalfBase  = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
-    const rightHalfBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
-    const leftInner  = leftHalfBase.end;
-    const rightInner = rightHalfBase.start;
+    let leftHalfBase: Wire | undefined;
+    let rightHalfBase: Wire | undefined;
+    for (let i = 0, len = wires.length; i < len; i++) {
+      const w = wires[i];
+      if (w.tag === TERMINATED_DELTA_LEFT_BASE_TAG) {
+        leftHalfBase = w;
+        if (rightHalfBase !== undefined) break;
+      } else if (w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG) {
+        rightHalfBase = w;
+        if (leftHalfBase !== undefined) break;
+      }
+    }
+    const leftInner  = leftHalfBase!.end;
+    const rightInner = rightHalfBase!.start;
 
     extraWires.push({
       start: leftInner,
