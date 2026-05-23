@@ -44,6 +44,8 @@ import {
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   TERMINATED_DELTA_BRIDGE_TAG,
+  VERTICAL_WHIP_TAG,
+  DEFAULT_WHIP_LENGTH_M,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -60,6 +62,7 @@ export {
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   TERMINATED_DELTA_BRIDGE_TAG,
+  VERTICAL_WHIP_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
@@ -67,6 +70,7 @@ import {
   buildSlopingVWires,
   buildDeltaLoopWires,
   buildTerminatedDeltaWires,
+  buildVerticalWhipWires,
   orientationVector,
   type OrientationPreset,
   type Orientation,
@@ -96,6 +100,7 @@ export interface ComparisonSnapshot {
   readonly feedlineId: string;
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
+  readonly whipCounterpoise: boolean;
   readonly result: SimulationResult;
   readonly sweep: SweepPoint[];
   readonly capturedAt: number;
@@ -135,6 +140,14 @@ export interface AntennaState {
    *   apex feed, giving broadband flat impedance instead of a cardioid.
    */
   terminatingResistor: number;
+
+  /**
+   * Vertical-whip only: when true, deploy a 4-radial counterpoise at the
+   * base. Without it the whip is freestanding and NEC reports the very
+   * high reactance / SWR that a radial-less monopole physically exhibits.
+   * Ignored for all other antenna types.
+   */
+  whipCounterpoise: boolean;
 
   // Environment
   groundId: string;
@@ -195,6 +208,7 @@ export interface AntennaState {
   setVAngle(deg: number): void;
   setLegSlope(deg: number): void;
   setTerminatingResistor(ohms: number): void;
+  setWhipCounterpoise(enabled: boolean): void;
   setWireRadius(meters: number): void;
   setSegments(n: number): void;
   setGround(id: string): void;
@@ -252,6 +266,7 @@ export const useAntennaStore = create<AntennaState>()(
       vAngle: 180,
       legSlope: 0,
       terminatingResistor: 0,
+      whipCounterpoise: false,
 
       groundId: DEFAULT_GROUND_ID,
       groundSigma: findGroundPreset(DEFAULT_GROUND_ID).sigma,
@@ -305,6 +320,19 @@ export const useAntennaStore = create<AntennaState>()(
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
+        } else if (type === 'vertical-whip') {
+          // User-specified default: 32 ft long, base sitting on the ground.
+          // The resonant length (¼λ) at the current frequency is available
+          // via the "¼λ" button (setHalfWaveLength → calculateDefaultLength).
+          s.length = DEFAULT_WHIP_LENGTH_M;
+          s.height = 0;
+          s.vAngle = 180;
+          s.legSlope = 0;
+          s.terminatingResistor = 0;
+          // Force the transformer off — its UI is hidden for verticals and
+          // the StatsReadout's realized-gain math would otherwise apply a
+          // stale ratio/insertion-loss to the monopole result.
+          s.transformerEnabled = false;
         } else if (type === 'sloping-v') {
           // Slope is auto-computed from height and leg length (tips at ground).
           // V-angle snaps to the value giving maximum forward gain; the user
@@ -403,6 +431,9 @@ export const useAntennaStore = create<AntennaState>()(
       setTerminatingResistor: (ohms) => set((s) => {
         if (!Number.isFinite(ohms)) return;
         s.terminatingResistor = Math.max(0, ohms);
+      }),
+      setWhipCounterpoise: (enabled) => set((s) => {
+        s.whipCounterpoise = !!enabled;
       }),
       setWireRadius: (r) => set((s) => {
         if (!Number.isFinite(r)) return;
@@ -593,6 +624,12 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
     case 'terminated-delta':
       // Same physical perimeter as a delta loop.
       return lambda;
+    case 'vertical-whip':
+      // Quarter-wave monopole resonant length (used by the ¼λ button).
+      // The initial default on type-switch (32 ft / DEFAULT_WHIP_LENGTH_M)
+      // is applied separately in setAntennaType so the user can pick
+      // either a stock whip length or the resonant length.
+      return lambda * 0.25 * 0.95;
     default:
       return halfWaveLength(frequencyMHz);
   }
@@ -633,7 +670,7 @@ export function computeEffectiveSlope(
 
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise'>>,
 ): Wire[] {
   const antennaType = state.antennaType;
   const half = state.length / 2;
@@ -708,6 +745,17 @@ export function buildWires(
       segments: state.segments,
       frequency: state.frequency,
       feedlineShield,
+    });
+  }
+
+  if (antennaType === 'vertical-whip') {
+    return buildVerticalWhipWires({
+      length: state.length,
+      height: h,
+      wireRadius: state.wireRadius,
+      segments: state.segments,
+      frequency: state.frequency,
+      counterpoise: state.whipCounterpoise ?? false,
     });
   }
 
@@ -839,7 +887,14 @@ function oddRound(v: number): number {
 }
 
 function buildGroundParams(state: AntennaState): GroundParams {
-  if (state.height <= 0) return { type: 'free' };
+  // The height<=0 short-circuit makes the model "free space" when the user
+  // sets the antenna at or below ground level — fine for horizontal antennas
+  // (a dipole at h=0 is unphysical and should not pretend there's ground
+  // beneath it). A vertical whip extends upward from its base, so a
+  // ground-mounted whip (height=0) is the canonical case: it still needs
+  // the configured ground beneath it, and switching to free space would
+  // break the monopole's image-theory feedpoint impedance.
+  if (state.height <= 0 && state.antennaType !== 'vertical-whip') return { type: 'free' };
   switch (state.groundId) {
     case 'free': return { type: 'free' };
     case 'perfect': return { type: 'perfect' };
@@ -865,6 +920,9 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     // (whose .end is the apex by convention in build*Wires).
     const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
     excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
+  } else if (state.antennaType === 'vertical-whip') {
+    // Base-fed monopole: excitation on the first (lowest) segment.
+    excitation = { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
   } else {
     const dipoleCentreSeg = Math.ceil(state.segments / 2);
     excitation = { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
@@ -1056,6 +1114,7 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     feedlineId: state.feedlineId,
     feedlineLength: state.feedlineLength,
     feedlineOffset: state.feedlineOffset,
+    whipCounterpoise: state.whipCounterpoise,
     result: state.result,
     sweep: [...state.sweep],
     capturedAt: Date.now(),

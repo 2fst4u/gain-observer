@@ -27,6 +27,7 @@ export function DipoleControl() {
     orientation,
     vAngle,
     terminatingResistor,
+    whipCounterpoise,
     setAntennaType,
     setLength,
     setHalfWaveLength,
@@ -35,6 +36,7 @@ export function DipoleControl() {
     setOrientation,
     setVAngle,
     setTerminatingResistor,
+    setWhipCounterpoise,
   } = useAntennaStore(useShallow((s) => ({
     units: s.units,
     antennaType: s.antennaType,
@@ -44,6 +46,7 @@ export function DipoleControl() {
     orientation: s.orientation,
     vAngle: s.vAngle,
     terminatingResistor: s.terminatingResistor,
+    whipCounterpoise: s.whipCounterpoise,
     setAntennaType: s.setAntennaType,
     setLength: s.setLength,
     setHalfWaveLength: s.setHalfWaveLength,
@@ -52,6 +55,7 @@ export function DipoleControl() {
     setOrientation: s.setOrientation,
     setVAngle: s.setVAngle,
     setTerminatingResistor: s.setTerminatingResistor,
+    setWhipCounterpoise: s.setWhipCounterpoise,
   })));
 
   const unit = displayLengthUnit(units);
@@ -112,6 +116,7 @@ export function DipoleControl() {
     'delta-loop': '1λ',
     'sloping-v': '1λ/leg',
     'terminated-delta': '1λ',
+    'vertical-whip': '¼λ',
   };
 
   const resonateTitles: Record<AntennaType, string> = {
@@ -120,7 +125,14 @@ export function DipoleControl() {
     'delta-loop': 'Set perimeter to resonant 1λ',
     'sloping-v': 'Set total length to 2λ (1λ per leg)',
     'terminated-delta': 'Set perimeter to 1λ',
+    'vertical-whip': 'Set whip length to resonant ¼λ',
   };
+
+  const isVerticalWhip = antennaType === 'vertical-whip';
+  const lengthLabel = isVerticalWhip ? `Whip length (${unit})` : `Length (${unit})`;
+  const heightLabel = isVerticalWhip
+    ? `Base height above ground (${unit}) — ${dispHeight.toFixed(1)}`
+    : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
 
   return (
     <section className="panel-section">
@@ -139,9 +151,10 @@ export function DipoleControl() {
         <option value="sloping-v">Sloping V</option>
         <option value="delta-loop">Delta Loop</option>
         <option value="terminated-delta">Terminated Delta</option>
+        <option value="vertical-whip">Vertical Whip</option>
       </select>
 
-      <label htmlFor="dipole-length" style={{ marginTop: 10 }}>Length ({unit})</label>
+      <label htmlFor="dipole-length" style={{ marginTop: 10 }}>{lengthLabel}</label>
       <div className="row">
         <input
           id="dipole-length"
@@ -190,7 +203,7 @@ export function DipoleControl() {
         </div>
       )}
 
-      <label htmlFor="dipole-height" style={{ marginTop: 10 }}>Height above ground ({unit}) — {dispHeight.toFixed(1)}</label>
+      <label htmlFor="dipole-height" style={{ marginTop: 10 }}>{heightLabel}</label>
       <input
         id="dipole-height"
         type="range"
@@ -268,50 +281,80 @@ export function DipoleControl() {
         </>
       )}
 
+      {isVerticalWhip && (
+        <>
+          <label
+            htmlFor="whip-counterpoise"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, margin: '10px 0 0 0', fontSize: 12 }}
+          >
+            <input
+              id="whip-counterpoise"
+              type="checkbox"
+              checked={whipCounterpoise}
+              onChange={(e) => setWhipCounterpoise(e.target.checked)}
+              aria-describedby="whip-counterpoise-hint"
+            />
+            Add ¼λ counterpoise radials
+          </label>
+          <div id="whip-counterpoise-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+            {whipCounterpoise
+              ? '4 horizontal ¼λ radials fan out from the base, giving the source a proper low-loss return path (canonical ground-plane vertical).'
+              : 'Freestanding whip with no counterpoise. NEC will report the high reactance and poor SWR that a radial-less monopole actually exhibits — switch the toggle on to model a proper ground-plane vertical.'}
+          </div>
+        </>
+      )}
+
       <GeometryStatus />
 
-      <label htmlFor="dipole-orientation" style={{ marginTop: 10 }}>Orientation (°)</label>
-      <div className="row">
-        <input
-          id="dipole-orientation"
-          type="number"
-          min={0}
-          max={359}
-          step={1}
-          value={localOrient}
-          onFocus={() => setIsOrientFocused(true)}
-          onChange={(e) => {
-            const s = e.target.value;
-            setLocalOrient(s);
-            const val = parseFloat(s);
-            if (!isNaN(val)) {
-              setOrientation(val);
-            }
-          }}
-          onBlur={() => {
-            setIsOrientFocused(false);
-            setLocalOrient(currentDegrees.toString());
-          }}
-        />
-      </div>
+      {!isVerticalWhip && (
+        <>
+          <label htmlFor="dipole-orientation" style={{ marginTop: 10 }}>Orientation (°)</label>
+          <div className="row">
+            <input
+              id="dipole-orientation"
+              type="number"
+              min={0}
+              max={359}
+              step={1}
+              value={localOrient}
+              onFocus={() => setIsOrientFocused(true)}
+              onChange={(e) => {
+                const s = e.target.value;
+                setLocalOrient(s);
+                const val = parseFloat(s);
+                if (!isNaN(val)) {
+                  setOrientation(val);
+                }
+              }}
+              onBlur={() => {
+                setIsOrientFocused(false);
+                setLocalOrient(currentDegrees.toString());
+              }}
+            />
+          </div>
 
-      <div className="button-group" role="group" aria-label="Orientation presets">
-        {orientations.map((o) => (
-          <button
-            key={o}
-            className={orientation === o ? 'active' : ''}
-            onClick={() => setOrientation(o)}
-            aria-pressed={orientation === o}
-          >
-            {o}
-          </button>
-        ))}
-      </div>
+          <div className="button-group" role="group" aria-label="Orientation presets">
+            {orientations.map((o) => (
+              <button
+                key={o}
+                className={orientation === o ? 'active' : ''}
+                onClick={() => setOrientation(o)}
+                aria-pressed={orientation === o}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Transformer / balun: part of the antenna's feedpoint hardware
           (applied before the NEC simulation), so it belongs in the Antenna
-          panel rather than as a separate top-level section. */}
-      <TransformerControl />
+          panel rather than as a separate top-level section. Hidden for
+          vertical whips — the transformer model in this app assumes a
+          two-terminal balanced feedpoint with a coax shield to choke,
+          neither of which applies to a base-fed monopole. */}
+      {!isVerticalWhip && <TransformerControl />}
     </section>
   );
 }

@@ -26,6 +26,7 @@ import {
   FEEDLINE_SHIELD_TAG,
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
+  VERTICAL_WHIP_TAG,
   type Orientation,
 } from '../../store/antennaStore';
 import type { AntennaType } from '../../physics/types';
@@ -41,6 +42,7 @@ interface DipoleWireProps {
   readonly feedlineId: string;
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
+  readonly whipCounterpoise: boolean;
 }
 
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
@@ -57,6 +59,7 @@ export function DipoleWire({
   feedlineId,
   feedlineLength,
   feedlineOffset,
+  whipCounterpoise,
 }: DipoleWireProps) {
   // ⚡ Bolt: Performance Optimization
   // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
@@ -92,6 +95,7 @@ export function DipoleWire({
       vAngle,
       legSlope,
       frequency,
+      whipCounterpoise,
     });
 
     return wires.map((w, idx) => {
@@ -129,7 +133,7 @@ export function DipoleWire({
         isDipoleHalf,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, frequency]);
+  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, frequency, whipCounterpoise]);
 
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);
@@ -141,8 +145,19 @@ export function DipoleWire({
     ? (rendered.find((s) => s.tag === DIPOLE_LEFT_TAG) ?? null)
     : null;
 
-  // Feedpoint: bridge midpoint (split-fed) > apex-fed left-leg end > dipole wire midpoint (single-wire legacy).
-  const feedpoint = bridge?.feedMid ?? apexFedLeft?.sceneEnd ?? dipoleSingle?.feedMid ?? null;
+  // Vertical whip: the wire is emitted base → top, so .sceneStart is the
+  // base feedpoint. Falls through to dipoleSingle? otherwise.
+  const verticalWhip = type === 'vertical-whip'
+    ? (rendered.find((s) => s.tag === VERTICAL_WHIP_TAG) ?? null)
+    : null;
+
+  // Feedpoint: bridge midpoint (split-fed) > apex-fed left-leg end >
+  // vertical-whip base > dipole wire midpoint (single-wire legacy).
+  const feedpoint = bridge?.feedMid
+    ?? apexFedLeft?.sceneEnd
+    ?? verticalWhip?.sceneStart
+    ?? dipoleSingle?.feedMid
+    ?? null;
 
   // Terminated Delta: locate the two half-base inner ends so we can render
   // visible "split" markers (always) and the bridge-resistor decoration
