@@ -17,3 +17,11 @@
   Cross-Origin-Embedder-Policy: require-corp
   # Prevent other origins from reading the application's resources
   Cross-Origin-Resource-Policy: same-origin
+  # SPA shell, SW, manifest, and unhashed public files must always revalidate so
+  # browsers pick up new Cloudflare deployments without stale-shell 404s.
+  Cache-Control: no-cache
+
+# Vite-hashed assets are content-addressed – safe to cache permanently.
+# This rule overrides the Cache-Control set above for the /assets/* namespace.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
