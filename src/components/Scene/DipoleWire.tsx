@@ -151,28 +151,36 @@ export function DipoleWire({
   // Single pass to locate all special elements
   for (let i = 0; i < rendered.length; i++) {
     const s = rendered[i];
-    if (s.isBridge && !bridge) {
-      bridge = s;
-    } else if (s.isShield && !shield) {
-      shield = s;
-    } else {
-      switch (s.tag) {
-        case DIPOLE_TAG:
-          if (!dipoleSingle) dipoleSingle = s;
-          break;
-        case DIPOLE_LEFT_TAG:
-          if (isDelta && !apexFedLeft) apexFedLeft = s;
-          break;
-        case VERTICAL_WHIP_TAG:
-          if (isWhip && !verticalWhip) verticalWhip = s;
-          break;
-        case TERMINATED_DELTA_LEFT_BASE_TAG:
-          if (isTerminatedDelta && !leftHalfBase) leftHalfBase = s;
-          break;
-        case TERMINATED_DELTA_RIGHT_BASE_TAG:
-          if (isTerminatedDelta && !rightHalfBase) rightHalfBase = s;
-          break;
-      }
+    if (s.isBridge && !bridge) bridge = s;
+    if (s.isShield && !shield) shield = s;
+
+    switch (s.tag) {
+      case DIPOLE_TAG:
+        if (!dipoleSingle) dipoleSingle = s;
+        break;
+      case DIPOLE_LEFT_TAG:
+        if (isDelta && !apexFedLeft) apexFedLeft = s;
+        break;
+      case VERTICAL_WHIP_TAG:
+        if (isWhip && !verticalWhip) verticalWhip = s;
+        break;
+      case TERMINATED_DELTA_LEFT_BASE_TAG:
+        if (isTerminatedDelta && !leftHalfBase) leftHalfBase = s;
+        break;
+      case TERMINATED_DELTA_RIGHT_BASE_TAG:
+        if (isTerminatedDelta && !rightHalfBase) rightHalfBase = s;
+        break;
+    }
+
+    if (
+      bridge &&
+      shield &&
+      dipoleSingle &&
+      (!isDelta || apexFedLeft) &&
+      (!isWhip || verticalWhip) &&
+      (!isTerminatedDelta || (leftHalfBase && rightHalfBase))
+    ) {
+      break;
     }
   }
 
