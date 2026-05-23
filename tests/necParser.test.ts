@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseNecImpedance, parseNecOutput, parseNecCurrents, parseNecPowerBudget } from '../src/physics/necParser';
+import { parseNecImpedance, parseNecImpedanceSweep, parseNecOutput, parseNecCurrents, parseNecPowerBudget } from '../src/physics/necParser';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -128,6 +128,90 @@ RADIATION PATTERNS
     const parsed = parseNecOutput(fullOutput, 5, 8);
     expect(Array.isArray(parsed.currents)).toBe(true);
     expect(parsed.powerBudget).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseNecImpedanceSweep
+// ---------------------------------------------------------------------------
+
+describe('parseNecImpedanceSweep', () => {
+  const SWEEP_BLOCK_SINGLE = `
+                                 - - - ANTENNA INPUT PARAMETERS - - -
+  TAG SEG       VOLTAGE (VOLTS)         CURRENT (AMPS)         IMPEDANCE (OHMS)        ADMITTANCE (MHOS)     POWER
+  No. No.     REAL      IMAG.         REAL      IMAG.         REAL      IMAG.         REAL      IMAG.       (WATTS)
+    1   6  1.00000E+00  0.00000E+00  7.50000E-03 -1.25000E-03  7.20000E+01  1.20000E+01  1.38889E-02 -2.31481E-03  5.00000E-03
+`;
+
+  const SWEEP_BLOCK_MULTIPLE = `
+                                 - - - ANTENNA INPUT PARAMETERS - - -
+  TAG SEG       VOLTAGE (VOLTS)         CURRENT (AMPS)         IMPEDANCE (OHMS)        ADMITTANCE (MHOS)     POWER
+  No. No.     REAL      IMAG.         REAL      IMAG.         REAL      IMAG.         REAL      IMAG.       (WATTS)
+    1   6  1.00000E+00  0.00000E+00  7.50000E-03 -1.25000E-03  7.20000E+01  1.20000E+01  1.38889E-02 -2.31481E-03  5.00000E-03
+
+Some other text
+                                 - - - ANTENNA INPUT PARAMETERS - - -
+  TAG SEG       VOLTAGE (VOLTS)         CURRENT (AMPS)         IMPEDANCE (OHMS)        ADMITTANCE (MHOS)     POWER
+  No. No.     REAL      IMAG.         REAL      IMAG.         REAL      IMAG.         REAL      IMAG.       (WATTS)
+    1   6  1.00000E+00  0.00000E+00  6.00000E-03  2.00000E-03  8.00000E+01 -2.50000E+01  1.25000E-02  3.90625E-03  4.50000E-03
+`;
+
+  const SWEEP_BLOCK_INVALID = `
+                                 - - - ANTENNA INPUT PARAMETERS - - -
+  INVALID ROW
+`;
+
+  const SWEEP_MIXED = `
+                                 - - - ANTENNA INPUT PARAMETERS - - -
+  TAG SEG       VOLTAGE (VOLTS)         CURRENT (AMPS)         IMPEDANCE (OHMS)        ADMITTANCE (MHOS)     POWER
+  No. No.     REAL      IMAG.         REAL      IMAG.         REAL      IMAG.         REAL      IMAG.       (WATTS)
+    1   6  1.00000E+00  0.00000E+00  7.50000E-03 -1.25000E-03  7.20000E+01  1.20000E+01  1.38889E-02 -2.31481E-03  5.00000E-03
+
+                                 - - - ANTENNA INPUT PARAMETERS - - -
+  INVALID ROW
+`;
+
+  it('returns empty array when no ANTENNA INPUT PARAMETERS block is present', () => {
+    expect(parseNecImpedanceSweep('')).toEqual([]);
+    expect(parseNecImpedanceSweep('Some other text')).toEqual([]);
+  });
+
+  it('parses a single frequency block correctly', () => {
+    const results = parseNecImpedanceSweep(SWEEP_BLOCK_SINGLE);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toEqual({
+      impedance: { R: 72, X: 12 },
+      power: 0.005,
+    });
+  });
+
+  it('parses multiple frequency blocks correctly', () => {
+    const results = parseNecImpedanceSweep(SWEEP_BLOCK_MULTIPLE);
+    expect(results).toHaveLength(2);
+    expect(results[0]).toEqual({
+      impedance: { R: 72, X: 12 },
+      power: 0.005,
+    });
+    expect(results[1]).toEqual({
+      impedance: { R: 80, X: -25 },
+      power: 0.0045,
+    });
+  });
+
+  it('handles an invalid or missing data row within a block by returning null values', () => {
+    const results = parseNecImpedanceSweep(SWEEP_BLOCK_INVALID);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toEqual({ impedance: null, power: null });
+  });
+
+  it('handles a mix of valid and invalid blocks correctly', () => {
+    const results = parseNecImpedanceSweep(SWEEP_MIXED);
+    expect(results).toHaveLength(2);
+    expect(results[0]).toEqual({
+      impedance: { R: 72, X: 12 },
+      power: 0.005,
+    });
+    expect(results[1]).toEqual({ impedance: null, power: null });
   });
 });
 
