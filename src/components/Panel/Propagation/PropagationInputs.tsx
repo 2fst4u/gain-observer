@@ -27,8 +27,10 @@ function HHmmToHour(s: string): number | null {
   return null;
 }
 
+type GeoStatus = ReturnType<typeof useAntennaStore.getState>['geolocationStatus'];
+
 function geoStatusMessage(
-  status: ReturnType<typeof useAntennaStore.getState>['geolocationStatus'],
+  status: GeoStatus,
   latitudeDeg: number | null,
 ): string {
   switch (status) {

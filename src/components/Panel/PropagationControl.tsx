@@ -9,10 +9,6 @@ import { PropagationInputs } from './Propagation/PropagationInputs';
 import { ConditionsReadout } from './Propagation/ConditionsReadout';
 
 export function PropagationControl() {
-  // ⚡ Bolt: Performance Optimization
-  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
-  // This reduces React hook allocation overhead and minimizes the number of store listeners,
-  // noticeably improving rendering performance when global state properties change rapidly.
   const {
     frequency,
     tIndex,
