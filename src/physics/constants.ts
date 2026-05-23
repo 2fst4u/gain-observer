@@ -218,11 +218,7 @@ export const TERMINATED_DELTA_CENTRE_GAP_M = FEED_BRIDGE_LENGTH_M;
 export const SLOPING_V_STUB_BOTTOM_Z_M = 0.01;
 
 export function findGroundPreset(id: string): GroundPreset {
-  const preset = GROUND_PRESETS.find((g) => g.id === id);
-  if (!preset) {
-    throw new Error(`Unknown ground preset id: ${id}`);
-  }
-  return preset;
+  return GROUND_PRESETS.find((p) => p.id === id) || GROUND_PRESETS[0];
 }
 
 /**
