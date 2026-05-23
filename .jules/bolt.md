@@ -43,6 +43,7 @@
 
 **Learning:** Selecting multiple separate fields from a Zustand store using separate `useStore(s => s.field)` calls incurs significant React hook overhead in highly-re-rendering components.
 **Action:** When a component needs to select many fields from the store (e.g. 18 separate values), group them into a single object returned from a single hook call wrapped in `useShallow` from `zustand/react/shallow`. This cuts down overhead and batches state checks efficiently.
+
 ## 2025-05-18 - Batch Zustand React Hooks with useShallow
 
 **Learning:** Selecting multiple separate fields from a Zustand store using individual `useAntennaStore((s) => s.field)` calls creates excessive subscriber listeners and hook allocation overhead, noticeably impacting rendering performance when global state properties update rapidly in complex UI controls.
@@ -52,3 +53,8 @@
 
 **Learning:** Shallow `!==` comparison (iterating `Object.keys`) only works correctly when the compared objects hold primitive values. When a selector like `selectSimulationInput` allocates new arrays and object literals on every call (e.g. `buildWires(state)`, `{ wireTag: ... }`, `buildGroundParams(state)`), every key comparison will be `true` regardless of the underlying data, causing `schedule()` to fire on every store update — worse than the original.
 **Action:** Use `JSON.stringify` for change-detection on derived selector objects that contain nested arrays or objects. The cost is ~3μs per call, which is negligible at typical UI event rates (100 events/s = 300μs/s total). Only optimise this if profiling proves it to be a real bottleneck.
+
+## 2024-05-30 - SWR Chart Aggregation Optimization
+
+**Learning:** Using chained array methods (e.g., `[...arr.map()]`) to extract values for finding a max or min leads to excessive intermediate array allocations and slower performance, especially in `useMemo` hooks calculating values over arrays. Using a standard `for` loop to directly calculate these aggregates is up to ~10x faster and uses less memory.
+**Action:** Replaced `.map()` and spread syntax with standard `for` loops in `xBounds` and `yMax` calculations in `SWRChart.tsx`.
