@@ -1,4 +1,4 @@
-## 2024-05-18 - Expensive 3D computations in tight loops
+## 2025-02-14 - Performance Optimization Pattern
 
 **Learning:** In Three.js geometry generation, recalculating vertex angles (spherical coordinates from Cartesian) for `thetaDeg` and `phiDeg` on every frame or state change can be significantly expensive and redundant, especially when LOD details stay the same. Caching these arrays separately from visual attributes drastically improves performance.
 **Action:** When mapping scalar data to 3D meshes (like antenna radiation patterns), cache structural calculations (like vertex spherical angles) separately from dynamic visual state (like colors or scale) using separate `useMemo` hooks.
@@ -58,3 +58,8 @@
 
 **Learning:** Using chained array methods (e.g., `[...arr.map()]`) to extract values for finding a max or min leads to excessive intermediate array allocations and slower performance, especially in `useMemo` hooks calculating values over arrays. Using a standard `for` loop to directly calculate these aggregates is up to ~10x faster and uses less memory.
 **Action:** Replaced `.map()` and spread syntax with standard `for` loops in `xBounds` and `yMax` calculations in `SWRChart.tsx`.
+
+## 2025-02-14 - O(1) Map Lookups for Static Presets
+
+**Learning:** When frequently querying static arrays by a unique ID (e.g., `GROUND_PRESETS`, `FEEDLINE_PRESETS`), using `Array.find()` results in $O(N)$ linear searches.
+**Action:** Pre-compute a `Map` at module initialization to enable $O(1)$ lookups via `Map.get(id)`, replacing the inefficient $O(N)$ linear searches. This provides a measurable reduction in lookup time.
