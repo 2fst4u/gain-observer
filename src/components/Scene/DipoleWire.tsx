@@ -42,6 +42,7 @@ interface DipoleWireProps {
   readonly feedlineId: string;
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
+  readonly whipCounterpoise: boolean;
 }
 
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
@@ -58,6 +59,7 @@ export function DipoleWire({
   feedlineId,
   feedlineLength,
   feedlineOffset,
+  whipCounterpoise,
 }: DipoleWireProps) {
   // ⚡ Bolt: Performance Optimization
   // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
@@ -93,6 +95,7 @@ export function DipoleWire({
       vAngle,
       legSlope,
       frequency,
+      whipCounterpoise,
     });
 
     return wires.map((w, idx) => {
@@ -130,7 +133,7 @@ export function DipoleWire({
         isDipoleHalf,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, frequency]);
+  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, frequency, whipCounterpoise]);
 
   // Locate elements we want to decorate.
   const bridge = rendered.find((s) => s.isBridge);

@@ -32,6 +32,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     liveFeedlineId,
     liveFeedlineLength,
     liveFeedlineOffset,
+    liveWhipCounterpoise,
     showGrid,
     showAxes,
     patternScale,
@@ -52,6 +53,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     liveFeedlineId: s.feedlineId,
     liveFeedlineLength: s.feedlineLength,
     liveFeedlineOffset: s.feedlineOffset,
+    liveWhipCounterpoise: s.whipCounterpoise,
     showGrid: s.showGrid,
     showAxes: s.showAxes,
     patternScale: s.patternScale,
@@ -73,6 +75,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const feedlineId = snapshot?.feedlineId ?? liveFeedlineId;
   const feedlineLength = snapshot?.feedlineLength ?? liveFeedlineLength;
   const feedlineOffset = snapshot?.feedlineOffset ?? liveFeedlineOffset;
+  const whipCounterpoise = snapshot?.whipCounterpoise ?? liveWhipCounterpoise;
 
   return (
     <Canvas
@@ -98,6 +101,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
           feedlineId={feedlineId}
           feedlineLength={feedlineLength}
           feedlineOffset={feedlineOffset}
+          whipCounterpoise={whipCounterpoise}
         />
         <RadiationPattern
           result={result}
