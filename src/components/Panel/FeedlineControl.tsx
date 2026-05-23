@@ -11,6 +11,16 @@ import {
   fromDisplayLength,
   displayLengthUnit,
 } from '../../physics/units';
+import type { AntennaType } from '../../physics/types';
+
+// vertical-whip is intentionally excluded — this panel does not apply to it
+const SUPPORTED_ANTENNA_TYPES: ReadonlySet<AntennaType> = new Set([
+  'dipole',
+  'inverted-v',
+  'delta-loop',
+  'sloping-v',
+  'terminated-delta',
+]);
 
 export function FeedlineControl() {
   // ⚡ Bolt: Performance Optimization
@@ -58,7 +68,7 @@ export function FeedlineControl() {
     }
   }
 
-  if (!['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'].includes(antennaType)) return null;
+  if (!SUPPORTED_ANTENNA_TYPES.has(antennaType)) return null;
 
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);
