@@ -3,9 +3,15 @@ import {
   toDisplayLength,
   fromDisplayLength,
   formatLength,
+  displayLengthUnit,
 } from '../src/physics/units';
 
 describe('unit conversions', () => {
+  it('displayLengthUnit returns correct suffix for unit system', () => {
+    expect(displayLengthUnit('metric')).toBe('m');
+    expect(displayLengthUnit('imperial')).toBe('ft');
+  });
+
   it('round-trips m → ft → m within float precision', () => {
     const samples = [0, 0.1, 1, 10.05, 21.11, 100];
     for (const m of samples) {
