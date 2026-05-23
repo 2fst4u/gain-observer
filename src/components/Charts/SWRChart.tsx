@@ -145,17 +145,28 @@ export function SWRChart() {
   }, [accent, comparisonActive, currentFill, reference, referenceFill, sweep, transformerInDisplay, transformerRatio]);
 
   const xBounds = useMemo(() => {
-    const allFrequencies = [
-      ...sweep.map((point) => point.frequencyMHz),
-      ...(comparisonActive && reference ? reference.sweep.map((point) => point.frequencyMHz) : []),
-    ];
-    if (allFrequencies.length === 0) {
+    if (sweep.length === 0 && (!comparisonActive || !reference || reference.sweep.length === 0)) {
       return { min: frequency * 0.95, max: frequency * 1.05 };
     }
-    return {
-      min: Math.min(...allFrequencies),
-      max: Math.max(...allFrequencies),
-    };
+
+    let min = Infinity;
+    let max = -Infinity;
+
+    for (let i = 0; i < sweep.length; i++) {
+      const freq = sweep[i].frequencyMHz;
+      if (freq < min) min = freq;
+      if (freq > max) max = freq;
+    }
+
+    if (comparisonActive && reference) {
+      for (let i = 0; i < reference.sweep.length; i++) {
+        const freq = reference.sweep[i].frequencyMHz;
+        if (freq < min) min = freq;
+        if (freq > max) max = freq;
+      }
+    }
+
+    return { min, max };
   }, [comparisonActive, frequency, reference, sweep]);
 
   const stats = useMemo(() => {
@@ -192,17 +203,34 @@ export function SWRChart() {
   }, [sweep]);
 
   const yMax = useMemo(() => {
-    const values = [
-      ...sweep.map((point) => point.swr),
-      ...(comparisonActive && reference ? reference.sweep.map((point) => point.swr) : []),
-      ...(transformerInDisplay
-        ? sweep.map((point) => computeSwr({ R: point.R / transformerRatio, X: point.X / transformerRatio }))
-        : []),
-    ];
-    if (values.length === 0) return 5;
+    if (sweep.length === 0 && (!comparisonActive || !reference || reference.sweep.length === 0)) {
+      return 5;
+    }
 
-    const maxVal = Math.max(...values);
-    const anyBelow2 = values.some((v) => v <= 2);
+    let maxVal = -Infinity;
+    let anyBelow2 = false;
+
+    for (let i = 0; i < sweep.length; i++) {
+      const v = sweep[i].swr;
+      if (v > maxVal) maxVal = v;
+      if (v <= 2) anyBelow2 = true;
+
+      if (transformerInDisplay) {
+        const v2 = computeSwr({ R: sweep[i].R / transformerRatio, X: sweep[i].X / transformerRatio });
+        if (v2 > maxVal) maxVal = v2;
+        if (v2 <= 2) anyBelow2 = true;
+      }
+    }
+
+    if (comparisonActive && reference) {
+      for (let i = 0; i < reference.sweep.length; i++) {
+        const v = reference.sweep[i].swr;
+        if (v > maxVal) maxVal = v;
+        if (v <= 2) anyBelow2 = true;
+      }
+    }
+
+    if (maxVal === -Infinity) return 5;
 
     if (!anyBelow2) {
       // Entire graph is above 2:1. Show it relative to a reasonable cap,
