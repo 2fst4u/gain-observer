@@ -912,31 +912,32 @@ function buildGroundParams(state: AntennaState): GroundParams {
   }
 }
 
-export function selectSimulationInput(state: AntennaState): SimulationInput {
-  const wires = buildWires(state);
-  const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
-  const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
-  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'].includes(state.antennaType);
-  const feedlineActive = hasBridge && feedlineSupport;
-
-  let excitation;
+function buildExcitation(
+  state: AntennaState,
+  wires: Wire[],
+  feedlineActive: boolean,
+  hasBridge: boolean,
+  hasShield: boolean,
+) {
   if (feedlineActive && hasShield) {
-    excitation = { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
+    return { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
   } else if (hasBridge) {
-    excitation = { wireTag: FEED_BRIDGE_TAG, segment: 1 };
+    return { wireTag: FEED_BRIDGE_TAG, segment: 1 };
   } else if (state.antennaType === 'delta-loop' || state.antennaType === 'terminated-delta') {
     // Apex-fed: excitation lives on the last segment of the left leg
     // (whose .end is the apex by convention in build*Wires).
     const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    excitation = { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
+    return { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
   } else if (state.antennaType === 'vertical-whip') {
     // Base-fed monopole: excitation on the first (lowest) segment.
-    excitation = { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
+    return { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
   } else {
     const dipoleCentreSeg = Math.ceil(state.segments / 2);
-    excitation = { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
+    return { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
   }
+}
 
+function buildFeedlineElements(state: AntennaState, feedlineActive: boolean, hasShield: boolean) {
   const transmissionLines: TransmissionLine[] = [];
   const loads: SegmentLoad[] = [];
   const networks: NetworkLoad[] = [];
@@ -1015,6 +1016,13 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     }
   }
 
+  return { transmissionLines, loads, networks };
+}
+
+function buildTerminationElements(state: AntennaState, wires: Wire[]) {
+  const extraWires: Wire[] = [];
+  const loads: SegmentLoad[] = [];
+
   if (state.antennaType === 'sloping-v' && state.terminatingResistor > 0) {
     const R = state.terminatingResistor;
     // Model the physical tip-to-earth terminating resistor correctly:
@@ -1035,7 +1043,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     const leftTip  = leftLegWires[0]!.start;
     const rightTip = rightLegWires[rightLegWires.length - 1]!.end;
 
-    wires.push(
+    extraWires.push(
       {
         start: leftTip,
         end: [leftTip[0], leftTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
@@ -1078,7 +1086,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     const leftInner  = leftHalfBase.end;
     const rightInner = rightHalfBase.start;
 
-    wires.push({
+    extraWires.push({
       start: leftInner,
       end: rightInner,
       radius: state.wireRadius,
@@ -1089,6 +1097,26 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
       { type: 4, wireTag: TERMINATED_DELTA_BRIDGE_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
     );
   }
+
+  return { extraWires, loads };
+}
+
+export function selectSimulationInput(state: AntennaState): SimulationInput {
+  const wires = buildWires(state);
+  const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
+  const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
+  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'].includes(state.antennaType);
+  const feedlineActive = hasBridge && feedlineSupport;
+
+  const excitation = buildExcitation(state, wires, feedlineActive, hasBridge, hasShield);
+
+  const feedlineElements = buildFeedlineElements(state, feedlineActive, hasShield);
+  const { transmissionLines, networks, loads: feedlineLoads } = feedlineElements;
+  let loads = feedlineLoads;
+
+  const terminationElements = buildTerminationElements(state, wires);
+  wires.push(...terminationElements.extraWires);
+  loads = loads.concat(terminationElements.loads);
 
   return {
     wires,
