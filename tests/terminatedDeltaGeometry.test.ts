@@ -72,6 +72,105 @@ describe('Terminated Delta — defaults & state', () => {
     store.setAntennaType('terminated-delta');
     expect(useAntennaStore.getState().terminatingResistor).toBe(450);
   });
+
+  it('switching to terminated-delta engages a 9:1 transformer by default', () => {
+    const store = useAntennaStore.getState();
+    store.setTransformerEnabled(false);
+    store.setTransformerRatio(1);
+    store.setAntennaType('terminated-delta');
+    expect(useAntennaStore.getState().transformerEnabled).toBe(true);
+    expect(useAntennaStore.getState().transformerRatio).toBe(9);
+  });
+});
+
+describe('Terminated Delta — NT-card transformer', () => {
+  beforeEach(() => {
+    useAntennaStore.getState().setTerminatingResistor(0);
+  });
+
+  it('with feedline + transformer + ratio>1: emits one NT card from bridge to shield top', () => {
+    const store = useAntennaStore.getState();
+    store.setAntennaType('terminated-delta');
+    store.setFrequency(7.1);
+    store.setHeight(15);
+    store.setLength(42);
+    store.setFeedline('rg58');
+    store.setTransformerEnabled(true);
+    store.setTransformerRatio(9);
+    const input = selectSimulationInput(useAntennaStore.getState());
+    const deck = buildNecCards(input);
+    expect(input.networks).toHaveLength(1);
+    expect(getNecLines(deck, 'NT')).toHaveLength(1);
+    const nt = input.networks![0]!;
+    expect(nt.fromTag).toBe(FEED_BRIDGE_TAG);
+    expect(nt.fromSegment).toBe(1);
+    expect(nt.toTag).toBe(FEEDLINE_SHIELD_TAG);
+    expect(nt.toSegment).toBe(1);
+    // Lossless transformer: all real parts of Y are zero.
+    expect(nt.y11Real).toBe(0);
+    expect(nt.y12Real).toBe(0);
+    expect(nt.y22Real).toBe(0);
+    // Ideal transformer relationship: Y22 / Y11 = n² (impedance ratio).
+    expect(Math.abs(nt.y22Imag! / nt.y11Imag!)).toBeCloseTo(9, 3);
+    // And Y12 / Y11 = -n (voltage ratio sign-flipped).
+    expect(Math.abs(nt.y12Imag! / nt.y11Imag!)).toBeCloseTo(3, 3);
+  });
+
+  it('with feedline + transformer + ratio>1: TL carries cable signal from shield top to shield bottom', () => {
+    const store = useAntennaStore.getState();
+    store.setAntennaType('terminated-delta');
+    store.setFrequency(7.1);
+    store.setHeight(15);
+    store.setLength(42);
+    store.setFeedline('rg58');
+    store.setTransformerEnabled(true);
+    store.setTransformerRatio(9);
+    const input = selectSimulationInput(useAntennaStore.getState());
+    const tl = input.transmissionLines![0]!;
+    expect(tl.fromTag).toBe(FEEDLINE_SHIELD_TAG);
+    expect(tl.toTag).toBe(FEEDLINE_SHIELD_TAG);
+  });
+
+  it('with feedline + transformer disabled: TL still goes bridge→shield (no NT card)', () => {
+    const store = useAntennaStore.getState();
+    store.setAntennaType('terminated-delta');
+    store.setFrequency(7.1);
+    store.setHeight(15);
+    store.setLength(42);
+    store.setFeedline('rg58');
+    store.setTransformerEnabled(false);
+    const input = selectSimulationInput(useAntennaStore.getState());
+    expect(input.networks).toBeUndefined();
+    const tl = input.transmissionLines![0]!;
+    expect(tl.fromTag).toBe(FEED_BRIDGE_TAG);
+    expect(tl.toTag).toBe(FEEDLINE_SHIELD_TAG);
+  });
+
+  it('with feedline + transformer + ratio=1: no NT card (choke-only mode)', () => {
+    const store = useAntennaStore.getState();
+    store.setAntennaType('terminated-delta');
+    store.setFrequency(7.1);
+    store.setHeight(15);
+    store.setLength(42);
+    store.setFeedline('rg58');
+    store.setTransformerEnabled(true);
+    store.setTransformerRatio(1);
+    const input = selectSimulationInput(useAntennaStore.getState());
+    expect(input.networks).toBeUndefined();
+  });
+
+  it('with no feedline: no NT card (transformer is display-only)', () => {
+    const store = useAntennaStore.getState();
+    store.setAntennaType('terminated-delta');
+    store.setFrequency(7.1);
+    store.setHeight(15);
+    store.setLength(42);
+    store.setFeedline('none');
+    store.setTransformerEnabled(true);
+    store.setTransformerRatio(9);
+    const input = selectSimulationInput(useAntennaStore.getState());
+    expect(input.networks).toBeUndefined();
+  });
 });
 
 describe('Terminated Delta — base geometry', () => {

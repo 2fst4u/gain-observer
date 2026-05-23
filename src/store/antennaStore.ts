@@ -17,6 +17,7 @@ import type {
   Wire,
   TransmissionLine,
   SegmentLoad,
+  NetworkLoad,
   AntennaType,
 } from '../physics/types';
 import {
@@ -328,6 +329,13 @@ export const useAntennaStore = create<AntennaState>()(
           // common HF heights). Sitting near loop-Z0 is what gives the
           // bridge-terminated design its flat broadband impedance.
           if (s.terminatingResistor === 0) s.terminatingResistor = 600;
+          // T2FD-style loops have a ~600 Ω feedpoint. Feeding that into
+          // 50 Ω coax is unusable without an impedance-transforming unun
+          // at the antenna terminals. Default the transformer on so the
+          // out-of-the-box result reflects a sensibly-built antenna; the
+          // user can still disable it to see what happens without.
+          s.transformerEnabled = true;
+          s.transformerRatio = 9;
         }
 
         const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
@@ -864,25 +872,70 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
 
   const transmissionLines: TransmissionLine[] = [];
   const loads: SegmentLoad[] = [];
+  const networks: NetworkLoad[] = [];
 
   if (feedlineActive && hasShield) {
     const preset = findFeedlinePreset(state.feedlineId);
     const electricalLength = state.feedlineLength / Math.max(0.05, preset.velocityFactor);
-    transmissionLines.push({
-      fromTag: FEED_BRIDGE_TAG,
-      fromSegment: 1,
-      toTag: FEEDLINE_SHIELD_TAG,
-      toSegment: FEEDLINE_SHIELD_SEGMENTS,
-      z0: preset.z0,
-      lengthM: electricalLength,
-    });
+    const xfmrRatio = Math.max(1, state.transformerRatio);
+    const xfmrActive = state.transformerEnabled && xfmrRatio > 1;
 
-    // A transformer (any ratio, including 1:1) fitted at the antenna
-    // feedpoint chokes off common-mode currents on the cable shield. We
-    // model this as a high-impedance series load at the shield end nearest
-    // the antenna. Without a transformer, the shield is left to radiate
-    // freely — that's intentional and visible in the pattern (skewed for
-    // dipoles, restored to symmetry once a transformer/choke is fitted).
+    if (xfmrActive) {
+      // Real impedance-transforming unun at the antenna terminals, modelled
+      // via an NEC NT (network) card. The transformer goes between the apex
+      // bridge (port 1 = primary, antenna side, high Z) and the shield top
+      // (port 2 = secondary, cable side, low Z). The TL card then carries
+      // the matched signal from shield top to shield bottom through the
+      // coax. NEC now sees the impedance step-down physically, so:
+      //   • the coax is driven matched (low common-mode pressure)
+      //   • the shield's residual radiation is suppressed by the choke
+      //   • efficiency stops bleeding into shield-as-radiator
+      //
+      // The Y-matrix for an ideal transformer with voltage ratio n
+      // (impedance ratio n² = xfmrRatio) and small primary-referred leakage
+      // reactance X = ω·L_leak is:
+      //   Y11 = -j/X    Y12 = +j·n/X    Y22 = -j·n²/X
+      // Smaller X → closer to ideal. L_leak = 10 nH gives ~ 4.5 mΩ leakage at
+      // 7 MHz — small enough to be ~ideal across HF, large enough to keep
+      // the NEC matrix well-conditioned.
+      const omega = 2 * Math.PI * state.frequency * 1e6;
+      const xLeak = omega * 1e-8;
+      const n = Math.sqrt(xfmrRatio);
+      networks.push({
+        fromTag: FEED_BRIDGE_TAG,
+        fromSegment: 1,
+        toTag: FEEDLINE_SHIELD_TAG,
+        toSegment: 1,
+        y11Real: 0, y11Imag: -1 / xLeak,
+        y12Real: 0, y12Imag: +n / xLeak,
+        y22Real: 0, y22Imag: -(n * n) / xLeak,
+      });
+      transmissionLines.push({
+        fromTag: FEEDLINE_SHIELD_TAG,
+        fromSegment: 1,
+        toTag: FEEDLINE_SHIELD_TAG,
+        toSegment: FEEDLINE_SHIELD_SEGMENTS,
+        z0: preset.z0,
+        lengthM: electricalLength,
+      });
+    } else {
+      // No transformer: differential signal goes straight from the antenna
+      // bridge to the rig end of the coax via a single TL card. With a
+      // mismatched antenna this exposes the shield to large common-mode
+      // currents — visible in the pattern as it should be.
+      transmissionLines.push({
+        fromTag: FEED_BRIDGE_TAG,
+        fromSegment: 1,
+        toTag: FEEDLINE_SHIELD_TAG,
+        toSegment: FEEDLINE_SHIELD_SEGMENTS,
+        z0: preset.z0,
+        lengthM: electricalLength,
+      });
+    }
+
+    // Choke on the shield top suppresses any residual common-mode current
+    // (the transformer is reciprocal so common-mode on the shield isn't
+    // automatically killed by the NT card itself).
     if (state.transformerEnabled) {
       loads.push({
         type: 4,
@@ -981,6 +1034,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
     },
     transmissionLines: transmissionLines.length > 0 ? transmissionLines : undefined,
     loads: loads.length > 0 ? loads : undefined,
+    networks: networks.length > 0 ? networks : undefined,
   };
 }
 

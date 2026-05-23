@@ -3,13 +3,8 @@ import { useShallow } from 'zustand/react/shallow';
 import {
   mismatchLossFactor,
   swr,
-  transformWithTransformerAtAntenna,
 } from '../../physics/impedance';
-import {
-  findFeedlinePreset,
-  TRANSFORMER_INSERTION_LOSS_DB,
-  wavelengthMeters,
-} from '../../physics/constants';
+import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 import type { ImpedanceResult, TerminationDiagnostics } from '../../physics/types';
 
 export function StatsReadout() {
@@ -24,8 +19,6 @@ export function StatsReadout() {
     transformerEnabled,
     transformerRatio,
     feedlineId,
-    feedlineLength,
-    frequency,
   } = useAntennaStore(useShallow((s) => ({
     result: s.result,
     mode: s.mode,
@@ -33,8 +26,6 @@ export function StatsReadout() {
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
     feedlineId: s.feedlineId,
-    feedlineLength: s.feedlineLength,
-    frequency: s.frequency,
   })));
   const feedlineActive = feedlineId !== 'none';
   if (!result) {
@@ -47,34 +38,41 @@ export function StatsReadout() {
     );
   }
 
-  // Cable parameters needed for transformer-at-antenna math when feedline is active.
-  let cableZ0 = 50;
-  let cableLengthLambdas = 0;
-  if (feedlineActive) {
-    const preset = findFeedlinePreset(feedlineId);
-    cableZ0 = preset.z0;
-    const lambdaCable = preset.velocityFactor * wavelengthMeters(frequency);
-    cableLengthLambdas = feedlineLength / lambdaCable;
-  }
+  // When a feedline is active and the transformer is engaged, the NEC
+  // simulation already includes the impedance-transforming unun via an NT
+  // card — so `result.impedance` is already what the rig sees, no extra
+  // de-embed/divide/re-embed math required.
+  //
+  // When there's no feedline, the transformer is a "phantom" (nowhere
+  // physical to put it in the NEC model), so we apply Z/ratio here on the
+  // display side as a best-effort idealised representation.
+  const transformerInModel = transformerEnabled && feedlineActive && transformerRatio > 1;
+  const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
 
-  // Apply the transformer at the antenna terminals: divide the antenna's
-  // feedpoint impedance by the ratio (the cable then sees that as its load).
-  // With no feedline this is just Z/ratio; with a feedline we de-embed →
-  // divide → re-embed. The accompanying choke (engaged by setting transformer
-  // = enabled) suppresses shield common-mode current, so the de-embed math is
-  // accurate.
-  const displayedZ: ImpedanceResult = transformerEnabled
-    ? transformWithTransformerAtAntenna(result.impedance, transformerRatio, cableZ0, cableLengthLambdas)
+  const displayedZ: ImpedanceResult = transformerInDisplay
+    ? { R: result.impedance.R / transformerRatio, X: result.impedance.X / transformerRatio }
     : result.impedance;
-  const displayedSwr = transformerEnabled ? swr(displayedZ) : result.swr;
+  const displayedSwr = transformerInDisplay ? swr(displayedZ) : result.swr;
 
   let displayedRealizedGainDbi: number | undefined;
-  if (transformerEnabled) {
+  if (transformerInDisplay) {
     const mlf = mismatchLossFactor(displayedZ);
     if (mlf > 0) {
       displayedRealizedGainDbi =
         result.maxGainDbi + 10 * Math.log10(mlf) - TRANSFORMER_INSERTION_LOSS_DB;
     }
+  } else if (transformerInModel) {
+    // NEC's realized gain already accounts for the matched feedpoint;
+    // subtract the transformer hardware's insertion loss.
+    displayedRealizedGainDbi = result.maxRealizedGainDbi != null
+      ? result.maxRealizedGainDbi - TRANSFORMER_INSERTION_LOSS_DB
+      : undefined;
+  } else if (transformerEnabled) {
+    // Choke-only case (ratio == 1, or transformer engaged without a feedline
+    // and with ratio 1). Use NEC's realized gain, plus insertion loss.
+    displayedRealizedGainDbi = result.maxRealizedGainDbi != null
+      ? result.maxRealizedGainDbi - TRANSFORMER_INSERTION_LOSS_DB
+      : undefined;
   } else {
     displayedRealizedGainDbi = result.maxRealizedGainDbi ?? undefined;
   }
