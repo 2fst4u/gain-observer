@@ -83,9 +83,6 @@ export function useDipoleGeometry({
       const tag = w.tag ?? DIPOLE_TAG;
       const isShield = tag === FEEDLINE_SHIELD_TAG;
       const isBridge = tag === FEED_BRIDGE_TAG;
-      // Visual radius: keep the bridge nearly invisible (it's a 5cm
-      // electrical token), the shield slightly slimmer than the dipole,
-      // and the dipole at the original visibility scale.
       let radius: number;
       if (isShield) radius = Math.max(w.radius * 6, 0.025);
       else if (isBridge) radius = Math.max(w.radius * 4, 0.018);
