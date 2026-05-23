@@ -124,3 +124,8 @@
 
 **Learning:** When frequently querying static arrays by a unique ID (e.g., `GROUND_PRESETS`, `FEEDLINE_PRESETS`), using `Array.find()` results in $O(N)$ linear searches.
 **Action:** Pre-compute a `Map` at module initialization to enable $O(1)$ lookups via `Map.get(id)`, replacing the inefficient $O(N)$ linear searches. This provides a measurable reduction in lookup time.
+
+## 2025-02-12 - File Reading Tool Truncation
+
+**Learning:** When dealing with truncated outputs from tools like `read_file` or `cat`, we should rely on more robust extraction commands like `sed` or `grep` to successfully explore large files, otherwise we violate the Exploration Rule during planning.
+**Action:** Use `sed -n '<start>,<end>p'` or `grep -C <lines>` to inspect target regions in large files to guarantee adequate codebase exploration before creating a plan.

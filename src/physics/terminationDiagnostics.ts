@@ -39,8 +39,13 @@ export function computeCurrentRippleByTag(currents: SegmentCurrent[]): CurrentRi
   const result: CurrentRipple[] = [];
   for (const [tagNo, mags] of byTag) {
     if (mags.length < 2) continue;
-    const maxMag = mags.reduce((a, b) => (b > a ? b : a));
-    const minMag = mags.reduce((a, b) => (b < a ? b : a));
+    let maxMag = mags[0]!;
+    let minMag = mags[0]!;
+    for (let i = 1; i < mags.length; i++) {
+      const val = mags[i]!;
+      if (val > maxMag) maxMag = val;
+      if (val < minMag) minMag = val;
+    }
     const ripple = minMag > 0 ? maxMag / minMag : Infinity;
     const rippleDb = Number.isFinite(ripple) ? 20 * Math.log10(ripple) : Infinity;
     result.push({ tagNo, magnitudes: mags, ripple, rippleDb });
