@@ -217,8 +217,12 @@ export const TERMINATED_DELTA_CENTRE_GAP_M = FEED_BRIDGE_LENGTH_M;
  */
 export const SLOPING_V_STUB_BOTTOM_Z_M = 0.01;
 
+const GROUND_PRESET_MAP = new Map<string, GroundPreset>(
+  GROUND_PRESETS.map((p) => [p.id, p])
+);
+
 export function findGroundPreset(id: string): GroundPreset {
-  const preset = GROUND_PRESETS.find((g) => g.id === id);
+  const preset = GROUND_PRESET_MAP.get(id);
   if (!preset) {
     throw new Error(`Unknown ground preset id: ${id}`);
   }
@@ -324,8 +328,12 @@ export const FEEDLINE_PRESETS: ReadonlyArray<FeedlinePreset> = [
 export const DEFAULT_FEEDLINE_ID = 'rg58';
 export const DEFAULT_FEEDLINE_LENGTH_M = 10;
 
+const FEEDLINE_PRESET_MAP = new Map<string, FeedlinePreset>(
+  FEEDLINE_PRESETS.map((p) => [p.id, p])
+);
+
 export function findFeedlinePreset(id: string): FeedlinePreset {
-  return FEEDLINE_PRESETS.find(p => p.id === id) || FEEDLINE_PRESETS[0];
+  return FEEDLINE_PRESET_MAP.get(id) ?? FEEDLINE_PRESETS[0];
 }
 
 /**
