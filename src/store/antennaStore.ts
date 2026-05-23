@@ -455,8 +455,8 @@ export const useAntennaStore = create<AntennaState>()(
         s.groundEpsilon = Math.max(1, epsilon);
       }),
       setFeedline: (id) => set((s) => {
-        findFeedlinePreset(id);
-        s.feedlineId = id;
+        const preset = findFeedlinePreset(id);
+        s.feedlineId = preset.id;
       }),
       setFeedlineLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;

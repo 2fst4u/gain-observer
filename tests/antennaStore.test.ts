@@ -719,9 +719,10 @@ describe('antennaStore actions', () => {
       expect(useAntennaStore.getState().feedlineId).toBe('none');
     });
 
-    it('throws on unknown feedline id', () => {
+    it('uses fallback feedline on unknown feedline id', () => {
       const store = useAntennaStore.getState();
-      expect(() => store.setFeedline('not-a-real-cable')).toThrow();
+      store.setFeedline('not-a-real-cable');
+      expect(useAntennaStore.getState().feedlineId).toBe('none');
     });
 
     it('clamps feedline length to a reasonable range', () => {
