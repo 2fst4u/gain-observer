@@ -11,8 +11,10 @@ import {
   fromDisplayLength,
   displayLengthUnit,
 } from '../../physics/units';
+import type { AntennaType } from '../../physics/types';
 
-const SUPPORTED_ANTENNA_TYPES = new Set([
+// vertical-whip is intentionally excluded — this panel does not apply to it
+const SUPPORTED_ANTENNA_TYPES: ReadonlySet<AntennaType> = new Set([
   'dipole',
   'inverted-v',
   'delta-loop',
