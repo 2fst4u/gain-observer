@@ -44,9 +44,9 @@ We use the standard NEC-2 Cartesian coordinate system:
 - **Feedpoint**: The apex.
 - **Balanced**: Yes.
 
-### 2.3 Sloping V / V-Beam (Terminated or Unterminated)
+### 2.3 Sloping V (Terminated or Unterminated)
 
-- **Structure**: Two wires forming a V-shape (also known as a V-Beam), typically sloping from a high feedpoint toward the ground or lower supports.
+- **Structure**: Two wires forming a V-shape, typically sloping from a high feedpoint toward the ground or lower supports.
 - **Length**: Refers to the length of a **single leg**.
 - **Height**: Refers to the height of the feedpoint (apex).
 - **Included Angle**: The angle between the two legs in the plane of the V.

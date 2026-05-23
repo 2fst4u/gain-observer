@@ -87,7 +87,7 @@ This document defines the physical and mathematical model for all antenna types 
 
 ---
 
-## 3. Sloping V / V-Beam (Terminated)
+## 3. Sloping V (Terminated)
 
 ### 3.1 Geometry Definition
 
