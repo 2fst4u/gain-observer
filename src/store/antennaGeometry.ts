@@ -11,7 +11,6 @@ import {
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   TERMINATED_DELTA_CENTRE_GAP_M,
   VERTICAL_WHIP_TAG,
-  VERTICAL_WHIP_BASE_GAP_M,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -652,11 +651,13 @@ export interface VerticalWhipWiresParams {
  * is at the bottom, so excitation goes on segment 1 in
  * selectSimulationInput.
  *
- * When the user requests a ground-mounted whip (height = 0) the base is
- * lifted by VERTICAL_WHIP_BASE_GAP_M (1 cm) so the wire does not touch
- * z = 0 — NEC's Sommerfeld-Norton ground model is undefined for wires
- * intersecting the ground plane. The cm-scale offset is well below the
- * accuracy envelope of the model at HF.
+ * When the user requests a ground-mounted whip (height = 0) the base sits
+ * exactly at z = 0. NEC-2 connects wire endpoints that touch the ground
+ * plane (with a GN card present) directly to their image, which is the
+ * canonical monopole-over-ground feed: EX on segment 1 then acts as the
+ * voltage source between the wire and the ground plane via image theory.
+ * Lifting the base by even a centimetre breaks that current path and
+ * NEC reports a near-open feedpoint (R OK, but X ≈ −15 kΩ).
  *
  * Segment count is sized to give at least SEGS_PER_WAVELENGTH segments per
  * wavelength of whip, with the same MIN/MAX bounds used by the other
@@ -665,7 +666,7 @@ export interface VerticalWhipWiresParams {
  */
 export function buildVerticalWhipWires(params: VerticalWhipWiresParams): Wire[] {
   const length = Math.max(0.1, params.length);
-  const baseZ = Math.max(VERTICAL_WHIP_BASE_GAP_M, params.height);
+  const baseZ = Math.max(0, params.height);
   const topZ = baseZ + length;
 
   const lambda = wavelengthMeters(params.frequency);

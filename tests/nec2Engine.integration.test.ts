@@ -200,17 +200,16 @@ describe('Nec2Engine (real Wasm)', () => {
   it('ground-mounted ¼λ vertical whip: positive gain, low take-off, sensible feedpoint Z', async () => {
     // ¼λ vertical at 7.1 MHz: λ ≈ 42.224 m, so a 10.0 m whip ≈ 0.95 × λ/4
     // (matches the standard end-effect factor used elsewhere in the app).
-    // The wire sits with its base 0.01 m above ground so it doesn't touch
-    // z=0 (NEC's Sommerfeld-Norton model requires this); the radiator
-    // extends 10 m upward from there. Excitation on segment 1 (the base)
-    // is the canonical monopole feed.
+    // The base sits exactly at z=0; NEC connects that endpoint to its
+    // image through the ground plane, which closes the current loop for
+    // the monopole. Excitation on segment 1 (the base) is the canonical
+    // monopole feed.
     const freq = 7.1;
     const len = 10.0;
-    const baseZ = 0.01;
     const input: SimulationInput = {
       wires: [{
-        start: [0, 0, baseZ],
-        end: [0, 0, baseZ + len],
+        start: [0, 0, 0],
+        end: [0, 0, len],
         radius: 0.001,
         segments: 21,
         tag: 12,
@@ -227,20 +226,21 @@ describe('Nec2Engine (real Wasm)', () => {
     // A radial-less ¼λ vertical over average ground typically peaks
     // between -6 dBi and +4 dBi depending on conductivity (perfect-ground
     // theoretical value is ~+5.2 dBi; pastoral soil costs several dB to
-    // ground absorption). Loose bounds verify we got a physical solve.
+    // ground absorption).
     expect(r.maxGainDbi).toBeGreaterThan(-8);
     expect(r.maxGainDbi).toBeLessThan(6);
     // Vertical pattern over real ground peaks at low elevation (the wave
     // angle of a ¼λ vertical over average ground is typically 15–30°).
     expect(r.takeoffElevationDeg).toBeGreaterThan(5);
     expect(r.takeoffElevationDeg).toBeLessThan(45);
-    // Feedpoint impedance for a base-fed monopole over real ground varies
-    // widely (theoretical 36 Ω over perfect ground; with no radials and
-    // the Sommerfeld-Norton model, ground-absorption loss adds large
-    // effective series resistance). Loose bounds here — we're checking
-    // that the solver produced a finite positive R, not pinning a value.
+    // Feedpoint impedance near resonance: R is in the 30–100 Ω band
+    // (theoretical 36 Ω; ground loss adds some series resistance), and
+    // X is close to zero (slightly capacitive because the wire is 0.95×
+    // ¼λ). Pinning X within a generous ±200 Ω band catches the
+    // base-not-touching-ground regression where X blew up to ~-15 kΩ.
     expect(r.impedance.R).toBeGreaterThan(20);
-    expect(r.impedance.R).toBeLessThan(300);
+    expect(r.impedance.R).toBeLessThan(200);
+    expect(Math.abs(r.impedance.X)).toBeLessThan(200);
   }, 30_000);
 
   it('handles concurrent simulate() calls by serializing them', async () => {

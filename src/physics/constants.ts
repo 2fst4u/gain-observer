@@ -173,15 +173,6 @@ export const VERTICAL_WHIP_TAG = 12;
 export const DEFAULT_WHIP_LENGTH_M = 32 * 0.3048;
 
 /**
- * Minimum base height above ground, metres, used when the user sets the
- * whip's base height to 0 ("ground-mounted"). NEC wires cannot touch
- * z = 0 under a real-ground (GN 2) model; 0.01 m places the base
- * essentially at ground level while remaining within the Sommerfeld-Norton
- * model's accuracy envelope (matches SLOPING_V_STUB_BOTTOM_Z_M).
- */
-export const VERTICAL_WHIP_BASE_GAP_M = 0.01;
-
-/**
  * Gap (metres) between the inner ends of the two terminated-delta
  * half-base wires at the centre of the base. The two halves must not meet
  * (otherwise they'd short across the termination), so we leave a small

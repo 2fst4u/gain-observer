@@ -323,8 +323,11 @@ export function DipoleControl() {
 
       {/* Transformer / balun: part of the antenna's feedpoint hardware
           (applied before the NEC simulation), so it belongs in the Antenna
-          panel rather than as a separate top-level section. */}
-      <TransformerControl />
+          panel rather than as a separate top-level section. Hidden for
+          vertical whips — the transformer model in this app assumes a
+          two-terminal balanced feedpoint with a coax shield to choke,
+          neither of which applies to a base-fed monopole. */}
+      {!isVerticalWhip && <TransformerControl />}
     </section>
   );
 }

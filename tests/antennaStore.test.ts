@@ -12,7 +12,7 @@ import {
   VERTICAL_WHIP_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
-import { DEFAULT_WHIP_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M } from '../src/physics/constants';
+import { DEFAULT_WHIP_LENGTH_M } from '../src/physics/constants';
 
 describe('antennaStore selectors', () => {
   describe('buildWires', () => {
@@ -1203,12 +1203,15 @@ describe('antennaStore actions', () => {
       expect(w.end[1]).toBeCloseTo(0, 6);
     });
 
-    it('lifts the base by VERTICAL_WHIP_BASE_GAP_M when height = 0 (ground-mounted)', () => {
+    it('sets the base exactly at z=0 when height = 0 (ground-mounted)', () => {
+      // NEC-2 connects wire endpoints at z=0 to their image when a GN card
+      // is present — that's how the monopole gets a current path to ground.
+      // Lifting the base even slightly (e.g. 1 cm) breaks that connection
+      // and the feedpoint reactance blows up to ~-15 kΩ.
       const wires = buildWires(baseState);
       const w = wires[0]!;
-      expect(w.start[2]).toBeCloseTo(VERTICAL_WHIP_BASE_GAP_M, 6);
-      // Top = base + length.
-      expect(w.end[2]).toBeCloseTo(VERTICAL_WHIP_BASE_GAP_M + DEFAULT_WHIP_LENGTH_M, 6);
+      expect(w.start[2]).toBe(0);
+      expect(w.end[2]).toBeCloseTo(DEFAULT_WHIP_LENGTH_M, 6);
     });
 
     it('places base at the configured height when height > base gap', () => {
@@ -1285,6 +1288,15 @@ describe('antennaStore actions', () => {
       const s = useAntennaStore.getState();
       expect(s.feedlineId).toBe('none');
       expect(s.feedlineLength).toBe(0);
+    });
+
+    it('setAntennaType("vertical-whip") forces the transformer off (its UI is hidden for verticals)', () => {
+      const store = useAntennaStore.getState();
+      store.setAntennaType('dipole');
+      store.setTransformerEnabled(true);
+
+      store.setAntennaType('vertical-whip');
+      expect(useAntennaStore.getState().transformerEnabled).toBe(false);
     });
 
     it('setHalfWaveLength sets the whip to resonant ¼λ', () => {

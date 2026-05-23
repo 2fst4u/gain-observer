@@ -318,6 +318,10 @@ export const useAntennaStore = create<AntennaState>()(
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
+          // Force the transformer off — its UI is hidden for verticals and
+          // the StatsReadout's realized-gain math would otherwise apply a
+          // stale ratio/insertion-loss to the monopole result.
+          s.transformerEnabled = false;
         } else if (type === 'sloping-v') {
           // Slope is auto-computed from height and leg length (tips at ground).
           // V-angle snaps to the value giving maximum forward gain; the user
