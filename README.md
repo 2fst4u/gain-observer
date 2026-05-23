@@ -6,7 +6,7 @@ A 3D, responsive, physics-accurate visualiser for HF antenna radiation patterns,
 
 While this repository is fully open source and developers are welcome to fork or clone it to run locally, the primary way to use the application is via the hosted URL at **[www.gain.observer](https://www.gain.observer/)**.
 
-Current scope (Phase 1): horizontal dipoles, inverted Vs, sloping Vs, delta loops, and terminated delta loops, 1.8–30 MHz, real-ground support, offset feed points, feedlines & baluns, NVIS and comparison modes, SWR/polar cut charts, dark/light theming, metric/imperial toggle.
+Current scope (Phase 1): horizontal dipoles, inverted Vs, sloping Vs, delta loops, and terminated delta loops, 1.8–30 MHz, real-ground support, offset feed points, feedlines & baluns, comparison mode, SWR/polar cut charts, dark/light theming, metric/imperial toggle.
 
 ## Stack
 

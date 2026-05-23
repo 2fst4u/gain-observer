@@ -64,26 +64,14 @@ describe('App', () => {
       expect(useAntennaStore.getState().units).toBe('metric');
     });
 
-    it('changes mode to nvis on "n" or "N"', () => {
-      render(<App />);
-      expect(useAntennaStore.getState().mode).toBe('normal');
-
-      fireEvent.keyDown(window, { key: 'n' });
-      expect(useAntennaStore.getState().mode).toBe('nvis');
-
-      useAntennaStore.setState({ mode: 'normal' });
-      fireEvent.keyDown(window, { key: 'N' });
-      expect(useAntennaStore.getState().mode).toBe('nvis');
-    });
-
     it('changes mode to normal on "m" or "M"', () => {
-      useAntennaStore.setState({ mode: 'nvis' });
+      useAntennaStore.setState({ mode: 'comparison' });
       render(<App />);
 
       fireEvent.keyDown(window, { key: 'm' });
       expect(useAntennaStore.getState().mode).toBe('normal');
 
-      useAntennaStore.setState({ mode: 'nvis' });
+      useAntennaStore.setState({ mode: 'comparison' });
       fireEvent.keyDown(window, { key: 'M' });
       expect(useAntennaStore.getState().mode).toBe('normal');
     });

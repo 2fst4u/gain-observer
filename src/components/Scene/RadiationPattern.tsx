@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useAdaptiveLOD } from '../../hooks/useAdaptiveLOD';
 import type { SimulationResult } from '../../physics/types';
-import type { Colormap, Mode } from '../../store/antennaStore';
+import type { Colormap } from '../../store/antennaStore';
 import { pickTable, sampleColormapFast } from '../../utils/colormap';
 
 interface Props {
@@ -12,7 +12,6 @@ interface Props {
   readonly dbRange: number;
   readonly colorMaxDb: number;
   readonly colormap: Colormap;
-  readonly mode: Mode;
 }
 
 export function RadiationPattern({
@@ -22,7 +21,6 @@ export function RadiationPattern({
   dbRange,
   colorMaxDb,
   colormap,
-  mode,
 }: Props) {
   const lod = useAdaptiveLOD();
 
@@ -125,7 +123,7 @@ export function RadiationPattern({
   // 3. Compute vertex colors. Re-run if gains, colormap, or mode change.
   const vertexColors = useMemo(() => {
     if (!result || !vertexGains) return null;
-    const { count, angles } = cachedGeo;
+    const { count } = cachedGeo;
     const colors = new Float32Array(count * 4);
 
     // Fetch the colormap table outside the hot loop
@@ -134,21 +132,17 @@ export function RadiationPattern({
     // Pre-calculate color scale invariants for inline linear mapping
     const minDb = colorMaxDb - dbRange;
     const invRange = 1 / dbRange;
-    const isNvis = mode === 'nvis';
 
     for (let i = 0; i < count; i++) {
       const gainDb = vertexGains[i]!;
-      let t = gainDb >= colorMaxDb ? 1 : (gainDb <= minDb ? 0 : (gainDb - minDb) * invRange);
-      if (isNvis && angles[i * 2]! < 30) {
-        t = t > 0.9 ? 1 : t + 0.1;
-      }
+      const t = gainDb >= colorMaxDb ? 1 : (gainDb <= minDb ? 0 : (gainDb - minDb) * invRange);
 
       const idx = i * 4;
       sampleColormapFast(table, t, colors, idx);
       colors[idx + 3] = 1;
     }
     return colors;
-  }, [vertexGains, colormap, colorMaxDb, dbRange, mode, cachedGeo, result]);
+  }, [vertexGains, colormap, colorMaxDb, dbRange, cachedGeo, result]);
 
   // 4. Cache the geometry with positions and normals.
   // This avoids recomputing normals when only colors change.

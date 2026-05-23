@@ -154,9 +154,6 @@ export function StatsReadout() {
       {mode === 'comparison' && reference && (
         <ComparisonStats current={result} reference={reference.result} />
       )}
-      {mode === 'nvis' && (
-        <NvisStats />
-      )}
       <TerminationSection diagnostics={result.terminationDiagnostics} />
     </section>
   );
@@ -280,31 +277,3 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
   );
 }
 
-function NvisStats() {
-  const result = useAntennaStore((s) => s.result);
-  if (!result) return null;
-  // Compute NVIS metric: gain at theta=0 (i.e. zenith).
-  // At zenith, far-field gain is independent of phi, so we can just sample data[0]
-  // instead of averaging across all phi steps.
-  const p = result.pattern;
-  const zenithGain = p.phiSteps > 0 ? (p.data[0] ?? 0) : 0;
-  const ratio = zenithGain - result.maxGainDbi;
-
-  return (
-    <>
-      <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
-      {/* SEO: Added H3 to complete the document outline for NVIS stats, matching siblings */}
-      <h3 style={{ fontSize: 11, margin: 0, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-        NVIS effectiveness
-      </h3>
-      <div className="stat">
-        <span className="stat-label">Zenith gain (NVIS)</span>
-        <span className="stat-value">{zenithGain.toFixed(2)} dBi</span>
-      </div>
-      <div className="stat">
-        <span className="stat-label">NVIS vs peak</span>
-        <span className="stat-value">{ratio.toFixed(2)} dB</span>
-      </div>
-    </>
-  );
-}

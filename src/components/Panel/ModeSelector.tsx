@@ -3,7 +3,6 @@ import type { Mode } from '../../store/antennaStore';
 
 const MODES: Array<{ id: Mode; label: string; hint: string; shortcut: string }> = [
   { id: 'normal', label: 'Normal', hint: 'Standard DX pattern view', shortcut: 'm' },
-  { id: 'nvis', label: 'NVIS', hint: 'Highlights zenith lobe for regional comms', shortcut: 'n' },
   { id: 'comparison', label: 'Compare', hint: 'Side-by-side two configs', shortcut: 'c' },
 ];
 

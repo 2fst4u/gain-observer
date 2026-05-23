@@ -11,7 +11,7 @@ describe('StatsReadout', () => {
     useAntennaStore.setState({
       antennaType: 'dipole',
       result: null,
-      mode: 'standard',
+      mode: 'normal',
       comparisonReference: null,
     });
   });
@@ -193,28 +193,4 @@ describe('StatsReadout', () => {
     expect(container.textContent).not.toContain('Termination reduces reflections');
   });
 
-  it('renders NVIS stats when mode is nvis', () => {
-    useAntennaStore.setState({
-      mode: 'nvis',
-      result: {
-        maxGainDbi: 5,
-        pattern: {
-          data: new Float32Array([2.5]), // Zenith gain
-          phiSteps: 72,
-          thetaSteps: 37,
-        },
-        computeTimeMs: 10,
-        takeoffElevationDeg: 90,
-        takeoffAzimuthDeg: 0,
-        impedance: { R: 50, X: 0 },
-        swr: 1.0
-      } as unknown as import('../src/physics/types').SimulationResult,
-    });
-
-    const { getByText } = render(<StatsReadout />);
-    expect(getByText('Zenith gain (NVIS)')).not.toBeNull();
-    expect(getByText('2.50 dBi')).not.toBeNull();
-    // ratio: 2.5 - 5 = -2.5
-    expect(getByText('-2.50 dB')).not.toBeNull();
-  });
 });

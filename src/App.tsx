@@ -142,7 +142,6 @@ function useKeyboardShortcuts(): void {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
       if (e.key === 't' || e.key === 'T') toggleTheme();
       else if (e.key === 'u' || e.key === 'U') toggleUnits();
-      else if (e.key === 'n' || e.key === 'N') setMode('nvis');
       else if (e.key === 'm' || e.key === 'M') setMode('normal');
     };
     window.addEventListener('keydown', handler);
