@@ -72,6 +72,13 @@ async function loadNec2Factory(baseUrl: string): Promise<EmscriptenFactory> {
         : '';
     url = new URL(`${baseUrl}nec2.js`, origin || 'http://localhost/').href;
   }
+
+  // Validate the resulting URL protocol to prevent XSS via data:/blob: URIs
+  const parsedUrl = new URL(url, 'http://localhost/');
+  if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
+    throw new Error(`Insecure dynamic import protocol: ${parsedUrl.protocol}`);
+  }
+
   const mod = (await import(/* @vite-ignore */ url)) as { default: EmscriptenFactory };
   return mod.default;
 }

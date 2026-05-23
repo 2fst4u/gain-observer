@@ -18,3 +18,7 @@
 **Vulnerability:** Unspecified radix in `parseInt` calls processing UI string inputs can lead to unexpected numeric evaluation (e.g. interpreting leading zeros as octal in legacy or non-strict environments).
 **Learning:** Relying on implicit base-10 parsing is a classic defensive programming weakness. Specifying radix 10 explicitly guarantees correct parsing behavior and satisfies SAST tools and strict linters, reinforcing input handling correctness.
 **Prevention:** Always provide the radix argument explicitly when using `parseInt`, e.g., `parseInt(value, 10)`.
+## 2026-05-18 - Validate Dynamic Import URLs
+**Vulnerability:** Dynamic imports (`import()`) in browser or Node environments can execute arbitrary code if the URL passed is controlled by an attacker and formatted as a `data:` or `blob:` URI. The application dynamically imported the web worker wrapper without verifying the resulting URL protocol.
+**Learning:** Always use `new URL(url, base)` to construct an absolute URL object and explicitly check its `.protocol` property against an allowlist of safe protocols (e.g., `['http:', 'https:', 'file:']`) immediately before the `import()` call.
+**Prevention:** In functions resolving asset paths for dynamic imports, enforce protocol allowlisting to block XSS and malicious remote execution, guaranteeing defense-in-depth even if the base path is poisoned.
