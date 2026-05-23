@@ -80,6 +80,8 @@ import {
 export type { AntennaType };
 export type { OrientationPreset, Orientation };
 
+const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta']);
+
 export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'nvis' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
@@ -305,8 +307,7 @@ export const useAntennaStore = create<AntennaState>()(
 
       setAntennaType: (type) => set((s) => {
         s.antennaType = type;
-        const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'];
-        if (!feedlineSupportedTypes.includes(type)) {
+        if (!FEEDLINE_SUPPORTED_TYPES.has(type)) {
           s.feedlineId = 'none';
           s.feedlineLength = 0;
           s.feedlineOffset = 0;
@@ -845,8 +846,7 @@ function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
     Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
 ): FeedlineLayout | null {
-  const feedlineSupportedTypes = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'];
-  if (!feedlineSupportedTypes.includes(state.antennaType ?? '')) return null;
+  if (!FEEDLINE_SUPPORTED_TYPES.has(state.antennaType ?? '')) return null;
 
   const id = state.feedlineId;
   if (!id || id === 'none') return null;
