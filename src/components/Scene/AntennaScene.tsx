@@ -39,7 +39,6 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     dbRange,
     colorMaxDb,
     colormap,
-    mode,
     theme,
   } = useAntennaStore(useShallow((s) => ({
     liveType: s.antennaType,
@@ -60,7 +59,6 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     dbRange: s.dbRange,
     colorMaxDb: s.colorMaxDb,
     colormap: s.colormap,
-    mode: s.mode,
     theme: s.theme,
   })));
 
@@ -110,7 +108,6 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
           dbRange={dbRange}
           colorMaxDb={colorMaxDb}
           colormap={colormap}
-          mode={mode}
         />
       </Suspense>
 

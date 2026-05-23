@@ -16,16 +16,15 @@ describe('ModeSelector', () => {
   it('renders all mode buttons', () => {
     render(<ModeSelector />);
     expect(screen.getByRole('button', { name: 'Normal' })).toBeDefined();
-    expect(screen.getByRole('button', { name: 'NVIS' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Compare' })).toBeDefined();
   });
 
   it('highlights the active mode', () => {
-    useAntennaStore.setState({ mode: 'nvis' });
+    useAntennaStore.setState({ mode: 'comparison' });
     render(<ModeSelector />);
-    const nvisButton = screen.getByRole('button', { name: 'NVIS' });
-    expect(nvisButton.className).toContain('active');
-    expect(nvisButton.getAttribute('aria-pressed')).toBe('true');
+    const compareButton = screen.getByRole('button', { name: 'Compare' });
+    expect(compareButton.className).toContain('active');
+    expect(compareButton.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('updates the mode when a button is clicked', () => {

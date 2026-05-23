@@ -39,7 +39,6 @@ describe('RadiationPattern', () => {
         dbRange={40}
         colorMaxDb={10}
         colormap="turbo"
-        mode="dx"
       />
     );
     expect(container.firstChild).toBeNull();
@@ -65,7 +64,6 @@ describe('RadiationPattern', () => {
         dbRange={40}
         colorMaxDb={10}
         colormap="turbo"
-        mode="dx"
       />
     );
 
@@ -75,33 +73,5 @@ describe('RadiationPattern', () => {
 
     const material = container.querySelector('meshstandardmaterial');
     expect(material).not.toBeNull();
-  });
-
-  it('handles NVIS mode specific color adjustments', () => {
-    const thetaSteps = 37;
-    const phiSteps = 72;
-    const mockResult = {
-      pattern: {
-        data: new Float32Array(thetaSteps * phiSteps).fill(5),
-        dTheta: 5,
-        dPhi: 5,
-        thetaSteps,
-        phiSteps,
-      }
-    } as unknown as SimulationResult; // Cast to exact type
-
-    const { container } = render(
-      <RadiationPattern
-        result={mockResult}
-        patternScale={1}
-        dbRange={40}
-        colorMaxDb={10}
-        colormap="turbo"
-        mode="nvis"
-      />
-    );
-
-    const mesh = container.querySelector('mesh');
-    expect(mesh).not.toBeNull();
   });
 });

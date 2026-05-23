@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "HF antenna gain visualizer — 3D radiation patterns, SWR, and NVIS/comparison modes powered by NEC-2 (WebAssembly).",
+  "description": "HF antenna gain visualizer — 3D radiation patterns, SWR, and comparison mode powered by NEC-2 (WebAssembly).",
   "license": "GPL-3.0-or-later",
   "scripts": {
     "dev": "vite",

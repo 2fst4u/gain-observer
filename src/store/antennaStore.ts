@@ -83,7 +83,7 @@ export type { OrientationPreset, Orientation };
 const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta']);
 
 export type Theme = 'dark' | 'light';
-export type Mode = 'normal' | 'nvis' | 'comparison';
+export type Mode = 'normal' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
 export interface ComparisonSnapshot {
