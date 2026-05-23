@@ -72,6 +72,10 @@ async function loadNec2Factory(baseUrl: string): Promise<EmscriptenFactory> {
         : '';
     url = new URL(`${baseUrl}nec2.js`, origin || 'http://localhost/').href;
   }
+  const parsedUrl = new URL(url, 'http://localhost/');
+  if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
+    throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
+  }
   const mod = (await import(/* @vite-ignore */ url)) as { default: EmscriptenFactory };
   return mod.default;
 }
