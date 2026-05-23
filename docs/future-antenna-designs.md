@@ -1,0 +1,33 @@
+# Future Antenna Designs
+
+Antenna types desired for future implementation. Each entry notes the key geometry and what makes it distinct from existing designs.
+
+---
+
+## Extended Double Zepp (EDZ)
+
+Center-fed dipole at ~1.25λ total length. Produces 3–4 dB gain over a standard half-wave dipole with a characteristic figure-eight pattern that narrows compared to a dipole. Feed impedance is high (~1000 Ω), typically requiring a matching stub. Geometry reuses the existing split-dipole wire pattern with a longer reference length.
+
+## Folded Dipole
+
+Half-wave dipole where both ends are connected by a second parallel conductor, forming a narrow rectangular loop. Feed impedance is ~300 Ω (4× a standard dipole), making it a natural match for 300 Ω twin-lead. Gain and pattern are identical to a dipole. Geometry requires two parallel wires joined at their ends with short connecting segments.
+
+## Inverted-L
+
+Vertical radiator with a horizontal top-loading section at right angles. Useful for 160 m and 80 m where a full quarter-wave vertical would be impractically tall. The horizontal section adds electrical length without additional height. Requires ground radials or a counterpoise similar to the existing vertical whip.
+
+## End-Fed Half-Wave (EFHW)
+
+Single wire fed at one end, resonant at half a wavelength. Very popular for portable and SOTA operation due to minimal ground requirements. The high feed impedance (~2500–5000 Ω) is handled by a matching transformer (49:1 or 64:1 unun), which can be modelled as a series LC load. Pattern and gain are close to a dipole, though the off-center feed produces slight asymmetry.
+
+## Horizontal Loop (Skyloop)
+
+Full-wave loop laid out horizontally (parallel to ground). Typically square or rectangular. At low heights it produces a high-angle NVIS pattern; at greater heights the pattern develops low-angle gain. The four-sided geometry requires corner wires and a flexible aspect-ratio parameter for square vs. rectangular configurations.
+
+## Quad Loop
+
+Square loop with roughly 1λ perimeter, fed at the centre of one side or at a corner. Produces slightly more gain than a dipole (~1.5 dBd) and a lower feed impedance when corner-fed (~50–100 Ω). Geometry is a four-sided variant of the existing delta loop builder using a square rather than triangular shape.
+
+## Lazy-H / Collinear Stack
+
+Two half-wave dipoles stacked vertically and fed in phase via a half-wave phasing stub. Adds approximately 3 dB of broadside gain over a single dipole by narrowing the elevation pattern. Requires a stacking height parameter and a phasing line modelled as a transmission line (TL card) between the two driven elements.
