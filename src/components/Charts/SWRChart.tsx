@@ -1,8 +1,4 @@
-// Current-frequency SWR chart. For now we plot a single point marking the
-// operating frequency against the current SWR; a full frequency sweep requires
-// running the solver at N points which is an optimisation we'll add once
-// caching is in. The chart still provides a live indicator plus the SWR<2
-// threshold for context.
+
 
 import { Line } from 'react-chartjs-2';
 import {
