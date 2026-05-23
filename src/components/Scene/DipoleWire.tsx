@@ -136,20 +136,58 @@ export function DipoleWire({
   }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, frequency, whipCounterpoise]);
 
   // Locate elements we want to decorate.
-  const bridge = rendered.find((s) => s.isBridge);
-  const dipoleSingle = rendered.find((s) => s.tag === DIPOLE_TAG && !bridge);
-  const shield = rendered.find((s) => s.isShield);
+  let bridge: typeof rendered[0] | undefined;
+  let dipoleSingle: typeof rendered[0] | undefined;
+  let shield: typeof rendered[0] | undefined;
+  let apexFedLeft: typeof rendered[0] | undefined;
+  let verticalWhip: typeof rendered[0] | undefined;
+  let leftHalfBase: typeof rendered[0] | undefined;
+  let rightHalfBase: typeof rendered[0] | undefined;
 
-  // Delta Loop and Terminated Delta: left leg runs corner→apex; sceneEnd is the apex point.
-  const apexFedLeft = (type === 'delta-loop' || type === 'terminated-delta')
-    ? (rendered.find((s) => s.tag === DIPOLE_LEFT_TAG) ?? null)
-    : null;
+  const isDelta = type === 'delta-loop' || type === 'terminated-delta';
+  const isTerminatedDelta = type === 'terminated-delta';
+  const isWhip = type === 'vertical-whip';
 
-  // Vertical whip: the wire is emitted base → top, so .sceneStart is the
-  // base feedpoint. Falls through to dipoleSingle? otherwise.
-  const verticalWhip = type === 'vertical-whip'
-    ? (rendered.find((s) => s.tag === VERTICAL_WHIP_TAG) ?? null)
-    : null;
+  // Single pass to locate all special elements
+  for (let i = 0; i < rendered.length; i++) {
+    const s = rendered[i];
+    if (s.isBridge && !bridge) bridge = s;
+    if (s.isShield && !shield) shield = s;
+
+    switch (s.tag) {
+      case DIPOLE_TAG:
+        if (!dipoleSingle) dipoleSingle = s;
+        break;
+      case DIPOLE_LEFT_TAG:
+        if (isDelta && !apexFedLeft) apexFedLeft = s;
+        break;
+      case VERTICAL_WHIP_TAG:
+        if (isWhip && !verticalWhip) verticalWhip = s;
+        break;
+      case TERMINATED_DELTA_LEFT_BASE_TAG:
+        if (isTerminatedDelta && !leftHalfBase) leftHalfBase = s;
+        break;
+      case TERMINATED_DELTA_RIGHT_BASE_TAG:
+        if (isTerminatedDelta && !rightHalfBase) rightHalfBase = s;
+        break;
+    }
+
+    if (
+      bridge &&
+      shield &&
+      dipoleSingle &&
+      (!isDelta || apexFedLeft) &&
+      (!isWhip || verticalWhip) &&
+      (!isTerminatedDelta || (leftHalfBase && rightHalfBase))
+    ) {
+      break;
+    }
+  }
+
+  // If we have a bridge, the legacy dipole wire isn't the primary feed.
+  if (bridge) {
+    dipoleSingle = undefined;
+  }
 
   // Feedpoint: bridge midpoint (split-fed) > apex-fed left-leg end >
   // vertical-whip base > dipole wire midpoint (single-wire legacy).
@@ -168,8 +206,6 @@ export function DipoleWire({
   // the resistor sits on it.
   const terminatedDeltaSplit = useMemo(() => {
     if (type !== 'terminated-delta') return null;
-    const leftHalfBase = rendered.find((s) => s.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
-    const rightHalfBase = rendered.find((s) => s.tag === TERMINATED_DELTA_RIGHT_BASE_TAG);
     if (!leftHalfBase || !rightHalfBase) return null;
     const leftInner = leftHalfBase.sceneEnd;
     const rightInner = rightHalfBase.sceneStart;
@@ -201,7 +237,7 @@ export function DipoleWire({
       bridgeQuat,
       resistorRadius: Math.max(wireRadius * 8, 0.04),
     };
-  }, [type, rendered, wireRadius]);
+  }, [type, leftHalfBase, rightHalfBase, wireRadius]);
 
   return (
     <group>
