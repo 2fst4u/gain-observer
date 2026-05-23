@@ -325,11 +325,7 @@ export const DEFAULT_FEEDLINE_ID = 'rg58';
 export const DEFAULT_FEEDLINE_LENGTH_M = 10;
 
 export function findFeedlinePreset(id: string): FeedlinePreset {
-  const preset = FEEDLINE_PRESETS.find((f) => f.id === id);
-  if (!preset) {
-    throw new Error(`Unknown feedline preset id: ${id}`);
-  }
-  return preset;
+  return FEEDLINE_PRESETS.find(p => p.id === id) || FEEDLINE_PRESETS[0];
 }
 
 /**

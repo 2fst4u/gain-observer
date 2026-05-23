@@ -47,8 +47,15 @@ describe('feedline presets', () => {
     }
   });
 
-  it('findFeedlinePreset throws on unknown id', () => {
-    expect(() => findFeedlinePreset('not-a-cable')).toThrow();
+  it('findFeedlinePreset returns correct preset for valid id', () => {
+    const preset = findFeedlinePreset('rg58');
+    expect(preset.id).toBe('rg58');
+  });
+
+  it('findFeedlinePreset returns fallback (none) on unknown id', () => {
+    const preset = findFeedlinePreset('not-a-cable');
+    expect(preset).toBe(FEEDLINE_PRESETS[0]);
+    expect(preset.id).toBe('none');
   });
 
   it('feedlineLossDb scales linearly with length', () => {
