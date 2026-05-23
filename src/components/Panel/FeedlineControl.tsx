@@ -12,6 +12,14 @@ import {
   displayLengthUnit,
 } from '../../physics/units';
 
+const SUPPORTED_ANTENNA_TYPES = new Set([
+  'dipole',
+  'inverted-v',
+  'delta-loop',
+  'sloping-v',
+  'terminated-delta',
+]);
+
 export function FeedlineControl() {
   // ⚡ Bolt: Performance Optimization
   // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
@@ -58,7 +66,7 @@ export function FeedlineControl() {
     }
   }
 
-  if (!['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'].includes(antennaType)) return null;
+  if (!SUPPORTED_ANTENNA_TYPES.has(antennaType)) return null;
 
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);

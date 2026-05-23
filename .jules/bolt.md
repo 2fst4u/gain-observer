@@ -129,3 +129,8 @@
 
 **Learning:** When dealing with truncated outputs from tools like `read_file` or `cat`, we should rely on more robust extraction commands like `sed` or `grep` to successfully explore large files, otherwise we violate the Exploration Rule during planning.
 **Action:** Use `sed -n '<start>,<end>p'` or `grep -C <lines>` to inspect target regions in large files to guarantee adequate codebase exploration before creating a plan.
+
+## 2025-05-18 - Set.has for O(1) Check over Array.includes
+
+**Learning:** When checking string membership against a static, known list of options, defining an array inline and using `.includes()` requires reallocation on every execution and runs in $O(N)$ time. By extracting the static array into a module-scoped `Set`, we avoid memory reallocation and change the check to $O(1)$ time, yielding a measurable performance boost.
+**Action:** Always extract static membership checks (like enum-like string arrays) into a module-scoped `Set` and use `Set.has()` in frequently-executed render paths or hot loops.
