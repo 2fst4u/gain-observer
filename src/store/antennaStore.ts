@@ -251,7 +251,7 @@ export interface AntennaState {
 }
 
 const INITIAL_FREQ = 7.1; // 40m band per user spec
-const INITIAL_HEIGHT = 10; // metres
+export const INITIAL_HEIGHT = 10; // metres
 const INITIAL_TYPE: AntennaType = 'dipole';
 const INITIAL_LENGTH = referenceLength(INITIAL_TYPE, INITIAL_FREQ); // resonant reference length
 
@@ -306,7 +306,16 @@ export const useAntennaStore = create<AntennaState>()(
       comparisonReference: null,
 
       setAntennaType: (type) => set((s) => {
+        const previousType = s.antennaType;
         s.antennaType = type;
+
+        // Vertical whips default to height=0 (sitting on ground). When
+        // switching back to a horizontal antenna, restore the default
+        // mast height so it doesn't stay stuck at 0m.
+        if (previousType === 'vertical-whip' && type !== 'vertical-whip' && s.height === 0) {
+          s.height = INITIAL_HEIGHT;
+        }
+
         if (!FEEDLINE_SUPPORTED_TYPES.has(type)) {
           s.feedlineId = 'none';
           s.feedlineLength = 0;
