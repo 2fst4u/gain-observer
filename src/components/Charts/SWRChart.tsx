@@ -18,10 +18,9 @@ import {
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { swr as computeSwr, transformWithTransformerAtAntenna } from '../../physics/impedance';
-import { findFeedlinePreset, wavelengthMeters } from '../../physics/constants';
+import { swr as computeSwr } from '../../physics/impedance';
 import type { AnnotationOptions } from 'chartjs-plugin-annotation';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 ChartJS.register(
   LinearScale,
@@ -48,7 +47,6 @@ export function SWRChart() {
     transformerEnabled,
     transformerRatio,
     feedlineId,
-    feedlineLength,
   } = useAntennaStore(useShallow((s) => ({
     result: s.result,
     sweep: s.sweep,
@@ -59,21 +57,15 @@ export function SWRChart() {
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
     feedlineId: s.feedlineId,
-    feedlineLength: s.feedlineLength,
   })));
 
-  // Per-point post-transformer Z and SWR, accounting for cable at each freq.
-  const postXfmrSwrAt = useCallback((freqMHz: number, R: number, X: number): number => {
-    let z0Line = 50;
-    let lengthLambdas = 0;
-    if (feedlineId !== 'none') {
-      const preset = findFeedlinePreset(feedlineId);
-      z0Line = preset.z0;
-      const lambdaCable = preset.velocityFactor * wavelengthMeters(freqMHz);
-      lengthLambdas = feedlineLength / lambdaCable;
-    }
-    return computeSwr(transformWithTransformerAtAntenna({ R, X }, transformerRatio, z0Line, lengthLambdas));
-  }, [feedlineId, feedlineLength, transformerRatio]);
+  // Transformer location:
+  //   • In the NEC model (feedline + ratio>1): swept Z already includes it.
+  //   • In display only (no feedline + ratio>1): swept Z is the raw antenna,
+  //     and we apply Z/ratio here.
+  //   • Otherwise: one line, no transform.
+  const feedlineActive = feedlineId !== 'none';
+  const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
 
   const chartText = getCssVar('--chart-text') || '#aaa';
   const chartGrid = getCssVar('--chart-grid') || 'rgba(255,255,255,0.1)';
@@ -111,13 +103,13 @@ export function SWRChart() {
       });
     }
 
-    const rawLabel = comparisonActive && transformerEnabled
-      ? 'Current (raw)'
-      : comparisonActive
-        ? 'Current'
-        : transformerEnabled
-          ? 'Raw (vs 50 Ω)'
-          : 'SWR (vs 50 Ω)';
+    // For the display-only transformer (no feedline), the swept Z is raw
+    // antenna and we plot both the raw SWR and the post-transformer SWR.
+    // When the transformer is baked into the NEC model, the swept Z already
+    // includes it, so a single "SWR vs 50 Ω" line is the right reading.
+    const rawLabel = comparisonActive
+      ? (transformerInDisplay ? 'Current (raw)' : 'Current')
+      : (transformerInDisplay ? 'Raw (vs 50 Ω)' : 'SWR (vs 50 Ω)');
 
     datasets.push({
       label: rawLabel,
@@ -131,12 +123,12 @@ export function SWRChart() {
       pointBackgroundColor: accent,
     });
 
-    if (transformerEnabled && transformerRatio > 0) {
+    if (transformerInDisplay) {
       datasets.push({
         label: `After ${transformerRatio}:1 xfmr`,
         data: sweep.map((point) => ({
           x: point.frequencyMHz,
-          y: postXfmrSwrAt(point.frequencyMHz, point.R, point.X),
+          y: computeSwr({ R: point.R / transformerRatio, X: point.X / transformerRatio }),
         })),
         borderColor: 'rgba(80, 200, 120, 0.9)',
         backgroundColor: 'rgba(80, 200, 120, 0.1)',
@@ -150,7 +142,7 @@ export function SWRChart() {
     }
 
     return { datasets };
-  }, [accent, comparisonActive, currentFill, postXfmrSwrAt, reference, referenceFill, sweep, transformerEnabled, transformerRatio]);
+  }, [accent, comparisonActive, currentFill, reference, referenceFill, sweep, transformerInDisplay, transformerRatio]);
 
   const xBounds = useMemo(() => {
     const allFrequencies = [
@@ -203,8 +195,8 @@ export function SWRChart() {
     const values = [
       ...sweep.map((point) => point.swr),
       ...(comparisonActive && reference ? reference.sweep.map((point) => point.swr) : []),
-      ...(transformerEnabled && transformerRatio > 0
-        ? sweep.map((point) => postXfmrSwrAt(point.frequencyMHz, point.R, point.X))
+      ...(transformerInDisplay
+        ? sweep.map((point) => computeSwr({ R: point.R / transformerRatio, X: point.X / transformerRatio }))
         : []),
     ];
     if (values.length === 0) return 5;
@@ -220,7 +212,7 @@ export function SWRChart() {
 
     // If we have some points below 2:1, we want to see the 2:1 crossing context.
     return Math.min(999, Math.max(5, Math.ceil(maxVal * 1.1)));
-  }, [comparisonActive, postXfmrSwrAt, reference, sweep, transformerEnabled, transformerRatio]);
+  }, [comparisonActive, reference, sweep, transformerInDisplay, transformerRatio]);
 
   const options = useMemo<ChartOptions<'line'>>(() => {
     const annotations: Record<string, AnnotationOptions> = {

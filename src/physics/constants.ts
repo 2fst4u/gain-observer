@@ -142,14 +142,18 @@ export const SLOPING_V_RIGHT_STUB_TAG = 8;
  *
  * The base wire is **split** in the middle into two independent half-base
  * wires, each running inward from its corner toward (but not touching) the
- * centre. At the inner end of each half-base, a short vertical stub drops
- * to near-ground and carries the terminating resistor — the same per-tip
- * shunt-to-earth topology used by the sloping-V termination.
+ * centre. A single short horizontal "bridge" wire spans the gap between the
+ * two inner ends; the terminating resistor sits on that bridge, dissipating
+ * the round-trip wave that propagates around the loop from the apex feed.
+ *
+ * This is the canonical T2FD / aperiodic-loop topology: one resistor across
+ * the gap (not two resistors to ground). Bridge termination flattens the
+ * feedpoint impedance broadband, at the cost of efficiency on the
+ * fundamental — exactly the trade a broadband loop is for.
  */
 export const TERMINATED_DELTA_LEFT_BASE_TAG = 9;
 export const TERMINATED_DELTA_RIGHT_BASE_TAG = 10;
-export const TERMINATED_DELTA_LEFT_STUB_TAG = 11;
-export const TERMINATED_DELTA_RIGHT_STUB_TAG = 12;
+export const TERMINATED_DELTA_BRIDGE_TAG = 11;
 
 /**
  * Gap (metres) between the inner ends of the two terminated-delta
