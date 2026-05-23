@@ -916,11 +916,12 @@ function buildExcitation(
   state: AntennaState,
   wires: Wire[],
   feedlineActive: boolean,
+  hasBridge: boolean,
   hasShield: boolean,
 ) {
   if (feedlineActive && hasShield) {
     return { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
-  } else if (wires.some((w) => w.tag === FEED_BRIDGE_TAG)) {
+  } else if (hasBridge) {
     return { wireTag: FEED_BRIDGE_TAG, segment: 1 };
   } else if (state.antennaType === 'delta-loop' || state.antennaType === 'terminated-delta') {
     // Apex-fed: excitation lives on the last segment of the left leg
@@ -1107,20 +1108,15 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'].includes(state.antennaType);
   const feedlineActive = hasBridge && feedlineSupport;
 
-  const excitation = buildExcitation(state, wires, feedlineActive, hasShield);
+  const excitation = buildExcitation(state, wires, feedlineActive, hasBridge, hasShield);
 
   const feedlineElements = buildFeedlineElements(state, feedlineActive, hasShield);
-  const transmissionLines = feedlineElements.transmissionLines;
-  const networks = feedlineElements.networks;
-  let loads = feedlineElements.loads;
+  const { transmissionLines, networks, loads: feedlineLoads } = feedlineElements;
+  let loads = feedlineLoads;
 
   const terminationElements = buildTerminationElements(state, wires);
-  if (terminationElements.extraWires.length > 0) {
-    wires.push(...terminationElements.extraWires);
-  }
-  if (terminationElements.loads.length > 0) {
-    loads = loads.concat(terminationElements.loads);
-  }
+  wires.push(...terminationElements.extraWires);
+  loads = loads.concat(terminationElements.loads);
 
   return {
     wires,
