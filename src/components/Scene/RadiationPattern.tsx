@@ -123,7 +123,7 @@ export function RadiationPattern({
   // 3. Compute vertex colors. Re-run if gains, colormap, or mode change.
   const vertexColors = useMemo(() => {
     if (!result || !vertexGains) return null;
-    const { count, angles } = cachedGeo;
+    const { count } = cachedGeo;
     const colors = new Float32Array(count * 4);
 
     // Fetch the colormap table outside the hot loop
