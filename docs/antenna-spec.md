@@ -217,3 +217,43 @@ This document defines the physical and mathematical model for all antenna types 
 ### 5.6 Glossary
 
 - Same as Section 1.6.
+
+---
+
+## 6. Inverted-L
+
+### 6.1 Geometry Definition
+
+- **Shape:** Two wire segments forming an L: a vertical section from the base up to the bend point, followed by a horizontal top-loading section extending outward at right angles.
+- **`height` parameter:** Bend-point height above ground (metres). This equals the length of the vertical section (base gap excluded). Controls how tall the mast needs to be.
+- **`length` parameter:** Total wire length (vertical + horizontal combined, metres). The horizontal section absorbs any length beyond the vertical section: $L_{horiz} = L_{total} - L_{vert}$.
+- **Orientation:** Azimuth direction the horizontal section runs.
+- **Base:** The vertical wire starts at `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above ground — same electrical isolation as the vertical whip.
+- **Bend junction:** The end of the vertical wire and the start of the horizontal wire share an exact coordinate so NEC creates a proper wire junction.
+- **Reference length:** ¼λ total (same as a quarter-wave vertical); the horizontal section provides the electrical length the mast height falls short of.
+
+### 6.2 Feedpoint Definition
+
+- **NEC Excitation:** Segment 1 of `INVERTED_L_VERTICAL_TAG` (14) — the lowest segment at the base of the vertical section.
+- **Feed Type:** Base-fed monopole (unbalanced). Coax shield connects at the base; the antenna is driven against the ground / counterpoise.
+- **Feedline Support:** Not modelled (same convention as vertical whip). The feedline is treated as ideal.
+
+### 6.3 Counterpoise
+
+- **Model:** When enabled, `VERTICAL_WHIP_RADIAL_COUNT` (4) horizontal ¼λ radials fan out from the base at equal azimuth spacing, tagged `INVERTED_L_RADIAL_TAG` (16). Identical pattern to the vertical whip's counterpoise.
+- **Without counterpoise:** The source has no proper return path; NEC reports the high reactance and SWR that a radial-less base-fed antenna physically exhibits.
+
+### 6.4 SWR Convention
+
+- **Reference:** 50 Ω.
+- **Notes:** A resonant ¼λ inverted-L over a good ground presents roughly 30–50 Ω — a usable direct coax match. Feedpoint impedance varies with height, horizontal-section fraction, and ground quality. The vertical-section fraction has a stronger influence on the radiation pattern (more vertical component → more omnidirectional; more horizontal component → slight gain asymmetry in the horizontal-section direction).
+
+### 6.5 Segmentation Rules
+
+- **Density:** 20 segments per λ minimum for each section independently.
+- **Minimum:** 9 segments per section (`MIN_SEGS_PER_LEG`).
+- **Vertical and horizontal sections are emitted as separate `Wire` objects**, tagged independently so current-ripple diagnostics can distinguish them.
+
+### 6.6 Glossary
+
+- Same as Section 1.6.

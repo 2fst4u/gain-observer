@@ -117,6 +117,7 @@ export function DipoleControl() {
     'sloping-v': '1λ/leg',
     'terminated-delta': '1λ',
     'vertical-whip': '¼λ',
+    'inverted-l': '¼λ',
   };
 
   const resonateTitles: Record<AntennaType, string> = {
@@ -126,13 +127,24 @@ export function DipoleControl() {
     'sloping-v': 'Set total length to 2λ (1λ per leg)',
     'terminated-delta': 'Set perimeter to 1λ',
     'vertical-whip': 'Set whip length to resonant ¼λ',
+    'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
-  const lengthLabel = isVerticalWhip ? `Whip length (${unit})` : `Length (${unit})`;
+  const isInvertedL = antennaType === 'inverted-l';
+  const isGroundMountedVertical = isVerticalWhip || isInvertedL;
+
+  const lengthLabel = isVerticalWhip
+    ? `Whip length (${unit})`
+    : isInvertedL
+      ? `Total wire length — vertical + horizontal (${unit})`
+      : `Length (${unit})`;
+
   const heightLabel = isVerticalWhip
     ? `Base height above ground (${unit}) — ${dispHeight.toFixed(1)}`
-    : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
+    : isInvertedL
+      ? `Mast / bend-point height (${unit}) — ${dispHeight.toFixed(1)}`
+      : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
 
   return (
     <section className="panel-section">
@@ -152,6 +164,7 @@ export function DipoleControl() {
         <option value="delta-loop">Delta Loop</option>
         <option value="terminated-delta">Terminated Delta</option>
         <option value="vertical-whip">Vertical Whip</option>
+        <option value="inverted-l">Inverted-L</option>
       </select>
 
       <label htmlFor="dipole-length" style={{ marginTop: 10 }}>{lengthLabel}</label>
@@ -290,7 +303,7 @@ export function DipoleControl() {
         </>
       )}
 
-      {isVerticalWhip && (
+      {isGroundMountedVertical && (
         <>
           <label
             htmlFor="whip-counterpoise"
@@ -308,14 +321,14 @@ export function DipoleControl() {
           <div id="whip-counterpoise-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             {whipCounterpoise
               ? '4 horizontal ¼λ radials fan out from the base, giving the source a proper low-loss return path (canonical ground-plane vertical).'
-              : 'Freestanding whip with no counterpoise. NEC will report the high reactance and poor SWR that a radial-less monopole actually exhibits — switch the toggle on to model a proper ground-plane vertical.'}
+              : 'No counterpoise. NEC will report the high reactance and poor SWR that a radial-less base-fed antenna actually exhibits — switch the toggle on to model a proper ground-plane antenna.'}
           </div>
         </>
       )}
 
       <GeometryStatus />
 
-      {!isVerticalWhip && (
+      {!isGroundMountedVertical && (
         <>
           <label htmlFor="dipole-orientation" style={{ marginTop: 10 }}>Orientation (°)</label>
           <div className="row">
@@ -357,13 +370,51 @@ export function DipoleControl() {
         </>
       )}
 
-      {/* Transformer / balun: part of the antenna's feedpoint hardware
-          (applied before the NEC simulation), so it belongs in the Antenna
-          panel rather than as a separate top-level section. Hidden for
-          vertical whips — the transformer model in this app assumes a
-          two-terminal balanced feedpoint with a coax shield to choke,
-          neither of which applies to a base-fed monopole. */}
-      {!isVerticalWhip && <TransformerControl />}
+      {isInvertedL && (
+        <>
+          <label htmlFor="inverted-l-orientation" style={{ marginTop: 10 }}>Horizontal section direction (°)</label>
+          <div className="row">
+            <input
+              id="inverted-l-orientation"
+              type="number"
+              min={0}
+              max={359}
+              step={1}
+              value={localOrient}
+              onFocus={() => setIsOrientFocused(true)}
+              onChange={(e) => {
+                const s = e.target.value;
+                setLocalOrient(s);
+                const val = parseFloat(s);
+                if (!isNaN(val)) {
+                  setOrientation(val);
+                }
+              }}
+              onBlur={() => {
+                setIsOrientFocused(false);
+                setLocalOrient(currentDegrees.toString());
+              }}
+            />
+          </div>
+
+          <div className="button-group" role="group" aria-label="Horizontal section direction presets">
+            {orientations.map((o) => (
+              <button
+                key={o}
+                className={orientation === o ? 'active' : ''}
+                onClick={() => setOrientation(o)}
+                aria-pressed={orientation === o}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Transformer / balun: hidden for base-fed monopole-style antennas —
+          the transformer model assumes a balanced two-terminal feedpoint. */}
+      {!isGroundMountedVertical && <TransformerControl />}
     </section>
   );
 }

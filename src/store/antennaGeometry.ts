@@ -14,6 +14,9 @@ import {
   VERTICAL_WHIP_BASE_GAP_M,
   VERTICAL_WHIP_RADIAL_TAG,
   VERTICAL_WHIP_RADIAL_COUNT,
+  INVERTED_L_VERTICAL_TAG,
+  INVERTED_L_HORIZONTAL_TAG,
+  INVERTED_L_RADIAL_TAG,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -716,6 +719,124 @@ export function buildVerticalWhipWires(params: VerticalWhipWiresParams): Wire[] 
         radius: params.wireRadius,
         segments: radialSegs,
         tag: VERTICAL_WHIP_RADIAL_TAG,
+      });
+    }
+  }
+
+  return wires;
+}
+
+export interface InvertedLWiresParams {
+  /**
+   * Total wire length (vertical section + horizontal section), metres.
+   * The horizontal section length is derived as `length − verticalLength`.
+   */
+  length: number;
+  /**
+   * Bend-point height above ground (metres).
+   * This is the height of the top of the vertical section and therefore
+   * the height of the entire horizontal section.
+   */
+  height: number;
+  /** Direction the horizontal top-loading section runs (azimuth). */
+  orientation: Orientation;
+  wireRadius: number;
+  segments: number;
+  frequency: number;
+  /**
+   * When true, deploy `VERTICAL_WHIP_RADIAL_COUNT` ¼λ horizontal radials
+   * at the base, providing a low-loss return path for the monopole source.
+   * Without them the feedpoint impedance will be highly reactive.
+   */
+  counterpoise: boolean;
+}
+
+/**
+ * Builds the wires for an Inverted-L antenna.
+ *
+ * The Inverted-L consists of:
+ *   1. A vertical section from the base (VERTICAL_WHIP_BASE_GAP_M above
+ *      ground) up to the bend height.
+ *   2. A horizontal top-loading section extending from the bend point
+ *      outward along the orientation azimuth.
+ *   3. Optional counterpoise radials at the base (¼λ each, same pattern
+ *      as the vertical whip).
+ *
+ * The total radiating wire length is `params.length`; the horizontal
+ * section absorbs any length beyond the vertical section, allowing a
+ * shorter mast to achieve the same electrical length as a taller whip.
+ *
+ * Tags:
+ *   INVERTED_L_VERTICAL_TAG   (14) — vertical section, base-fed at seg 1
+ *   INVERTED_L_HORIZONTAL_TAG (15) — horizontal top-loading section
+ *   INVERTED_L_RADIAL_TAG     (16) — optional counterpoise radials
+ *
+ * Excitation is placed on segment 1 of INVERTED_L_VERTICAL_TAG (the
+ * lowest segment at the base), exactly as for the vertical whip.
+ */
+export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
+  const totalLen = Math.max(0.1, params.length);
+  const baseZ = VERTICAL_WHIP_BASE_GAP_M;
+
+  // Clamp bend height so there is always a meaningful vertical section.
+  const bendZ = Math.max(baseZ + 0.1, params.height);
+  const vertLen = bendZ - baseZ;
+
+  // Horizontal section is whatever total length remains after the vertical.
+  const horizLen = Math.max(0, totalLen - vertLen);
+
+  const [dx, dy] = orientationVector(params.orientation);
+  const lambda = wavelengthMeters(params.frequency);
+
+  // Segments for the vertical section.
+  const minVertSegs = Math.ceil((SEGS_PER_WAVELENGTH * vertLen) / lambda);
+  const vertSegs = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minVertSegs, Math.round(params.segments / 2)),
+  );
+
+  const wires: Wire[] = [
+    {
+      start: [0, 0, baseZ],
+      end: [0, 0, bendZ],
+      radius: params.wireRadius,
+      segments: vertSegs,
+      tag: INVERTED_L_VERTICAL_TAG,
+    },
+  ];
+
+  if (horizLen > 0.01) {
+    const minHorizSegs = Math.ceil((SEGS_PER_WAVELENGTH * horizLen) / lambda);
+    const horizSegs = Math.min(
+      MAX_SEGS_PER_LEG,
+      Math.max(MIN_SEGS_PER_LEG, minHorizSegs, Math.round(params.segments / 2)),
+    );
+    wires.push({
+      start: [0, 0, bendZ],
+      end: [dx * horizLen, dy * horizLen, bendZ],
+      radius: params.wireRadius,
+      segments: horizSegs,
+      tag: INVERTED_L_HORIZONTAL_TAG,
+    });
+  }
+
+  if (params.counterpoise) {
+    const radialLen = lambda * 0.25 * 0.95;
+    const minRadialSegs = Math.ceil((SEGS_PER_WAVELENGTH * radialLen) / lambda);
+    const radialSegs = Math.min(
+      MAX_SEGS_PER_LEG,
+      Math.max(MIN_SEGS_PER_LEG, minRadialSegs),
+    );
+    for (let i = 0; i < VERTICAL_WHIP_RADIAL_COUNT; i++) {
+      const theta = (2 * Math.PI * i) / VERTICAL_WHIP_RADIAL_COUNT;
+      const rdx = Math.cos(theta);
+      const rdy = Math.sin(theta);
+      wires.push({
+        start: [0, 0, baseZ],
+        end: [rdx * radialLen, rdy * radialLen, baseZ],
+        radius: params.wireRadius,
+        segments: radialSegs,
+        tag: INVERTED_L_RADIAL_TAG,
       });
     }
   }

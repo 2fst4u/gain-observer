@@ -63,6 +63,11 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
     case 'vertical-whip':
       // Quarter-wave monopole resonant length.
       return lambda * 0.25 * endEffect;
+    case 'inverted-l':
+      // Total wire (vertical + horizontal) for a resonant quarter-wave.
+      // The horizontal top-loading section adds electrical length so the
+      // mast can be shorter than a full ¼λ vertical.
+      return lambda * 0.25 * endEffect;
     default:
       return lambda * 0.5 * endEffect;
   }
@@ -190,6 +195,25 @@ export const VERTICAL_WHIP_BASE_GAP_M = 0.01;
  * ripple diagnostics.
  */
 export const VERTICAL_WHIP_RADIAL_TAG = 13;
+
+/**
+ * Wire tag for the vertical section of an Inverted-L antenna.
+ * The base of this wire carries the NEC excitation (segment 1).
+ */
+export const INVERTED_L_VERTICAL_TAG = 14;
+
+/**
+ * Wire tag for the horizontal top-loading section of an Inverted-L.
+ * Shares the bend-point junction with INVERTED_L_VERTICAL_TAG.
+ */
+export const INVERTED_L_HORIZONTAL_TAG = 15;
+
+/**
+ * Wire tag for the optional counterpoise radials at the base of an
+ * Inverted-L. Kept separate from VERTICAL_WHIP_RADIAL_TAG so that
+ * current-ripple diagnostics can distinguish the two antenna types.
+ */
+export const INVERTED_L_RADIAL_TAG = 16;
 
 /**
  * Number of counterpoise radials, equally spaced in azimuth, deployed
