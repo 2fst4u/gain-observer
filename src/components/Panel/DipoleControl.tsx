@@ -28,6 +28,7 @@ export function DipoleControl() {
     orientation,
     vAngle,
     foldedDipoleAperture,
+    wireRadius,
     terminatingResistor,
     whipCounterpoise,
     setAntennaType,
@@ -49,6 +50,7 @@ export function DipoleControl() {
     orientation: s.orientation,
     vAngle: s.vAngle,
     foldedDipoleAperture: s.foldedDipoleAperture,
+    wireRadius: s.wireRadius,
     terminatingResistor: s.terminatingResistor,
     whipCounterpoise: s.whipCounterpoise,
     setAntennaType: s.setAntennaType,
@@ -162,6 +164,11 @@ export function DipoleControl() {
   const dispAperture = toDisplayLength(foldedDipoleAperture, units);
   const minApertureDisp = toDisplayLength(0.02, units);
   const maxApertureDisp = toDisplayLength(FOLDED_DIPOLE_MAX_APERTURE_M, units);
+
+  // Characteristic impedance of the two-wire line formed by the folded-dipole conductors.
+  // Z₀ = 120 × acosh(D / (2r))  where D = spacing (aperture), r = wire radius.
+  // Terminating at R ≈ Z₀ gives a travelling-wave (T2FD) — broadband flat SWR.
+  const tfdZ0 = Math.round(120 * Math.acosh(foldedDipoleAperture / (2 * wireRadius)));
 
   return (
     <section className="panel-section">
@@ -296,7 +303,7 @@ export function DipoleControl() {
             }}
           />
           <div id="folded-dipole-aperture-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-            Vertical spacing between the bottom (fed) and top (un-fed) conductors. The fed conductor is at the antenna height; the top conductor is aperture above it. For equal-diameter wires the feedpoint stays ~4× a plain dipole (~300 Ω) regardless of spacing; wider spacing mainly broadens the impedance bandwidth. Capped at {maxApertureDisp.toFixed(2)} {unit} — beyond a realistic folded-dipole spacing the structure morphs toward a loop and no longer solves reliably as two close parallel wires.
+            Vertical spacing between the bottom (fed) and top (un-fed) conductors. The fed conductor is at the antenna height; the top conductor is aperture above it. For equal-diameter wires the feedpoint stays ~4× a plain dipole (~300 Ω) regardless of spacing; wider spacing raises Z₀ of the two-wire line (currently Z₀ ≈ {tfdZ0} Ω), requiring a higher terminating resistor for a broadband T2FD match. Capped at {maxApertureDisp.toFixed(2)} {unit} — beyond a realistic folded-dipole spacing the structure morphs toward a loop and no longer solves reliably as two close parallel wires.
           </div>
         </>
       )}
@@ -326,6 +333,17 @@ export function DipoleControl() {
                 setLocalResistor(terminatingResistor.toString());
               }}
             />
+            {antennaType === 'folded-dipole' && (
+              <button
+                onClick={() => setTerminatingResistor(tfdZ0)}
+                disabled={terminatingResistor === tfdZ0}
+                title={`Set terminating resistor to Z₀ ≈ ${tfdZ0} Ω — the characteristic impedance of the two-wire line for this conductor spacing and wire diameter. Terminating at R = Z₀ gives a true travelling-wave (T2FD): flat broadband SWR at the cost of ~3 dB efficiency.`}
+                aria-label={`Set terminating resistor to Z₀ (${tfdZ0} Ω)`}
+                style={{ flex: '0 0 auto' }}
+              >
+                Z₀
+              </button>
+            )}
             <button
               onClick={() => setTerminatingResistor(0)}
               disabled={terminatingResistor === 0}
@@ -344,7 +362,7 @@ export function DipoleControl() {
               : antennaType === 'sloping-v'
                 ? `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
                 : antennaType === 'folded-dipole'
-                  ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed — a terminated folded dipole (TFD). The terminator drops the feedpoint from ~300 Ω to ~100 Ω; the balun has been automatically set to 2:1 to match this to ~50 Ω and reveal the broadband SWR curve. Flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated in the resistor). A typical TFD value is ~390–600 Ω. Click Off to restore the plain folded dipole and 6:1 balun.`
+                  ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. The terminator raises the feedpoint by roughly R (to ~${terminatingResistor + 300} Ω raw; the 6:1 balun transforms this to ~${Math.round((terminatingResistor + 300) / 6)} Ω). For a true travelling-wave T2FD — flat broadband SWR — set R ≈ Z₀ of the two-wire line (≈ ${tfdZ0} Ω for this conductor spacing; use the Z₀ button). Lower R reduces dissipation but leaves significant reflection, narrowing the bandwidth. Click Off to restore the plain folded dipole.`
                   : `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
           </div>
         </>
