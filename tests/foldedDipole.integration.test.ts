@@ -52,7 +52,7 @@ describe('Folded dipole (real Wasm)', () => {
     expect(r.impedance.R).toBeLessThan(400);
   }, 30_000);
 
-  it('terminated (TFD): resistor lowers gain and shifts the feedpoint impedance', async () => {
+  it('terminated (TFD): resistor dissipates power and raises the feedpoint impedance', async () => {
     const unterminated = await engine.simulate(selectSimulationInput(foldedState({})));
     const terminated = await engine.simulate(
       selectSimulationInput(foldedState({ terminatingResistor: 600 })),
@@ -61,7 +61,14 @@ describe('Folded dipole (real Wasm)', () => {
     expect(Number.isFinite(terminated.maxGainDbi)).toBe(true);
     // The resistor dissipates a substantial fraction of the input power.
     expect(terminated.maxGainDbi).toBeLessThan(unterminated.maxGainDbi);
-    // Termination measurably changes the feedpoint impedance.
-    expect(Math.abs(terminated.impedance.R - unterminated.impedance.R)).toBeGreaterThan(2);
+    // The terminating R is in series with the top-conductor current path.
+    // The feedpoint impedance increases by approximately R:
+    //   Z_terminated ≈ Z_unterminated + R  (≈ 280 + 600 = 880 Ω)
+    // This is correct physics — a 6:1 balun brings the displayed feedpoint
+    // to ~145 Ω, which is usable. A larger R drives the antenna closer to
+    // a true traveling-wave termination (matching the two-wire line's Z0).
+    expect(terminated.impedance.R).toBeGreaterThan(unterminated.impedance.R);
+    // The increase should be substantial (close to R = 600 Ω).
+    expect(terminated.impedance.R - unterminated.impedance.R).toBeGreaterThan(400);
   }, 30_000);
 });
