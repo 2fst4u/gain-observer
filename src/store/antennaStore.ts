@@ -372,8 +372,8 @@ export const useAntennaStore = create<AntennaState>()(
           s.terminatingResistor = 0;
           s.transformerEnabled = false;
         } else if (type === 'quad-loop') {
-          // Full-wave square loop. `height` = top of the loop; the loop hangs
-          // downward from there. Feedpoint at centre of the bottom side.
+          // Full-wave square loop. `height` = feedpoint height (centre of the
+          // bottom side). The loop extends upward as a true square from there.
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;

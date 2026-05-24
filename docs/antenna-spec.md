@@ -265,11 +265,9 @@ This document defines the physical and mathematical model for all antenna types 
 ### 7.1 Geometry Definition
 
 - **Shape:** Full-wave square loop in the vertical plane, fed at the centre of the bottom side.
-- **`height` parameter:** Height of the **top** of the loop above ground (metres) — same convention as the delta loop apex height.
+- **`height` parameter:** Height of the **feedpoint** (centre of the bottom side) above ground (metres). The loop always forms a true square (each side = P/4) extending upward from the feedpoint; the top of the loop sits at `height + P/4`. This is the same feedpoint-height convention used by every other antenna type.
 - **`length` parameter:** Total perimeter (metres). Reference length: 1λ.
-- **Square vs rectangle:** When the mast height ≥ P/4 + `SLOPING_V_MIN_TIP_Z_M` the loop is a true square (each side = P/4). When the mast is shorter, the loop flattens to a rectangle while preserving the full perimeter:
-  - `loop_height = min(P/4, height − SLOPING_V_MIN_TIP_Z_M)`
-  - `loop_width  = P/2 − loop_height`  (always ≥ loop_height)
+- **Shape:** Always a true square — each side = P/4. No rectangle-flattening.
 - **Orientation:** Azimuth the loop plane faces.
 - **Bottom wire:** Split at its centre by a `FEED_BRIDGE_LENGTH_M` feed bridge. The two half-wires (left and right) meet at the bridge.
 
@@ -297,8 +295,8 @@ This document defines the physical and mathematical model for all antenna types 
 
 ### 7.6 Gain
 
-- **Over dipole:** Approximately 1.5 dBd (~3.65 dBi) at 1λ perimeter over free space. Slightly less than the delta loop's gain on paper but with a more practical feedpoint impedance at the bottom of the loop.
-- **Pattern:** Broadside (perpendicular to the loop plane), vertically polarised, with low-angle radiation at typical heights.
+- **Pattern:** Broadside (perpendicular to the loop plane), vertically polarised. Gain over a dipole at the same feedpoint height depends heavily on height above ground; the theoretical free-space advantage of a full-wave loop over a dipole is small and varies with ground proximity.
+- **Note:** Do not compare gain numbers from a quad loop and a dipole unless both feedpoints are at the same height — the loop's top wire sits a full P/4 higher than the feedpoint, which can produce misleadingly high or low apparent gain depending on which height convention is assumed.
 
 ### 7.7 Glossary
 

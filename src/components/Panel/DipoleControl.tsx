@@ -129,7 +129,7 @@ export function DipoleControl() {
     'terminated-delta': 'Set perimeter to 1λ',
     'vertical-whip': 'Set whip length to resonant ¼λ',
     'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
-    'quad-loop': 'Set perimeter to 1λ (resonant quad loop). Side-fed impedance ~100–140 Ω; a 2:1 balun or ATU brings it to 50 Ω. ~1.5 dBd gain over a dipole. Slightly more gain than the delta loop with a lower feedpoint.',
+    'quad-loop': 'Set perimeter to 1λ (resonant quad loop). Side-fed impedance ~100–140 Ω; a 2:1 balun or ATU brings it to 50 Ω.',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
@@ -142,11 +142,15 @@ export function DipoleControl() {
       ? `Total wire length — vertical + horizontal (${unit})`
       : `Length (${unit})`;
 
+  const isQuadLoop = antennaType === 'quad-loop';
+
   const heightLabel = isVerticalWhip
     ? `Base height above ground (${unit}) — ${dispHeight.toFixed(1)}`
     : isInvertedL
       ? `Mast / bend-point height (${unit}) — ${dispHeight.toFixed(1)}`
-      : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
+      : isQuadLoop
+        ? `Feedpoint height — bottom of loop (${unit}) — ${dispHeight.toFixed(1)}`
+        : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
 
   return (
     <section className="panel-section">

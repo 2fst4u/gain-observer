@@ -852,7 +852,16 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
 export interface QuadLoopWiresParams {
   /** Total perimeter, metres. */
   length: number;
-  /** Height of the top of the loop above ground, metres. */
+  /**
+   * Height of the **feedpoint** (centre of the bottom side) above ground,
+   * metres. The loop is always a true square: each side = P/4. The loop
+   * extends upward and sideways symmetrically from the feedpoint, so the
+   * top of the loop sits at `height + P/4`.
+   *
+   * This is the same convention used by every other antenna type — the
+   * `height` slider always moves the feedpoint, not the top of the
+   * structure.
+   */
   height: number;
   /**
    * Azimuth the loop faces (the plane of the loop is perpendicular to the
@@ -869,17 +878,10 @@ export interface QuadLoopWiresParams {
  * centre-of-bottom-side fed).
  *
  * The loop lies in a vertical plane whose orientation matches
- * `params.orientation`. The top of the loop sits at `params.height`.
- *
- * Shape:
- *   - When the mast is tall enough (height ≥ P/4 + SLOPING_V_MIN_TIP_Z_M),
- *     the loop is square: each side = P/4.
- *   - When the mast is shorter, the loop flattens to a rectangle while
- *     preserving the full perimeter:
- *       loop_height = min(P/4, height − SLOPING_V_MIN_TIP_Z_M)
- *       loop_width  = P/2 − loop_height
- *     (loop_width ≥ P/4 always, so the rectangle is always wider than tall
- *     or exactly square.)
+ * `params.orientation`. `params.height` is the **feedpoint height**
+ * (centre of the bottom side) — the same convention used by the dipole,
+ * inverted-V, delta loop, etc. The loop always forms a true square: each
+ * side = P/4. The top sits at `height + P/4`.
  *
  * The bottom side is split at its centre by a short FEED_BRIDGE_TAG segment
  * (identical convention to the delta loop apex bridge). Excitation lands on
@@ -899,22 +901,19 @@ export function buildQuadLoopWires(params: QuadLoopWiresParams): Wire[] {
   const h = params.height;
   const [dx, dy] = orientationVector(params.orientation);
 
-  // Maximum available loop height given the mast height.
-  const maxAvailable = Math.max(0.01, h - SLOPING_V_MIN_TIP_Z_M);
-  const squareSide = perimeter / 4;
-  const loopHeight = Math.min(squareSide, maxAvailable);
+  // height is the feedpoint (bottom-centre) height.
+  // The loop is always a true square: side = P/4.
+  const sideLen = perimeter / 4;
+  const bottomZ = Math.max(SLOPING_V_MIN_TIP_Z_M, h);
+  const topZ = bottomZ + sideLen;
 
-  // Preserve perimeter: width = P/2 − height.
-  // For a true square loopHeight = loopWidth = P/4;
-  // when constrained the loop is wider than tall.
-  const loopWidth = perimeter / 2 - loopHeight;
-  const halfWidth = loopWidth / 2;
-  const bottomZ = h - loopHeight;
+  // Half the bottom-side width = half a side length.
+  const halfWidth = sideLen / 2;
 
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
 
-  const topLeft:     [number, number, number] = [-halfWidth * dx, -halfWidth * dy, h];
-  const topRight:    [number, number, number] = [ halfWidth * dx,  halfWidth * dy, h];
+  const topLeft:     [number, number, number] = [-halfWidth * dx, -halfWidth * dy, topZ];
+  const topRight:    [number, number, number] = [ halfWidth * dx,  halfWidth * dy, topZ];
   const bottomLeft:  [number, number, number] = [-halfWidth * dx, -halfWidth * dy, bottomZ];
   const bottomRight: [number, number, number] = [ halfWidth * dx,  halfWidth * dy, bottomZ];
   const centerLeft:  [number, number, number] = [-bridgeHalf * dx, -bridgeHalf * dy, bottomZ];
@@ -923,15 +922,16 @@ export function buildQuadLoopWires(params: QuadLoopWiresParams): Wire[] {
   const lambda = wavelengthMeters(params.frequency);
   const userSegsPerSide = Math.round(params.segments / 4);
 
-  // Top wire (full width).
-  const minTopSegs = Math.ceil((SEGS_PER_WAVELENGTH * loopWidth) / lambda);
-  const topSegs = Math.min(MAX_SEGS_PER_LEG, Math.max(MIN_SEGS_PER_LEG, minTopSegs, userSegsPerSide));
+  // All four sides are the same length (true square), so one segment count
+  // covers the top wire, the two side wires, and each bottom half.
+  const minSideSegs = Math.ceil((SEGS_PER_WAVELENGTH * sideLen) / lambda);
+  const topSegs = Math.min(MAX_SEGS_PER_LEG, Math.max(MIN_SEGS_PER_LEG, minSideSegs, userSegsPerSide));
 
-  // Left / right vertical wires.
-  const minSideSegs = Math.ceil((SEGS_PER_WAVELENGTH * loopHeight) / lambda);
-  const sideSegs = Math.min(MAX_SEGS_PER_LEG, Math.max(MIN_SEGS_PER_LEG, minSideSegs, userSegsPerSide));
+  // Left / right vertical wires (same length as top).
+  const sideSegs = topSegs;
 
   // Each bottom half (from corner to bridge edge).
+  // halfWidth = sideLen/2, so halfBottomLen ≈ sideLen/2 (minus the tiny bridge half).
   const halfBottomLen = Math.max(0.01, halfWidth - bridgeHalf);
   const minHalfBottomSegs = Math.ceil((SEGS_PER_WAVELENGTH * halfBottomLen) / lambda);
   const halfBottomSegs = Math.min(MAX_SEGS_PER_LEG, Math.max(MIN_SEGS_PER_LEG, minHalfBottomSegs, Math.round(userSegsPerSide / 2)));
