@@ -117,17 +117,15 @@ export function DipoleControl() {
     'sloping-v': '1λ/leg',
     'terminated-delta': '1λ',
     'vertical-whip': '¼λ',
-    'extended-double-zepp': '1.25λ',
   };
 
   const resonateTitles: Record<AntennaType, string> = {
-    'dipole': 'Set length to resonant ½λ',
+    'dipole': 'Half-wave resonant length: ~73 Ω feedpoint — close to a direct 50 Ω coax match with no ATU needed. ~2.15 dBi gain. The most practical starting point for most installations.',
     'inverted-v': 'Set length to resonant ½λ',
     'delta-loop': 'Set perimeter to resonant 1λ',
     'sloping-v': 'Set total length to 2λ (1λ per leg)',
     'terminated-delta': 'Set perimeter to 1λ',
     'vertical-whip': 'Set whip length to resonant ¼λ',
-    'extended-double-zepp': 'Set length to 1.25λ (EDZ optimum for maximum gain)',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
@@ -150,7 +148,6 @@ export function DipoleControl() {
       >
         <option value="dipole">Horizontal Dipole</option>
         <option value="inverted-v">Inverted V</option>
-        <option value="extended-double-zepp">Extended Double Zepp</option>
         <option value="sloping-v">Sloping V</option>
         <option value="delta-loop">Delta Loop</option>
         <option value="terminated-delta">Terminated Delta</option>
@@ -186,6 +183,15 @@ export function DipoleControl() {
             aria-label={`${resonateLabels[antennaType]} (Resonate antenna length)`}
           >
             {resonateLabels[antennaType]}
+          </button>
+        )}
+        {antennaType === 'dipole' && (
+          <button
+            onClick={() => setLength(lambda * 1.25)}
+            title="Extended Double Zepp length: 3–4 dB more gain than ½λ by using a longer wire aperture — narrower broadside lobes. Trade-off: feedpoint rises to ~1000 Ω, requiring a wide-range ATU or open-wire feedline. Very low heights can push the impedance toward zero, making matching harder."
+            aria-label="1.25λ Extended Double Zepp preset length"
+          >
+            1.25λ
           </button>
         )}
       </div>

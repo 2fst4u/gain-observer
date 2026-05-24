@@ -63,13 +63,6 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
     case 'vertical-whip':
       // Quarter-wave monopole resonant length.
       return lambda * 0.25 * endEffect;
-    case 'extended-double-zepp':
-      // 1.25λ is the classical EDZ design length for maximum gain. Unlike the
-      // half-wave dipole, this is not a resonant length — it is chosen to
-      // place the current distribution so the two lobes add in phase along
-      // the broadside direction, yielding 3–4 dB over a ½λ dipole. The
-      // end-effect factor applies in the same way as a dipole.
-      return lambda * 1.25 * endEffect;
     default:
       return lambda * 0.5 * endEffect;
   }
