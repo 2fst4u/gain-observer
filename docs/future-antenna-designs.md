@@ -16,10 +16,6 @@ Half-wave dipole where both ends are connected by a second parallel conductor, f
 
 Vertical radiator with a horizontal top-loading section at right angles. Useful for 160 m and 80 m where a full quarter-wave vertical would be impractically tall. The horizontal section adds electrical length without additional height. Requires ground radials or a counterpoise similar to the existing vertical whip.
 
-## End-Fed Half-Wave (EFHW)
-
-Single wire fed at one end, resonant at half a wavelength. Very popular for portable and SOTA operation due to minimal ground requirements. The high feed impedance (~2500–5000 Ω) is handled by a matching transformer (49:1 or 64:1 unun), which can be modelled as a series LC load. Pattern and gain are close to a dipole, though the off-center feed produces slight asymmetry.
-
 ## Horizontal Loop (Skyloop)
 
 Full-wave loop laid out horizontally (parallel to ground). Typically square or rectangular. At low heights it produces a high-angle NVIS pattern; at greater heights the pattern develops low-angle gain. The four-sided geometry requires corner wires and a flexible aspect-ratio parameter for square vs. rectangular configurations.
