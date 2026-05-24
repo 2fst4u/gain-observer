@@ -46,6 +46,7 @@ import {
   TERMINATED_DELTA_BRIDGE_TAG,
   VERTICAL_WHIP_TAG,
   DEFAULT_WHIP_LENGTH_M,
+  EFHW_TAG,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -63,6 +64,7 @@ export {
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   TERMINATED_DELTA_BRIDGE_TAG,
   VERTICAL_WHIP_TAG,
+  EFHW_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
@@ -71,6 +73,7 @@ import {
   buildDeltaLoopWires,
   buildTerminatedDeltaWires,
   buildVerticalWhipWires,
+  buildEfhwWires,
   orientationVector,
   type OrientationPreset,
   type Orientation,
@@ -374,6 +377,18 @@ export const useAntennaStore = create<AntennaState>()(
           // user can still disable it to see what happens without.
           s.transformerEnabled = true;
           s.transformerRatio = 9;
+        } else if (type === 'efhw') {
+          // End-fed half-wave: single wire, no termination, no V angle.
+          s.vAngle = 180;
+          s.legSlope = 0;
+          s.terminatingResistor = 0;
+          // The EFHW feed impedance is ~2500–5000 Ω. A 49:1 unun (7:1 turns
+          // ratio, impedance ratio = 49) brings it down to ~50–100 Ω.
+          // Default the transformer on so the out-of-the-box result shows
+          // what the operator would actually see at the radio. The user can
+          // disable it to inspect the raw antenna impedance.
+          s.transformerEnabled = true;
+          s.transformerRatio = 49;
         }
 
         const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
@@ -634,6 +649,9 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
       // is applied separately in setAntennaType so the user can pick
       // either a stock whip length or the resonant length.
       return lambda * 0.25 * 0.95;
+    case 'efhw':
+      // Half-wave resonant length with the standard HF end-effect factor.
+      return lambda * 0.5 * 0.95;
     default:
       return halfWaveLength(frequencyMHz);
   }
@@ -760,6 +778,17 @@ export function buildWires(
       segments: state.segments,
       frequency: state.frequency,
       counterpoise: state.whipCounterpoise ?? false,
+    });
+  }
+
+  if (antennaType === 'efhw') {
+    return buildEfhwWires({
+      length: state.length,
+      height: h,
+      orientation: state.orientation,
+      wireRadius: state.wireRadius,
+      segments: state.segments,
+      frequency: state.frequency,
     });
   }
 
@@ -925,6 +954,9 @@ function buildExcitation(
   } else if (state.antennaType === 'vertical-whip') {
     // Base-fed monopole: excitation on the first (lowest) segment.
     return { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
+  } else if (state.antennaType === 'efhw') {
+    // End-fed: excitation on the first (feed-end) segment.
+    return { wireTag: EFHW_TAG, segment: 1 };
   } else {
     const dipoleCentreSeg = Math.ceil(state.segments / 2);
     return { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };

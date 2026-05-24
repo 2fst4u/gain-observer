@@ -14,6 +14,7 @@ import {
   VERTICAL_WHIP_BASE_GAP_M,
   VERTICAL_WHIP_RADIAL_TAG,
   VERTICAL_WHIP_RADIAL_COUNT,
+  EFHW_TAG,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -721,4 +722,55 @@ export function buildVerticalWhipWires(params: VerticalWhipWiresParams): Wire[] 
   }
 
   return wires;
+}
+
+export interface EfhwWiresParams {
+  /** Total wire length in metres. Resonant at ½λ × end-effect. */
+  length: number;
+  /** Height of the wire above ground, metres. */
+  height: number;
+  orientation: Orientation;
+  wireRadius: number;
+  segments: number;
+  frequency: number;
+}
+
+/**
+ * Builds the wires for an End-Fed Half-Wave (EFHW) antenna.
+ *
+ * Geometry is a single horizontal wire of `params.length` metres, with
+ * one end at the origin (the **feed end**) and the other end extending
+ * along the chosen orientation vector. The source is placed on segment 1
+ * (the near/feed end), where the characteristic impedance is very high
+ * (~2500–5000 Ω for a resonant half-wave). A 49:1 unun at the feed end
+ * transforms this to a practical 50 Ω match.
+ *
+ * Tag:
+ *   EFHW_TAG (14) — the single radiating wire.
+ *
+ * Excitation is placed on segment 1 of EFHW_TAG (the feed end).
+ */
+export function buildEfhwWires(params: EfhwWiresParams): Wire[] {
+  const length = Math.max(0.1, params.length);
+  const h = params.height;
+  const [dx, dy] = orientationVector(params.orientation);
+  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+
+  const lambda = wavelengthMeters(params.frequency);
+  const minSegs = Math.ceil((SEGS_PER_WAVELENGTH * length) / lambda);
+  const segments = Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minSegs, params.segments),
+  );
+
+  // Feed end is at the origin; wire extends along the orientation vector.
+  return [
+    {
+      start: [0, 0, h],
+      end: [cleanZero(length * dx), cleanZero(length * dy), h],
+      radius: params.wireRadius,
+      segments,
+      tag: EFHW_TAG,
+    },
+  ];
 }

@@ -63,6 +63,11 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
     case 'vertical-whip':
       // Quarter-wave monopole resonant length.
       return lambda * 0.25 * endEffect;
+    case 'efhw':
+      // End-fed half-wave resonant length. End-effect factor matches the
+      // center-fed dipole (0.95) — the current distribution is sinusoidal
+      // along the wire regardless of where the feed is placed.
+      return lambda * 0.5 * endEffect;
     default:
       return lambda * 0.5 * endEffect;
   }
@@ -164,6 +169,13 @@ export const TERMINATED_DELTA_BRIDGE_TAG = 11;
  * at the base of the whip rather than at its midpoint.
  */
 export const VERTICAL_WHIP_TAG = 12;
+
+/**
+ * Wire tag for the end-fed half-wave (EFHW) antenna. A single horizontal
+ * wire fed at segment 1 (the near end). The far end is an open circuit,
+ * producing the characteristic high feed impedance (~2500–5000 Ω).
+ */
+export const EFHW_TAG = 14;
 
 /**
  * Default whip length in metres = 32 ft (32 × 0.3048).

@@ -15,8 +15,13 @@ export type Vec3 = readonly [number, number, number];
  *   - vertical-whip: a single vertical wire fed at its base (monopole).
  *     `length` is the whip length and `height` is the base height above
  *     ground; resonant length is ¼λ.
+ *   - efhw: end-fed half-wave wire, fed at one end. Very popular for
+ *     portable / SOTA use. Feed impedance is ~2500–5000 Ω; a 49:1 unun
+ *     at the feed transforms it to ~50 Ω. Pattern is close to a dipole
+ *     but with slight asymmetry from the off-centre feed.
+ *     `length` is the total wire length; resonant length is ½λ.
  */
-export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip';
+export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip' | 'efhw';
 
 export interface Wire {
   readonly start: Vec3;

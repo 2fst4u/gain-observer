@@ -117,6 +117,7 @@ export function DipoleControl() {
     'sloping-v': '1λ/leg',
     'terminated-delta': '1λ',
     'vertical-whip': '¼λ',
+    'efhw': '½λ',
   };
 
   const resonateTitles: Record<AntennaType, string> = {
@@ -126,10 +127,12 @@ export function DipoleControl() {
     'sloping-v': 'Set total length to 2λ (1λ per leg)',
     'terminated-delta': 'Set perimeter to 1λ',
     'vertical-whip': 'Set whip length to resonant ¼λ',
+    'efhw': 'Set wire length to resonant ½λ',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
-  const lengthLabel = isVerticalWhip ? `Whip length (${unit})` : `Length (${unit})`;
+  const isEfhw = antennaType === 'efhw';
+  const lengthLabel = isVerticalWhip ? `Whip length (${unit})` : isEfhw ? `Wire length (${unit})` : `Length (${unit})`;
   const heightLabel = isVerticalWhip
     ? `Base height above ground (${unit}) — ${dispHeight.toFixed(1)}`
     : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
@@ -148,6 +151,7 @@ export function DipoleControl() {
       >
         <option value="dipole">Horizontal Dipole</option>
         <option value="inverted-v">Inverted V</option>
+        <option value="efhw">End-Fed Half-Wave (EFHW)</option>
         <option value="sloping-v">Sloping V</option>
         <option value="delta-loop">Delta Loop</option>
         <option value="terminated-delta">Terminated Delta</option>
