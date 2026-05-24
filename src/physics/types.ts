@@ -15,8 +15,13 @@ export type Vec3 = readonly [number, number, number];
  *   - vertical-whip: a single vertical wire fed at its base (monopole).
  *     `length` is the whip length and `height` is the base height above
  *     ground; resonant length is ¼λ.
+ *   - inverted-l: vertical radiator with a horizontal top-loading section.
+ *     `height` is the bend-point height (= vertical section length from
+ *     ground); `length` is the total wire (vertical + horizontal combined).
+ *     Base-fed at ground level; counterpoise radials optional. Useful on
+ *     160 m / 80 m where a full ¼λ vertical would be impractically tall.
  */
-export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip';
+export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip' | 'inverted-l';
 
 export interface Wire {
   readonly start: Vec3;

@@ -46,6 +46,9 @@ import {
   TERMINATED_DELTA_BRIDGE_TAG,
   VERTICAL_WHIP_TAG,
   DEFAULT_WHIP_LENGTH_M,
+  INVERTED_L_VERTICAL_TAG,
+  INVERTED_L_HORIZONTAL_TAG,
+  INVERTED_L_RADIAL_TAG,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -63,6 +66,9 @@ export {
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   TERMINATED_DELTA_BRIDGE_TAG,
   VERTICAL_WHIP_TAG,
+  INVERTED_L_VERTICAL_TAG,
+  INVERTED_L_HORIZONTAL_TAG,
+  INVERTED_L_RADIAL_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
@@ -71,6 +77,7 @@ import {
   buildDeltaLoopWires,
   buildTerminatedDeltaWires,
   buildVerticalWhipWires,
+  buildInvertedLWires,
   orientationVector,
   type OrientationPreset,
   type Orientation,
@@ -310,9 +317,10 @@ export const useAntennaStore = create<AntennaState>()(
         s.antennaType = type;
 
         // Vertical whips default to height=0 (sitting on ground). When
-        // switching back to a horizontal antenna, restore the default
-        // mast height so it doesn't stay stuck at 0m.
-        if (previousType === 'vertical-whip' && type !== 'vertical-whip' && s.height === 0) {
+        // switching to a horizontal antenna, restore the default mast height
+        // so it doesn't stay stuck at 0m. (Inverted-L keeps whatever height
+        // is set since its height is the bend point, not the base.)
+        if (previousType === 'vertical-whip' && type !== 'vertical-whip' && type !== 'inverted-l' && s.height === 0) {
           s.height = INITIAL_HEIGHT;
         }
 
@@ -342,6 +350,15 @@ export const useAntennaStore = create<AntennaState>()(
           // Force the transformer off — its UI is hidden for verticals and
           // the StatsReadout's realized-gain math would otherwise apply a
           // stale ratio/insertion-loss to the monopole result.
+          s.transformerEnabled = false;
+        } else if (type === 'inverted-l') {
+          // Base-fed L-antenna. `height` is the bend-point height (= vertical
+          // section length). If coming from a vertical whip with height=0,
+          // restore a sensible mast height so there is a vertical section.
+          if (s.height === 0) s.height = INITIAL_HEIGHT;
+          s.vAngle = 180;
+          s.legSlope = 0;
+          s.terminatingResistor = 0;
           s.transformerEnabled = false;
         } else if (type === 'sloping-v') {
           // Slope is auto-computed from height and leg length (tips at ground).
@@ -634,6 +651,9 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
       // is applied separately in setAntennaType so the user can pick
       // either a stock whip length or the resonant length.
       return lambda * 0.25 * 0.95;
+    case 'inverted-l':
+      // Total wire (vertical + horizontal) for a resonant quarter-wave.
+      return lambda * 0.25 * 0.95;
     default:
       return halfWaveLength(frequencyMHz);
   }
@@ -756,6 +776,18 @@ export function buildWires(
     return buildVerticalWhipWires({
       length: state.length,
       height: h,
+      wireRadius: state.wireRadius,
+      segments: state.segments,
+      frequency: state.frequency,
+      counterpoise: state.whipCounterpoise ?? false,
+    });
+  }
+
+  if (antennaType === 'inverted-l') {
+    return buildInvertedLWires({
+      length: state.length,
+      height: h,
+      orientation: state.orientation,
       wireRadius: state.wireRadius,
       segments: state.segments,
       frequency: state.frequency,
@@ -897,7 +929,7 @@ function buildGroundParams(state: AntennaState): GroundParams {
   // ground-mounted whip (height=0) is the canonical case: it still needs
   // the configured ground beneath it, and switching to free space would
   // break the monopole's image-theory feedpoint impedance.
-  if (state.height <= 0 && state.antennaType !== 'vertical-whip') return { type: 'free' };
+  if (state.height <= 0 && state.antennaType !== 'vertical-whip' && state.antennaType !== 'inverted-l') return { type: 'free' };
   switch (state.groundId) {
     case 'free': return { type: 'free' };
     case 'perfect': return { type: 'perfect' };
@@ -925,6 +957,9 @@ function buildExcitation(
   } else if (state.antennaType === 'vertical-whip') {
     // Base-fed monopole: excitation on the first (lowest) segment.
     return { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
+  } else if (state.antennaType === 'inverted-l') {
+    // Base-fed: excitation on the first (lowest) segment of the vertical section.
+    return { wireTag: INVERTED_L_VERTICAL_TAG, segment: 1 };
   } else {
     const dipoleCentreSeg = Math.ceil(state.segments / 2);
     return { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
