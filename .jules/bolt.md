@@ -134,3 +134,8 @@
 
 **Learning:** When checking string membership against a static, known list of options, defining an array inline and using `.includes()` requires reallocation on every execution and runs in $O(N)$ time. By extracting the static array into a module-scoped `Set`, we avoid memory reallocation and change the check to $O(1)$ time, yielding a measurable performance boost.
 **Action:** Always extract static membership checks (like enum-like string arrays) into a module-scoped `Set` and use `Set.has()` in frequently-executed render paths or hot loops.
+
+## 2025-05-18 - Loop Fusions and Array Find optimizations
+
+**Learning:** Finding individual wires in an array generated from Three.js vectors inside `antennaStore.ts` using `.find` or `.filter` requires multiple $O(N)$ allocations and passes over the array.
+**Action:** Replace multiple separate `.find` and `.filter` calls on array elements with a single `for` loop that stores the specific matches by evaluating all cases and executing early `break` statements. This removes functional allocation overhead inside hot store selectors.
