@@ -15,8 +15,13 @@ export type Vec3 = readonly [number, number, number];
  *   - vertical-whip: a single vertical wire fed at its base (monopole).
  *     `length` is the whip length and `height` is the base height above
  *     ground; resonant length is ¼λ.
+ *   - extended-double-zepp: center-fed dipole at ~1.25λ total length.
+ *     Produces 3–4 dB gain over a standard half-wave dipole by using the
+ *     supergain region of a long-wire dipole. Same wire geometry as a
+ *     dipole but with a longer reference length; feedpoint impedance is
+ *     high (~1000 Ω) and typically requires a matching network.
  */
-export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip';
+export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip' | 'extended-double-zepp';
 
 export interface Wire {
   readonly start: Vec3;

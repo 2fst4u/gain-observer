@@ -117,6 +117,7 @@ export function DipoleControl() {
     'sloping-v': '1λ/leg',
     'terminated-delta': '1λ',
     'vertical-whip': '¼λ',
+    'extended-double-zepp': '1.25λ',
   };
 
   const resonateTitles: Record<AntennaType, string> = {
@@ -126,6 +127,7 @@ export function DipoleControl() {
     'sloping-v': 'Set total length to 2λ (1λ per leg)',
     'terminated-delta': 'Set perimeter to 1λ',
     'vertical-whip': 'Set whip length to resonant ¼λ',
+    'extended-double-zepp': 'Set length to 1.25λ (EDZ optimum for maximum gain)',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
@@ -148,6 +150,7 @@ export function DipoleControl() {
       >
         <option value="dipole">Horizontal Dipole</option>
         <option value="inverted-v">Inverted V</option>
+        <option value="extended-double-zepp">Extended Double Zepp</option>
         <option value="sloping-v">Sloping V</option>
         <option value="delta-loop">Delta Loop</option>
         <option value="terminated-delta">Terminated Delta</option>

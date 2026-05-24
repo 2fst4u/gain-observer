@@ -80,7 +80,7 @@ import {
 export type { AntennaType };
 export type { OrientationPreset, Orientation };
 
-const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta']);
+const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta', 'extended-double-zepp']);
 
 export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'comparison';
@@ -359,6 +359,13 @@ export const useAntennaStore = create<AntennaState>()(
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
+        } else if (type === 'extended-double-zepp') {
+          // EDZ shares the dipole's wire geometry (center-fed straight wire)
+          // but at 1.25λ total length for maximum broadside gain. No V-angle,
+          // no slope, no termination — feedline and transformer apply as normal.
+          s.vAngle = 180;
+          s.legSlope = 0;
+          s.terminatingResistor = 0;
         } else if (type === 'terminated-delta') {
           s.vAngle = 180;
           s.legSlope = 0;
@@ -634,6 +641,9 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
       // is applied separately in setAntennaType so the user can pick
       // either a stock whip length or the resonant length.
       return lambda * 0.25 * 0.95;
+    case 'extended-double-zepp':
+      // 1.25λ is the classical EDZ design length for maximum broadside gain.
+      return lambda * 1.25;
     default:
       return halfWaveLength(frequencyMHz);
   }
@@ -1099,7 +1109,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
   const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
   const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
-  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'].includes(state.antennaType);
+  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta', 'extended-double-zepp'].includes(state.antennaType);
   const feedlineActive = hasBridge && feedlineSupport;
 
   const excitation = buildExcitation(state, wires, feedlineActive, hasBridge, hasShield);

@@ -217,3 +217,48 @@ This document defines the physical and mathematical model for all antenna types 
 ### 5.6 Glossary
 
 - Same as Section 1.6.
+
+---
+
+## 6. Extended Double Zepp (EDZ)
+
+### 6.1 Geometry Definition
+
+- **Apex Location:** Geometric center of the wire at $(0, 0, \text{height})$.
+- **Leg Count & Length:** 1 wire (or 2 half-wires when split by a feed bridge), total length $L$.
+- **Reference Length:** $1.25\lambda$ (gain-optimised length, not a resonant length). The end-effect physical length is $\approx 1.1875\lambda$ (1.25 × 0.95).
+- **Conventions:** Straight horizontal wire, same geometry as the dipole. The feed bridge is used whenever a feedline is fitted.
+- **Tips:** Symmetric endpoints at $\pm L/2$ relative to apex.
+- **Min Height:** All points must satisfy $z \ge 0.1$ m.
+
+### 6.2 Feedpoint Definition
+
+- **NEC Excitation:** Center-segment voltage source on Tag 1 (`DIPOLE_TAG`) when no feedline is used; 1-segment feed bridge (Tag 3, `FEED_BRIDGE_TAG`) segment 1 when a feedline is present.
+- **Segment:** Centre segment of the wire (or segment 1 of the bridge).
+- **Feed Type:** Single-segment voltage source (balanced with feed bridge).
+- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint offset supported as for a dipole).
+- **Feedpoint Impedance:** High (~1000 Ω at the design length), so a matching network (ATU or impedance-transforming transformer) is normally required at the feedpoint or rig end.
+
+### 6.3 Termination Definition
+
+- **Model:** None. The EDZ is a standing-wave antenna; no far-end termination.
+
+### 6.4 SWR Convention
+
+- **Reference:** 50.0 Ω.
+- **Statement:** The raw SWR will be very high (~20:1) at the 1.25λ design length because the feedpoint impedance is ~1000 Ω. This is expected and normal. Use the Transformer control to model an impedance-transforming unun (e.g. 9:1 gives ~111 Ω, still needing an ATU; a 25:1 ratio would give ~40 Ω). In practice a wide-range ATU is typically used.
+
+### 6.5 Segmentation Rules
+
+- **Density:** 20 segments per $\lambda$ minimum.
+- **Minimum:** 9 segments total.
+- **Alignment:** Must use an **odd** number of segments to ensure a precise center feedpoint.
+
+### 6.6 Gain
+
+- **Over dipole:** Approximately 3–4 dBd (5–6 dBi) at the 1.25λ design length.
+- **Pattern:** Figure-eight broadside pattern similar to a dipole but with narrower main lobes and slightly higher forward gain due to the longer aperture.
+
+### 6.7 Glossary
+
+- Same as Section 1.6.
