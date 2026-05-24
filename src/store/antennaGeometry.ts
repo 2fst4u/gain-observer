@@ -17,6 +17,8 @@ import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
+  FOLDED_DIPOLE_OPPOSITE_TAG,
+  FOLDED_DIPOLE_CONNECTOR_TAG,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -842,4 +844,154 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   }
 
   return wires;
+}
+
+export interface FoldedDipoleWiresParams {
+  /** Each conductor's length, metres (≈½λ resonant). */
+  length: number;
+  /** Height of the (planar, horizontal) antenna above ground, metres. */
+  height: number;
+  /** Spacing between the two parallel conductors, metres. */
+  aperture: number;
+  /** Azimuth the conductor axis runs. */
+  orientation: Orientation;
+  wireRadius: number;
+  segments: number;
+  frequency: number;
+}
+
+/**
+ * Builds the wires for a Folded Dipole antenna.
+ *
+ * Two parallel conductors of length `length` run along the orientation axis,
+ * separated vertically by `aperture`: the fed (bottom) conductor sits at
+ * z = height and the un-fed (top) conductor sits at z = height + aperture.
+ * Short vertical connector wires join both ends, completing the folded loop.
+ * The structure is fully buildable at a modest height — the top conductor only
+ * rises `aperture` (≤ 0.5 m) above the feedpoint height, unlike a vertical loop.
+ *
+ * The bottom (fed) conductor is split at its centre around a FEED_BRIDGE_TAG
+ * source bridge — the same split-fed convention as the standard dipole, so
+ * the existing buildExcitation `hasBridge` path drives it automatically. The
+ * top conductor is a single continuous wire with an odd segment count; a
+ * terminating resistor (when fitted) lands on its exact centre segment via
+ * buildTerminationElements, turning the antenna into a broadband TFD.
+ *
+ * Tags:
+ *   DIPOLE_LEFT_TAG             (1)  — fed (bottom) conductor, left half (left → bridge)
+ *   DIPOLE_RIGHT_TAG            (2)  — fed (bottom) conductor, right half (bridge → right)
+ *   FEED_BRIDGE_TAG            (3)  — 1-segment source bridge at the centre
+ *   FOLDED_DIPOLE_OPPOSITE_TAG  (17) — un-fed (top) conductor (left → right)
+ *   FOLDED_DIPOLE_CONNECTOR_TAG (18) — both end connectors (vertical, bottom → top)
+ */
+export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] {
+  const h = params.height;
+  const half = Math.max(0.1, params.length) / 2;
+  const aperture = Math.max(0.02, params.aperture);
+  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
+
+  const [dx, dy] = orientationVector(params.orientation);
+  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+
+  // Bottom (fed) conductor at z = h; top (opposite) conductor at z = h + aperture.
+  const zBottom = h;
+  const zTop = h + aperture;
+
+  // axis = signed distance along the orientation direction from the antenna centre.
+  const pt = (axis: number, z: number): [number, number, number] => [
+    cleanZero(axis * dx),
+    cleanZero(axis * dy),
+    z,
+  ];
+
+  const lambda = wavelengthMeters(params.frequency);
+
+  // Target segment length. NEC's thin-wire kernel loses accuracy for closely
+  // spaced parallel wires once the segment length grows much larger than the
+  // wire separation, so the folded dipole must segment finely enough that each
+  // segment is no longer than ~half the aperture (empirically the point where
+  // the free-space gain converges to the dipole value). We take the smaller of
+  // the usual density target (λ / SEGS_PER_WAVELENGTH) and half the aperture,
+  // then derive all segment counts from that single target length. This also
+  // keeps the corner junction segments (conductor vs. connector) close in
+  // length. The aperture is capped (see the store) so this stays within
+  // MAX_SEGS_PER_LEG across the HF range.
+  const targetSegLen = Math.max(1e-3, Math.min(lambda / SEGS_PER_WAVELENGTH, aperture / 2));
+
+  const segsForLen = (len: number, userFloor: number): number =>
+    Math.min(
+      MAX_SEGS_PER_LEG,
+      Math.max(MIN_SEGS_PER_LEG, Math.ceil(len / targetSegLen), userFloor),
+    );
+
+  // Each half of the fed conductor (corner → feed bridge edge).
+  const halfCondLen = Math.max(0.01, half - bridgeHalf);
+  const halfSegs = segsForLen(halfCondLen, Math.round(params.segments / 2));
+
+  // Opposite conductor: force an odd segment count so the centre segment
+  // (which carries the optional terminating resistor) is exactly at midpoint.
+  const rawOppSegs = segsForLen(params.length, params.segments);
+  const oppSegs = rawOppSegs % 2 === 0 ? rawOppSegs + 1 : rawOppSegs;
+
+  // End connectors span the aperture vertically, segmented at the same target
+  // length so their segments match the adjacent conductor segments at the corners.
+  const connSegs = Math.max(1, Math.min(MAX_SEGS_PER_LEG, Math.ceil(aperture / targetSegLen)));
+
+  const leftFed = pt(-half, zBottom);
+  const rightFed = pt(half, zBottom);
+  const bridgeLeft = pt(-bridgeHalf, zBottom);
+  const bridgeRight = pt(bridgeHalf, zBottom);
+  const leftOpp = pt(-half, zTop);
+  const rightOpp = pt(half, zTop);
+
+  return [
+    // Fed conductor — left half (left end → bridge).
+    {
+      start: leftFed,
+      end: bridgeLeft,
+      radius: params.wireRadius,
+      segments: halfSegs,
+      tag: DIPOLE_LEFT_TAG,
+    },
+    // Feed bridge at the centre of the fed conductor.
+    {
+      start: bridgeLeft,
+      end: bridgeRight,
+      radius: params.wireRadius,
+      segments: 1,
+      tag: FEED_BRIDGE_TAG,
+    },
+    // Fed conductor — right half (bridge → right end).
+    {
+      start: bridgeRight,
+      end: rightFed,
+      radius: params.wireRadius,
+      segments: halfSegs,
+      tag: DIPOLE_RIGHT_TAG,
+    },
+    // Opposite (un-fed) conductor — continuous wire; resistor on centre seg.
+    {
+      start: leftOpp,
+      end: rightOpp,
+      radius: params.wireRadius,
+      segments: oppSegs,
+      tag: FOLDED_DIPOLE_OPPOSITE_TAG,
+    },
+    // Left end connector across the aperture.
+    {
+      start: leftFed,
+      end: leftOpp,
+      radius: params.wireRadius,
+      segments: connSegs,
+      tag: FOLDED_DIPOLE_CONNECTOR_TAG,
+    },
+    // Right end connector across the aperture.
+    {
+      start: rightFed,
+      end: rightOpp,
+      radius: params.wireRadius,
+      segments: connSegs,
+      tag: FOLDED_DIPOLE_CONNECTOR_TAG,
+    },
+  ];
 }

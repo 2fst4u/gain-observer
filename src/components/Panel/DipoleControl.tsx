@@ -11,6 +11,7 @@ import {
   type OrientationPreset,
   type AntennaType,
 } from '../../store/antennaStore';
+import { FOLDED_DIPOLE_MAX_APERTURE_M } from '../../physics/constants';
 import { TransformerControl } from './TransformerControl';
 
 export function DipoleControl() {
@@ -26,6 +27,7 @@ export function DipoleControl() {
     frequency,
     orientation,
     vAngle,
+    foldedDipoleAperture,
     terminatingResistor,
     whipCounterpoise,
     setAntennaType,
@@ -35,6 +37,7 @@ export function DipoleControl() {
     setHeight,
     setOrientation,
     setVAngle,
+    setFoldedDipoleAperture,
     setTerminatingResistor,
     setWhipCounterpoise,
   } = useAntennaStore(useShallow((s) => ({
@@ -45,6 +48,7 @@ export function DipoleControl() {
     frequency: s.frequency,
     orientation: s.orientation,
     vAngle: s.vAngle,
+    foldedDipoleAperture: s.foldedDipoleAperture,
     terminatingResistor: s.terminatingResistor,
     whipCounterpoise: s.whipCounterpoise,
     setAntennaType: s.setAntennaType,
@@ -54,6 +58,7 @@ export function DipoleControl() {
     setHeight: s.setHeight,
     setOrientation: s.setOrientation,
     setVAngle: s.setVAngle,
+    setFoldedDipoleAperture: s.setFoldedDipoleAperture,
     setTerminatingResistor: s.setTerminatingResistor,
     setWhipCounterpoise: s.setWhipCounterpoise,
   })));
@@ -118,6 +123,7 @@ export function DipoleControl() {
     'terminated-delta': '1λ',
     'vertical-whip': '¼λ',
     'inverted-l': '¼λ',
+    'folded-dipole': '½λ',
   };
 
   const resonateTitles: Record<AntennaType, string> = {
@@ -128,23 +134,34 @@ export function DipoleControl() {
     'terminated-delta': 'Set perimeter to 1λ',
     'vertical-whip': 'Set whip length to resonant ¼λ',
     'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
+    'folded-dipole': 'Set each conductor to a resonant ½λ. Raw feedpoint ~300 Ω (~4× a plain dipole). A 6:1 impedance-transforming balun is enabled by default, which transforms this to ~50 Ω and reveals the characteristic flat broadband SWR curve the folded dipole is known for. Same gain and pattern as a plain dipole when unterminated.',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
   const isInvertedL = antennaType === 'inverted-l';
   const isGroundMountedVertical = isVerticalWhip || isInvertedL;
 
+  const isFoldedDipole = antennaType === 'folded-dipole';
+
   const lengthLabel = isVerticalWhip
     ? `Whip length (${unit})`
     : isInvertedL
       ? `Total wire length — vertical + horizontal (${unit})`
-      : `Length (${unit})`;
+      : isFoldedDipole
+        ? `Conductor length — ½λ each (${unit})`
+        : `Length (${unit})`;
 
   const heightLabel = isVerticalWhip
     ? `Base height above ground (${unit}) — ${dispHeight.toFixed(1)}`
     : isInvertedL
       ? `Mast / bend-point height (${unit}) — ${dispHeight.toFixed(1)}`
-      : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
+      : isFoldedDipole
+        ? `Bottom conductor height / feedpoint (${unit}) — ${dispHeight.toFixed(1)}`
+        : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
+
+  const dispAperture = toDisplayLength(foldedDipoleAperture, units);
+  const minApertureDisp = toDisplayLength(0.02, units);
+  const maxApertureDisp = toDisplayLength(FOLDED_DIPOLE_MAX_APERTURE_M, units);
 
   return (
     <section className="panel-section">
@@ -165,6 +182,7 @@ export function DipoleControl() {
         <option value="terminated-delta">Terminated Delta</option>
         <option value="vertical-whip">Vertical Whip</option>
         <option value="inverted-l">Inverted-L</option>
+        <option value="folded-dipole">Folded Dipole</option>
       </select>
 
       <label htmlFor="dipole-length" style={{ marginTop: 10 }}>{lengthLabel}</label>
@@ -258,7 +276,32 @@ export function DipoleControl() {
         </>
       )}
 
-      {(antennaType === 'sloping-v' || antennaType === 'terminated-delta') && (
+      {isFoldedDipole && (
+        <>
+          <label htmlFor="folded-dipole-aperture" style={{ marginTop: 10 }}>
+            Conductor spacing / aperture ({unit}) — {dispAperture.toFixed(2)}
+          </label>
+          <input
+            id="folded-dipole-aperture"
+            type="range"
+            min={minApertureDisp}
+            max={maxApertureDisp}
+            step={units === 'metric' ? 0.01 : 0.05}
+            value={dispAperture}
+            aria-label="Folded dipole conductor spacing"
+            aria-describedby="folded-dipole-aperture-hint"
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              if (!isNaN(val)) setFoldedDipoleAperture(fromDisplayLength(val, units));
+            }}
+          />
+          <div id="folded-dipole-aperture-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+            Vertical spacing between the bottom (fed) and top (un-fed) conductors. The fed conductor is at the antenna height; the top conductor is aperture above it. For equal-diameter wires the feedpoint stays ~4× a plain dipole (~300 Ω) regardless of spacing; wider spacing mainly broadens the impedance bandwidth. Capped at {maxApertureDisp.toFixed(2)} {unit} — beyond a realistic folded-dipole spacing the structure morphs toward a loop and no longer solves reliably as two close parallel wires.
+          </div>
+        </>
+      )}
+
+      {(antennaType === 'sloping-v' || antennaType === 'terminated-delta' || antennaType === 'folded-dipole') && (
         <>
           <label htmlFor="terminating-resistor" style={{ marginTop: 10 }}>
             Termination resistance (Ω)
@@ -295,10 +338,14 @@ export function DipoleControl() {
           </div>
           <div id="terminating-resistor-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             {terminatingResistor === 0
-              ? 'Unterminated: travelling wave reflects, creating a standing-wave pattern. Use this mode to check whether the antenna structure resonates at the design frequency.'
+              ? antennaType === 'folded-dipole'
+                ? 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor to model a broadband terminated folded dipole (TFD).'
+                : 'Unterminated: travelling wave reflects, creating a standing-wave pattern. Use this mode to check whether the antenna structure resonates at the design frequency.'
               : antennaType === 'sloping-v'
                 ? `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
-                : `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
+                : antennaType === 'folded-dipole'
+                  ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed — a terminated folded dipole (TFD). Flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated in the resistor). A typical TFD value is ~390–600 Ω. Click Off for a plain folded dipole.`
+                  : `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
           </div>
         </>
       )}

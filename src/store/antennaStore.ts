@@ -49,6 +49,10 @@ import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
+  FOLDED_DIPOLE_OPPOSITE_TAG,
+  FOLDED_DIPOLE_CONNECTOR_TAG,
+  FOLDED_DIPOLE_DEFAULT_APERTURE_M,
+  FOLDED_DIPOLE_MAX_APERTURE_M,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -69,6 +73,8 @@ export {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
+  FOLDED_DIPOLE_OPPOSITE_TAG,
+  FOLDED_DIPOLE_CONNECTOR_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
@@ -78,6 +84,7 @@ import {
   buildTerminatedDeltaWires,
   buildVerticalWhipWires,
   buildInvertedLWires,
+  buildFoldedDipoleWires,
   orientationVector,
   type OrientationPreset,
   type Orientation,
@@ -103,6 +110,7 @@ export interface ComparisonSnapshot {
   readonly segments: number;
   readonly vAngle: number;
   readonly legSlope: number;
+  readonly foldedDipoleAperture: number;
   readonly groundId: string;
   readonly groundSigma: number;
   readonly groundEpsilon: number;
@@ -136,6 +144,13 @@ export interface AntennaState {
    * the horizontal, degrees (0..90).
    */
   legSlope: number;
+
+  /**
+   * Folded-dipole only: spacing between the two parallel conductors
+   * (metres). Larger apertures widen impedance bandwidth and eventually
+   * introduce array-like pattern effects. Ignored for other antenna types.
+   */
+  foldedDipoleAperture: number;
 
   /**
    * Far-end terminating resistor (ohms).
@@ -216,6 +231,7 @@ export interface AntennaState {
   setOrientation(o: Orientation): void;
   setVAngle(deg: number): void;
   setLegSlope(deg: number): void;
+  setFoldedDipoleAperture(meters: number): void;
   setTerminatingResistor(ohms: number): void;
   setWhipCounterpoise(enabled: boolean): void;
   setWireRadius(meters: number): void;
@@ -274,6 +290,7 @@ export const useAntennaStore = create<AntennaState>()(
       segments: 21,
       vAngle: 180,
       legSlope: 0,
+      foldedDipoleAperture: FOLDED_DIPOLE_DEFAULT_APERTURE_M,
       terminatingResistor: 0,
       whipCounterpoise: false,
 
@@ -360,6 +377,18 @@ export const useAntennaStore = create<AntennaState>()(
           s.legSlope = 0;
           s.terminatingResistor = 0;
           s.transformerEnabled = false;
+        } else if (type === 'folded-dipole') {
+          // Two parallel half-wave conductors separated vertically by the
+          // aperture. Plain (unterminated) by default — ~300 Ω, dipole-like
+          // pattern. A non-zero terminating resistor makes it a broadband TFD.
+          // The raw ~300 Ω feedpoint is ~6× the 50 Ω coax reference; enable a
+          // 6:1 impedance-transforming balun by default so the SWR sweep shows
+          // the characteristic flat broadband curve the antenna is known for.
+          s.vAngle = 180;
+          s.legSlope = 0;
+          s.terminatingResistor = 0;
+          s.transformerEnabled = true;
+          s.transformerRatio = 6;
         } else if (type === 'sloping-v') {
           // Slope is auto-computed from height and leg length (tips at ground).
           // V-angle snaps to the value giving maximum forward gain; the user
@@ -454,6 +483,16 @@ export const useAntennaStore = create<AntennaState>()(
       setLegSlope: (deg) => set((s) => {
         if (!Number.isFinite(deg)) return;
         s.legSlope = Math.max(0, Math.min(90, deg));
+      }),
+      setFoldedDipoleAperture: (meters) => set((s) => {
+        if (!Number.isFinite(meters)) return;
+        // Clamp to [2 cm, FOLDED_DIPOLE_MAX_APERTURE_M]. The upper bound keeps
+        // the antenna in the genuine folded-dipole regime (a realistic
+        // conductor spacing) and, crucially, in the range where NEC's
+        // close-parallel-wire solution converges within MAX_SEGS_PER_LEG.
+        // Beyond that the structure morphs toward a loop and would need
+        // impractically fine segmentation to solve accurately.
+        s.foldedDipoleAperture = Math.max(0.02, Math.min(FOLDED_DIPOLE_MAX_APERTURE_M, meters));
       }),
       setTerminatingResistor: (ohms) => set((s) => {
         if (!Number.isFinite(ohms)) return;
@@ -654,6 +693,9 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
     case 'inverted-l':
       // Total wire (vertical + horizontal) for a resonant quarter-wave.
       return lambda * 0.25 * 0.95;
+    case 'folded-dipole':
+      // Each conductor is a resonant half-wave (same as a standard dipole).
+      return halfWaveLength(frequencyMHz);
     default:
       return halfWaveLength(frequencyMHz);
   }
@@ -694,7 +736,7 @@ export function computeEffectiveSlope(
 
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture'>>,
 ): Wire[] {
   const antennaType = state.antennaType;
   const half = state.length / 2;
@@ -792,6 +834,18 @@ export function buildWires(
       segments: state.segments,
       frequency: state.frequency,
       counterpoise: state.whipCounterpoise ?? false,
+    });
+  }
+
+  if (antennaType === 'folded-dipole') {
+    return buildFoldedDipoleWires({
+      length: state.length,
+      height: h,
+      aperture: state.foldedDipoleAperture ?? FOLDED_DIPOLE_DEFAULT_APERTURE_M,
+      orientation: state.orientation,
+      wireRadius: state.wireRadius,
+      segments: state.segments,
+      frequency: state.frequency,
     });
   }
 
@@ -1127,6 +1181,19 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
     );
   }
 
+  if (state.antennaType === 'folded-dipole' && state.terminatingResistor > 0) {
+    const R = state.terminatingResistor;
+    // Terminated folded dipole (TFD): the resistor sits at the centre of the
+    // conductor opposite the feed. The opposite conductor is emitted with an
+    // odd segment count, so its centre segment is exactly at the midpoint —
+    // no extra wire needed, just an LD-4 load on that one segment.
+    const opposite = wires.find((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG)!;
+    const centreSeg = Math.ceil(opposite.segments / 2);
+    loads.push(
+      { type: 4, wireTag: FOLDED_DIPOLE_OPPOSITE_TAG, segmentStart: centreSeg, segmentEnd: centreSeg, param1: R, param2: 0 },
+    );
+  }
+
   return { extraWires, loads };
 }
 
@@ -1174,6 +1241,7 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     segments: state.segments,
     vAngle: state.vAngle,
     legSlope: state.legSlope,
+    foldedDipoleAperture: state.foldedDipoleAperture,
     groundId: state.groundId,
     groundSigma: state.groundSigma,
     groundEpsilon: state.groundEpsilon,
