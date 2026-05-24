@@ -264,19 +264,19 @@ This document defines the physical and mathematical model for all antenna types 
 
 ### 7.1 Geometry Definition
 
-- **Shape:** Two parallel half-wave conductors joined at both ends, forming a narrow horizontal loop. The whole structure lies flat at a single height — every wire is at `z = height`, so it is fully buildable at a modest, user-controlled height (no part is forced higher).
+- **Shape:** Two parallel half-wave conductors joined at both ends, forming a narrow rectangular loop in the vertical plane. The bottom (fed) conductor sits at `z = height`; the top (un-fed) conductor sits at `z = height + aperture`. The connectors are short vertical wires at each end. The overall structure is fully buildable at a modest height — the top conductor only rises `aperture` (≤ 0.5 m) above the feedpoint, unlike a vertical loop.
 - **`length` parameter:** Each conductor's length (metres). Reference length: ½λ (0.475λ with end-effect) — same as a standard dipole; the fold does not change the resonant length.
-- **`foldedDipoleAperture` parameter:** Spacing between the two parallel conductors (metres). Default 0.3 m. Clamped to [0.02 m, `FOLDED_DIPOLE_MAX_APERTURE_M` = 0.5 m]. The upper cap keeps the antenna a genuine folded dipole and, crucially, within the spacing range where NEC's close-parallel-wire solution converges inside `MAX_SEGS_PER_LEG` (see §7.5).
-- **Orientation:** Azimuth the conductor axis runs. The aperture is taken in the horizontal direction perpendicular to the axis, so both conductors stay at the same height.
+- **`foldedDipoleAperture` parameter:** Vertical spacing between the two parallel conductors (metres). Default 0.3 m. Clamped to [0.02 m, `FOLDED_DIPOLE_MAX_APERTURE_M` = 0.5 m]. The upper cap keeps the antenna a genuine folded dipole and, crucially, within the spacing range where NEC's close-parallel-wire solution converges inside `MAX_SEGS_PER_LEG` (see §7.5).
+- **Orientation:** Azimuth the conductor axis runs. The aperture is in the vertical (Z) direction; changing the orientation rotates the axis in the horizontal plane but the top/bottom wire layout is preserved.
 - **Fed conductor:** Split at its centre by a `FEED_BRIDGE_LENGTH_M` feed bridge (the two halves carry `DIPOLE_LEFT_TAG` / `DIPOLE_RIGHT_TAG`, the same split-fed convention as the standard dipole).
-- **Min Height:** All wires at `z = height`; `height ≥ 0.1` m to avoid NEC `GE 1` instability.
+- **Min Height:** Bottom conductor at `z = height`; `height ≥ 0.1` m to avoid NEC `GE 1` instability. The top conductor is automatically at `z = height + aperture`.
 
 ### 7.2 Feedpoint Definition
 
 - **NEC Excitation:** Segment 1 of `FEED_BRIDGE_TAG` (3) at the centre of the lower conductor — handled by the existing `hasBridge` excitation path.
 - **Feed Type:** Single-segment voltage source on the bridge; balanced.
 - **Feedline Support:** Not currently modelled (the antenna is balanced and typically fed via 300 Ω twin-lead or a 4:1 balun). The transformer/balun post-processing control is available.
-- **Feedpoint Impedance:** Approximately 4× a plain dipole (~300 Ω) for equal-diameter conductors, largely independent of spacing. A 4:1 balun brings this to ~75 Ω; 300 Ω twin-lead matches it directly.
+- **Feedpoint Impedance:** Approximately 4× a plain dipole (~300 Ω) for equal-diameter conductors, largely independent of spacing. A 4:1 balun brings this to ~75 Ω; a 6:1 brings it to ~50 Ω for direct coax use. 300 Ω twin-lead matches it directly.
 
 ### 7.3 Termination Definition
 
@@ -287,7 +287,7 @@ This document defines the physical and mathematical model for all antenna types 
 ### 7.4 SWR Convention
 
 - **Reference:** 50 Ω.
-- **Statement:** Raw SWR against 50 Ω is high (~6:1) for the unterminated ~300 Ω feedpoint; a 4:1 balun or 300 Ω feed line is assumed in practice. The terminated variant shows a much flatter SWR-vs-frequency curve, reflecting the broadband impedance rather than improved efficiency.
+- **Statement:** Raw SWR against 50 Ω is high (~6:1) for the unterminated ~300 Ω feedpoint. A 6:1 impedance-transforming balun is **enabled by default** when this antenna type is selected, transforming the feedpoint to ~50 Ω and showing the characteristic flat broadband SWR curve. The terminated variant (TFD) shows an even flatter curve, reflecting the resistive termination rather than improved efficiency.
 
 ### 7.5 Segmentation Rules
 

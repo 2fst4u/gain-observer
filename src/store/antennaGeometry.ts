@@ -864,41 +864,44 @@ export interface FoldedDipoleWiresParams {
  * Builds the wires for a Folded Dipole antenna.
  *
  * Two parallel conductors of length `length` run along the orientation axis,
- * separated by `aperture` in the horizontal direction perpendicular to the
- * axis, and joined at both ends by short connector wires. The whole structure
- * lies flat at a single height `h` — every wire is at z = h, so the antenna
- * is fully buildable at a modest, user-controlled height (no part is forced
- * higher, unlike a vertical loop).
+ * separated vertically by `aperture`: the fed (bottom) conductor sits at
+ * z = height and the un-fed (top) conductor sits at z = height + aperture.
+ * Short vertical connector wires join both ends, completing the folded loop.
+ * The structure is fully buildable at a modest height — the top conductor only
+ * rises `aperture` (≤ 0.5 m) above the feedpoint height, unlike a vertical loop.
  *
- * The lower (fed) conductor is split at its centre around a FEED_BRIDGE_TAG
+ * The bottom (fed) conductor is split at its centre around a FEED_BRIDGE_TAG
  * source bridge — the same split-fed convention as the standard dipole, so
  * the existing buildExcitation `hasBridge` path drives it automatically. The
- * upper conductor is a single continuous wire with an odd segment count; a
+ * top conductor is a single continuous wire with an odd segment count; a
  * terminating resistor (when fitted) lands on its exact centre segment via
  * buildTerminationElements, turning the antenna into a broadband TFD.
  *
  * Tags:
- *   DIPOLE_LEFT_TAG             (1)  — fed conductor, left half (left → bridge)
- *   DIPOLE_RIGHT_TAG            (2)  — fed conductor, right half (bridge → right)
+ *   DIPOLE_LEFT_TAG             (1)  — fed (bottom) conductor, left half (left → bridge)
+ *   DIPOLE_RIGHT_TAG            (2)  — fed (bottom) conductor, right half (bridge → right)
  *   FEED_BRIDGE_TAG            (3)  — 1-segment source bridge at the centre
- *   FOLDED_DIPOLE_OPPOSITE_TAG  (17) — un-fed parallel conductor (left → right)
- *   FOLDED_DIPOLE_CONNECTOR_TAG (18) — both end connectors across the aperture
+ *   FOLDED_DIPOLE_OPPOSITE_TAG  (17) — un-fed (top) conductor (left → right)
+ *   FOLDED_DIPOLE_CONNECTOR_TAG (18) — both end connectors (vertical, bottom → top)
  */
 export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] {
   const h = params.height;
   const half = Math.max(0.1, params.length) / 2;
-  const halfAp = Math.max(0.025, params.aperture / 2);
+  const aperture = Math.max(0.02, params.aperture);
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
 
   const [dx, dy] = orientationVector(params.orientation);
-  const [px, py] = [-dy, dx];
   const cleanZero = (v: number): number => (v === 0 ? 0 : v);
 
-  // axis = distance along the conductor axis; perp = offset across the aperture.
-  const pt = (axis: number, perp: number): [number, number, number] => [
-    cleanZero(axis * dx + perp * px),
-    cleanZero(axis * dy + perp * py),
-    h,
+  // Bottom (fed) conductor at z = h; top (opposite) conductor at z = h + aperture.
+  const zBottom = h;
+  const zTop = h + aperture;
+
+  // axis = signed distance along the orientation direction from the antenna centre.
+  const pt = (axis: number, z: number): [number, number, number] => [
+    cleanZero(axis * dx),
+    cleanZero(axis * dy),
+    z,
   ];
 
   const lambda = wavelengthMeters(params.frequency);
@@ -913,8 +916,7 @@ export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] 
   // keeps the corner junction segments (conductor vs. connector) close in
   // length. The aperture is capped (see the store) so this stays within
   // MAX_SEGS_PER_LEG across the HF range.
-  const aperture = halfAp * 2;
-  const targetSegLen = Math.max(1e-3, Math.min(lambda / SEGS_PER_WAVELENGTH, halfAp));
+  const targetSegLen = Math.max(1e-3, Math.min(lambda / SEGS_PER_WAVELENGTH, aperture / 2));
 
   const segsForLen = (len: number, userFloor: number): number =>
     Math.min(
@@ -931,19 +933,16 @@ export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] 
   const rawOppSegs = segsForLen(params.length, params.segments);
   const oppSegs = rawOppSegs % 2 === 0 ? rawOppSegs + 1 : rawOppSegs;
 
-  // End connectors span the aperture, segmented at the same target length so
-  // their segments match the adjacent conductor segments at the corners.
+  // End connectors span the aperture vertically, segmented at the same target
+  // length so their segments match the adjacent conductor segments at the corners.
   const connSegs = Math.max(1, Math.min(MAX_SEGS_PER_LEG, Math.ceil(aperture / targetSegLen)));
 
-  const fedPerp = -halfAp;
-  const oppPerp = halfAp;
-
-  const leftFed = pt(-half, fedPerp);
-  const rightFed = pt(half, fedPerp);
-  const bridgeLeft = pt(-bridgeHalf, fedPerp);
-  const bridgeRight = pt(bridgeHalf, fedPerp);
-  const leftOpp = pt(-half, oppPerp);
-  const rightOpp = pt(half, oppPerp);
+  const leftFed = pt(-half, zBottom);
+  const rightFed = pt(half, zBottom);
+  const bridgeLeft = pt(-bridgeHalf, zBottom);
+  const bridgeRight = pt(bridgeHalf, zBottom);
+  const leftOpp = pt(-half, zTop);
+  const rightOpp = pt(half, zTop);
 
   return [
     // Fed conductor — left half (left end → bridge).

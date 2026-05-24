@@ -134,7 +134,7 @@ export function DipoleControl() {
     'terminated-delta': 'Set perimeter to 1λ',
     'vertical-whip': 'Set whip length to resonant ¼λ',
     'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
-    'folded-dipole': 'Set each conductor to a resonant ½λ. Feedpoint is ~4× a plain dipole (~300 Ω) — a natural match for 300 Ω twin-lead or a 4:1 balun to 75 Ω. Same gain and pattern as a dipole when unterminated.',
+    'folded-dipole': 'Set each conductor to a resonant ½λ. Raw feedpoint ~300 Ω (~4× a plain dipole). A 6:1 impedance-transforming balun is enabled by default, which transforms this to ~50 Ω and reveals the characteristic flat broadband SWR curve the folded dipole is known for. Same gain and pattern as a plain dipole when unterminated.',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
@@ -155,7 +155,9 @@ export function DipoleControl() {
     ? `Base height above ground (${unit}) — ${dispHeight.toFixed(1)}`
     : isInvertedL
       ? `Mast / bend-point height (${unit}) — ${dispHeight.toFixed(1)}`
-      : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
+      : isFoldedDipole
+        ? `Bottom conductor height / feedpoint (${unit}) — ${dispHeight.toFixed(1)}`
+        : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
 
   const dispAperture = toDisplayLength(foldedDipoleAperture, units);
   const minApertureDisp = toDisplayLength(0.02, units);
@@ -294,7 +296,7 @@ export function DipoleControl() {
             }}
           />
           <div id="folded-dipole-aperture-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-            Spacing between the two parallel conductors. For equal-diameter wires the feedpoint stays ~4× a plain dipole (~300 Ω) regardless of spacing; wider spacing mainly broadens the impedance bandwidth. Capped at {maxApertureDisp.toFixed(2)} {unit} — beyond a realistic folded-dipole spacing the structure morphs toward a loop and no longer solves reliably as two close parallel wires.
+            Vertical spacing between the bottom (fed) and top (un-fed) conductors. The fed conductor is at the antenna height; the top conductor is aperture above it. For equal-diameter wires the feedpoint stays ~4× a plain dipole (~300 Ω) regardless of spacing; wider spacing mainly broadens the impedance bandwidth. Capped at {maxApertureDisp.toFixed(2)} {unit} — beyond a realistic folded-dipole spacing the structure morphs toward a loop and no longer solves reliably as two close parallel wires.
           </div>
         </>
       )}

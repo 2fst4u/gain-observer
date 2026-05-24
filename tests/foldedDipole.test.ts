@@ -43,20 +43,37 @@ describe('folded dipole geometry', () => {
     expect(tags.filter((t) => t === FOLDED_DIPOLE_CONNECTOR_TAG)).toHaveLength(2);
   });
 
-  it('keeps every wire at the single antenna height (planar, horizontal)', () => {
+  it('places the fed (bottom) conductor at height and the opposite (top) conductor at height + aperture', () => {
     const wires = foldedDipoleWires({ height: 12 });
-    for (const w of wires) {
+    // Fed conductor wires (left half, bridge, right half) must be at z = 12.
+    const fedTags = new Set([DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG, FEED_BRIDGE_TAG]);
+    for (const w of wires.filter((w) => fedTags.has(w.tag))) {
       expect(w.start[2]).toBeCloseTo(12, 9);
       expect(w.end[2]).toBeCloseTo(12, 9);
     }
+    // Opposite (top) conductor must be at z = 12 + aperture.
+    const opp = wires.find((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG)!;
+    expect(opp.start[2]).toBeCloseTo(12 + APERTURE, 9);
+    expect(opp.end[2]).toBeCloseTo(12 + APERTURE, 9);
+    // Connectors must span from z = 12 (bottom) to z = 12 + aperture (top).
+    const connectors = wires.filter((w) => w.tag === FOLDED_DIPOLE_CONNECTOR_TAG);
+    for (const c of connectors) {
+      const zLow = Math.min(c.start[2], c.end[2]);
+      const zHigh = Math.max(c.start[2], c.end[2]);
+      expect(zLow).toBeCloseTo(12, 9);
+      expect(zHigh).toBeCloseTo(12 + APERTURE, 9);
+    }
   });
 
-  it('separates the two conductors by exactly the aperture', () => {
+  it('separates the two conductors vertically by exactly the aperture', () => {
     const wires = foldedDipoleWires();
     const fed = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
     const opp = wires.find((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG)!;
-    // EW orientation → conductors offset along the y-axis.
-    expect(Math.abs(opp.start[1] - fed.start[1])).toBeCloseTo(APERTURE, 9);
+    // Vertical separation — top conductor is aperture above the bottom conductor.
+    expect(opp.start[2] - fed.start[2]).toBeCloseTo(APERTURE, 9);
+    // No horizontal offset between conductors for vertical aperture.
+    expect(opp.start[0]).toBeCloseTo(fed.start[0], 9);
+    expect(opp.start[1]).toBeCloseTo(fed.start[1], 9);
   });
 
   it('gives the opposite conductor an odd segment count (precise centre for the resistor)', () => {

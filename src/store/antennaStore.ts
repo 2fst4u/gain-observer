@@ -378,12 +378,17 @@ export const useAntennaStore = create<AntennaState>()(
           s.terminatingResistor = 0;
           s.transformerEnabled = false;
         } else if (type === 'folded-dipole') {
-          // Two parallel half-wave conductors at a single height. Plain
-          // (unterminated) by default — ~300 Ω, dipole-like pattern. A
-          // non-zero terminating resistor makes it a broadband TFD.
+          // Two parallel half-wave conductors separated vertically by the
+          // aperture. Plain (unterminated) by default — ~300 Ω, dipole-like
+          // pattern. A non-zero terminating resistor makes it a broadband TFD.
+          // The raw ~300 Ω feedpoint is ~6× the 50 Ω coax reference; enable a
+          // 6:1 impedance-transforming balun by default so the SWR sweep shows
+          // the characteristic flat broadband curve the antenna is known for.
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
+          s.transformerEnabled = true;
+          s.transformerRatio = 6;
         } else if (type === 'sloping-v') {
           // Slope is auto-computed from height and leg length (tips at ground).
           // V-angle snaps to the value giving maximum forward gain; the user
