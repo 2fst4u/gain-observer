@@ -20,13 +20,14 @@ export type Vec3 = readonly [number, number, number];
  *     ground); `length` is the total wire (vertical + horizontal combined).
  *     Base-fed at ground level; counterpoise radials optional. Useful on
  *     160 m / 80 m where a full ¼λ vertical would be impractically tall.
- *   - quad-loop: full-wave square loop in the vertical plane, fed at the
- *     centre of the bottom side. `height` is the height of the top of the
- *     loop; `length` is the perimeter (reference: 1λ). The loop shape is
- *     square when the mast is tall enough; it flattens to a rectangle
- *     (wider than tall, perimeter preserved) when the mast is too short.
+ *   - folded-dipole: two parallel half-wave conductors joined at both ends,
+ *     forming a narrow horizontal loop at a single height. `length` is each
+ *     conductor's length (≈½λ resonant); `foldedDipoleAperture` is the
+ *     spacing between the two conductors. Fed at the centre of the lower
+ *     conductor (~300 Ω). An optional terminating resistor at the centre of
+ *     the upper conductor turns it into a broadband terminated folded dipole.
  */
-export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip' | 'inverted-l' | 'quad-loop';
+export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip' | 'inverted-l' | 'folded-dipole';
 
 export interface Wire {
   readonly start: Vec3;

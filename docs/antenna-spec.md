@@ -260,43 +260,47 @@ This document defines the physical and mathematical model for all antenna types 
 
 ---
 
-## 7. Quad Loop
+## 7. Folded Dipole
 
 ### 7.1 Geometry Definition
 
-- **Shape:** Full-wave square loop in the vertical plane, fed at the centre of the bottom side.
-- **`height` parameter:** Height of the **feedpoint** (centre of the bottom side) above ground (metres). The loop always forms a true square (each side = P/4) extending upward from the feedpoint; the top of the loop sits at `height + P/4`. This is the same feedpoint-height convention used by every other antenna type.
-- **`length` parameter:** Total perimeter (metres). Reference length: 1λ.
-- **Shape:** Always a true square — each side = P/4. No rectangle-flattening.
-- **Orientation:** Azimuth the loop plane faces.
-- **Bottom wire:** Split at its centre by a `FEED_BRIDGE_LENGTH_M` feed bridge. The two half-wires (left and right) meet at the bridge.
+- **Shape:** Two parallel half-wave conductors joined at both ends, forming a narrow horizontal loop. The whole structure lies flat at a single height — every wire is at `z = height`, so it is fully buildable at a modest, user-controlled height (no part is forced higher).
+- **`length` parameter:** Each conductor's length (metres). Reference length: ½λ (0.475λ with end-effect) — same as a standard dipole; the fold does not change the resonant length.
+- **`foldedDipoleAperture` parameter:** Spacing between the two parallel conductors (metres). Default 0.3 m. Clamped to [0.02 m, `FOLDED_DIPOLE_MAX_APERTURE_M` = 0.5 m]. The upper cap keeps the antenna a genuine folded dipole and, crucially, within the spacing range where NEC's close-parallel-wire solution converges inside `MAX_SEGS_PER_LEG` (see §7.5).
+- **Orientation:** Azimuth the conductor axis runs. The aperture is taken in the horizontal direction perpendicular to the axis, so both conductors stay at the same height.
+- **Fed conductor:** Split at its centre by a `FEED_BRIDGE_LENGTH_M` feed bridge (the two halves carry `DIPOLE_LEFT_TAG` / `DIPOLE_RIGHT_TAG`, the same split-fed convention as the standard dipole).
+- **Min Height:** All wires at `z = height`; `height ≥ 0.1` m to avoid NEC `GE 1` instability.
 
 ### 7.2 Feedpoint Definition
 
-- **NEC Excitation:** Segment 1 of `FEED_BRIDGE_TAG` (3) at the centre of the bottom side — same bridge convention as the split-dipole and delta loop with feedline.
-- **Feed Type:** Single-segment voltage source on the bridge; inherently balanced (the bridge is equidistant from both sides of the loop).
-- **Feedline Support:** Not currently modelled (feedpoint is at the bottom of the loop, not the top; adding a hanging shield wire would require a separate feedpoint-height computation).
-- **Feedpoint Impedance:** Approximately 100–140 Ω for a resonant 1λ side-fed square quad over real ground. A 2:1 balun or a short matching stub brings this to 50 Ω. Impedance varies with height above ground.
+- **NEC Excitation:** Segment 1 of `FEED_BRIDGE_TAG` (3) at the centre of the lower conductor — handled by the existing `hasBridge` excitation path.
+- **Feed Type:** Single-segment voltage source on the bridge; balanced.
+- **Feedline Support:** Not currently modelled (the antenna is balanced and typically fed via 300 Ω twin-lead or a 4:1 balun). The transformer/balun post-processing control is available.
+- **Feedpoint Impedance:** Approximately 4× a plain dipole (~300 Ω) for equal-diameter conductors, largely independent of spacing. A 4:1 balun brings this to ~75 Ω; 300 Ω twin-lead matches it directly.
 
 ### 7.3 Termination Definition
 
-- **Model:** None. The quad loop is a standing-wave resonant antenna.
+- **Topology:** Optional. A single `LD 4` resistor at the **centre segment** of the conductor opposite the feed (`FOLDED_DIPOLE_OPPOSITE_TAG`). The opposite conductor is emitted with an **odd** segment count so its centre segment is exactly at the midpoint — no extra wire is needed.
+- **Unterminated (`terminatingResistor = 0`):** A classic folded dipole — ~300 Ω, narrowband, dipole gain and pattern.
+- **Terminated (`terminatingResistor > 0`):** A terminated folded dipole (TFD). The resistor flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated). Typical value ~390–600 Ω. This is the straight-conductor cousin of the T2FD modelled under §5 as a terminated delta.
 
 ### 7.4 SWR Convention
 
 - **Reference:** 50 Ω.
-- **Statement:** Raw SWR will be approximately 2–3:1 at the 1λ resonant perimeter (due to the ~100–140 Ω feedpoint), improving toward 1:1 with a 2:1 impedance transformer or matching network.
+- **Statement:** Raw SWR against 50 Ω is high (~6:1) for the unterminated ~300 Ω feedpoint; a 4:1 balun or 300 Ω feed line is assumed in practice. The terminated variant shows a much flatter SWR-vs-frequency curve, reflecting the broadband impedance rather than improved efficiency.
 
 ### 7.5 Segmentation Rules
 
-- **Density:** 20 segments per λ minimum per side.
-- **Minimum:** 9 segments per side (`MIN_SEGS_PER_LEG`).
-- **Wires:** 6 wires total — top, left, right, bottom-left half, bottom-right half, and the 1-segment feed bridge.
+- **Target segment length:** `min(λ / 20, aperture / 2)`. NEC's thin-wire kernel loses accuracy for closely-spaced parallel wires once the segment length grows much larger than the wire separation; tying the segment length to half the aperture is the empirical point at which the free-space gain converges to the dipole value. All segment counts derive from this single target length, capped at `MAX_SEGS_PER_LEG` (100). This is also why the aperture is capped at 0.5 m — wider spacings would need more than 100 segments to converge.
+- **Minimum:** 9 segments (`MIN_SEGS_PER_LEG`) per fed half-conductor and for the opposite conductor.
+- **Alignment:** The opposite conductor uses an **odd** number of segments to give a precise centre for the termination resistor. The fed conductor is split into two halves around the 1-segment feed bridge.
+- **Wires:** 6 wires total — fed-conductor left half, feed bridge, fed-conductor right half, opposite conductor, and the two end connectors across the aperture (shared `FOLDED_DIPOLE_CONNECTOR_TAG`).
 
 ### 7.6 Gain
 
-- **Pattern:** Broadside (perpendicular to the loop plane), vertically polarised. Gain over a dipole at the same feedpoint height depends heavily on height above ground; the theoretical free-space advantage of a full-wave loop over a dipole is small and varies with ground proximity.
-- **Note:** Do not compare gain numbers from a quad loop and a dipole unless both feedpoints are at the same height — the loop's top wire sits a full P/4 higher than the feedpoint, which can produce misleadingly high or low apparent gain depending on which height convention is assumed.
+- **Unterminated:** Identical to a standard dipole (~2.15 dBi in free space) at narrow apertures. The fold is an impedance transformation, not a gain mechanism.
+- **Wide aperture:** As the spacing grows toward a notable fraction of a wavelength, the two in-phase conductors begin to act as a broadside two-element array and the pattern departs from a simple dipole.
+- **Terminated:** Lower than a plain dipole — the terminating resistor dissipates a substantial fraction of the input power (the broadband-vs-efficiency trade).
 
 ### 7.7 Glossary
 

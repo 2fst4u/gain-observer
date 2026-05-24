@@ -48,10 +48,12 @@ export function useDipoleGeometry({
     vAngle,
     legSlope,
     frequency,
+    foldedDipoleAperture,
   } = useAntennaStore(useShallow((s) => ({
     vAngle: s.vAngle,
     legSlope: s.legSlope,
     frequency: s.frequency,
+    foldedDipoleAperture: s.foldedDipoleAperture,
   })));
 
   const rendered = useMemo(() => {
@@ -69,6 +71,7 @@ export function useDipoleGeometry({
       legSlope,
       frequency,
       whipCounterpoise,
+      foldedDipoleAperture,
     });
 
     return wires.map((w, idx) => {
@@ -100,7 +103,7 @@ export function useDipoleGeometry({
         isBridge,
       };
     }).filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, frequency, whipCounterpoise]);
+  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, frequency, whipCounterpoise, foldedDipoleAperture]);
 
   const { shield, feedpoint } = useMemo(() => {
     const isDelta = type === 'delta-loop' || type === 'terminated-delta';

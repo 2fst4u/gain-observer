@@ -1,0 +1,67 @@
+// Integration test: a folded dipole built through selectSimulationInput and
+// solved by the real NEC-2 Wasm engine. Guards two physics claims:
+//   1. An unterminated folded dipole presents ~4× a plain dipole (~300 Ω) and
+//      radiates like a dipole (~2 dBi in free space).
+//   2. Adding a terminating resistor (TFD) dissipates power — gain drops and
+//      the feedpoint impedance changes.
+
+import { describe, expect, it, beforeAll } from 'vitest';
+import { Nec2Engine } from '../src/physics/nec2Engine';
+import { useAntennaStore, selectSimulationInput, type AntennaState } from '../src/store/antennaStore';
+import { halfWaveLength } from '../src/physics/constants';
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
+
+const wasmUrl = pathToFileURL(resolve(process.cwd(), 'public/')).href + '/';
+
+const FREQ = 7.1;
+
+function foldedState(overrides: Partial<AntennaState>): AntennaState {
+  return {
+    ...useAntennaStore.getState(),
+    antennaType: 'folded-dipole',
+    length: halfWaveLength(FREQ),
+    height: 10,
+    frequency: FREQ,
+    orientation: 'EW',
+    groundId: 'free',
+    foldedDipoleAperture: 0.3,
+    terminatingResistor: 0,
+    transformerEnabled: false,
+    ...overrides,
+  } as AntennaState;
+}
+
+describe('Folded dipole (real Wasm)', () => {
+  let engine: Nec2Engine;
+
+  beforeAll(async () => {
+    engine = new Nec2Engine({ baseUrl: wasmUrl });
+    await engine.init();
+  }, 30_000);
+
+  it('unterminated: ~4× dipole feedpoint (~300 Ω) and dipole-like gain in free space', async () => {
+    const r = await engine.simulate(selectSimulationInput(foldedState({})));
+
+    expect(Number.isFinite(r.maxGainDbi)).toBe(true);
+    // Free-space dipole gain ~2.15 dBi; the fold does not change the pattern.
+    expect(r.maxGainDbi).toBeGreaterThan(1.8);
+    expect(r.maxGainDbi).toBeLessThan(2.8);
+    // Feedpoint is the folded dipole's hallmark ~4× a plain dipole (~300 Ω).
+    expect(r.impedance.R).toBeGreaterThan(200);
+    expect(r.impedance.R).toBeLessThan(400);
+  }, 30_000);
+
+  it('terminated (TFD): resistor lowers gain and shifts the feedpoint impedance', async () => {
+    const unterminated = await engine.simulate(selectSimulationInput(foldedState({})));
+    const terminated = await engine.simulate(
+      selectSimulationInput(foldedState({ terminatingResistor: 600 })),
+    );
+
+    expect(Number.isFinite(terminated.maxGainDbi)).toBe(true);
+    // The resistor dissipates a substantial fraction of the input power.
+    expect(terminated.maxGainDbi).toBeLessThan(unterminated.maxGainDbi);
+    // Termination measurably changes the feedpoint impedance.
+    expect(Math.abs(terminated.impedance.R - unterminated.impedance.R)).toBeGreaterThan(2);
+  }, 30_000);
+});

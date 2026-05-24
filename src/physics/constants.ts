@@ -68,11 +68,11 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
       // The horizontal top-loading section adds electrical length so the
       // mast can be shorter than a full ¼λ vertical.
       return lambda * 0.25 * endEffect;
-    case 'quad-loop':
-      // Full-wave perimeter. Quad loops resonate at approximately 1λ
-      // perimeter (slightly less in practice; 1λ is the canonical starting
-      // point, same convention as the delta loop).
-      return lambda * 1.0 * endEffect;
+    case 'folded-dipole':
+      // Each conductor is a resonant half-wave, same as a standard dipole.
+      // The fold (the second parallel conductor) raises the feedpoint
+      // impedance ~4× but does not change the resonant length.
+      return lambda * 0.5 * endEffect;
     default:
       return lambda * 0.5 * endEffect;
   }
@@ -221,23 +221,40 @@ export const INVERTED_L_HORIZONTAL_TAG = 15;
 export const INVERTED_L_RADIAL_TAG = 16;
 
 /**
- * Wire tags for the Quad Loop antenna (full-wave square loop, side-fed).
+ * Wire tags for the Folded Dipole antenna.
  *
- * The loop is divided into five segments: top side, left side, right side,
- * and the two halves of the bottom side that meet at the feed bridge.
- * The feed bridge (FEED_BRIDGE_TAG = 3) sits at the centre of the bottom.
+ * Two parallel half-wave conductors joined at both ends form a narrow loop.
+ * The lower conductor is fed at its centre (split into DIPOLE_LEFT_TAG /
+ * DIPOLE_RIGHT_TAG halves around the FEED_BRIDGE_TAG = 3 source bridge, the
+ * same split-fed convention as the standard dipole). The upper conductor is
+ * continuous (FOLDED_DIPOLE_OPPOSITE_TAG); in a *terminated* folded dipole
+ * (TFD) a resistor sits at the centre segment of that conductor. Two short
+ * end-connector wires across the aperture share FOLDED_DIPOLE_CONNECTOR_TAG.
  *
- *   QUAD_LOOP_TOP_TAG          (17) — top horizontal wire
- *   QUAD_LOOP_LEFT_TAG         (18) — left vertical wire (bottom → top)
- *   QUAD_LOOP_RIGHT_TAG        (19) — right vertical wire (top → bottom)
- *   QUAD_LOOP_BOTTOM_LEFT_TAG  (20) — left half of bottom wire
- *   QUAD_LOOP_BOTTOM_RIGHT_TAG (21) — right half of bottom wire
+ *   FOLDED_DIPOLE_OPPOSITE_TAG  (17) — un-fed parallel conductor
+ *   FOLDED_DIPOLE_CONNECTOR_TAG (18) — both end connectors across the aperture
  */
-export const QUAD_LOOP_TOP_TAG = 17;
-export const QUAD_LOOP_LEFT_TAG = 18;
-export const QUAD_LOOP_RIGHT_TAG = 19;
-export const QUAD_LOOP_BOTTOM_LEFT_TAG = 20;
-export const QUAD_LOOP_BOTTOM_RIGHT_TAG = 21;
+export const FOLDED_DIPOLE_OPPOSITE_TAG = 17;
+export const FOLDED_DIPOLE_CONNECTOR_TAG = 18;
+
+/**
+ * Default conductor spacing (aperture) of the folded dipole, metres.
+ * 0.3 m is a typical wide-spaced HF folded-dipole gap (e.g. window-line
+ * spreaders). For equal-diameter conductors the feedpoint stays ~4× a plain
+ * dipole (~300 Ω) regardless of spacing; the spacing mainly trades off
+ * bandwidth and the onset of array-like pattern effects at large apertures.
+ */
+export const FOLDED_DIPOLE_DEFAULT_APERTURE_M = 0.3;
+
+/**
+ * Maximum folded-dipole conductor spacing, metres. Two long, closely-spaced
+ * parallel wires converge slowly in NEC's thin-wire kernel: the segment length
+ * must shrink with the spacing, and beyond ~0.5 m the structure would need
+ * more than `MAX_SEGS_PER_LEG` segments to solve accurately (and is morphing
+ * toward a loop rather than a folded dipole). 0.5 m comfortably covers every
+ * realistic folded-dipole spacing across the HF range.
+ */
+export const FOLDED_DIPOLE_MAX_APERTURE_M = 0.5;
 
 /**
  * Number of counterpoise radials, equally spaced in azimuth, deployed

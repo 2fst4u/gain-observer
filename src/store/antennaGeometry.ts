@@ -17,11 +17,8 @@ import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
-  QUAD_LOOP_TOP_TAG,
-  QUAD_LOOP_LEFT_TAG,
-  QUAD_LOOP_RIGHT_TAG,
-  QUAD_LOOP_BOTTOM_LEFT_TAG,
-  QUAD_LOOP_BOTTOM_RIGHT_TAG,
+  FOLDED_DIPOLE_OPPOSITE_TAG,
+  FOLDED_DIPOLE_CONNECTOR_TAG,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -849,24 +846,14 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   return wires;
 }
 
-export interface QuadLoopWiresParams {
-  /** Total perimeter, metres. */
+export interface FoldedDipoleWiresParams {
+  /** Each conductor's length, metres (≈½λ resonant). */
   length: number;
-  /**
-   * Height of the **feedpoint** (centre of the bottom side) above ground,
-   * metres. The loop is always a true square: each side = P/4. The loop
-   * extends upward and sideways symmetrically from the feedpoint, so the
-   * top of the loop sits at `height + P/4`.
-   *
-   * This is the same convention used by every other antenna type — the
-   * `height` slider always moves the feedpoint, not the top of the
-   * structure.
-   */
+  /** Height of the (planar, horizontal) antenna above ground, metres. */
   height: number;
-  /**
-   * Azimuth the loop faces (the plane of the loop is perpendicular to the
-   * ground and aligned along this direction).
-   */
+  /** Spacing between the two parallel conductors, metres. */
+  aperture: number;
+  /** Azimuth the conductor axis runs. */
   orientation: Orientation;
   wireRadius: number;
   segments: number;
@@ -874,116 +861,138 @@ export interface QuadLoopWiresParams {
 }
 
 /**
- * Builds the wires for a Quad Loop antenna (full-wave square loop,
- * centre-of-bottom-side fed).
+ * Builds the wires for a Folded Dipole antenna.
  *
- * The loop lies in a vertical plane whose orientation matches
- * `params.orientation`. `params.height` is the **feedpoint height**
- * (centre of the bottom side) — the same convention used by the dipole,
- * inverted-V, delta loop, etc. The loop always forms a true square: each
- * side = P/4. The top sits at `height + P/4`.
+ * Two parallel conductors of length `length` run along the orientation axis,
+ * separated by `aperture` in the horizontal direction perpendicular to the
+ * axis, and joined at both ends by short connector wires. The whole structure
+ * lies flat at a single height `h` — every wire is at z = h, so the antenna
+ * is fully buildable at a modest, user-controlled height (no part is forced
+ * higher, unlike a vertical loop).
  *
- * The bottom side is split at its centre by a short FEED_BRIDGE_TAG segment
- * (identical convention to the delta loop apex bridge). Excitation lands on
- * segment 1 of the bridge — the existing buildExcitation `hasBridge` path
- * handles this automatically.
+ * The lower (fed) conductor is split at its centre around a FEED_BRIDGE_TAG
+ * source bridge — the same split-fed convention as the standard dipole, so
+ * the existing buildExcitation `hasBridge` path drives it automatically. The
+ * upper conductor is a single continuous wire with an odd segment count; a
+ * terminating resistor (when fitted) lands on its exact centre segment via
+ * buildTerminationElements, turning the antenna into a broadband TFD.
  *
  * Tags:
- *   QUAD_LOOP_TOP_TAG          (17) — top horizontal wire
- *   QUAD_LOOP_LEFT_TAG         (18) — left vertical wire (bottom-left → top-left)
- *   QUAD_LOOP_RIGHT_TAG        (19) — right vertical wire (top-right → bottom-right)
- *   QUAD_LOOP_BOTTOM_LEFT_TAG  (20) — left half of bottom (bottom-left → bridge-left)
- *   QUAD_LOOP_BOTTOM_RIGHT_TAG (21) — right half of bottom (bridge-right → bottom-right)
- *   FEED_BRIDGE_TAG             (3) — 1-segment source bridge at bottom centre
+ *   DIPOLE_LEFT_TAG             (1)  — fed conductor, left half (left → bridge)
+ *   DIPOLE_RIGHT_TAG            (2)  — fed conductor, right half (bridge → right)
+ *   FEED_BRIDGE_TAG            (3)  — 1-segment source bridge at the centre
+ *   FOLDED_DIPOLE_OPPOSITE_TAG  (17) — un-fed parallel conductor (left → right)
+ *   FOLDED_DIPOLE_CONNECTOR_TAG (18) — both end connectors across the aperture
  */
-export function buildQuadLoopWires(params: QuadLoopWiresParams): Wire[] {
-  const perimeter = params.length;
+export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] {
   const h = params.height;
-  const [dx, dy] = orientationVector(params.orientation);
-
-  // height is the feedpoint (bottom-centre) height.
-  // The loop is always a true square: side = P/4.
-  const sideLen = perimeter / 4;
-  const bottomZ = Math.max(SLOPING_V_MIN_TIP_Z_M, h);
-  const topZ = bottomZ + sideLen;
-
-  // Half the bottom-side width = half a side length.
-  const halfWidth = sideLen / 2;
-
+  const half = Math.max(0.1, params.length) / 2;
+  const halfAp = Math.max(0.025, params.aperture / 2);
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
 
-  const topLeft:     [number, number, number] = [-halfWidth * dx, -halfWidth * dy, topZ];
-  const topRight:    [number, number, number] = [ halfWidth * dx,  halfWidth * dy, topZ];
-  const bottomLeft:  [number, number, number] = [-halfWidth * dx, -halfWidth * dy, bottomZ];
-  const bottomRight: [number, number, number] = [ halfWidth * dx,  halfWidth * dy, bottomZ];
-  const centerLeft:  [number, number, number] = [-bridgeHalf * dx, -bridgeHalf * dy, bottomZ];
-  const centerRight: [number, number, number] = [ bridgeHalf * dx,  bridgeHalf * dy, bottomZ];
+  const [dx, dy] = orientationVector(params.orientation);
+  const [px, py] = [-dy, dx];
+  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+
+  // axis = distance along the conductor axis; perp = offset across the aperture.
+  const pt = (axis: number, perp: number): [number, number, number] => [
+    cleanZero(axis * dx + perp * px),
+    cleanZero(axis * dy + perp * py),
+    h,
+  ];
 
   const lambda = wavelengthMeters(params.frequency);
-  const userSegsPerSide = Math.round(params.segments / 4);
 
-  // All four sides are the same length (true square), so one segment count
-  // covers the top wire, the two side wires, and each bottom half.
-  const minSideSegs = Math.ceil((SEGS_PER_WAVELENGTH * sideLen) / lambda);
-  const topSegs = Math.min(MAX_SEGS_PER_LEG, Math.max(MIN_SEGS_PER_LEG, minSideSegs, userSegsPerSide));
+  // Target segment length. NEC's thin-wire kernel loses accuracy for closely
+  // spaced parallel wires once the segment length grows much larger than the
+  // wire separation, so the folded dipole must segment finely enough that each
+  // segment is no longer than ~half the aperture (empirically the point where
+  // the free-space gain converges to the dipole value). We take the smaller of
+  // the usual density target (λ / SEGS_PER_WAVELENGTH) and half the aperture,
+  // then derive all segment counts from that single target length. This also
+  // keeps the corner junction segments (conductor vs. connector) close in
+  // length. The aperture is capped (see the store) so this stays within
+  // MAX_SEGS_PER_LEG across the HF range.
+  const aperture = halfAp * 2;
+  const targetSegLen = Math.max(1e-3, Math.min(lambda / SEGS_PER_WAVELENGTH, halfAp));
 
-  // Left / right vertical wires (same length as top).
-  const sideSegs = topSegs;
+  const segsForLen = (len: number, userFloor: number): number =>
+    Math.min(
+      MAX_SEGS_PER_LEG,
+      Math.max(MIN_SEGS_PER_LEG, Math.ceil(len / targetSegLen), userFloor),
+    );
 
-  // Each bottom half (from corner to bridge edge).
-  // halfWidth = sideLen/2, so halfBottomLen ≈ sideLen/2 (minus the tiny bridge half).
-  const halfBottomLen = Math.max(0.01, halfWidth - bridgeHalf);
-  const minHalfBottomSegs = Math.ceil((SEGS_PER_WAVELENGTH * halfBottomLen) / lambda);
-  const halfBottomSegs = Math.min(MAX_SEGS_PER_LEG, Math.max(MIN_SEGS_PER_LEG, minHalfBottomSegs, Math.round(userSegsPerSide / 2)));
+  // Each half of the fed conductor (corner → feed bridge edge).
+  const halfCondLen = Math.max(0.01, half - bridgeHalf);
+  const halfSegs = segsForLen(halfCondLen, Math.round(params.segments / 2));
+
+  // Opposite conductor: force an odd segment count so the centre segment
+  // (which carries the optional terminating resistor) is exactly at midpoint.
+  const rawOppSegs = segsForLen(params.length, params.segments);
+  const oppSegs = rawOppSegs % 2 === 0 ? rawOppSegs + 1 : rawOppSegs;
+
+  // End connectors span the aperture, segmented at the same target length so
+  // their segments match the adjacent conductor segments at the corners.
+  const connSegs = Math.max(1, Math.min(MAX_SEGS_PER_LEG, Math.ceil(aperture / targetSegLen)));
+
+  const fedPerp = -halfAp;
+  const oppPerp = halfAp;
+
+  const leftFed = pt(-half, fedPerp);
+  const rightFed = pt(half, fedPerp);
+  const bridgeLeft = pt(-bridgeHalf, fedPerp);
+  const bridgeRight = pt(bridgeHalf, fedPerp);
+  const leftOpp = pt(-half, oppPerp);
+  const rightOpp = pt(half, oppPerp);
 
   return [
-    // Top wire — left corner to right corner.
+    // Fed conductor — left half (left end → bridge).
     {
-      start: topLeft,
-      end: topRight,
+      start: leftFed,
+      end: bridgeLeft,
       radius: params.wireRadius,
-      segments: topSegs,
-      tag: QUAD_LOOP_TOP_TAG,
+      segments: halfSegs,
+      tag: DIPOLE_LEFT_TAG,
     },
-    // Left vertical wire — bottom-left corner up to top-left corner.
+    // Feed bridge at the centre of the fed conductor.
     {
-      start: bottomLeft,
-      end: topLeft,
-      radius: params.wireRadius,
-      segments: sideSegs,
-      tag: QUAD_LOOP_LEFT_TAG,
-    },
-    // Right vertical wire — top-right corner down to bottom-right corner.
-    {
-      start: topRight,
-      end: bottomRight,
-      radius: params.wireRadius,
-      segments: sideSegs,
-      tag: QUAD_LOOP_RIGHT_TAG,
-    },
-    // Left half of bottom wire — bottom-left corner to bridge-left.
-    {
-      start: bottomLeft,
-      end: centerLeft,
-      radius: params.wireRadius,
-      segments: halfBottomSegs,
-      tag: QUAD_LOOP_BOTTOM_LEFT_TAG,
-    },
-    // Right half of bottom wire — bridge-right to bottom-right corner.
-    {
-      start: centerRight,
-      end: bottomRight,
-      radius: params.wireRadius,
-      segments: halfBottomSegs,
-      tag: QUAD_LOOP_BOTTOM_RIGHT_TAG,
-    },
-    // Feed bridge at the centre of the bottom side.
-    {
-      start: centerLeft,
-      end: centerRight,
+      start: bridgeLeft,
+      end: bridgeRight,
       radius: params.wireRadius,
       segments: 1,
       tag: FEED_BRIDGE_TAG,
+    },
+    // Fed conductor — right half (bridge → right end).
+    {
+      start: bridgeRight,
+      end: rightFed,
+      radius: params.wireRadius,
+      segments: halfSegs,
+      tag: DIPOLE_RIGHT_TAG,
+    },
+    // Opposite (un-fed) conductor — continuous wire; resistor on centre seg.
+    {
+      start: leftOpp,
+      end: rightOpp,
+      radius: params.wireRadius,
+      segments: oppSegs,
+      tag: FOLDED_DIPOLE_OPPOSITE_TAG,
+    },
+    // Left end connector across the aperture.
+    {
+      start: leftFed,
+      end: leftOpp,
+      radius: params.wireRadius,
+      segments: connSegs,
+      tag: FOLDED_DIPOLE_CONNECTOR_TAG,
+    },
+    // Right end connector across the aperture.
+    {
+      start: rightFed,
+      end: rightOpp,
+      radius: params.wireRadius,
+      segments: connSegs,
+      tag: FOLDED_DIPOLE_CONNECTOR_TAG,
     },
   ];
 }

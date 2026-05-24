@@ -4,10 +4,6 @@ Antenna types desired for future implementation. Each entry notes the key geomet
 
 ---
 
-## Folded Dipole
-
-Half-wave dipole where both ends are connected by a second parallel conductor, forming a narrow rectangular loop. Feed impedance is ~300 Ω (4× a standard dipole), making it a natural match for 300 Ω twin-lead. Gain and pattern are identical to a dipole. Geometry requires two parallel wires joined at their ends with short connecting segments.
-
 ## Horizontal Loop (Skyloop)
 
 Full-wave loop laid out horizontally (parallel to ground). Typically square or rectangular. At low heights it produces a high-angle NVIS pattern; at greater heights the pattern develops low-angle gain. The four-sided geometry requires corner wires and a flexible aspect-ratio parameter for square vs. rectangular configurations.
