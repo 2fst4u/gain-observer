@@ -496,7 +496,23 @@ export const useAntennaStore = create<AntennaState>()(
       }),
       setTerminatingResistor: (ohms) => set((s) => {
         if (!Number.isFinite(ohms)) return;
+        const prev = s.terminatingResistor;
         s.terminatingResistor = Math.max(0, ohms);
+        // For folded dipoles the transformer ratio must track the termination
+        // state because the terminator changes the feedpoint impedance:
+        //   unterminated  →  ~300 Ω  →  6:1 balun  →  ~50 Ω
+        //   terminated    →  ~100 Ω  →  2:1 balun  →  ~50 Ω
+        // Auto-switch only when the transformer is already enabled so we don't
+        // silently turn it on for users who have disabled it manually.
+        if (s.antennaType === 'folded-dipole' && s.transformerEnabled) {
+          if (prev === 0 && s.terminatingResistor > 0) {
+            // Turning termination ON: switch to 2:1 (for ~100 Ω feedpoint).
+            s.transformerRatio = 2;
+          } else if (prev > 0 && s.terminatingResistor === 0) {
+            // Turning termination OFF: restore 6:1 (for ~300 Ω feedpoint).
+            s.transformerRatio = 6;
+          }
+        }
       }),
       setWhipCounterpoise: (enabled) => set((s) => {
         s.whipCounterpoise = !!enabled;

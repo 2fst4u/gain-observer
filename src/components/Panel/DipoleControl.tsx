@@ -344,7 +344,7 @@ export function DipoleControl() {
               : antennaType === 'sloping-v'
                 ? `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
                 : antennaType === 'folded-dipole'
-                  ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed — a terminated folded dipole (TFD). Flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated in the resistor). A typical TFD value is ~390–600 Ω. Click Off for a plain folded dipole.`
+                  ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed — a terminated folded dipole (TFD). The terminator drops the feedpoint from ~300 Ω to ~100 Ω; the balun has been automatically set to 2:1 to match this to ~50 Ω and reveal the broadband SWR curve. Flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated in the resistor). A typical TFD value is ~390–600 Ω. Click Off to restore the plain folded dipole and 6:1 balun.`
                   : `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
           </div>
         </>
