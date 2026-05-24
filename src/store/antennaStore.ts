@@ -550,12 +550,6 @@ export const useAntennaStore = create<AntennaState>()(
   ),
 );
 
-/**
- * Legacy setters maintained for backward compatibility.
- */
-export const setType = (t: AntennaType) => useAntennaStore.getState().setAntennaType(t);
-export const setSlope = (deg: number) => useAntennaStore.getState().setLegSlope(deg);
-
 function clampFreq(f: number): number {
   if (!Number.isFinite(f)) return 7.1;
   return Math.max(1.8, Math.min(30, f));
