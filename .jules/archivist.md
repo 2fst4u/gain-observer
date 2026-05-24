@@ -37,3 +37,8 @@
 
 **Learning:** The "V-Beam" terminology was previously added to the "Sloping V" documentation to clarify that they use the same geometry function. However, the user clarified that V-beam antennas are not actually used anymore in the project.
 **Action:** All references to "V-Beam" have been entirely removed from the documentation (`docs/antenna-model-spec.md`, `docs/antenna-spec.md`) and the codebase (`src/store/antennaGeometry.ts`) to avoid confusion and properly reflect the current state of the application.
+
+## 2026-05-25 - Vertical Whip and Inverted-L Documentation Drift
+
+**Learning:** The "vertical-whip" and "inverted-l" antenna topologies were fully implemented and supported in the codebase (including physics, geometry builders, and UI selection), but were completely undocumented in the `README.md` scope section and the physics specification files (`docs/antenna-model-spec.md` and `docs/antenna-spec.md`). Documentation drifted and failed to list supported features.
+**Action:** The documentation has been updated to explicitly include the structural definitions, feedpoints, counterpoises, and segmentation rules for the Vertical Whip topology (and verified existing Inverted-L docs) to accurately reflect the application's true capabilities.

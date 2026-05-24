@@ -70,6 +70,22 @@ We use the standard NEC-2 Cartesian coordinate system:
 - **Feedpoint**: The apex.
 - **Termination Support**: A single resistor across the base-centre gap (not two resistors to ground). Designed for broadband flat impedance, not directionality — the antenna remains roughly broadside-bidirectional, like a delta loop but aperiodic.
 
+### 2.6 Inverted-L
+
+- **Structure**: A vertical wire extending from near ground up to a bend point, followed by a horizontal wire extending outward.
+- **Length**: The total wire length (vertical plus horizontal sections).
+- **Height**: The height of the bend point (equal to the vertical section length).
+- **Feedpoint**: The base of the vertical section.
+- **Counterpoise**: Supports radial wires for return current paths.
+
+### 2.7 Vertical Whip
+
+- **Structure**: A single vertical wire extending upwards from near ground level.
+- **Length**: The height of the wire.
+- **Height**: The starting height of the wire base (typically near zero, but slightly gapped to avoid perfect grounding).
+- **Feedpoint**: The base of the vertical wire.
+- **Counterpoise**: Supports radial wires for return current paths.
+
 ---
 
 ## 3. "Terminated" Antennas

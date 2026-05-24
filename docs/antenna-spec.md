@@ -257,3 +257,40 @@ This document defines the physical and mathematical model for all antenna types 
 ### 6.6 Glossary
 
 - Same as Section 1.6.
+
+---
+
+## 7. Vertical Whip
+
+### 7.1 Geometry Definition
+
+- **Shape:** A single vertical wire.
+- **`height` parameter:** The starting base height of the vertical wire (metres). Typically near zero but gapped slightly (`VERTICAL_WHIP_BASE_GAP_M`, 0.01 m) above ground to maintain electrical isolation unless explicitly modelling a grounded monopole.
+- **`length` parameter:** Total length of the vertical wire (metres).
+- **Base:** The vertical wire starts at `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above `height`.
+- **Top:** The wire extends to `height + length`.
+
+### 7.2 Feedpoint Definition
+
+- **NEC Excitation:** Segment 1 of the vertical wire (Tag `VERTICAL_WHIP_TAG`, 12) — the lowest segment at the base.
+- **Feed Type:** Base-fed monopole (unbalanced). Coax shield connects at the base.
+- **Feedline Support:** Not modelled. The feedline is treated as ideal.
+
+### 7.3 Counterpoise
+
+- **Model:** When enabled, `VERTICAL_WHIP_RADIAL_COUNT` (4) horizontal ¼λ radials fan out from the base at equal azimuth spacing, tagged `VERTICAL_WHIP_RADIAL_TAG` (13).
+- **Without counterpoise:** The source has no proper return path; NEC reports the high reactance and SWR that a radial-less base-fed antenna physically exhibits.
+
+### 7.4 SWR Convention
+
+- **Reference:** 50 Ω.
+- **Notes:** Feedpoint impedance depends heavily on the length of the vertical whip, the presence and quality of radials, and ground conductivity.
+
+### 7.5 Segmentation Rules
+
+- **Density:** 20 segments per λ minimum.
+- **Minimum:** 9 segments for the vertical whip and each radial.
+
+### 7.6 Glossary
+
+- Same as Section 1.6.
