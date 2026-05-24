@@ -257,3 +257,49 @@ This document defines the physical and mathematical model for all antenna types 
 ### 6.6 Glossary
 
 - Same as Section 1.6.
+
+---
+
+## 7. Quad Loop
+
+### 7.1 Geometry Definition
+
+- **Shape:** Full-wave square loop in the vertical plane, fed at the centre of the bottom side.
+- **`height` parameter:** Height of the **top** of the loop above ground (metres) — same convention as the delta loop apex height.
+- **`length` parameter:** Total perimeter (metres). Reference length: 1λ.
+- **Square vs rectangle:** When the mast height ≥ P/4 + `SLOPING_V_MIN_TIP_Z_M` the loop is a true square (each side = P/4). When the mast is shorter, the loop flattens to a rectangle while preserving the full perimeter:
+  - `loop_height = min(P/4, height − SLOPING_V_MIN_TIP_Z_M)`
+  - `loop_width  = P/2 − loop_height`  (always ≥ loop_height)
+- **Orientation:** Azimuth the loop plane faces.
+- **Bottom wire:** Split at its centre by a `FEED_BRIDGE_LENGTH_M` feed bridge. The two half-wires (left and right) meet at the bridge.
+
+### 7.2 Feedpoint Definition
+
+- **NEC Excitation:** Segment 1 of `FEED_BRIDGE_TAG` (3) at the centre of the bottom side — same bridge convention as the split-dipole and delta loop with feedline.
+- **Feed Type:** Single-segment voltage source on the bridge; inherently balanced (the bridge is equidistant from both sides of the loop).
+- **Feedline Support:** Not currently modelled (feedpoint is at the bottom of the loop, not the top; adding a hanging shield wire would require a separate feedpoint-height computation).
+- **Feedpoint Impedance:** Approximately 100–140 Ω for a resonant 1λ side-fed square quad over real ground. A 2:1 balun or a short matching stub brings this to 50 Ω. Impedance varies with height above ground.
+
+### 7.3 Termination Definition
+
+- **Model:** None. The quad loop is a standing-wave resonant antenna.
+
+### 7.4 SWR Convention
+
+- **Reference:** 50 Ω.
+- **Statement:** Raw SWR will be approximately 2–3:1 at the 1λ resonant perimeter (due to the ~100–140 Ω feedpoint), improving toward 1:1 with a 2:1 impedance transformer or matching network.
+
+### 7.5 Segmentation Rules
+
+- **Density:** 20 segments per λ minimum per side.
+- **Minimum:** 9 segments per side (`MIN_SEGS_PER_LEG`).
+- **Wires:** 6 wires total — top, left, right, bottom-left half, bottom-right half, and the 1-segment feed bridge.
+
+### 7.6 Gain
+
+- **Over dipole:** Approximately 1.5 dBd (~3.65 dBi) at 1λ perimeter over free space. Slightly less than the delta loop's gain on paper but with a more practical feedpoint impedance at the bottom of the loop.
+- **Pattern:** Broadside (perpendicular to the loop plane), vertically polarised, with low-angle radiation at typical heights.
+
+### 7.7 Glossary
+
+- Same as Section 1.6.

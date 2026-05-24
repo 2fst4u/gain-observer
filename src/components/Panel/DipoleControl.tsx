@@ -118,6 +118,7 @@ export function DipoleControl() {
     'terminated-delta': '1λ',
     'vertical-whip': '¼λ',
     'inverted-l': '¼λ',
+    'quad-loop': '1λ',
   };
 
   const resonateTitles: Record<AntennaType, string> = {
@@ -128,6 +129,7 @@ export function DipoleControl() {
     'terminated-delta': 'Set perimeter to 1λ',
     'vertical-whip': 'Set whip length to resonant ¼λ',
     'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
+    'quad-loop': 'Set perimeter to 1λ (resonant quad loop). Side-fed impedance ~100–140 Ω; a 2:1 balun or ATU brings it to 50 Ω. ~1.5 dBd gain over a dipole. Slightly more gain than the delta loop with a lower feedpoint.',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
@@ -165,6 +167,7 @@ export function DipoleControl() {
         <option value="terminated-delta">Terminated Delta</option>
         <option value="vertical-whip">Vertical Whip</option>
         <option value="inverted-l">Inverted-L</option>
+        <option value="quad-loop">Quad Loop</option>
       </select>
 
       <label htmlFor="dipole-length" style={{ marginTop: 10 }}>{lengthLabel}</label>

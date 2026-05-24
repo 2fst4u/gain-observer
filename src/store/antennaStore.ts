@@ -49,6 +49,11 @@ import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
+  QUAD_LOOP_TOP_TAG,
+  QUAD_LOOP_LEFT_TAG,
+  QUAD_LOOP_RIGHT_TAG,
+  QUAD_LOOP_BOTTOM_LEFT_TAG,
+  QUAD_LOOP_BOTTOM_RIGHT_TAG,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -69,6 +74,11 @@ export {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
+  QUAD_LOOP_TOP_TAG,
+  QUAD_LOOP_LEFT_TAG,
+  QUAD_LOOP_RIGHT_TAG,
+  QUAD_LOOP_BOTTOM_LEFT_TAG,
+  QUAD_LOOP_BOTTOM_RIGHT_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
@@ -78,6 +88,7 @@ import {
   buildTerminatedDeltaWires,
   buildVerticalWhipWires,
   buildInvertedLWires,
+  buildQuadLoopWires,
   orientationVector,
   type OrientationPreset,
   type Orientation,
@@ -356,6 +367,13 @@ export const useAntennaStore = create<AntennaState>()(
           // section length). If coming from a vertical whip with height=0,
           // restore a sensible mast height so there is a vertical section.
           if (s.height === 0) s.height = INITIAL_HEIGHT;
+          s.vAngle = 180;
+          s.legSlope = 0;
+          s.terminatingResistor = 0;
+          s.transformerEnabled = false;
+        } else if (type === 'quad-loop') {
+          // Full-wave square loop. `height` = top of the loop; the loop hangs
+          // downward from there. Feedpoint at centre of the bottom side.
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
@@ -654,6 +672,9 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
     case 'inverted-l':
       // Total wire (vertical + horizontal) for a resonant quarter-wave.
       return lambda * 0.25 * 0.95;
+    case 'quad-loop':
+      // 1λ perimeter (same convention as the delta loop).
+      return lambda * 1.0;
     default:
       return halfWaveLength(frequencyMHz);
   }
@@ -792,6 +813,17 @@ export function buildWires(
       segments: state.segments,
       frequency: state.frequency,
       counterpoise: state.whipCounterpoise ?? false,
+    });
+  }
+
+  if (antennaType === 'quad-loop') {
+    return buildQuadLoopWires({
+      length: state.length,
+      height: h,
+      orientation: state.orientation,
+      wireRadius: state.wireRadius,
+      segments: state.segments,
+      frequency: state.frequency,
     });
   }
 

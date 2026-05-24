@@ -17,6 +17,11 @@ import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
+  QUAD_LOOP_TOP_TAG,
+  QUAD_LOOP_LEFT_TAG,
+  QUAD_LOOP_RIGHT_TAG,
+  QUAD_LOOP_BOTTOM_LEFT_TAG,
+  QUAD_LOOP_BOTTOM_RIGHT_TAG,
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -842,4 +847,143 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   }
 
   return wires;
+}
+
+export interface QuadLoopWiresParams {
+  /** Total perimeter, metres. */
+  length: number;
+  /** Height of the top of the loop above ground, metres. */
+  height: number;
+  /**
+   * Azimuth the loop faces (the plane of the loop is perpendicular to the
+   * ground and aligned along this direction).
+   */
+  orientation: Orientation;
+  wireRadius: number;
+  segments: number;
+  frequency: number;
+}
+
+/**
+ * Builds the wires for a Quad Loop antenna (full-wave square loop,
+ * centre-of-bottom-side fed).
+ *
+ * The loop lies in a vertical plane whose orientation matches
+ * `params.orientation`. The top of the loop sits at `params.height`.
+ *
+ * Shape:
+ *   - When the mast is tall enough (height ≥ P/4 + SLOPING_V_MIN_TIP_Z_M),
+ *     the loop is square: each side = P/4.
+ *   - When the mast is shorter, the loop flattens to a rectangle while
+ *     preserving the full perimeter:
+ *       loop_height = min(P/4, height − SLOPING_V_MIN_TIP_Z_M)
+ *       loop_width  = P/2 − loop_height
+ *     (loop_width ≥ P/4 always, so the rectangle is always wider than tall
+ *     or exactly square.)
+ *
+ * The bottom side is split at its centre by a short FEED_BRIDGE_TAG segment
+ * (identical convention to the delta loop apex bridge). Excitation lands on
+ * segment 1 of the bridge — the existing buildExcitation `hasBridge` path
+ * handles this automatically.
+ *
+ * Tags:
+ *   QUAD_LOOP_TOP_TAG          (17) — top horizontal wire
+ *   QUAD_LOOP_LEFT_TAG         (18) — left vertical wire (bottom-left → top-left)
+ *   QUAD_LOOP_RIGHT_TAG        (19) — right vertical wire (top-right → bottom-right)
+ *   QUAD_LOOP_BOTTOM_LEFT_TAG  (20) — left half of bottom (bottom-left → bridge-left)
+ *   QUAD_LOOP_BOTTOM_RIGHT_TAG (21) — right half of bottom (bridge-right → bottom-right)
+ *   FEED_BRIDGE_TAG             (3) — 1-segment source bridge at bottom centre
+ */
+export function buildQuadLoopWires(params: QuadLoopWiresParams): Wire[] {
+  const perimeter = params.length;
+  const h = params.height;
+  const [dx, dy] = orientationVector(params.orientation);
+
+  // Maximum available loop height given the mast height.
+  const maxAvailable = Math.max(0.01, h - SLOPING_V_MIN_TIP_Z_M);
+  const squareSide = perimeter / 4;
+  const loopHeight = Math.min(squareSide, maxAvailable);
+
+  // Preserve perimeter: width = P/2 − height.
+  // For a true square loopHeight = loopWidth = P/4;
+  // when constrained the loop is wider than tall.
+  const loopWidth = perimeter / 2 - loopHeight;
+  const halfWidth = loopWidth / 2;
+  const bottomZ = h - loopHeight;
+
+  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
+
+  const topLeft:     [number, number, number] = [-halfWidth * dx, -halfWidth * dy, h];
+  const topRight:    [number, number, number] = [ halfWidth * dx,  halfWidth * dy, h];
+  const bottomLeft:  [number, number, number] = [-halfWidth * dx, -halfWidth * dy, bottomZ];
+  const bottomRight: [number, number, number] = [ halfWidth * dx,  halfWidth * dy, bottomZ];
+  const centerLeft:  [number, number, number] = [-bridgeHalf * dx, -bridgeHalf * dy, bottomZ];
+  const centerRight: [number, number, number] = [ bridgeHalf * dx,  bridgeHalf * dy, bottomZ];
+
+  const lambda = wavelengthMeters(params.frequency);
+  const userSegsPerSide = Math.round(params.segments / 4);
+
+  // Top wire (full width).
+  const minTopSegs = Math.ceil((SEGS_PER_WAVELENGTH * loopWidth) / lambda);
+  const topSegs = Math.min(MAX_SEGS_PER_LEG, Math.max(MIN_SEGS_PER_LEG, minTopSegs, userSegsPerSide));
+
+  // Left / right vertical wires.
+  const minSideSegs = Math.ceil((SEGS_PER_WAVELENGTH * loopHeight) / lambda);
+  const sideSegs = Math.min(MAX_SEGS_PER_LEG, Math.max(MIN_SEGS_PER_LEG, minSideSegs, userSegsPerSide));
+
+  // Each bottom half (from corner to bridge edge).
+  const halfBottomLen = Math.max(0.01, halfWidth - bridgeHalf);
+  const minHalfBottomSegs = Math.ceil((SEGS_PER_WAVELENGTH * halfBottomLen) / lambda);
+  const halfBottomSegs = Math.min(MAX_SEGS_PER_LEG, Math.max(MIN_SEGS_PER_LEG, minHalfBottomSegs, Math.round(userSegsPerSide / 2)));
+
+  return [
+    // Top wire — left corner to right corner.
+    {
+      start: topLeft,
+      end: topRight,
+      radius: params.wireRadius,
+      segments: topSegs,
+      tag: QUAD_LOOP_TOP_TAG,
+    },
+    // Left vertical wire — bottom-left corner up to top-left corner.
+    {
+      start: bottomLeft,
+      end: topLeft,
+      radius: params.wireRadius,
+      segments: sideSegs,
+      tag: QUAD_LOOP_LEFT_TAG,
+    },
+    // Right vertical wire — top-right corner down to bottom-right corner.
+    {
+      start: topRight,
+      end: bottomRight,
+      radius: params.wireRadius,
+      segments: sideSegs,
+      tag: QUAD_LOOP_RIGHT_TAG,
+    },
+    // Left half of bottom wire — bottom-left corner to bridge-left.
+    {
+      start: bottomLeft,
+      end: centerLeft,
+      radius: params.wireRadius,
+      segments: halfBottomSegs,
+      tag: QUAD_LOOP_BOTTOM_LEFT_TAG,
+    },
+    // Right half of bottom wire — bridge-right to bottom-right corner.
+    {
+      start: centerRight,
+      end: bottomRight,
+      radius: params.wireRadius,
+      segments: halfBottomSegs,
+      tag: QUAD_LOOP_BOTTOM_RIGHT_TAG,
+    },
+    // Feed bridge at the centre of the bottom side.
+    {
+      start: centerLeft,
+      end: centerRight,
+      radius: params.wireRadius,
+      segments: 1,
+      tag: FEED_BRIDGE_TAG,
+    },
+  ];
 }

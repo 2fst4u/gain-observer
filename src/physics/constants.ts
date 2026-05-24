@@ -68,6 +68,11 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
       // The horizontal top-loading section adds electrical length so the
       // mast can be shorter than a full ¼λ vertical.
       return lambda * 0.25 * endEffect;
+    case 'quad-loop':
+      // Full-wave perimeter. Quad loops resonate at approximately 1λ
+      // perimeter (slightly less in practice; 1λ is the canonical starting
+      // point, same convention as the delta loop).
+      return lambda * 1.0 * endEffect;
     default:
       return lambda * 0.5 * endEffect;
   }
@@ -214,6 +219,25 @@ export const INVERTED_L_HORIZONTAL_TAG = 15;
  * current-ripple diagnostics can distinguish the two antenna types.
  */
 export const INVERTED_L_RADIAL_TAG = 16;
+
+/**
+ * Wire tags for the Quad Loop antenna (full-wave square loop, side-fed).
+ *
+ * The loop is divided into five segments: top side, left side, right side,
+ * and the two halves of the bottom side that meet at the feed bridge.
+ * The feed bridge (FEED_BRIDGE_TAG = 3) sits at the centre of the bottom.
+ *
+ *   QUAD_LOOP_TOP_TAG          (17) — top horizontal wire
+ *   QUAD_LOOP_LEFT_TAG         (18) — left vertical wire (bottom → top)
+ *   QUAD_LOOP_RIGHT_TAG        (19) — right vertical wire (top → bottom)
+ *   QUAD_LOOP_BOTTOM_LEFT_TAG  (20) — left half of bottom wire
+ *   QUAD_LOOP_BOTTOM_RIGHT_TAG (21) — right half of bottom wire
+ */
+export const QUAD_LOOP_TOP_TAG = 17;
+export const QUAD_LOOP_LEFT_TAG = 18;
+export const QUAD_LOOP_RIGHT_TAG = 19;
+export const QUAD_LOOP_BOTTOM_LEFT_TAG = 20;
+export const QUAD_LOOP_BOTTOM_RIGHT_TAG = 21;
 
 /**
  * Number of counterpoise radials, equally spaced in azimuth, deployed

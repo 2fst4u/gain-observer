@@ -12,10 +12,6 @@ Half-wave dipole where both ends are connected by a second parallel conductor, f
 
 Full-wave loop laid out horizontally (parallel to ground). Typically square or rectangular. At low heights it produces a high-angle NVIS pattern; at greater heights the pattern develops low-angle gain. The four-sided geometry requires corner wires and a flexible aspect-ratio parameter for square vs. rectangular configurations.
 
-## Quad Loop
-
-Square loop with roughly 1λ perimeter, fed at the centre of one side or at a corner. Produces slightly more gain than a dipole (~1.5 dBd) and a lower feed impedance when corner-fed (~50–100 Ω). Geometry is a four-sided variant of the existing delta loop builder using a square rather than triangular shape.
-
 ## Lazy-H / Collinear Stack
 
 Two half-wave dipoles stacked vertically and fed in phase via a half-wave phasing stub. Adds approximately 3 dB of broadside gain over a single dipole by narrowing the elevation pattern. Requires a stacking height parameter and a phasing line modelled as a transmission line (TL card) between the two driven elements.
