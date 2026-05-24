@@ -4,10 +4,6 @@ Antenna types desired for future implementation. Each entry notes the key geomet
 
 ---
 
-## Extended Double Zepp (EDZ)
-
-Center-fed dipole at ~1.25λ total length. Produces 3–4 dB gain over a standard half-wave dipole with a characteristic figure-eight pattern that narrows compared to a dipole. Feed impedance is high (~1000 Ω), typically requiring a matching stub. Geometry reuses the existing split-dipole wire pattern with a longer reference length.
-
 ## Folded Dipole
 
 Half-wave dipole where both ends are connected by a second parallel conductor, forming a narrow rectangular loop. Feed impedance is ~300 Ω (4× a standard dipole), making it a natural match for 300 Ω twin-lead. Gain and pattern are identical to a dipole. Geometry requires two parallel wires joined at their ends with short connecting segments.
