@@ -94,7 +94,10 @@ export function SWRChart() {
     [comparisonActive, frequency, reference, sweep]
   );
 
-  const stats = useMemo(() => computeStats(sweep), [sweep]);
+  const stats = useMemo(
+    () => computeStats({ sweep, transformerInDisplay, transformerRatio }),
+    [sweep, transformerInDisplay, transformerRatio],
+  );
 
   const yMax = useMemo(
     () =>
@@ -119,9 +122,8 @@ export function SWRChart() {
         chartText,
         chartGrid,
         comparisonActive,
-        transformerEnabled,
       }),
-    [accent, chartGrid, chartText, comparisonActive, transformerEnabled, frequency, xBounds, yMax, stats]
+    [accent, chartGrid, chartText, comparisonActive, frequency, xBounds, yMax, stats]
   );
 
   if (!result || sweep.length === 0) {

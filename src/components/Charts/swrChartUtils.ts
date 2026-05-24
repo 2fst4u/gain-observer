@@ -53,37 +53,38 @@ export function computeChartData({
     });
   }
 
-  const rawLabel = comparisonActive
-    ? (transformerInDisplay ? 'Current (raw)' : 'Current')
-    : (transformerInDisplay ? 'Raw (vs 50 Ω)' : 'SWR (vs 50 Ω)');
-
-  datasets.push({
-    label: rawLabel,
-    data: sweep.map((point) => ({ x: point.frequencyMHz, y: point.swr })),
-    borderColor: accent,
-    backgroundColor: currentFill,
-    fill: false,
-    tension: 0.18,
-    pointRadius: 0,
-    pointHoverRadius: 3,
-    pointBackgroundColor: accent,
-  });
-
+  // When the balun/transformer is active, show ONLY the post-balun curve.
+  // The raw curve is suppressed — it can always be recovered by disabling
+  // the balun, and including both makes the post-balun curve unreadably
+  // compressed on the y-axis.
   if (transformerInDisplay) {
+    const label = comparisonActive ? `Current (after ${transformerRatio}:1)` : 'SWR (vs 50 Ω)';
     datasets.push({
-      label: `After ${transformerRatio}:1 xfmr`,
+      label,
       data: sweep.map((point) => ({
         x: point.frequencyMHz,
         y: computeSwr({ R: point.R / transformerRatio, X: point.X / transformerRatio }),
       })),
-      borderColor: 'rgba(80, 200, 120, 0.9)',
-      backgroundColor: 'rgba(80, 200, 120, 0.1)',
+      borderColor: accent,
+      backgroundColor: currentFill,
       fill: false,
       tension: 0.18,
       pointRadius: 0,
       pointHoverRadius: 3,
-      pointBackgroundColor: '#50c878',
-      borderDash: [6, 3],
+      pointBackgroundColor: accent,
+    });
+  } else {
+    const rawLabel = comparisonActive ? 'Current' : 'SWR (vs 50 Ω)';
+    datasets.push({
+      label: rawLabel,
+      data: sweep.map((point) => ({ x: point.frequencyMHz, y: point.swr })),
+      borderColor: accent,
+      backgroundColor: currentFill,
+      fill: false,
+      tension: 0.18,
+      pointRadius: 0,
+      pointHoverRadius: 3,
+      pointBackgroundColor: accent,
     });
   }
 
@@ -131,32 +132,54 @@ export interface SWRStats {
   highClipped: boolean;
 }
 
-export function computeStats(sweep: readonly SweepPoint[]): SWRStats | null {
+export interface ComputeStatsArgs {
+  sweep: readonly SweepPoint[];
+  /** When true, evaluate min SWR and 2:1 bandwidth on the post-balun impedance. */
+  transformerInDisplay?: boolean;
+  transformerRatio?: number;
+}
+
+export function computeStats({
+  sweep,
+  transformerInDisplay = false,
+  transformerRatio = 1,
+}: ComputeStatsArgs): SWRStats | null {
   if (sweep.length === 0) return null;
+
+  // Effective SWR after the optional transformer.
+  const effectiveSwr = (pt: SweepPoint): number =>
+    transformerInDisplay
+      ? computeSwr({ R: pt.R / transformerRatio, X: pt.X / transformerRatio })
+      : pt.swr;
+
   let minSWR = Infinity;
   let minFreq = 0;
   for (const pt of sweep) {
-    if (pt.swr < minSWR) {
-      minSWR = pt.swr;
+    const s = effectiveSwr(pt);
+    if (s < minSWR) {
+      minSWR = s;
       minFreq = pt.frequencyMHz;
     }
   }
+
   let fLow: number | null = null;
   let fHigh: number | null = null;
   for (let i = 0; i < sweep.length - 1; i++) {
     const p1 = sweep[i];
     const p2 = sweep[i + 1];
-    if (p1.swr >= 2 && p2.swr <= 2) {
-      const t = (2 - p1.swr) / (p2.swr - p1.swr);
+    const s1 = effectiveSwr(p1);
+    const s2 = effectiveSwr(p2);
+    if (s1 >= 2 && s2 <= 2) {
+      const t = (2 - s1) / (s2 - s1);
       fLow = p1.frequencyMHz + t * (p2.frequencyMHz - p1.frequencyMHz);
-    } else if (p1.swr <= 2 && p2.swr >= 2) {
-      const t = (2 - p1.swr) / (p2.swr - p1.swr);
+    } else if (s1 <= 2 && s2 >= 2) {
+      const t = (2 - s1) / (s2 - s1);
       fHigh = p1.frequencyMHz + t * (p2.frequencyMHz - p1.frequencyMHz);
     }
   }
 
-  const lowClipped = fLow === null && sweep[0].swr <= 2;
-  const highClipped = fHigh === null && sweep[sweep.length - 1].swr <= 2;
+  const lowClipped = fLow === null && effectiveSwr(sweep[0]) <= 2;
+  const highClipped = fHigh === null && effectiveSwr(sweep[sweep.length - 1]) <= 2;
 
   if (lowClipped) fLow = sweep[0].frequencyMHz;
   if (highClipped) fHigh = sweep[sweep.length - 1].frequencyMHz;
@@ -187,14 +210,18 @@ export function computeYMax({
   let anyBelow2 = false;
 
   for (let i = 0; i < sweep.length; i++) {
-    const v = sweep[i].swr;
-    if (v > maxVal) maxVal = v;
-    if (v <= 2) anyBelow2 = true;
-
+    // When the transformer is active we only render the post-balun curve,
+    // so only consider those values for the y-axis range. Including the raw
+    // SWR (which can be ~6:1 for a folded dipole) would compress the
+    // post-balun curve to an unreadable sliver at the bottom of the chart.
     if (transformerInDisplay) {
       const v2 = computeSwr({ R: sweep[i].R / transformerRatio, X: sweep[i].X / transformerRatio });
       if (v2 > maxVal) maxVal = v2;
       if (v2 <= 2) anyBelow2 = true;
+    } else {
+      const v = sweep[i].swr;
+      if (v > maxVal) maxVal = v;
+      if (v <= 2) anyBelow2 = true;
     }
   }
 
@@ -224,7 +251,6 @@ export interface ComputeOptionsArgs {
   chartText: string;
   chartGrid: string;
   comparisonActive: boolean;
-  transformerEnabled: boolean;
 }
 
 export function computeOptions({
@@ -236,7 +262,6 @@ export function computeOptions({
   chartText,
   chartGrid,
   comparisonActive,
-  transformerEnabled,
 }: ComputeOptionsArgs): ChartOptions<'line'> {
   const annotations: Record<string, AnnotationOptions> = {
     swr2: {
@@ -315,7 +340,11 @@ export function computeOptions({
     },
     plugins: {
       legend: {
-        display: comparisonActive || transformerEnabled,
+        // Show the legend only when multiple curves coexist: comparison mode
+        // has two curves (reference + current). When the transformer is active
+        // outside comparison mode there is only one curve (post-balun), so the
+        // legend would just repeat the axis title and is suppressed.
+        display: comparisonActive,
         labels: { color: chartText },
       },
       annotation: {
