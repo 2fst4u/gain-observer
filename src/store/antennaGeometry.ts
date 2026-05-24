@@ -954,10 +954,10 @@ export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] 
   // Each half of the top conductor runs from its outer end to the gap edge.
   // When gapHalf = 0 both halves terminate at the same point (topCenter),
   // making a continuous wire electrically.
-  const leftHalfOppLen = Math.max(0.01, half - gapHalf);
-  const rightHalfOppLen = leftHalfOppLen; // symmetric
-  const leftOppSegs = segsForLen(leftHalfOppLen, Math.round(params.segments / 2));
-  const rightOppSegs = leftOppSegs; // symmetric
+  // Both halves are symmetric: same length and same segment count.
+  const halfOppLen = Math.max(0.01, half - gapHalf);
+  const leftOppSegs = segsForLen(halfOppLen, Math.round(params.segments / 2));
+  const rightOppSegs = leftOppSegs;
 
   // End connectors span the aperture vertically, segmented at the same target
   // length so their segments match the adjacent conductor segments at the corners.
