@@ -96,7 +96,7 @@ import {
 export type { AntennaType };
 export type { OrientationPreset, Orientation };
 
-const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta']);
+const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta', 'folded-dipole']);
 
 export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'comparison';
@@ -857,7 +857,8 @@ export function buildWires(
   }
 
   if (antennaType === 'folded-dipole') {
-    return buildFoldedDipoleWires({
+    const layout = computeFeedlineLayout(state);
+    const wires = buildFoldedDipoleWires({
       length: state.length,
       height: h,
       aperture: state.foldedDipoleAperture ?? FOLDED_DIPOLE_DEFAULT_APERTURE_M,
@@ -867,6 +868,18 @@ export function buildWires(
       frequency: state.frequency,
       terminatingResistor: state.terminatingResistor ?? 0,
     });
+    if (layout?.shield) {
+      // Coax shield drops vertically from the bottom-conductor feedpoint.
+      const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
+      wires.push({
+        start: bridge.end,
+        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
+        radius: layout.shield.radius,
+        segments: FEEDLINE_SHIELD_SEGMENTS,
+        tag: FEEDLINE_SHIELD_TAG,
+      });
+    }
+    return wires;
   }
 
   const [dx, dy] = orientationVector(state.orientation);
@@ -1247,7 +1260,7 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
   const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
   const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
-  const feedlineSupport = ['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta'].includes(state.antennaType);
+  const feedlineSupport = FEEDLINE_SUPPORTED_TYPES.has(state.antennaType);
   const feedlineActive = hasBridge && feedlineSupport;
 
   const excitation = buildExcitation(state, wires, feedlineActive, hasBridge, hasShield);

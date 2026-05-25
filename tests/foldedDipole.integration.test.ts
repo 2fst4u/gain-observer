@@ -28,6 +28,9 @@ function foldedState(overrides: Partial<AntennaState>): AntennaState {
     foldedDipoleAperture: 0.3,
     terminatingResistor: 0,
     transformerEnabled: false,
+    // These tests measure the bare antenna feedpoint; the feedline-fed case is
+    // covered by its own test that overrides feedlineId explicitly.
+    feedlineId: 'none',
     ...overrides,
   } as AntennaState;
 }
@@ -70,5 +73,26 @@ describe('Folded dipole (real Wasm)', () => {
     expect(terminated.impedance.R).toBeGreaterThan(unterminated.impedance.R);
     // The increase should be substantial (close to R = 600 Ω).
     expect(terminated.impedance.R - unterminated.impedance.R).toBeGreaterThan(400);
+  }, 30_000);
+
+  it('feedline + high-ratio transformer (NT card) solves with finite gain and impedance', async () => {
+    // A coax shield drops from the feedpoint and the auto-matched ~18:1 unun is
+    // modelled in NEC via an NT card. Guard that this high-ratio NT-card path
+    // produces a finite, physical solution rather than aborting.
+    const r = await engine.simulate(
+      selectSimulationInput(
+        foldedState({
+          terminatingResistor: 600,
+          feedlineId: 'rg58',
+          feedlineLength: 8,
+          transformerEnabled: true,
+          transformerRatio: 18,
+        }),
+      ),
+    );
+    expect(Number.isFinite(r.maxGainDbi)).toBe(true);
+    expect(Number.isFinite(r.impedance.R)).toBe(true);
+    expect(Number.isFinite(r.impedance.X)).toBe(true);
+    expect(r.impedance.R).toBeGreaterThan(0);
   }, 30_000);
 });

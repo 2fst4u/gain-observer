@@ -11,7 +11,7 @@ import {
   FOLDED_DIPOLE_TERM_BRIDGE_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
-import { TERMINATED_DELTA_CENTRE_GAP_M } from '../src/physics/constants';
+import { TERMINATED_DELTA_CENTRE_GAP_M, FEEDLINE_SHIELD_TAG } from '../src/physics/constants';
 
 const FREQ = 7.1;
 const APERTURE = 0.5;
@@ -146,6 +146,8 @@ describe('folded dipole excitation and termination', () => {
       orientation: 'EW',
       foldedDipoleAperture: APERTURE,
       terminatingResistor: 0,
+      // Bare antenna by default — feedline coverage lives in its own block.
+      feedlineId: 'none',
       ...overrides,
     } as AntennaState;
   }
@@ -203,5 +205,53 @@ describe('folded dipole excitation and termination', () => {
     // No LD placed directly on the opposite conductor wires.
     const oppLoads = (input.loads ?? []).filter((l) => l.wireTag === FOLDED_DIPOLE_OPPOSITE_TAG);
     expect(oppLoads).toHaveLength(0);
+  });
+});
+
+describe('folded dipole feedline', () => {
+  function feedlineState(overrides: Partial<AntennaState> = {}): AntennaState {
+    return {
+      ...useAntennaStore.getState(),
+      antennaType: 'folded-dipole',
+      length: 20,
+      height: 10,
+      frequency: FREQ,
+      orientation: 'EW',
+      foldedDipoleAperture: APERTURE,
+      terminatingResistor: 0,
+      feedlineId: 'rg58',
+      feedlineLength: 10,
+      transformerEnabled: false,
+      ...overrides,
+    } as AntennaState;
+  }
+
+  it('drops a coax shield wire vertically from the bottom-conductor feedpoint', () => {
+    const wires = buildWires(feedlineState());
+    const shields = wires.filter((w) => w.tag === FEEDLINE_SHIELD_TAG);
+    expect(shields).toHaveLength(1);
+    const shield = shields[0]!;
+    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
+    // Shield starts at the feed bridge end…
+    expect(shield.start[0]).toBeCloseTo(bridge.end[0], 9);
+    expect(shield.start[1]).toBeCloseTo(bridge.end[1], 9);
+    expect(shield.start[2]).toBeCloseTo(bridge.end[2], 9);
+    // …and drops straight down (same x,y; lower z).
+    expect(shield.end[0]).toBeCloseTo(shield.start[0], 9);
+    expect(shield.end[1]).toBeCloseTo(shield.start[1], 9);
+    expect(shield.end[2]).toBeLessThan(shield.start[2]);
+  });
+
+  it('moves the excitation to the shield and adds a transmission line when fed', () => {
+    const input = selectSimulationInput(feedlineState());
+    expect(input.excitation.wireTag).toBe(FEEDLINE_SHIELD_TAG);
+    expect((input.transmissionLines ?? []).length).toBeGreaterThan(0);
+  });
+
+  it('builds no shield and feeds the bridge directly when the feedline is off', () => {
+    const input = selectSimulationInput(feedlineState({ feedlineId: 'none' }));
+    const shields = input.wires.filter((w) => w.tag === FEEDLINE_SHIELD_TAG);
+    expect(shields).toHaveLength(0);
+    expect(input.excitation).toEqual({ wireTag: FEED_BRIDGE_TAG, segment: 1 });
   });
 });

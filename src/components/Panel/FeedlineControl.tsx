@@ -20,6 +20,7 @@ const SUPPORTED_ANTENNA_TYPES: ReadonlySet<AntennaType> = new Set([
   'delta-loop',
   'sloping-v',
   'terminated-delta',
+  'folded-dipole',
 ]);
 
 export function FeedlineControl() {
