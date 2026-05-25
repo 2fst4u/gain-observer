@@ -347,7 +347,7 @@ export class Nec2Engine implements Engine {
     let span = 0.1;
     const first = this.clampSpan(f, span);
     let scan = await this.runScan(input, first.start, first.end, CHAR_POINTS);
-    for (let iter = 0; iter < 4; iter++) {
+    for (let iter = 0; iter < 5; iter++) {
       const lowOK = effSwr(scan[0]!) > 2;
       const highOK = effSwr(scan[scan.length - 1]!) > 2;
       const atLimits =
@@ -376,9 +376,12 @@ export class Nec2Engine implements Engine {
       const unionLow = bands[0]!.fLow;
       const unionHigh = bands[bands.length - 1]!.fHigh;
       const width = Math.max(unionHigh - unionLow, f * 0.02);
-      const margin = Math.max(width * 0.2, f * 0.015);
-      winStart = unionLow - margin;
-      winEnd = unionHigh + margin;
+      const margin = Math.max(width * 0.25, f * 0.02);
+      // When a band is clipped the actual crossing lies beyond the scanned
+      // range. Use the full scan edge as the anchor so the final window still
+      // reaches (and slightly past) the scan boundary on that side.
+      winStart = bands[0]!.lowClipped ? loEdge - margin : unionLow - margin;
+      winEnd = bands[bands.length - 1]!.highClipped ? hiEdge + margin : unionHigh + margin;
     } else {
       // Never dips below 2:1 within the explored window — show what we scanned.
       winStart = loEdge;
