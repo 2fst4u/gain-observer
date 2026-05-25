@@ -3,12 +3,24 @@
 
 import { useEffect, useRef } from 'react';
 import type { WorkerRequest, WorkerResponse } from '../workers/physicsWorker';
-import { useAntennaStore, selectSimulationInput } from '../store/antennaStore';
+import { useAntennaStore, selectSimulationInput, type AntennaState } from '../store/antennaStore';
 import type { SimulationResult } from '../physics/types';
 
 export interface UsePhysicsEngineOptions {
   /** Debounce window in ms for rapid slider/input changes. */
   debounceMs?: number;
+}
+
+/**
+ * The transformer ratio applied only in the display layer (not baked into the
+ * NEC model). Mirrors SWRChart's `transformerInDisplay` rule so the adaptive
+ * sweep frames its window around the SWR curve the user actually sees. Returns
+ * 1 when the swept R/X already reflect what's displayed.
+ */
+function displayTransformerRatio(s: AntennaState): number {
+  const feedlineActive = s.feedlineId !== 'none';
+  const inDisplay = s.transformerEnabled && !feedlineActive && s.transformerRatio > 1;
+  return inDisplay ? s.transformerRatio : 1;
 }
 
 export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
@@ -70,11 +82,17 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
       timerRef.current = window.setTimeout(() => {
         const worker = workerRef.current;
         if (!worker) return;
-        const input = selectSimulationInput(useAntennaStore.getState());
+        const state = useAntennaStore.getState();
+        const input = selectSimulationInput(state);
         const id = ++nextIdRef.current;
         latestIdRef.current = id;
-        useAntennaStore.getState()._setLoading(true);
-        const msg: WorkerRequest = { id, type: 'simulate', input };
+        state._setLoading(true);
+        const msg: WorkerRequest = {
+          id,
+          type: 'simulate',
+          input,
+          displayRatio: displayTransformerRatio(state),
+        };
         worker.postMessage(msg);
       }, debounceMs);
     };
@@ -89,7 +107,13 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
       // + !==) would always fire. At ~3μs per call and ≤100 events/s this is negligible.
       const a = selectSimulationInput(state);
       const b = selectSimulationInput(prev);
-      if (JSON.stringify(a) !== JSON.stringify(b)) {
+      // Also re-sweep when the display-only balun ratio changes: it doesn't
+      // alter the NEC input but it does change the SWR curve the adaptive
+      // sweep frames its window around.
+      if (
+        JSON.stringify(a) !== JSON.stringify(b) ||
+        displayTransformerRatio(state) !== displayTransformerRatio(prev)
+      ) {
         schedule();
       }
     });

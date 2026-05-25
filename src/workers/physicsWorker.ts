@@ -1,7 +1,7 @@
 // Physics worker — hosts the NEC-2 Wasm solver off the main thread.
 //
 // Protocol:
-//   → main posts { id, type: 'simulate', input }
+//   → main posts { id, type: 'simulate', input, displayRatio? }
 //   ← worker posts { id, type: 'result', result } or { id, type: 'error', message }
 //
 // The worker also emits { type: 'ready' } when the engine has initialised.
@@ -12,7 +12,7 @@ import { Nec2Engine } from '../physics/nec2Engine';
 import type { SimulationInput, SimulationResult, SweepPoint } from '../physics/types';
 
 export type WorkerRequest =
-  | { id: number; type: 'simulate'; input: SimulationInput };
+  | { id: number; type: 'simulate'; input: SimulationInput; displayRatio?: number };
 
 export type WorkerResponse =
   | { type: 'ready' }
@@ -37,7 +37,6 @@ const engine = new Nec2Engine({
 });
 
 const SWEEP_POINTS = 15;
-const SWEEP_SPAN_FRACTION = 0.2;
 
 engine
   .init()
@@ -60,7 +59,7 @@ ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
       engine.simulate(msg.input),
       engine.sweepImpedance(msg.input, {
         points: SWEEP_POINTS,
-        spanFraction: SWEEP_SPAN_FRACTION,
+        displayRatio: msg.displayRatio,
       }),
     ])
       .then(([result, sweep]) => {

@@ -3,6 +3,17 @@ import type { AnnotationOptions } from 'chartjs-plugin-annotation';
 import type { SweepPoint } from '../../physics/types';
 import type { ComparisonSnapshot } from '../../store/antennaStore';
 import { swr as computeSwr } from '../../physics/impedance';
+import { findSwrBands, type SwrBand } from '../../physics/bandwidth';
+
+/**
+ * Format a bandwidth (MHz wide) for display, scaling the unit by magnitude:
+ * sub-MHz spans read in kHz, wider spans in MHz.
+ */
+export function formatBandwidth(widthMHz: number): string {
+  const kHz = widthMHz * 1000;
+  if (kHz < 1000) return `${Math.round(kHz)} kHz`;
+  return `${widthMHz.toFixed(2)} MHz`;
+}
 
 export interface ComputeChartDataArgs {
   comparisonActive: boolean;
@@ -126,10 +137,8 @@ export function computeXBounds({ sweep, comparisonActive, reference, frequency }
 export interface SWRStats {
   minSWR: number;
   minFreq: number;
-  fLow: number | null;
-  fHigh: number | null;
-  lowClipped: boolean;
-  highClipped: boolean;
+  /** Every contiguous ≤2:1 band in the sweep, ascending by frequency. */
+  bands: SwrBand[];
 }
 
 export interface ComputeStatsArgs {
@@ -152,39 +161,19 @@ export function computeStats({
       ? computeSwr({ R: pt.R / transformerRatio, X: pt.X / transformerRatio })
       : pt.swr;
 
+  const freqs = sweep.map((pt) => pt.frequencyMHz);
+  const swrs = sweep.map(effectiveSwr);
+
   let minSWR = Infinity;
   let minFreq = 0;
-  for (const pt of sweep) {
-    const s = effectiveSwr(pt);
-    if (s < minSWR) {
-      minSWR = s;
-      minFreq = pt.frequencyMHz;
+  for (let i = 0; i < sweep.length; i++) {
+    if (swrs[i]! < minSWR) {
+      minSWR = swrs[i]!;
+      minFreq = freqs[i]!;
     }
   }
 
-  let fLow: number | null = null;
-  let fHigh: number | null = null;
-  for (let i = 0; i < sweep.length - 1; i++) {
-    const p1 = sweep[i];
-    const p2 = sweep[i + 1];
-    const s1 = effectiveSwr(p1);
-    const s2 = effectiveSwr(p2);
-    if (s1 >= 2 && s2 <= 2) {
-      const t = (2 - s1) / (s2 - s1);
-      fLow = p1.frequencyMHz + t * (p2.frequencyMHz - p1.frequencyMHz);
-    } else if (s1 <= 2 && s2 >= 2) {
-      const t = (2 - s1) / (s2 - s1);
-      fHigh = p1.frequencyMHz + t * (p2.frequencyMHz - p1.frequencyMHz);
-    }
-  }
-
-  const lowClipped = fLow === null && effectiveSwr(sweep[0]) <= 2;
-  const highClipped = fHigh === null && effectiveSwr(sweep[sweep.length - 1]) <= 2;
-
-  if (lowClipped) fLow = sweep[0].frequencyMHz;
-  if (highClipped) fHigh = sweep[sweep.length - 1].frequencyMHz;
-
-  return { minSWR, minFreq, fLow, fHigh, lowClipped, highClipped };
+  return { minSWR, minFreq, bands: findSwrBands(freqs, swrs, 2) };
 }
 
 export interface ComputeYMaxArgs {
@@ -239,7 +228,17 @@ export function computeYMax({
     return Math.max(10, Math.min(maxVal * 1.1, 999));
   }
 
-  return Math.min(999, Math.max(5, Math.ceil(maxVal * 1.1)));
+  // Usable bands are present. Scale tightly around the actual data:
+  //
+  //  • 1.2× multiplier leaves ~17 % headroom above the highest SWR point.
+  //  • Floor of 3 keeps the 2:1 reference line visible (≥ 33 % of chart height)
+  //    even when the antenna is extremely well-matched.
+  //  • Cap of 10 prevents inter-band spikes (20–50:1) from compressing
+  //    the in-band region to an invisible sliver; values above the cap
+  //    are clipped at the top — a clear "very high SWR here" signal.
+  const SWR_CAP = 10;
+  const scaled = Math.max(3, Math.ceil(maxVal * 1.5));
+  return Math.min(Math.min(999, scaled), SWR_CAP);
 }
 
 export interface ComputeOptionsArgs {
@@ -291,26 +290,30 @@ export function computeOptions({
       borderWidth: 1,
       borderDash: [2, 2],
     };
-    if (stats.fLow !== null) {
-      annotations.fLow = {
-        type: 'line',
-        xMin: stats.fLow,
-        xMax: stats.fLow,
-        borderColor: 'rgba(255, 107, 107, 0.4)',
-        borderWidth: 1,
-        borderDash: [4, 4],
-      };
-    }
-    if (stats.fHigh !== null) {
-      annotations.fHigh = {
-        type: 'line',
-        xMin: stats.fHigh,
-        xMax: stats.fHigh,
-        borderColor: 'rgba(255, 107, 107, 0.4)',
-        borderWidth: 1,
-        borderDash: [4, 4],
-      };
-    }
+    // Edge markers for every ≤2:1 band. Clipped edges (band runs off the
+    // swept range) are not marked — there's no real crossing to show.
+    stats.bands.forEach((band, i) => {
+      if (!band.lowClipped) {
+        annotations[`band${i}Low`] = {
+          type: 'line',
+          xMin: band.fLow,
+          xMax: band.fLow,
+          borderColor: 'rgba(255, 107, 107, 0.4)',
+          borderWidth: 1,
+          borderDash: [4, 4],
+        };
+      }
+      if (!band.highClipped) {
+        annotations[`band${i}High`] = {
+          type: 'line',
+          xMin: band.fHigh,
+          xMax: band.fHigh,
+          borderColor: 'rgba(255, 107, 107, 0.4)',
+          borderWidth: 1,
+          borderDash: [4, 4],
+        };
+      }
+    });
   }
 
   return {

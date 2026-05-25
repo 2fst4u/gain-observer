@@ -194,3 +194,45 @@ export function deembedThroughLine(
     X: (z0Line * (numI * denR - numR * denI)) / denMag2,
   };
 }
+
+/**
+ * Suggest the impedance-transformer ratio that best matches the antenna
+ * feedpoint — independent of the current ratio, so applying it does not
+ * oscillate.
+ *
+ * The NEC source impedance means different things by configuration:
+ *   • no feedline (`z0Line <= 0`) → it IS the antenna feedpoint; the optimal
+ *     ratio brings it to the 50 Ω system impedance: round(R / 50).
+ *   • feedline present → it's the rig-end impedance (the coax, with any
+ *     in-model NT transformer, sits between the rig and the antenna). De-embed
+ *     the line to recover the antenna terminals, then undo the NT transformer
+ *     (in the model only when ratio > 1) to get the raw feedpoint R. The
+ *     optimal ratio matches that to the line's own characteristic impedance,
+ *     flattening the line: round(R / z0Line).
+ *
+ * Because the recovered feedpoint R does not depend on the current ratio
+ * (the de-embed inverts the line exactly and the ×ratio undoes the NT card),
+ * the suggestion is stable: applying it and re-simulating yields the same
+ * value rather than chasing its own tail.
+ *
+ * Returns an integer ≥ 1.
+ */
+export function suggestedTransformerRatio(
+  zSrcReportedByNec: ImpedanceResult,
+  currentRatio: number,
+  z0Line: number = 0,
+  lineLengthLambdas: number = 0,
+): number {
+  let antennaR: number;
+  let target: number;
+  if (!Number.isFinite(z0Line) || z0Line <= 0) {
+    antennaR = zSrcReportedByNec.R;
+    target = Z0_SYSTEM;
+  } else {
+    const zLoad = deembedThroughLine(zSrcReportedByNec, z0Line, lineLengthLambdas);
+    antennaR = currentRatio > 1 ? zLoad.R * currentRatio : zLoad.R;
+    target = z0Line;
+  }
+  if (!Number.isFinite(antennaR) || antennaR <= 0 || target <= 0) return 1;
+  return Math.max(1, Math.round(antennaR / target));
+}

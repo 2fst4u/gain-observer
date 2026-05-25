@@ -20,6 +20,7 @@ import {
   computeStats,
   computeYMax,
   computeOptions,
+  formatBandwidth,
 } from './swrChartUtils';
 
 ChartJS.register(
@@ -151,15 +152,19 @@ export function SWRChart() {
             <span className="stat-label" style={{ textTransform: 'none' }}>Min SWR</span>
             <span className="stat-value">{stats.minSWR.toFixed(2)}:1 at {stats.minFreq.toFixed(3)} MHz</span>
           </div>
-          <div className="stat">
+          <div className="stat" style={{ alignItems: 'flex-start' }}>
             <span className="stat-label" style={{ textTransform: 'none' }}>2:1 BW</span>
-            {stats.fLow !== null && stats.fHigh !== null ? (
-              <span className="stat-value">
-                {(stats.lowClipped || stats.highClipped) && '>'}
-                {((stats.fHigh - stats.fLow) * 1000).toFixed(0)} kHz
-                <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontWeight: 'normal' }}>
-                  ({stats.fLow.toFixed(3)} - {stats.fHigh.toFixed(3)} MHz)
-                </span>
+            {stats.bands.length > 0 ? (
+              <span className="stat-value" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                {stats.bands.map((band, i) => (
+                  <span key={i}>
+                    {(band.lowClipped || band.highClipped) && '>'}
+                    {formatBandwidth(band.fHigh - band.fLow)}
+                    <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontWeight: 'normal' }}>
+                      ({band.fLow.toFixed(3)} - {band.fHigh.toFixed(3)} MHz)
+                    </span>
+                  </span>
+                ))}
               </span>
             ) : (
               <span className="stat-value" style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>N/A</span>
