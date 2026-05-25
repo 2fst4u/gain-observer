@@ -357,12 +357,12 @@ export function DipoleControl() {
           <div id="terminating-resistor-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             {terminatingResistor === 0
               ? antennaType === 'folded-dipole'
-                ? 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor to model a broadband terminated folded dipole (TFD).'
+                ? 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor for a broadband terminated folded dipole (T2FD); click Z₀ to auto-set the optimal value for this conductor spacing. The transformer ratio is adjusted automatically to keep the SWR display meaningful.'
                 : 'Unterminated: travelling wave reflects, creating a standing-wave pattern. Use this mode to check whether the antenna structure resonates at the design frequency.'
               : antennaType === 'sloping-v'
                 ? `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
                 : antennaType === 'folded-dipole'
-                  ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. The terminator raises the feedpoint by roughly R (to ~${terminatingResistor + 300} Ω raw; the 6:1 balun transforms this to ~${Math.round((terminatingResistor + 300) / 6)} Ω). For a true travelling-wave T2FD — flat broadband SWR — set R ≈ Z₀ of the two-wire line (≈ ${tfdZ0} Ω for this conductor spacing; use the Z₀ button). Lower R reduces dissipation but leaves significant reflection, narrowing the bandwidth. Click Off to restore the plain folded dipole.`
+                  ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. Estimated raw feedpoint ≈ ${terminatingResistor + 300} Ω; the transformer has been auto-set to ${Math.round((terminatingResistor + 300) / 50)}:1 so the SWR reflects the signal at the coax connector. For a true travelling-wave T2FD — flat broadband SWR — set R ≈ Z₀ of the two-wire line (≈ ${tfdZ0} Ω for this conductor spacing; click Z₀). Lower R reduces dissipation but leaves significant reflection, narrowing the bandwidth. Click Off to restore the plain folded dipole.`
                   : `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
           </div>
         </>

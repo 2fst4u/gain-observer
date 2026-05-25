@@ -502,11 +502,20 @@ export const useAntennaStore = create<AntennaState>()(
       setTerminatingResistor: (ohms) => set((s) => {
         if (!Number.isFinite(ohms)) return;
         s.terminatingResistor = Math.max(0, ohms);
-        // NOTE: for a folded dipole the terminating resistor (R) is placed in
-        // series with the top-conductor current path. Physically, adding R
-        // RAISES the feedpoint impedance by approximately R (Z_feed ≈ Z_unterminated + R).
-        // Both the unterminated (~300 Ω) and terminated (~300 + R Ω) folded dipole
-        // need the same 6:1 transformer ratio — no auto-switch is needed or correct.
+        // For a folded dipole the terminating resistor raises the feedpoint by ~R
+        // (Z_feed ≈ Z_unterminated + R ≈ 300 + R Ω). The optimal transformer ratio
+        // that brings the displayed feedpoint closest to 50 Ω is therefore ~(300+R)/50.
+        // Auto-set this so the SWR sweep immediately shows the T2FD's characteristic
+        // flat broadband curve rather than a misleadingly high constant SWR.
+        // The user can override the ratio in the Transformer section at any time.
+        if (s.antennaType === 'folded-dipole') {
+          if (ohms > 0) {
+            s.transformerRatio = Math.max(1, Math.round((300 + ohms) / 50));
+          } else {
+            // Unterminated: classic ~300 Ω feedpoint; 6:1 balun → ~50 Ω.
+            s.transformerRatio = 6;
+          }
+        }
       }),
       setWhipCounterpoise: (enabled) => set((s) => {
         s.whipCounterpoise = !!enabled;
