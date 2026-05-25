@@ -1173,8 +1173,8 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
     let rightHalfBase: Wire | undefined;
     for (let i = 0; i < wires.length; i++) {
       const w = wires[i];
-      if (w.tag === TERMINATED_DELTA_LEFT_BASE_TAG) leftHalfBase = w;
-      else if (w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG) rightHalfBase = w;
+      if (w.tag === TERMINATED_DELTA_LEFT_BASE_TAG && !leftHalfBase) leftHalfBase = w;
+      else if (w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG && !rightHalfBase) rightHalfBase = w;
       if (leftHalfBase && rightHalfBase) break;
     }
     const leftInner  = leftHalfBase!.end;
