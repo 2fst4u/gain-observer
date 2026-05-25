@@ -77,13 +77,13 @@ describe('computeYMax', () => {
   });
 
   it('scales tightly above the actual peak — no fixed-5 floor for moderate SWR', () => {
-    // maxVal = 2.7 → ceil(2.7 × 1.2) = ceil(3.24) = 4, not the old floor of 5.
+    // maxVal = 2.7 → ceil(2.7 × 1.5) = ceil(4.05) = 5, not the old floor of 5.
     const sweep = [
       { frequencyMHz: 3.5, R: 50, X: 2, swr: 1.1 },   // in-band
       { frequencyMHz: 8.0, R: 130, X: 20, swr: 2.7 },  // between bands
       { frequencyMHz: 14.0, R: 48, X: 0, swr: 1.04 },  // in-band
     ];
-    expect(computeYMax({ ...base, sweep })).toBe(4);
+    expect(computeYMax({ ...base, sweep })).toBe(5);
   });
 
   it('caps yMax at 10 when usable bands exist but inter-band SWR is very high', () => {

@@ -237,7 +237,7 @@ export function computeYMax({
   //    the in-band region to an invisible sliver; values above the cap
   //    are clipped at the top — a clear "very high SWR here" signal.
   const SWR_CAP = 10;
-  const scaled = Math.max(3, Math.ceil(maxVal * 1.2));
+  const scaled = Math.max(3, Math.ceil(maxVal * 1.5));
   return Math.min(Math.min(999, scaled), SWR_CAP);
 }
 
