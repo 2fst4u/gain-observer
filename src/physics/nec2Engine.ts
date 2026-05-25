@@ -385,10 +385,19 @@ export class Nec2Engine implements Engine {
       // ~1 pt/MHz across 1.8–30 MHz — detects any band ≥ ~2 MHz wide.
       const BROAD_CHAR_POINTS = 29;
       const broadScan = await this.runScan(input, F_MIN, F_MAX, BROAD_CHAR_POINTS);
+      // Use a stricter threshold than the display 2:1 boundary. The broad scan
+      // has only ~1 pt/MHz resolution: a single sample can dip just under 2:1
+      // purely because of where it falls on a shallow, narrow dip. By requiring
+      // SWR < 1.5 at the coarse sample, we ensure only bands where the minimum
+      // SWR is genuinely well below 2:1 — and therefore reliably captured by
+      // the fine sweep — are included. Multi-band antennas (TFDs, EFHWs) have
+      // SWR comfortably below 1.5 in all their matching bands; marginal dips
+      // that only just breach 2:1 in the coarse scan are safely ignored.
+      const BROAD_THRESHOLD = 1.5;
       const broadBands = findSwrBands(
         broadScan.map((p) => p.frequencyMHz),
         broadScan.map(effSwr),
-        2,
+        BROAD_THRESHOLD,
       );
       // Accept bands from the broad scan that lie clearly outside the primary
       // scan window (0.5 MHz guard band avoids duplicating the primary band).
