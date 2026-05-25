@@ -134,3 +134,7 @@
 
 **Learning:** When checking string membership against a static, known list of options, defining an array inline and using `.includes()` requires reallocation on every execution and runs in $O(N)$ time. By extracting the static array into a module-scoped `Set`, we avoid memory reallocation and change the check to $O(1)$ time, yielding a measurable performance boost.
 **Action:** Always extract static membership checks (like enum-like string arrays) into a module-scoped `Set` and use `Set.has()` in frequently-executed render paths or hot loops.
+## 2024-05-14 - Replace mapped array operations with standard for loops in React Hooks
+
+**Learning:** Array `.map()` creates shallow copies that can lead to large garbage collection pressure, particularly when generating intermediate arrays or used inside loops and computationally-heavy `useMemo` hooks.
+**Action:** Replace sequential `.map()` chains and intermediate arrays with a single optimized `for` loop that performs calculations and populates output arrays concurrently in O(N) passes, drastically minimizing overhead.

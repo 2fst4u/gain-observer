@@ -161,15 +161,24 @@ export function computeStats({
       ? computeSwr({ R: pt.R / transformerRatio, X: pt.X / transformerRatio })
       : pt.swr;
 
-  const freqs = sweep.map((pt) => pt.frequencyMHz);
-  const swrs = sweep.map(effectiveSwr);
+  const len = sweep.length;
+  const freqs = new Array<number>(len);
+  const swrs = new Array<number>(len);
 
   let minSWR = Infinity;
   let minFreq = 0;
-  for (let i = 0; i < sweep.length; i++) {
-    if (swrs[i]! < minSWR) {
-      minSWR = swrs[i]!;
-      minFreq = freqs[i]!;
+
+  for (let i = 0; i < len; i++) {
+    const pt = sweep[i]!;
+    const f = pt.frequencyMHz;
+    const s = effectiveSwr(pt);
+
+    freqs[i] = f;
+    swrs[i] = s;
+
+    if (s < minSWR) {
+      minSWR = s;
+      minFreq = f;
     }
   }
 
