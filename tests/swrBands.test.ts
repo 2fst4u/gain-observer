@@ -67,22 +67,23 @@ describe('formatBandwidth', () => {
 describe('computeYMax', () => {
   const base = { comparisonActive: false, reference: null, transformerInDisplay: false, transformerRatio: 1 };
 
-  it('returns floor of 5 when all values are below 5', () => {
+  it('uses floor of 3 when all values are below 2.5 (well-matched antenna)', () => {
+    // Very well-matched: max SWR 1.2 → ceil(1.2 × 1.2) = 2, floored to 3.
     const sweep = [
       { frequencyMHz: 7.0, R: 50, X: 5, swr: 1.1 },
       { frequencyMHz: 7.5, R: 60, X: 0, swr: 1.2 },
     ];
-    expect(computeYMax({ ...base, sweep })).toBe(5);
+    expect(computeYMax({ ...base, sweep })).toBe(3);
   });
 
-  it('scales above 5 when max SWR exceeds 4.5', () => {
+  it('scales tightly above the actual peak — no fixed-5 floor for moderate SWR', () => {
+    // maxVal = 2.7 → ceil(2.7 × 1.2) = ceil(3.24) = 4, not the old floor of 5.
     const sweep = [
-      { frequencyMHz: 7.0, R: 50, X: 5, swr: 1.1 },  // below 2:1
-      { frequencyMHz: 8.0, R: 400, X: 0, swr: 8.0 },
+      { frequencyMHz: 3.5, R: 50, X: 2, swr: 1.1 },   // in-band
+      { frequencyMHz: 8.0, R: 130, X: 20, swr: 2.7 },  // between bands
+      { frequencyMHz: 14.0, R: 48, X: 0, swr: 1.04 },  // in-band
     ];
-    const yMax = computeYMax({ ...base, sweep });
-    expect(yMax).toBeGreaterThan(5);
-    expect(yMax).toBeLessThanOrEqual(10); // capped at SWR_CAP
+    expect(computeYMax({ ...base, sweep })).toBe(4);
   });
 
   it('caps yMax at 10 when usable bands exist but inter-band SWR is very high', () => {
