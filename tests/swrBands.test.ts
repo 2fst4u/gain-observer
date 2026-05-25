@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findSwrBands } from '../src/physics/bandwidth';
-import { formatBandwidth } from '../src/components/Charts/swrChartUtils';
+import { formatBandwidth, computeYMax } from '../src/components/Charts/swrChartUtils';
 
 describe('findSwrBands', () => {
   it('finds a single interior band with interpolated edges', () => {
@@ -61,5 +61,47 @@ describe('formatBandwidth', () => {
     expect(formatBandwidth(1.0)).toBe('1.00 MHz');
     expect(formatBandwidth(9.9)).toBe('9.90 MHz');
     expect(formatBandwidth(15.5)).toBe('15.50 MHz');
+  });
+});
+
+describe('computeYMax', () => {
+  const base = { comparisonActive: false, reference: null, transformerInDisplay: false, transformerRatio: 1 };
+
+  it('returns floor of 5 when all values are below 5', () => {
+    const sweep = [
+      { frequencyMHz: 7.0, R: 50, X: 5, swr: 1.1 },
+      { frequencyMHz: 7.5, R: 60, X: 0, swr: 1.2 },
+    ];
+    expect(computeYMax({ ...base, sweep })).toBe(5);
+  });
+
+  it('scales above 5 when max SWR exceeds 4.5', () => {
+    const sweep = [
+      { frequencyMHz: 7.0, R: 50, X: 5, swr: 1.1 },  // below 2:1
+      { frequencyMHz: 8.0, R: 400, X: 0, swr: 8.0 },
+    ];
+    const yMax = computeYMax({ ...base, sweep });
+    expect(yMax).toBeGreaterThan(5);
+    expect(yMax).toBeLessThanOrEqual(10); // capped at SWR_CAP
+  });
+
+  it('caps yMax at 10 when usable bands exist but inter-band SWR is very high', () => {
+    // Multi-band antenna: low SWR at two bands, very high SWR between them.
+    const sweep = [
+      { frequencyMHz: 3.5, R: 50, X: 2, swr: 1.04 },  // in-band
+      { frequencyMHz: 8.0, R: 2000, X: 0, swr: 40.0 }, // inter-band peak
+      { frequencyMHz: 14.0, R: 48, X: 0, swr: 1.04 },  // in-band
+    ];
+    const yMax = computeYMax({ ...base, sweep });
+    expect(yMax).toBe(10); // capped — inter-band 40:1 does not inflate the scale
+  });
+
+  it('does not cap when there are no usable bands (SWR always > 2)', () => {
+    const sweep = [
+      { frequencyMHz: 7.0, R: 500, X: 0, swr: 10.0 },
+      { frequencyMHz: 8.0, R: 400, X: 0, swr: 8.0 },
+    ];
+    const yMax = computeYMax({ ...base, sweep });
+    expect(yMax).toBeGreaterThanOrEqual(11); // no cap — no usable band found
   });
 });

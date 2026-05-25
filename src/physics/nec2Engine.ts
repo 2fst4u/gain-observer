@@ -330,6 +330,11 @@ export class Nec2Engine implements Engine {
    * a window framed around that bandwidth (with margin) at full resolution.
    * The result fills the chart whether the antenna is sharply resonant or
    * broadband — no fixed span has to be guessed up-front.
+   *
+   * For multi-band antennas (e.g. terminated folded dipoles and end-feds
+   * resonant on harmonics), a secondary broad characterisation scan across the
+   * full HF range finds any additional ≤2:1 bands that fall outside the primary
+   * scan window, so the final sweep frames all usable bands in one chart.
    */
   private async adaptiveSweep(
     input: SimulationInput,
@@ -347,12 +352,14 @@ export class Nec2Engine implements Engine {
     let span = 0.1;
     const first = this.clampSpan(f, span);
     let scan = await this.runScan(input, first.start, first.end, CHAR_POINTS);
+    let reachedLimits = false;
     for (let iter = 0; iter < 5; iter++) {
       const lowOK = effSwr(scan[0]!) > 2;
       const highOK = effSwr(scan[scan.length - 1]!) > 2;
       const atLimits =
         scan[0]!.frequencyMHz <= F_MIN + 1e-9 && scan[scan.length - 1]!.frequencyMHz >= F_MAX - 1e-9;
-      if ((lowOK && highOK) || atLimits) break;
+      if (atLimits) { reachedLimits = true; break; }
+      if (lowOK && highOK) break;
       span *= 3;
       const { start, end } = this.clampSpan(f, span);
       scan = await this.runScan(input, start, end, CHAR_POINTS);
@@ -361,27 +368,56 @@ export class Nec2Engine implements Engine {
     const loEdge = scan[0]!.frequencyMHz;
     const hiEdge = scan[scan.length - 1]!.frequencyMHz;
 
-    // Frame the window around every ≤2:1 band found in the characterisation
-    // scan (the antenna may be usable on several disjoint sub-bands), so the
-    // chart shows them all rather than just the one around the global minimum.
-    const bands = findSwrBands(
+    // Phase 2 — if the primary scan did not need to span the entire HF range
+    // (the ≤2:1 band near f is fully bounded), sweep the full range once with
+    // enough points to detect additional ≤2:1 bands that lie outside the
+    // primary window. Bands found there (e.g. lower-band resonances of a TFD
+    // or harmonic resonances of an EFHW) are merged with the primary bands so
+    // the final frame includes all of them.
+    const primaryBands = findSwrBands(
       scan.map((p) => p.frequencyMHz),
       scan.map(effSwr),
       2,
     );
 
+    let allBands = primaryBands;
+    if (!reachedLimits) {
+      // ~1 pt/MHz across 1.8–30 MHz — detects any band ≥ ~2 MHz wide.
+      const BROAD_CHAR_POINTS = 29;
+      const broadScan = await this.runScan(input, F_MIN, F_MAX, BROAD_CHAR_POINTS);
+      const broadBands = findSwrBands(
+        broadScan.map((p) => p.frequencyMHz),
+        broadScan.map(effSwr),
+        2,
+      );
+      // Accept bands from the broad scan that lie clearly outside the primary
+      // scan window (0.5 MHz guard band avoids duplicating the primary band).
+      const extraBands = broadBands.filter(
+        (b) => b.fHigh < loEdge - 0.5 || b.fLow > hiEdge + 0.5,
+      );
+      if (extraBands.length > 0) {
+        allBands = [...extraBands, ...primaryBands].sort((a, b) => a.fLow - b.fLow);
+      }
+    }
+
+    // Frame the final sweep window around every detected ≤2:1 band.
     let winStart: number;
     let winEnd: number;
-    if (bands.length > 0) {
-      const unionLow = bands[0]!.fLow;
-      const unionHigh = bands[bands.length - 1]!.fHigh;
+    if (allBands.length > 0) {
+      const unionLow = allBands[0]!.fLow;
+      const unionHigh = allBands[allBands.length - 1]!.fHigh;
       const width = Math.max(unionHigh - unionLow, f * 0.02);
       const margin = Math.max(width * 0.25, f * 0.02);
-      // When a band is clipped the actual crossing lies beyond the scanned
-      // range. Use the full scan edge as the anchor so the final window still
-      // reaches (and slightly past) the scan boundary on that side.
-      winStart = bands[0]!.lowClipped ? loEdge - margin : unionLow - margin;
-      winEnd = bands[bands.length - 1]!.highClipped ? hiEdge + margin : unionHigh + margin;
+      // When a band is clipped the actual crossing lies beyond the scan boundary.
+      // Use the appropriate HF limit as the anchor on that side.
+      const lowAnchor = allBands[0]!.lowClipped
+        ? (reachedLimits ? loEdge : F_MIN)
+        : unionLow;
+      const highAnchor = allBands[allBands.length - 1]!.highClipped
+        ? (reachedLimits ? hiEdge : F_MAX)
+        : unionHigh;
+      winStart = lowAnchor - margin;
+      winEnd = highAnchor + margin;
     } else {
       // Never dips below 2:1 within the explored window — show what we scanned.
       winStart = loEdge;

@@ -228,7 +228,14 @@ export function computeYMax({
     return Math.max(10, Math.min(maxVal * 1.1, 999));
   }
 
-  return Math.min(999, Math.max(5, Math.ceil(maxVal * 1.1)));
+  // Usable bands are present. Cap the y-axis so that inter-band SWR spikes
+  // (which can reach 20–50:1 between matched bands on a multi-band antenna)
+  // don't compress the in-band detail into an invisible sliver at the bottom
+  // of the chart. With yMax = 10 the 2:1 reference line sits at ~11 % of the
+  // chart height — clearly readable. Any SWR value above 10 is visually
+  // clipped at the top, which is unambiguous: "very high SWR here".
+  const SWR_CAP = 10;
+  return Math.min(Math.min(999, Math.max(5, Math.ceil(maxVal * 1.1))), SWR_CAP);
 }
 
 export interface ComputeOptionsArgs {
