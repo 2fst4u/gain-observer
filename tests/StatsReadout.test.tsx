@@ -115,6 +115,68 @@ describe('StatsReadout', () => {
     expect(getByText('6.01 dBi')).not.toBeNull();
   });
 
+  it('renders realized gain correctly with transformer in display', () => {
+    // Arrange
+    useAntennaStore.setState({
+      transformerEnabled: true,
+      transformerRatio: 4,
+      feedlineId: 'none',
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 5.0,
+        maxRealizedGainDbi: 4.0, // should be ignored, re-calculated
+        takeoffElevationDeg: 15,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 200, X: 0 },
+        swr: 4.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+    // Act
+    const { getByText } = render(<StatsReadout />);
+
+    // Assert (displayedRealizedGainDbi = 5.0 + 0 - 0.2 = 4.8 dBi)
+    expect(getByText('4.80 dBi')).not.toBeNull();
+  });
+
+  it('renders realized gain correctly with transformer in model', () => {
+    // Arrange
+    useAntennaStore.setState({
+      transformerEnabled: true,
+      transformerRatio: 4,
+      feedlineId: 'rg58',
+      result: {
+        computeTimeMs: 10, maxGainDbi: 5.0, maxRealizedGainDbi: 4.5,
+        takeoffElevationDeg: 15, takeoffAzimuthDeg: 0, impedance: { R: 50, X: 0 },
+        swr: 1.0, pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+    // Act
+    const { getByText } = render(<StatsReadout />);
+
+    // Assert (displayedRealizedGainDbi = 4.5 - 0.2 = 4.3 dBi)
+    expect(getByText('4.30 dBi')).not.toBeNull();
+  });
+
+  it('renders realized gain correctly with choke only (transformer enabled, ratio 1)', () => {
+    // Arrange
+    useAntennaStore.setState({
+      transformerEnabled: true,
+      transformerRatio: 1,
+      feedlineId: 'none',
+      result: {
+        computeTimeMs: 10, maxGainDbi: 5.0, maxRealizedGainDbi: 4.5,
+        takeoffElevationDeg: 15, takeoffAzimuthDeg: 0, impedance: { R: 50, X: 0 },
+        swr: 1.0, pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+    // Act
+    const { getByText } = render(<StatsReadout />);
+
+    // Assert (displayedRealizedGainDbi = 4.5 - 0.2 = 4.3 dBi)
+    expect(getByText('4.30 dBi')).not.toBeNull();
+  });
+
   it('omits directivity and efficiency when power budget is unavailable', () => {
     useAntennaStore.setState({
       result: {
@@ -193,4 +255,63 @@ describe('StatsReadout', () => {
     expect(container.textContent).not.toContain('Termination reduces reflections');
   });
 
+  it('renders termination section for sloping-v with front-back ratio', () => {
+    // Arrange
+    const diagnostics: TerminationDiagnostics = {
+      currentRippleByTag: [
+        { tagNo: 1, magnitudes: [2e-3, 1e-3], ripple: 2, rippleDb: 2.0 },
+        { tagNo: 2, magnitudes: [2e-3, 1e-3], ripple: 2, rippleDb: 11.0 },
+      ],
+      powerBudget: {
+        inputW: 0.01, radiatedW: 0.006, structureLossW: 0,
+        networkLossW: 0.004, efficiencyPct: 60,
+      },
+      frontBackDb: 8.5,
+    };
+    useAntennaStore.setState({
+      antennaType: 'sloping-v',
+      result: {
+        computeTimeMs: 10, maxGainDbi: 2, takeoffElevationDeg: 15,
+        takeoffAzimuthDeg: 0, impedance: { R: 50, X: 0 }, swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+        terminationDiagnostics: diagnostics,
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+    // Act
+    const { container } = render(<StatsReadout />);
+
+    // Assert
+    expect(container.textContent).toContain('Termination effectiveness');
+    expect(container.textContent).toContain('8.5 dB');
+  });
+
+  it('renders termination section with infinity and default tag names', () => {
+    // Arrange
+    const diagnostics: TerminationDiagnostics = {
+      currentRippleByTag: [
+        { tagNo: 1, magnitudes: [2e-3, 0], ripple: Infinity, rippleDb: Infinity },
+      ],
+      powerBudget: {
+        inputW: 0.01, radiatedW: 0.006, structureLossW: 0,
+        networkLossW: 0.004, efficiencyPct: 60,
+      },
+      frontBackDb: null,
+    };
+    useAntennaStore.setState({
+      antennaType: 'sloping-v',
+      result: {
+        computeTimeMs: 10, maxGainDbi: 2, takeoffElevationDeg: 15,
+        takeoffAzimuthDeg: 0, impedance: { R: 50, X: 0 }, swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+        terminationDiagnostics: diagnostics,
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+    // Act
+    const { container } = render(<StatsReadout />);
+
+    // Assert
+    expect(container.textContent).toContain('Termination effectiveness');
+    expect(container.textContent).toContain('∞ dB');
+    expect(container.textContent).toContain('Left leg ripple');
+  });
 });
