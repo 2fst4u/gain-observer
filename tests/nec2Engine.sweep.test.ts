@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Nec2Engine } from '../src/physics/nec2Engine';
-import { selectSimulationInput, useAntennaStore } from '../src/store/antennaStore';
+import { selectSimulationInput, useAntennaStore, type AntennaState } from '../src/store/antennaStore';
+import { halfWaveLength } from '../src/physics/constants';
+import { swr as computeSwr } from '../src/physics/impedance';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 
@@ -52,4 +54,90 @@ describe('sweepImpedance with default store input', () => {
     // Standard dipole above ground might not hit 1.0 but should be < 2.0
     expect(minSwr).toBeLessThan(2.0);
   }, 60_000);
+});
+
+describe('adaptive sweep framing (no spanFraction)', () => {
+  const FREQ = 7.1;
+
+  function foldedState(R: number): AntennaState {
+    return {
+      ...useAntennaStore.getState(),
+      antennaType: 'folded-dipole',
+      length: halfWaveLength(FREQ),
+      height: 10,
+      frequency: FREQ,
+      orientation: 'EW',
+      groundId: 'free',
+      foldedDipoleAperture: 0.3,
+      terminatingResistor: R,
+      transformerEnabled: false,
+    } as AntennaState;
+  }
+
+  it('frames a narrowband dipole tightly around resonance and brackets the 2:1 BW', async () => {
+    const engine = new Nec2Engine({ baseUrl: wasmUrl });
+    await engine.init();
+    const input = selectSimulationInput(useAntennaStore.getState());
+
+    // No spanFraction → adaptive framing.
+    const sweep = await engine.sweepImpedance(input, { points: 15 });
+    expect(sweep).toHaveLength(15);
+
+    // Monotonic increasing frequencies.
+    for (let i = 1; i < sweep.length; i++) {
+      expect(sweep[i]!.frequencyMHz).toBeGreaterThan(sweep[i - 1]!.frequencyMHz);
+    }
+
+    // Minimum near resonance, and the operating frequency stays in view.
+    let minFreq = 0;
+    let minSwr = Infinity;
+    for (const p of sweep) {
+      if (p.swr < minSwr) {
+        minSwr = p.swr;
+        minFreq = p.frequencyMHz;
+      }
+    }
+    expect(minFreq).toBeGreaterThan(6.5);
+    expect(minFreq).toBeLessThan(7.7);
+    expect(sweep[0]!.frequencyMHz).toBeLessThanOrEqual(FREQ);
+    expect(sweep[sweep.length - 1]!.frequencyMHz).toBeGreaterThanOrEqual(FREQ);
+
+    // The window is zoomed around the dip, not the whole HF band.
+    const span = sweep[sweep.length - 1]!.frequencyMHz - sweep[0]!.frequencyMHz;
+    expect(span).toBeLessThan(FREQ * 0.6);
+  }, 60_000);
+
+  it('widens the window for a broadband T2FD so its span exceeds a dipole', async () => {
+    const engine = new Nec2Engine({ baseUrl: wasmUrl });
+    await engine.init();
+
+    const dipole = await engine.sweepImpedance(
+      selectSimulationInput(useAntennaStore.getState()),
+      { points: 15 },
+    );
+    const dipoleSpan =
+      dipole[dipole.length - 1]!.frequencyMHz - dipole[0]!.frequencyMHz;
+
+    // T2FD: R=600 Ω, displayed through an ~18:1 balun (round((300+600)/50)).
+    const R = 600;
+    const displayRatio = Math.round((300 + R) / 50);
+    const tfd = await engine.sweepImpedance(selectSimulationInput(foldedState(R)), {
+      points: 15,
+      displayRatio,
+    });
+    const tfdSpan = tfd[tfd.length - 1]!.frequencyMHz - tfd[0]!.frequencyMHz;
+
+    // The broadband antenna's framed window is meaningfully wider.
+    expect(tfdSpan).toBeGreaterThan(dipoleSpan);
+
+    // The effective (post-balun) SWR dips below 2:1 somewhere in the window —
+    // i.e. the adaptive sweep actually found the usable band rather than a flat
+    // raw curve sitting far above 2:1.
+    let minEff = Infinity;
+    for (const p of tfd) {
+      const eff = computeSwr({ R: p.R / displayRatio, X: p.X / displayRatio });
+      if (eff < minEff) minEff = eff;
+    }
+    expect(minEff).toBeLessThan(2);
+  }, 90_000);
 });

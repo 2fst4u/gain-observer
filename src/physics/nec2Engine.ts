@@ -95,10 +95,23 @@ export interface Nec2EngineOptions {
 }
 
 export interface SweepOptions {
-  /** Total span centred on the operating frequency. Default 10% (±5%). */
+  /**
+   * Total span centred on the operating frequency. When provided, the sweep
+   * uses this fixed span (single pass). When omitted, the sweep is adaptive:
+   * it auto-frames the window around the antenna's 2:1 bandwidth so the curve
+   * fills the chart for both narrowband and broadband antennas.
+   */
   spanFraction?: number;
-  /** Number of sample points across the sweep. Default 15. */
+  /** Number of sample points across the (final) sweep. Default 15. */
   points?: number;
+  /**
+   * Display-side impedance transformer ratio used only for adaptive framing.
+   * For antennas whose balun is modelled in the display layer (not in NEC),
+   * the swept R/X are raw; dividing by this ratio yields the SWR the user
+   * actually sees, so framing matches the displayed curve. Defaults to 1 (no
+   * display transform — raw SWR is already what's shown).
+   */
+  displayRatio?: number;
 }
 
 export class Nec2Engine implements Engine {
@@ -262,17 +275,39 @@ export class Nec2Engine implements Engine {
   }
 
   async sweepImpedance(input: SimulationInput, opts: SweepOptions = {}): Promise<SweepPoint[]> {
-    const spanFraction = opts.spanFraction ?? 0.1;
     const points = Math.max(3, Math.round(opts.points ?? 15));
-    const start = Math.max(1.8, input.frequencyMHz * (1 - spanFraction / 2));
-    const end = Math.min(30, input.frequencyMHz * (1 + spanFraction / 2));
-    const step = points > 1 ? (end - start) / (points - 1) : 0;
+    // Explicit spanFraction → fixed single-pass sweep (back-compat for tests
+    // and callers that want a specific window).
+    if (opts.spanFraction !== undefined) {
+      const { start, end } = this.clampSpan(input.frequencyMHz, opts.spanFraction);
+      return this.runScan(input, start, end, points);
+    }
+    // Otherwise auto-frame the window around the antenna's 2:1 bandwidth.
+    return this.adaptiveSweep(input, points, Math.max(1, opts.displayRatio ?? 1));
+  }
 
-    const parsedResults = await this.solveImpedanceSweep(input, points, start, step);
+  private static readonly F_MIN_MHZ = 1.8;
+  private static readonly F_MAX_MHZ = 30;
+
+  private clampSpan(freq: number, spanFraction: number): { start: number; end: number } {
+    return {
+      start: Math.max(Nec2Engine.F_MIN_MHZ, freq * (1 - spanFraction / 2)),
+      end: Math.min(Nec2Engine.F_MAX_MHZ, freq * (1 + spanFraction / 2)),
+    };
+  }
+
+  /** Run one fixed-window scan over [start, end] with `n` evenly-spaced points. */
+  private async runScan(
+    input: SimulationInput,
+    start: number,
+    end: number,
+    n: number,
+  ): Promise<SweepPoint[]> {
+    const step = n > 1 ? (end - start) / (n - 1) : 0;
+    const parsedResults = await this.solveImpedanceSweep(input, n, start, step);
     const sweep: SweepPoint[] = [];
-
-    for (let i = 0; i < points; i++) {
-      const frequencyMHz = i === points - 1 ? end : start + step * i;
+    for (let i = 0; i < n; i++) {
+      const frequencyMHz = i === n - 1 ? end : start + step * i;
       const parsed = parsedResults[i];
       if (!parsed?.impedance) {
         throw new Error(`NEC-2 sweep missing impedance result for frequency ${frequencyMHz} MHz`);
@@ -284,8 +319,109 @@ export class Nec2Engine implements Engine {
         X: parsed.impedance.X,
       });
     }
-
     return sweep;
+  }
+
+  /**
+   * Adaptive sweep: expands a coarse characterisation window until the
+   * (display-effective) SWR rises above 2:1 on both sides of the minimum or
+   * the HF band limits are reached, locates the 2:1 crossings, then re-sweeps
+   * a window framed around that bandwidth (with margin) at full resolution.
+   * The result fills the chart whether the antenna is sharply resonant or
+   * broadband — no fixed span has to be guessed up-front.
+   */
+  private async adaptiveSweep(
+    input: SimulationInput,
+    points: number,
+    displayRatio: number,
+  ): Promise<SweepPoint[]> {
+    const { F_MIN_MHZ: F_MIN, F_MAX_MHZ: F_MAX } = Nec2Engine;
+    const f = input.frequencyMHz;
+    // Effective SWR = what the user sees (after any display-only balun).
+    const effSwr = (p: SweepPoint): number =>
+      displayRatio > 1 ? swr({ R: p.R / displayRatio, X: p.X / displayRatio }) : p.swr;
+
+    // Phase 1 — expand until both edges exceed 2:1, or we hit the band limits.
+    const CHAR_POINTS = 11;
+    let span = 0.1;
+    const first = this.clampSpan(f, span);
+    let scan = await this.runScan(input, first.start, first.end, CHAR_POINTS);
+    for (let iter = 0; iter < 4; iter++) {
+      const lowOK = effSwr(scan[0]!) > 2;
+      const highOK = effSwr(scan[scan.length - 1]!) > 2;
+      const atLimits =
+        scan[0]!.frequencyMHz <= F_MIN + 1e-9 && scan[scan.length - 1]!.frequencyMHz >= F_MAX - 1e-9;
+      if ((lowOK && highOK) || atLimits) break;
+      span *= 3;
+      const { start, end } = this.clampSpan(f, span);
+      scan = await this.runScan(input, start, end, CHAR_POINTS);
+    }
+
+    // Locate the minimum (by effective SWR).
+    let minI = 0;
+    let minS = Infinity;
+    for (let i = 0; i < scan.length; i++) {
+      const s = effSwr(scan[i]!);
+      if (s < minS) {
+        minS = s;
+        minI = i;
+      }
+    }
+
+    const loEdge = scan[0]!.frequencyMHz;
+    const hiEdge = scan[scan.length - 1]!.frequencyMHz;
+    const interp2 = (a: SweepPoint, b: SweepPoint): number => {
+      const sa = effSwr(a);
+      const sb = effSwr(b);
+      const t = (2 - sa) / (sb - sa);
+      return a.frequencyMHz + t * (b.frequencyMHz - a.frequencyMHz);
+    };
+
+    // 2:1 crossings either side of the minimum (only meaningful if it dips below 2).
+    let fLow: number | null = null;
+    let fHigh: number | null = null;
+    if (minS < 2) {
+      for (let i = minI; i > 0; i--) {
+        if (effSwr(scan[i - 1]!) >= 2) {
+          fLow = interp2(scan[i - 1]!, scan[i]!);
+          break;
+        }
+      }
+      for (let i = minI; i < scan.length - 1; i++) {
+        if (effSwr(scan[i + 1]!) >= 2) {
+          fHigh = interp2(scan[i]!, scan[i + 1]!);
+          break;
+        }
+      }
+    }
+
+    let winStart: number;
+    let winEnd: number;
+    if (fLow !== null && fHigh !== null) {
+      const bw = fHigh - fLow;
+      const margin = Math.max(bw * 0.35, f * 0.01);
+      winStart = fLow - margin;
+      winEnd = fHigh + margin;
+    } else if (fLow !== null) {
+      winStart = fLow - Math.max((hiEdge - fLow) * 0.1, f * 0.01);
+      winEnd = hiEdge;
+    } else if (fHigh !== null) {
+      winStart = loEdge;
+      winEnd = fHigh + Math.max((fHigh - loEdge) * 0.1, f * 0.01);
+    } else {
+      // Either fully broadband within the explored window, or never below 2:1.
+      winStart = loEdge;
+      winEnd = hiEdge;
+    }
+
+    // Keep the operating-frequency marker in view and clamp to the HF band.
+    winStart = Math.max(F_MIN, Math.min(winStart, f));
+    winEnd = Math.min(F_MAX, Math.max(winEnd, f));
+    if (!(winEnd > winStart)) {
+      ({ start: winStart, end: winEnd } = this.clampSpan(f, 0.1));
+    }
+
+    return this.runScan(input, winStart, winEnd, points);
   }
 
   /** Simple in-process mutex so overlapping simulate() calls queue up. */
