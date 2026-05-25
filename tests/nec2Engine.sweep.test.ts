@@ -98,12 +98,12 @@ describe('adaptive sweep framing (no spanFraction)', () => {
     expect(sweep[sweep.length - 1]!.frequencyMHz).toBeGreaterThanOrEqual(FREQ);
 
     // The adaptive sweep frames the window around detected bands — it must not
-    // dump the entire 1.8–30 MHz HF range regardless of what bands are found.
+    // dump the entire 1.0–30 MHz sweep range regardless of what bands are found.
     // (The SWR minimum is validated by the 'best SWR is near resonance' test
     // which uses a fixed spanFraction; with only 15 points over a potentially
     // wide multi-band window the resolution may not capture the dip exactly.)
     const span = sweep[sweep.length - 1]!.frequencyMHz - sweep[0]!.frequencyMHz;
-    expect(span).toBeLessThan(28.2); // full HF span ≈ 28.2 MHz
+    expect(span).toBeLessThan(28.2); // full sweep span ≈ 29 MHz
   }, 60_000);
 
   it('widens the window for a broadband T2FD so its span exceeds a dipole', async () => {

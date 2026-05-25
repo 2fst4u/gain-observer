@@ -287,7 +287,14 @@ export class Nec2Engine implements Engine {
     return this.adaptiveSweep(input, points, Math.max(1, opts.displayRatio ?? 1));
   }
 
-  private static readonly F_MIN_MHZ = 1.8;
+  // Lower bound for the SWR-sweep display window. Deliberately below the 1.8 MHz
+  // amateur 160 m floor (the operating-frequency control is still clamped to
+  // ≥ 1.8 MHz): broadband antennas — terminated folded dipoles especially —
+  // stay ≤ 2:1 down through and below 1.8 MHz, so anchoring the window at 1.8
+  // chopped the low side of the band off at the chart's left edge. Extending to
+  // 1.0 MHz lets the curve reach (or approach) its low 2:1 crossing so the band
+  // is framed in full rather than cut off.
+  private static readonly F_MIN_MHZ = 1.0;
   private static readonly F_MAX_MHZ = 30;
 
   private clampSpan(freq: number, spanFraction: number): { start: number; end: number } {
@@ -382,7 +389,7 @@ export class Nec2Engine implements Engine {
 
     let allBands = primaryBands;
     if (!reachedLimits) {
-      // ~1 pt/MHz across 1.8–30 MHz — detects any band ≥ ~2 MHz wide.
+      // ~1 pt/MHz across 1.0–30 MHz — detects any band ≥ ~2 MHz wide.
       const BROAD_CHAR_POINTS = 29;
       const broadScan = await this.runScan(input, F_MIN, F_MAX, BROAD_CHAR_POINTS);
       // Use a stricter threshold than the display 2:1 boundary. The broad scan
