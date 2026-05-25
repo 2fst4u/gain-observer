@@ -19,6 +19,8 @@ import {
   INVERTED_L_RADIAL_TAG,
   FOLDED_DIPOLE_OPPOSITE_TAG,
   FOLDED_DIPOLE_CONNECTOR_TAG,
+  // FOLDED_DIPOLE_TERM_BRIDGE_TAG is used only in antennaStore (buildTerminationElements).
+  // Imported here so geometry tests can locate the constant from the geometry module if needed.
 } from '../physics/constants';
 import type { Wire } from '../physics/types';
 
@@ -858,6 +860,14 @@ export interface FoldedDipoleWiresParams {
   wireRadius: number;
   segments: number;
   frequency: number;
+  /**
+   * When > 0, the top (un-fed) conductor is split at its centre with a gap
+   * of TERMINATED_DELTA_CENTRE_GAP_M so that buildTerminationElements can
+   * add a resistive bridge across the gap (TFD topology). When 0 (unterminated),
+   * both halves share a common junction at the top centre — electrically
+   * equivalent to a single continuous wire.
+   */
+  terminatingResistor?: number;
 }
 
 /**
@@ -872,23 +882,31 @@ export interface FoldedDipoleWiresParams {
  *
  * The bottom (fed) conductor is split at its centre around a FEED_BRIDGE_TAG
  * source bridge — the same split-fed convention as the standard dipole, so
- * the existing buildExcitation `hasBridge` path drives it automatically. The
- * top conductor is a single continuous wire with an odd segment count; a
- * terminating resistor (when fitted) lands on its exact centre segment via
- * buildTerminationElements, turning the antenna into a broadband TFD.
+ * the existing buildExcitation `hasBridge` path drives it automatically.
+ *
+ * The top (un-fed) conductor is always split into two halves at the centre:
+ *   • Unterminated: both halves share the same junction point at topCenter
+ *     (0, 0, height + aperture), forming a continuous wire. No gap, no bridge.
+ *   • Terminated (terminatingResistor > 0): a gap of TERMINATED_DELTA_CENTRE_GAP_M
+ *     separates the two inner ends. buildTerminationElements adds a horizontal
+ *     bridge wire (FOLDED_DIPOLE_TERM_BRIDGE_TAG) with an LD-4 load across the
+ *     gap. Current must flow through R to pass between the halves — exactly the
+ *     traveling-wave termination of a T2FD / TFD, analogous to the
+ *     terminated-delta's centre-gap bridge.
  *
  * Tags:
- *   DIPOLE_LEFT_TAG             (1)  — fed (bottom) conductor, left half (left → bridge)
- *   DIPOLE_RIGHT_TAG            (2)  — fed (bottom) conductor, right half (bridge → right)
- *   FEED_BRIDGE_TAG            (3)  — 1-segment source bridge at the centre
- *   FOLDED_DIPOLE_OPPOSITE_TAG  (17) — un-fed (top) conductor (left → right)
- *   FOLDED_DIPOLE_CONNECTOR_TAG (18) — both end connectors (vertical, bottom → top)
+ *   DIPOLE_LEFT_TAG              (1)  — fed (bottom) conductor, left half (left → bridge)
+ *   DIPOLE_RIGHT_TAG             (2)  — fed (bottom) conductor, right half (bridge → right)
+ *   FEED_BRIDGE_TAG              (3)  — 1-segment source bridge at the centre
+ *   FOLDED_DIPOLE_OPPOSITE_TAG   (17) — un-fed (top) conductor, 2 halves (always split)
+ *   FOLDED_DIPOLE_CONNECTOR_TAG  (18) — both end connectors (vertical, bottom → top)
  */
 export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] {
   const h = params.height;
   const half = Math.max(0.1, params.length) / 2;
   const aperture = Math.max(0.02, params.aperture);
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
+  const hasTermination = (params.terminatingResistor ?? 0) > 0;
 
   const [dx, dy] = orientationVector(params.orientation);
   const cleanZero = (v: number): number => (v === 0 ? 0 : v);
@@ -928,10 +946,18 @@ export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] 
   const halfCondLen = Math.max(0.01, half - bridgeHalf);
   const halfSegs = segsForLen(halfCondLen, Math.round(params.segments / 2));
 
-  // Opposite conductor: force an odd segment count so the centre segment
-  // (which carries the optional terminating resistor) is exactly at midpoint.
-  const rawOppSegs = segsForLen(params.length, params.segments);
-  const oppSegs = rawOppSegs % 2 === 0 ? rawOppSegs + 1 : rawOppSegs;
+  // Top conductor: half-gap at the centre (zero when unterminated so both halves
+  // share a single junction point; TERMINATED_DELTA_CENTRE_GAP_M/2 when terminated
+  // so buildTerminationElements can bridge the gap with the LD-4 resistor).
+  const gapHalf = hasTermination ? TERMINATED_DELTA_CENTRE_GAP_M / 2 : 0;
+
+  // Each half of the top conductor runs from its outer end to the gap edge.
+  // When gapHalf = 0 both halves terminate at the same point (topCenter),
+  // making a continuous wire electrically.
+  // Both halves are symmetric: same length and same segment count.
+  const halfOppLen = Math.max(0.01, half - gapHalf);
+  const leftOppSegs = segsForLen(halfOppLen, Math.round(params.segments / 2));
+  const rightOppSegs = leftOppSegs;
 
   // End connectors span the aperture vertically, segmented at the same target
   // length so their segments match the adjacent conductor segments at the corners.
@@ -943,6 +969,9 @@ export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] 
   const bridgeRight = pt(bridgeHalf, zBottom);
   const leftOpp = pt(-half, zTop);
   const rightOpp = pt(half, zTop);
+  // Inner ends of the top-conductor halves. When gapHalf = 0 these coincide.
+  const topCenterLeft = pt(-gapHalf, zTop);
+  const topCenterRight = pt(gapHalf, zTop);
 
   return [
     // Fed conductor — left half (left end → bridge).
@@ -969,12 +998,22 @@ export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] 
       segments: halfSegs,
       tag: DIPOLE_RIGHT_TAG,
     },
-    // Opposite (un-fed) conductor — continuous wire; resistor on centre seg.
+    // Un-fed (top) conductor — left half.
+    // Unterminated: ends at topCenter (same as right half's start) → continuous.
+    // Terminated:   ends at topCenterLeft, separated from topCenterRight by the gap.
     {
       start: leftOpp,
+      end: topCenterLeft,
+      radius: params.wireRadius,
+      segments: leftOppSegs,
+      tag: FOLDED_DIPOLE_OPPOSITE_TAG,
+    },
+    // Un-fed (top) conductor — right half.
+    {
+      start: topCenterRight,
       end: rightOpp,
       radius: params.wireRadius,
-      segments: oppSegs,
+      segments: rightOppSegs,
       tag: FOLDED_DIPOLE_OPPOSITE_TAG,
     },
     // Left end connector across the aperture.

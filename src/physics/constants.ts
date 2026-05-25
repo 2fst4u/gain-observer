@@ -227,15 +227,33 @@ export const INVERTED_L_RADIAL_TAG = 16;
  * The lower conductor is fed at its centre (split into DIPOLE_LEFT_TAG /
  * DIPOLE_RIGHT_TAG halves around the FEED_BRIDGE_TAG = 3 source bridge, the
  * same split-fed convention as the standard dipole). The upper conductor is
- * continuous (FOLDED_DIPOLE_OPPOSITE_TAG); in a *terminated* folded dipole
- * (TFD) a resistor sits at the centre segment of that conductor. Two short
- * end-connector wires across the aperture share FOLDED_DIPOLE_CONNECTOR_TAG.
+ * split at its centre into two halves that share a wire junction at the top
+ * centre point (FOLDED_DIPOLE_OPPOSITE_TAG × 2); in the unterminated case
+ * they form a continuous wire. In a terminated folded dipole (TFD) a short
+ * bridge wire hangs vertically from that junction down to the feed-bridge
+ * junction below, and an LD-4 load on the bridge models the terminating
+ * resistor as a shunt across the aperture — the correct traveling-wave
+ * topology (FOLDED_DIPOLE_TERM_BRIDGE_TAG). Two short end-connector wires
+ * across the aperture share FOLDED_DIPOLE_CONNECTOR_TAG.
  *
- *   FOLDED_DIPOLE_OPPOSITE_TAG  (17) — un-fed parallel conductor
- *   FOLDED_DIPOLE_CONNECTOR_TAG (18) — both end connectors across the aperture
+ *   FOLDED_DIPOLE_OPPOSITE_TAG   (17) — un-fed conductor, 2 halves meeting at top centre
+ *   FOLDED_DIPOLE_CONNECTOR_TAG  (18) — both end connectors across the aperture
+ *   FOLDED_DIPOLE_TERM_BRIDGE_TAG (19) — termination bridge (TFD only); LD-4 carries R
  */
 export const FOLDED_DIPOLE_OPPOSITE_TAG = 17;
 export const FOLDED_DIPOLE_CONNECTOR_TAG = 18;
+/**
+ * Termination bridge wire for the TFD (Terminated Folded Dipole).
+ *
+ * Present only when a non-zero terminating resistor is fitted. The bridge
+ * spans the aperture vertically from the centre junction of the un-fed (top)
+ * conductor down to the feed-bridge junction on the fed (bottom) conductor.
+ * An LD-4 load on segment 1 of this wire places the terminating resistance
+ * as a shunt across the aperture — the physically correct model for a
+ * traveling-wave TFD. A series LD on the top conductor alone would NOT
+ * create a shunt current path and gives wrong (elevated) feedpoint impedance.
+ */
+export const FOLDED_DIPOLE_TERM_BRIDGE_TAG = 19;
 
 /**
  * Default conductor spacing (aperture) of the folded dipole, metres.

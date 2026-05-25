@@ -8,8 +8,10 @@ import {
   FEED_BRIDGE_TAG,
   FOLDED_DIPOLE_OPPOSITE_TAG,
   FOLDED_DIPOLE_CONNECTOR_TAG,
+  FOLDED_DIPOLE_TERM_BRIDGE_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
+import { TERMINATED_DELTA_CENTRE_GAP_M } from '../src/physics/constants';
 
 const FREQ = 7.1;
 const APERTURE = 0.5;
@@ -26,19 +28,21 @@ function foldedDipoleWires(overrides: Partial<Parameters<typeof buildWires>[0]> 
     vAngle: 180,
     legSlope: 0,
     foldedDipoleAperture: APERTURE,
+    terminatingResistor: 0,
     ...overrides,
   });
 }
 
 describe('folded dipole geometry', () => {
-  it('emits the six expected wires with the correct tags', () => {
+  it('emits the seven expected wires with the correct tags', () => {
     const wires = foldedDipoleWires();
-    expect(wires).toHaveLength(6);
+    expect(wires).toHaveLength(7);
     const tags = wires.map((w) => w.tag);
     expect(tags).toContain(DIPOLE_LEFT_TAG);
     expect(tags).toContain(DIPOLE_RIGHT_TAG);
     expect(tags).toContain(FEED_BRIDGE_TAG);
-    expect(tags).toContain(FOLDED_DIPOLE_OPPOSITE_TAG);
+    // Top conductor split into 2 halves — both share FOLDED_DIPOLE_OPPOSITE_TAG.
+    expect(tags.filter((t) => t === FOLDED_DIPOLE_OPPOSITE_TAG)).toHaveLength(2);
     // Two connectors share the connector tag.
     expect(tags.filter((t) => t === FOLDED_DIPOLE_CONNECTOR_TAG)).toHaveLength(2);
   });
@@ -51,10 +55,12 @@ describe('folded dipole geometry', () => {
       expect(w.start[2]).toBeCloseTo(12, 9);
       expect(w.end[2]).toBeCloseTo(12, 9);
     }
-    // Opposite (top) conductor must be at z = 12 + aperture.
-    const opp = wires.find((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG)!;
-    expect(opp.start[2]).toBeCloseTo(12 + APERTURE, 9);
-    expect(opp.end[2]).toBeCloseTo(12 + APERTURE, 9);
+    // Opposite (top) conductor halves must both be at z = 12 + aperture.
+    const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
+    for (const opp of oppWires) {
+      expect(opp.start[2]).toBeCloseTo(12 + APERTURE, 9);
+      expect(opp.end[2]).toBeCloseTo(12 + APERTURE, 9);
+    }
     // Connectors must span from z = 12 (bottom) to z = 12 + aperture (top).
     const connectors = wires.filter((w) => w.tag === FOLDED_DIPOLE_CONNECTOR_TAG);
     for (const c of connectors) {
@@ -76,10 +82,39 @@ describe('folded dipole geometry', () => {
     expect(opp.start[1]).toBeCloseTo(fed.start[1], 9);
   });
 
-  it('gives the opposite conductor an odd segment count (precise centre for the resistor)', () => {
-    const wires = foldedDipoleWires();
-    const opp = wires.find((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG)!;
-    expect(opp.segments % 2).toBe(1);
+  it('unterminated: top conductor halves share a common junction at topCenter (no gap)', () => {
+    const wires = foldedDipoleWires({ height: 12, terminatingResistor: 0 });
+    const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
+    expect(oppWires).toHaveLength(2);
+    // topCenter = (0, 0, height + aperture) for any orientation.
+    // When unterminated, left-half.end === right-half.start (shared junction = continuous wire).
+    const leftEnd = oppWires[0]!.end;
+    const rightStart = oppWires[1]!.start;
+    expect(leftEnd[0]).toBeCloseTo(rightStart[0], 9);
+    expect(leftEnd[1]).toBeCloseTo(rightStart[1], 9);
+    expect(leftEnd[2]).toBeCloseTo(rightStart[2], 9);
+    // That shared point is directly above the feed centre.
+    expect(leftEnd[0]).toBeCloseTo(0, 9);
+    expect(leftEnd[1]).toBeCloseTo(0, 9);
+    expect(leftEnd[2]).toBeCloseTo(12 + APERTURE, 9);
+  });
+
+  it('terminated: top conductor halves have a gap of TERMINATED_DELTA_CENTRE_GAP_M at the centre', () => {
+    const wires = foldedDipoleWires({ height: 12, terminatingResistor: 600 });
+    const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
+    expect(oppWires).toHaveLength(2);
+    const leftEnd = oppWires[0]!.end;    // topCenterLeft
+    const rightStart = oppWires[1]!.start; // topCenterRight
+    // Both halves are at z = height + aperture.
+    expect(leftEnd[2]).toBeCloseTo(12 + APERTURE, 9);
+    expect(rightStart[2]).toBeCloseTo(12 + APERTURE, 9);
+    // The gap between them equals TERMINATED_DELTA_CENTRE_GAP_M.
+    const gapDist = Math.hypot(
+      rightStart[0] - leftEnd[0],
+      rightStart[1] - leftEnd[1],
+      rightStart[2] - leftEnd[2],
+    );
+    expect(gapDist).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
   });
 
   it('forms a closed loop — connector endpoints coincide with both conductors', () => {
@@ -120,26 +155,53 @@ describe('folded dipole excitation and termination', () => {
     expect(input.excitation).toEqual({ wireTag: FEED_BRIDGE_TAG, segment: 1 });
   });
 
-  it('adds no termination load when unterminated', () => {
+  it('adds no termination load or bridge wire when unterminated', () => {
     const input = selectSimulationInput(fullState({ terminatingResistor: 0 }));
+    // No LD on the opposite conductor wires.
     const oppLoads = (input.loads ?? []).filter((l) => l.wireTag === FOLDED_DIPOLE_OPPOSITE_TAG);
     expect(oppLoads).toHaveLength(0);
+    // No termination bridge wire present.
+    const termBridges = input.wires.filter((w) => w.tag === FOLDED_DIPOLE_TERM_BRIDGE_TAG);
+    expect(termBridges).toHaveLength(0);
   });
 
-  it('places one LD-4 resistor on the opposite conductor centre when terminated', () => {
+  it('adds a gap-spanning bridge wire with LD-4 at the top-conductor centre when terminated', () => {
     const state = fullState({ terminatingResistor: 600 });
     const input = selectSimulationInput(state);
-    const oppLoads = (input.loads ?? []).filter((l) => l.wireTag === FOLDED_DIPOLE_OPPOSITE_TAG);
-    expect(oppLoads).toHaveLength(1);
 
-    const wires = buildWires(state);
-    const opp = wires.find((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG)!;
-    const centre = Math.ceil(opp.segments / 2);
-    expect(oppLoads[0]).toMatchObject({
+    // A bridge wire (FOLDED_DIPOLE_TERM_BRIDGE_TAG) must be present.
+    const termBridges = input.wires.filter((w) => w.tag === FOLDED_DIPOLE_TERM_BRIDGE_TAG);
+    expect(termBridges).toHaveLength(1);
+    const bridge = termBridges[0]!;
+    expect(bridge.segments).toBe(1);
+
+    // Bridge must span the gap between the two top-conductor halves.
+    // Both endpoints are at z = height + aperture.
+    expect(bridge.start[2]).toBeCloseTo(10 + APERTURE, 9);
+    expect(bridge.end[2]).toBeCloseTo(10 + APERTURE, 9);
+
+    // Bridge length equals the gap width.
+    const bridgeLen = Math.hypot(
+      bridge.end[0] - bridge.start[0],
+      bridge.end[1] - bridge.start[1],
+      bridge.end[2] - bridge.start[2],
+    );
+    expect(bridgeLen).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
+
+    // LD-4 on segment 1 of the bridge wire, with the correct resistance.
+    const bridgeLoads = (input.loads ?? []).filter((l) => l.wireTag === FOLDED_DIPOLE_TERM_BRIDGE_TAG);
+    expect(bridgeLoads).toHaveLength(1);
+    expect(bridgeLoads[0]).toMatchObject({
       type: 4,
-      segmentStart: centre,
-      segmentEnd: centre,
+      wireTag: FOLDED_DIPOLE_TERM_BRIDGE_TAG,
+      segmentStart: 1,
+      segmentEnd: 1,
       param1: 600,
+      param2: 0,
     });
+
+    // No LD placed directly on the opposite conductor wires.
+    const oppLoads = (input.loads ?? []).filter((l) => l.wireTag === FOLDED_DIPOLE_OPPOSITE_TAG);
+    expect(oppLoads).toHaveLength(0);
   });
 });

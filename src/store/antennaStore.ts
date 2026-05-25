@@ -51,6 +51,7 @@ import {
   INVERTED_L_RADIAL_TAG,
   FOLDED_DIPOLE_OPPOSITE_TAG,
   FOLDED_DIPOLE_CONNECTOR_TAG,
+  FOLDED_DIPOLE_TERM_BRIDGE_TAG,
   FOLDED_DIPOLE_DEFAULT_APERTURE_M,
   FOLDED_DIPOLE_MAX_APERTURE_M,
 } from '../physics/constants';
@@ -75,6 +76,7 @@ export {
   INVERTED_L_RADIAL_TAG,
   FOLDED_DIPOLE_OPPOSITE_TAG,
   FOLDED_DIPOLE_CONNECTOR_TAG,
+  FOLDED_DIPOLE_TERM_BRIDGE_TAG,
 };
 import type { UnitSystem } from '../physics/units';
 import {
@@ -379,11 +381,14 @@ export const useAntennaStore = create<AntennaState>()(
           s.transformerEnabled = false;
         } else if (type === 'folded-dipole') {
           // Two parallel half-wave conductors separated vertically by the
-          // aperture. Plain (unterminated) by default — ~300 Ω, dipole-like
-          // pattern. A non-zero terminating resistor makes it a broadband TFD.
-          // The raw ~300 Ω feedpoint is ~6× the 50 Ω coax reference; enable a
-          // 6:1 impedance-transforming balun by default so the SWR sweep shows
-          // the characteristic flat broadband curve the antenna is known for.
+          // aperture. Plain (unterminated) by default — ~300 Ω feedpoint,
+          // dipole-like pattern. A non-zero terminating resistor (TFD) adds
+          // a series R at the top-conductor centre, raising the feedpoint by
+          // approximately R (Z ≈ 300 + R Ω). The 6:1 balun is appropriate for
+          // both unterminated (~300 Ω → ~50 Ω) and terminated
+          // (e.g. R=600 Ω → ~900 Ω → ~150 Ω) cases; for optimal traveling-wave
+          // termination choose R ≈ Z0 of the two-wire line (typically 600–700 Ω
+          // for typical HF apertures of 0.1–0.5 m with 1 mm wire).
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
@@ -497,6 +502,20 @@ export const useAntennaStore = create<AntennaState>()(
       setTerminatingResistor: (ohms) => set((s) => {
         if (!Number.isFinite(ohms)) return;
         s.terminatingResistor = Math.max(0, ohms);
+        // For a folded dipole the terminating resistor raises the feedpoint by ~R
+        // (Z_feed ≈ Z_unterminated + R ≈ 300 + R Ω). The optimal transformer ratio
+        // that brings the displayed feedpoint closest to 50 Ω is therefore ~(300+R)/50.
+        // Auto-set this so the SWR sweep immediately shows the T2FD's characteristic
+        // flat broadband curve rather than a misleadingly high constant SWR.
+        // The user can override the ratio in the Transformer section at any time.
+        if (s.antennaType === 'folded-dipole') {
+          if (ohms > 0) {
+            s.transformerRatio = Math.max(1, Math.round((300 + ohms) / 50));
+          } else {
+            // Unterminated: classic ~300 Ω feedpoint; 6:1 balun → ~50 Ω.
+            s.transformerRatio = 6;
+          }
+        }
       }),
       setWhipCounterpoise: (enabled) => set((s) => {
         s.whipCounterpoise = !!enabled;
@@ -736,7 +755,7 @@ export function computeEffectiveSlope(
 
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
 ): Wire[] {
   const antennaType = state.antennaType;
   const half = state.length / 2;
@@ -846,6 +865,7 @@ export function buildWires(
       wireRadius: state.wireRadius,
       segments: state.segments,
       frequency: state.frequency,
+      terminatingResistor: state.terminatingResistor ?? 0,
     });
   }
 
@@ -1183,15 +1203,41 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
 
   if (state.antennaType === 'folded-dipole' && state.terminatingResistor > 0) {
     const R = state.terminatingResistor;
-    // Terminated folded dipole (TFD): the resistor sits at the centre of the
-    // conductor opposite the feed. The opposite conductor is emitted with an
-    // odd segment count, so its centre segment is exactly at the midpoint —
-    // no extra wire needed, just an LD-4 load on that one segment.
-    const opposite = wires.find((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG)!;
-    const centreSeg = Math.ceil(opposite.segments / 2);
-    loads.push(
-      { type: 4, wireTag: FOLDED_DIPOLE_OPPOSITE_TAG, segmentStart: centreSeg, segmentEnd: centreSeg, param1: R, param2: 0 },
-    );
+    // Terminated Folded Dipole (TFD) — correct travelling-wave gap-bridge topology.
+    //
+    // buildFoldedDipoleWires splits the top (un-fed) conductor into two halves
+    // with a gap of TERMINATED_DELTA_CENTRE_GAP_M at the centre when a
+    // terminating resistor is non-zero. The gap inner ends are:
+    //   left-half  .end = topCenterLeft
+    //   right-half .start = topCenterRight
+    // We add a short horizontal bridge wire spanning that gap and place the
+    // LD-4 load on its single segment. Current flowing in the top conductor
+    // MUST pass through R to cross from one half to the other — exactly the
+    // series-in-the-top-wire termination of a T2FD.
+    //
+    // This is identical in pattern to the terminated-delta bridge: the base is
+    // split, the resistive bridge closes the gap, and wave energy is dissipated
+    // rather than reflected. The gap is electrically small (≈ 0.1 m ≪ λ) so
+    // it does not perturb the radiation pattern or the fundamental resonance.
+    const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
+    const topCenterLeft  = oppWires[0]!.end;   // inner end of left half
+    const topCenterRight = oppWires[1]!.start; // inner end of right half
+
+    extraWires.push({
+      start: topCenterLeft,
+      end: topCenterRight,
+      radius: state.wireRadius,
+      segments: 1,
+      tag: FOLDED_DIPOLE_TERM_BRIDGE_TAG,
+    });
+    loads.push({
+      type: 4,
+      wireTag: FOLDED_DIPOLE_TERM_BRIDGE_TAG,
+      segmentStart: 1,
+      segmentEnd: 1,
+      param1: R,
+      param2: 0,
+    });
   }
 
   return { extraWires, loads };
