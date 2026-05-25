@@ -30,7 +30,6 @@ export function DipoleControl() {
     foldedDipoleAperture,
     wireRadius,
     terminatingResistor,
-    transformerRatio,
     whipCounterpoise,
     setAntennaType,
     setLength,
@@ -41,7 +40,6 @@ export function DipoleControl() {
     setVAngle,
     setFoldedDipoleAperture,
     setTerminatingResistor,
-    setTransformerRatio,
     setWhipCounterpoise,
   } = useAntennaStore(useShallow((s) => ({
     units: s.units,
@@ -54,7 +52,6 @@ export function DipoleControl() {
     foldedDipoleAperture: s.foldedDipoleAperture,
     wireRadius: s.wireRadius,
     terminatingResistor: s.terminatingResistor,
-    transformerRatio: s.transformerRatio,
     whipCounterpoise: s.whipCounterpoise,
     setAntennaType: s.setAntennaType,
     setLength: s.setLength,
@@ -65,7 +62,6 @@ export function DipoleControl() {
     setVAngle: s.setVAngle,
     setFoldedDipoleAperture: s.setFoldedDipoleAperture,
     setTerminatingResistor: s.setTerminatingResistor,
-    setTransformerRatio: s.setTransformerRatio,
     setWhipCounterpoise: s.setWhipCounterpoise,
   })));
 
@@ -173,12 +169,6 @@ export function DipoleControl() {
   // Z₀ = 120 × acosh(D / (2r))  where D = spacing (aperture), r = wire radius.
   // Terminating at R ≈ Z₀ gives a travelling-wave (T2FD) — broadband flat SWR.
   const tfdZ0 = Math.round(120 * Math.acosh(foldedDipoleAperture / (2 * wireRadius)));
-
-  // Optimal transformer ratio for a terminated folded dipole: Z_feed ≈ 300 + R Ω.
-  // Clicking "Match" applies this to the transformer without any automatic changes.
-  const optimalTransformerRatio = terminatingResistor > 0
-    ? Math.max(1, Math.round((300 + terminatingResistor) / 50))
-    : 6;
 
   return (
     <section className="panel-section">
@@ -344,26 +334,15 @@ export function DipoleControl() {
               }}
             />
             {antennaType === 'folded-dipole' && (
-              <>
-                <button
-                  onClick={() => setTerminatingResistor(tfdZ0)}
-                  disabled={terminatingResistor === tfdZ0}
-                  title={`Set terminating resistor to Z₀ ≈ ${tfdZ0} Ω — the characteristic impedance of the two-wire line for this conductor spacing and wire diameter. Terminating at R = Z₀ gives a true travelling-wave (T2FD): flat broadband SWR at the cost of ~3 dB efficiency.`}
-                  aria-label={`Set terminating resistor to Z₀ (${tfdZ0} Ω)`}
-                  style={{ flex: '0 0 auto' }}
-                >
-                  Z₀
-                </button>
-                <button
-                  onClick={() => setTransformerRatio(optimalTransformerRatio)}
-                  disabled={transformerRatio === optimalTransformerRatio}
-                  title={`Set transformer ratio to ${optimalTransformerRatio}:1 — the optimal value for a ${terminatingResistor > 0 ? `${terminatingResistor} Ω terminated` : 'unterminated'} folded dipole (estimated feedpoint ≈ ${terminatingResistor > 0 ? terminatingResistor + 300 : 300} Ω). The transformer ratio is never changed automatically; click here to apply the suggested value.`}
-                  aria-label={`Set transformer ratio to optimal (${optimalTransformerRatio}:1)`}
-                  style={{ flex: '0 0 auto' }}
-                >
-                  {optimalTransformerRatio}:1
-                </button>
-              </>
+              <button
+                onClick={() => setTerminatingResistor(tfdZ0)}
+                disabled={terminatingResistor === tfdZ0}
+                title={`Set terminating resistor to Z₀ ≈ ${tfdZ0} Ω — the characteristic impedance of the two-wire line for this conductor spacing and wire diameter. Terminating at R = Z₀ gives a true travelling-wave (T2FD): flat broadband SWR at the cost of ~3 dB efficiency.`}
+                aria-label={`Set terminating resistor to Z₀ (${tfdZ0} Ω)`}
+                style={{ flex: '0 0 auto' }}
+              >
+                Z₀
+              </button>
             )}
             <button
               onClick={() => setTerminatingResistor(0)}
@@ -378,12 +357,12 @@ export function DipoleControl() {
           <div id="terminating-resistor-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             {terminatingResistor === 0
               ? antennaType === 'folded-dipole'
-                ? 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor for a broadband terminated folded dipole (T2FD); click Z₀ to set the optimal termination for this conductor spacing. Click the ratio button to apply the suggested transformer match.'
+                ? 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor for a broadband terminated folded dipole (T2FD); click Z₀ to set the optimal termination for this conductor spacing. Use the Match button in the Transformer section below to apply the suggested ratio.'
                 : 'Unterminated: travelling wave reflects, creating a standing-wave pattern. Use this mode to check whether the antenna structure resonates at the design frequency.'
               : antennaType === 'sloping-v'
                 ? `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
                 : antennaType === 'folded-dipole'
-                  ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. Estimated raw feedpoint ≈ ${terminatingResistor + 300} Ω — click the ${optimalTransformerRatio}:1 button to apply the matching transformer ratio (the transformer is never changed automatically). For a true travelling-wave T2FD — flat broadband SWR — set R ≈ Z₀ of the two-wire line (≈ ${tfdZ0} Ω for this conductor spacing; click Z₀). Lower R reduces dissipation but leaves significant reflection, narrowing the bandwidth. Click Off to restore the plain folded dipole.`
+                  ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. Estimated raw feedpoint ≈ ${terminatingResistor + 300} Ω. Use the Match button in the Transformer section below to apply the optimal ratio (the transformer is never changed automatically). For a true travelling-wave T2FD — flat broadband SWR — set R ≈ Z₀ of the two-wire line (≈ ${tfdZ0} Ω for this conductor spacing; click Z₀). Lower R reduces dissipation but leaves significant reflection, narrowing the bandwidth. Click Off to restore the plain folded dipole.`
                   : `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
           </div>
         </>

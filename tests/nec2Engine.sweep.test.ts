@@ -71,6 +71,11 @@ describe('adaptive sweep framing (no spanFraction)', () => {
       foldedDipoleAperture: 0.3,
       terminatingResistor: R,
       transformerEnabled: false,
+      // Isolate from feedline modelling — folded-dipole gained feedline
+      // support in a later PR; without this override the default 'rg58'
+      // feedline would be included and would alter the impedance values
+      // that the adaptive-sweep assertions rely on.
+      feedlineId: 'none',
     } as AntennaState;
   }
 
