@@ -37,3 +37,8 @@
 
 **Learning:** The "V-Beam" terminology was previously added to the "Sloping V" documentation to clarify that they use the same geometry function. However, the user clarified that V-beam antennas are not actually used anymore in the project.
 **Action:** All references to "V-Beam" have been entirely removed from the documentation (`docs/antenna-model-spec.md`, `docs/antenna-spec.md`) and the codebase (`src/store/antennaGeometry.ts`) to avoid confusion and properly reflect the current state of the application.
+
+## 2025-05-25 - README Scope Completeness
+
+**Learning:** The `README.md` file's "Current scope" list was missing several antenna topologies (`vertical whips`, `inverted-Ls`, and `folded dipoles`) that are fully implemented in the engine (`src/physics/types.ts` `AntennaType`) and documented in `docs/antenna-spec.md`. The README capabilities summary frequently drifts from active implementations.
+**Action:** Updated `README.md` to perfectly match the `AntennaType` definitions to accurately represent the application's capabilities.
