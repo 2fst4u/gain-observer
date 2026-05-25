@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer } from '../src/physics/impedance';
+import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer, suggestedTransformerRatio } from '../src/physics/impedance';
 
 describe('reflection coefficient and SWR', () => {
   it('perfect match => |Γ|=0, SWR=1', () => {
@@ -263,6 +263,54 @@ describe('realizedGainWithTransformer', () => {
   it('returns undefined if mismatch loss factor is <= 0', () => {
     const result = realizedGainWithTransformer(2.15, { R: 0, X: 0 }, 1, 50, 0);
     expect(result).toBeUndefined();
+  });
+});
+
+describe('suggestedTransformerRatio', () => {
+  it('no feedline: matches the raw feedpoint to 50 Ω', () => {
+    expect(suggestedTransformerRatio({ R: 73, X: 0 }, 1)).toBe(1);   // dipole
+    expect(suggestedTransformerRatio({ R: 300, X: 0 }, 1)).toBe(6);  // folded dipole
+    expect(suggestedTransformerRatio({ R: 900, X: 0 }, 6)).toBe(18); // TFD; ignores current ratio
+  });
+
+  it('is stable: the suggestion does not depend on the current ratio (no feedline)', () => {
+    const z = { R: 300, X: 40 };
+    const a = suggestedTransformerRatio(z, 1);
+    const b = suggestedTransformerRatio(z, 6);
+    const c = suggestedTransformerRatio(z, 50);
+    expect(a).toBe(b);
+    expect(b).toBe(c);
+  });
+
+  it('feedline + NT card: de-embeds the line and undoes the ratio to recover the feedpoint', () => {
+    // Antenna feedpoint 900 Ω, matched by a 6:1 NT card to 150 Ω, then carried
+    // by 0.3λ of 50 Ω coax to the rig. The rig-end reading is what NEC reports.
+    const z0 = 50;
+    const lambdas = 0.3;
+    const ratio = 6;
+    const zSecondary = { R: 900 / ratio, X: 0 };           // NT secondary = 150 Ω
+    const rigEnd = transformThroughLine(zSecondary, z0, lambdas);
+    // Should recover ~900 Ω feedpoint → round(900/50) = 18.
+    expect(suggestedTransformerRatio(rigEnd, ratio, z0, lambdas)).toBe(18);
+  });
+
+  it('feedline: applying the suggestion is self-consistent (no oscillation)', () => {
+    const z0 = 50;
+    const lambdas = 0.3;
+    // Start mismatched at 6:1, recover the suggestion (18:1)...
+    const first = transformThroughLine({ R: 900 / 6, X: 0 }, z0, lambdas);
+    const suggested = suggestedTransformerRatio(first, 6, z0, lambdas);
+    expect(suggested).toBe(18);
+    // ...now the antenna is matched by 18:1 → 50 Ω secondary, flat line.
+    const second = transformThroughLine({ R: 900 / suggested, X: 0 }, z0, lambdas);
+    // Re-running Match yields the same ratio rather than chasing its tail.
+    expect(suggestedTransformerRatio(second, suggested, z0, lambdas)).toBe(18);
+  });
+
+  it('clamps to ≥ 1 and guards degenerate impedances', () => {
+    expect(suggestedTransformerRatio({ R: 10, X: 0 }, 1)).toBe(1); // round(0.2) → 1
+    expect(suggestedTransformerRatio({ R: 0, X: 0 }, 1)).toBe(1);
+    expect(suggestedTransformerRatio({ R: -5, X: 0 }, 1)).toBe(1);
   });
 });
 

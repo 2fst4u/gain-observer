@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
+import { TRANSFORMER_INSERTION_LOSS_DB, findFeedlinePreset } from '../../physics/constants';
+import { suggestedTransformerRatio } from '../../physics/impedance';
 
 /**
  * Transformer / balun controls. Rendered as an in-line sub-block (no outer
@@ -19,6 +20,8 @@ export function TransformerControl() {
     transformerEnabled,
     transformerRatio,
     feedlineId,
+    feedlineLength,
+    frequency,
     result,
     setTransformerEnabled,
     setTransformerRatio,
@@ -26,21 +29,29 @@ export function TransformerControl() {
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
     feedlineId: s.feedlineId,
+    feedlineLength: s.feedlineLength,
+    frequency: s.frequency,
     result: s.result,
     setTransformerEnabled: s.setTransformerEnabled,
     setTransformerRatio: s.setTransformerRatio,
   })));
 
-  // Optimal transformer ratio derived from the simulated feedpoint impedance.
-  // When the NT card is active (feedline + transformer in NEC), the reported
-  // impedance is already divided by the current ratio — undo that to recover
-  // the raw antenna feedpoint, then find the ratio that brings it to 50 Ω.
+  // Optimal transformer ratio for the current antenna. Derived from the raw
+  // antenna feedpoint impedance, recovered from the NEC source reading by
+  // de-embedding the feedline when one is present (see
+  // suggestedTransformerRatio). This is stable — it does not depend on the
+  // ratio currently applied — so clicking Match never oscillates.
+  const feedlineActive = feedlineId !== 'none';
   const optimalRatio = (() => {
     if (!result) return null;
-    const feedlineActive = feedlineId !== 'none';
-    const xfmrInNec = feedlineActive && transformerEnabled && transformerRatio > 1;
-    const rawR = xfmrInNec ? result.impedance.R * transformerRatio : result.impedance.R;
-    return Math.max(1, Math.round(rawR / 50));
+    if (!feedlineActive) {
+      return suggestedTransformerRatio(result.impedance, transformerRatio);
+    }
+    const preset = findFeedlinePreset(feedlineId);
+    const electricalLengthM = feedlineLength / Math.max(0.05, preset.velocityFactor);
+    const lambdaVacuumM = 299.792458 / frequency;
+    const lengthLambdas = electricalLengthM / lambdaVacuumM;
+    return suggestedTransformerRatio(result.impedance, transformerRatio, preset.z0, lengthLambdas);
   })();
 
   // Local state to allow natural typing (including empty strings)
@@ -115,7 +126,7 @@ export function TransformerControl() {
             {optimalRatio !== null && optimalRatio !== transformerRatio && (
               <button
                 onClick={() => setTransformerRatio(optimalRatio)}
-                title={`Set ratio to ${optimalRatio}:1 — estimated optimal for the simulated feedpoint impedance (~${Math.round(result!.impedance.R)} Ω). The ratio is never changed automatically; click to apply.`}
+                title={`Set ratio to ${optimalRatio}:1 — the estimated best match for this antenna${feedlineActive ? ' and feedline' : ''}, from the simulated impedance. The ratio is never changed automatically; click to apply.`}
                 aria-label={`Match transformer ratio to ${optimalRatio}:1`}
                 style={{ flex: '0 0 auto' }}
               >
