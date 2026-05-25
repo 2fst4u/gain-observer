@@ -22,6 +22,7 @@ import { buildNecCards } from './necCard';
 import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
 import { computeTerminationDiagnostics } from './terminationDiagnostics';
 import { swr, mismatchLossFactor } from './impedance';
+import { findSwrBands } from './bandwidth';
 import type { Engine, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 
 interface EmscriptenFS {
@@ -357,59 +358,29 @@ export class Nec2Engine implements Engine {
       scan = await this.runScan(input, start, end, CHAR_POINTS);
     }
 
-    // Locate the minimum (by effective SWR).
-    let minI = 0;
-    let minS = Infinity;
-    for (let i = 0; i < scan.length; i++) {
-      const s = effSwr(scan[i]!);
-      if (s < minS) {
-        minS = s;
-        minI = i;
-      }
-    }
-
     const loEdge = scan[0]!.frequencyMHz;
     const hiEdge = scan[scan.length - 1]!.frequencyMHz;
-    const interp2 = (a: SweepPoint, b: SweepPoint): number => {
-      const sa = effSwr(a);
-      const sb = effSwr(b);
-      const t = (2 - sa) / (sb - sa);
-      return a.frequencyMHz + t * (b.frequencyMHz - a.frequencyMHz);
-    };
 
-    // 2:1 crossings either side of the minimum (only meaningful if it dips below 2).
-    let fLow: number | null = null;
-    let fHigh: number | null = null;
-    if (minS < 2) {
-      for (let i = minI; i > 0; i--) {
-        if (effSwr(scan[i - 1]!) >= 2) {
-          fLow = interp2(scan[i - 1]!, scan[i]!);
-          break;
-        }
-      }
-      for (let i = minI; i < scan.length - 1; i++) {
-        if (effSwr(scan[i + 1]!) >= 2) {
-          fHigh = interp2(scan[i]!, scan[i + 1]!);
-          break;
-        }
-      }
-    }
+    // Frame the window around every ≤2:1 band found in the characterisation
+    // scan (the antenna may be usable on several disjoint sub-bands), so the
+    // chart shows them all rather than just the one around the global minimum.
+    const bands = findSwrBands(
+      scan.map((p) => p.frequencyMHz),
+      scan.map(effSwr),
+      2,
+    );
 
     let winStart: number;
     let winEnd: number;
-    if (fLow !== null && fHigh !== null) {
-      const bw = fHigh - fLow;
-      const margin = Math.max(bw * 0.35, f * 0.01);
-      winStart = fLow - margin;
-      winEnd = fHigh + margin;
-    } else if (fLow !== null) {
-      winStart = fLow - Math.max((hiEdge - fLow) * 0.1, f * 0.01);
-      winEnd = hiEdge;
-    } else if (fHigh !== null) {
-      winStart = loEdge;
-      winEnd = fHigh + Math.max((fHigh - loEdge) * 0.1, f * 0.01);
+    if (bands.length > 0) {
+      const unionLow = bands[0]!.fLow;
+      const unionHigh = bands[bands.length - 1]!.fHigh;
+      const width = Math.max(unionHigh - unionLow, f * 0.02);
+      const margin = Math.max(width * 0.2, f * 0.015);
+      winStart = unionLow - margin;
+      winEnd = unionHigh + margin;
     } else {
-      // Either fully broadband within the explored window, or never below 2:1.
+      // Never dips below 2:1 within the explored window — show what we scanned.
       winStart = loEdge;
       winEnd = hiEdge;
     }
