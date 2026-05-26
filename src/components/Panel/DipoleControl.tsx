@@ -258,6 +258,7 @@ export function DipoleControl() {
         max={maxHeight}
         step={units === 'metric' ? 0.5 : 1}
         value={dispHeight}
+        aria-label={isVerticalWhip ? 'Base height above ground' : isInvertedL ? 'Mast / bend-point height' : isFoldedDipole ? 'Bottom conductor height / feedpoint' : 'Height above ground'}
         onChange={(e) => {
           const val = parseFloat(e.target.value);
           if (!isNaN(val)) setHeight(fromDisplayLength(val, units));
