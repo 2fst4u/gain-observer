@@ -167,9 +167,10 @@ function ComparisonStats({
   reference: NonNullable<ReturnType<typeof useAntennaStore.getState>['comparisonReference']>['result'];
 }) {
   return (
-    <>
+    /* SEO: Upgrade fragment to semantic section tag for document outline */
+    <section aria-labelledby="comparison-stats-heading">
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
-      <h3 style={{ fontSize: 11, margin: 0, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+      <h3 id="comparison-stats-heading" style={{ fontSize: 11, margin: 0, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         Versus reference
       </h3>
       <div className="stat">
@@ -192,7 +193,7 @@ function ComparisonStats({
         <span className="stat-label">X delta</span>
         <span className="stat-value">{formatSigned(current.impedance.X - reference.impedance.X, 1)} Ω</span>
       </div>
-    </>
+    </section>
   );
 }
 
@@ -234,9 +235,10 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
   if (!hasContent) return null;
 
   return (
-    <>
+    /* SEO: Upgrade fragment to semantic section tag for document outline */
+    <section aria-labelledby="termination-effectiveness-heading">
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '8px 0' }} />
-      <h3 style={{ fontSize: 11, margin: 0, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+      <h3 id="termination-effectiveness-heading" style={{ fontSize: 11, margin: 0, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         Termination effectiveness
       </h3>
       {legRipples.map((r) => (
@@ -273,7 +275,7 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
         <strong>Note:</strong> Termination reduces reflections along the antenna wire.
         It does not guarantee a 50 Ω feedpoint impedance.
       </div>
-    </>
+    </section>
   );
 }
 
