@@ -27,3 +27,7 @@
 
 **Learning:** When generating a plan as Scout, do not include conditional logic or exploratory tasks in the final execution plan. Also ensure that testing and linting steps are explicitly listed before the pre-commit step, and that the pre-commit step itself strictly follows the required format.
 **Action:** Always fully explore the codebase first, identify the specific DOM element and file to edit, and then formulate a plan with exact steps, including a dedicated test/lint verification step before the pre-commit step.
+## 2024-05-27 - Upgrading Fragments to Semantic Sections
+
+**Learning:** When React components return fragments (`<>...</>`) containing headings (like `<h3>`), these structures are rendered as "div soup" or flat content blocks in the DOM, which obscures the document outline for search engines and screen readers.
+**Action:** When a fragment conceptually represents a distinct section of content with a heading, upgrade the fragment to a `<section>` tag and use `aria-labelledby` linked to the heading's `id`. This provides clear semantic landmarks without altering visual styling.
