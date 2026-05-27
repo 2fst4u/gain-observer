@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { gradedSegmentPlan, orientationVector } from '../src/store/antennaGeometry';
+import { gradedSegmentPlan, orientationVector, buildInvertedLWires } from '../src/store/antennaGeometry';
+import {
+  INVERTED_L_VERTICAL_TAG,
+  INVERTED_L_HORIZONTAL_TAG,
+  INVERTED_L_RADIAL_TAG,
+  VERTICAL_WHIP_RADIAL_COUNT
+} from '../src/physics/constants';
 
 describe('gradedSegmentPlan', () => {
   it('returns empty plan for zero or negative length', () => {
@@ -81,5 +87,50 @@ describe('orientationVector', () => {
     // switch won't match, deg stays 0
     expect(x).toBeCloseTo(0);
     expect(y).toBeCloseTo(1);
+  });
+});
+
+describe('buildInvertedLWires', () => {
+  const baseParams = {
+    length: 20, // total 20m
+    height: 10, // bend at 10m
+    frequency: 14.15,
+    segments: 51,
+    wireRadius: 0.001,
+    orientation: 'NS' as const,
+    counterpoise: false,
+  };
+
+  it('creates both vertical and horizontal sections for standard params', () => {
+    const wires = buildInvertedLWires(baseParams);
+    expect(wires).toHaveLength(2);
+
+    const vertical = wires.find(w => w.tag === INVERTED_L_VERTICAL_TAG);
+    const horizontal = wires.find(w => w.tag === INVERTED_L_HORIZONTAL_TAG);
+
+    expect(vertical).toBeDefined();
+    expect(horizontal).toBeDefined();
+
+    // Verify lengths roughly (bendZ = 10.1 if baseZ = 0.1, vertical ~10m, horiz ~10m)
+    expect(vertical!.end[2]).toBeGreaterThan(9.9);
+    expect(horizontal!.end[1]).toBeGreaterThan(9); // NS orientation means Y increases
+  });
+
+  it('omits horizontal section if height >= total length', () => {
+    const tallParams = { ...baseParams, height: 25, length: 20 };
+    const wires = buildInvertedLWires(tallParams);
+
+    // Total length clamped to height roughly.
+    expect(wires).toHaveLength(1);
+    expect(wires[0].tag).toBe(INVERTED_L_VERTICAL_TAG);
+    expect(wires.find(w => w.tag === INVERTED_L_HORIZONTAL_TAG)).toBeUndefined();
+  });
+
+  it('adds counterpoise radials if requested', () => {
+    const params = { ...baseParams, counterpoise: true };
+    const wires = buildInvertedLWires(params);
+
+    const radials = wires.filter(w => w.tag === INVERTED_L_RADIAL_TAG);
+    expect(radials).toHaveLength(VERTICAL_WHIP_RADIAL_COUNT);
   });
 });

@@ -5,3 +5,6 @@
 ## 2026-05-24 - Suppressing React Three Fiber Warnings
 **Learning:** When using React Testing Library to test components that render `@react-three/fiber` elements (like `<mesh>`), React will spam the console with warnings about unrecognized HTML tags or incorrect casing. The mock used in `beforeEach` for `console.error` can swallow important actual errors if not careful. The mock function should accept multiple arguments (e.g. `...args`) and forward them via `console.warn(msg, ...args)` rather than just swallowing or printing the first argument.
 **Action:** Use a robust `console.error` spy that selectively drops R3F warnings but forwards real errors with full arguments.
+## 2024-05-27 - Placing Imports Cleanly
+**Learning:** Adding test blocks sometimes involves adding imports for types or variables not currently imported. Simply appending import statements at the bottom of the file (before a new `describe` block) might be syntactically valid in TypeScript, but it generally violates linters and is considered sloppy.
+**Action:** When adding new tests that require extra imports, parse the file to inject the imports at the top along with the existing ones, or prepend them if appending new blocks.
