@@ -45,3 +45,6 @@
 ## 2025-05-27 - Antenna Model Spec Drift
 **Learning:** `docs/antenna-model-spec.md` drifted and omitted several supported antenna types (Vertical Whip, Inverted-L, Folded Dipole) under "2. Antenna Type Definitions". These types were already documented in the codebase, `README.md`, and `docs/antenna-spec.md`, leading to an incomplete representation of the physics model.
 **Action:** The missing topologies (Vertical Whip, Inverted-L, Folded Dipole) were added to `docs/antenna-model-spec.md` to accurately match reality.
+## 2024-05-28 - Syncing terminology
+**Learning:** The README.md still refers to "terminated delta loops", but in the app and the `antenna-spec.md` they are referred to as `Terminated Delta`.
+**Action:** Need to update README.md to be more precise about the actual application state.
