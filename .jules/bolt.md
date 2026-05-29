@@ -148,3 +148,8 @@
 
 **Learning:** When frequently querying static arrays by a unique ID (e.g., `GROUND_PRESETS`), using `Array.find()` results in $O(N)$ linear searches.
 **Action:** Pre-compute a `Map` at module initialization to enable $O(1)$ lookups via `Map.get(id)`, replacing the inefficient $O(N)$ linear searches. This provides a measurable reduction in lookup time.
+
+## 2025-05-18 - Loop Fusions and Array Find optimizations
+
+**Learning:** Finding individual wires in an array generated from Three.js vectors inside `antennaStore.ts` using `.find` or `.filter` requires multiple $O(N)$ allocations and passes over the array.
+**Action:** Replace multiple separate `.find` and `.filter` calls on array elements with a single `for` loop that stores the specific matches by evaluating all cases and executing early `break` statements. This removes functional allocation overhead inside hot store selectors.

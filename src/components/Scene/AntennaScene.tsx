@@ -77,11 +77,15 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
 
   return (
     <Canvas
+      role="img"
+      aria-label="Interactive 3D visualization of the HF antenna radiation pattern"
       camera={{ position: [18, 12, 22], fov: 45, near: 0.1, far: 1000 }}
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: false }}
       style={{ background: 'var(--bg-canvas)' }}
     >
+      {/* SEO: R3F Canvas renders a WebGL node which is invisible to search engines.
+          Adding role="img" and an aria-label provides critical context. */}
       <color attach="background" args={[THEME_COLORS[theme].background]} />
       <ambientLight intensity={0.35} />
       <directionalLight position={[15, 25, 10]} intensity={1.15} castShadow />

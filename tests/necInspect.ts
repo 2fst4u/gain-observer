@@ -94,3 +94,26 @@ export function expectExcitation(deck: string, tag: number, segment: number) {
   });
   expect(found, `Excitation not found on tag ${tag} segment ${segment}`).toBe(true);
 }
+
+/**
+ * Parses an NT (Network) card line.
+ * Format: NT tag1 seg1 tag2 seg2 Y11r Y11i Y12r Y12i Y22r Y22i
+ */
+export function parseNtLine(line: string) {
+  const parts = line.trim().split(/\s+/);
+  if (parts[0] !== 'NT') {
+    throw new Error(`Not an NT line: ${line}`);
+  }
+  return {
+    tag1: parseInt(parts[1], 10),
+    seg1: parseInt(parts[2], 10),
+    tag2: parseInt(parts[3], 10),
+    seg2: parseInt(parts[4], 10),
+    y11r: parseFloat(parts[5]),
+    y11i: parseFloat(parts[6]),
+    y12r: parseFloat(parts[7]),
+    y12i: parseFloat(parts[8]),
+    y22r: parseFloat(parts[9]),
+    y22i: parseFloat(parts[10]),
+  };
+}

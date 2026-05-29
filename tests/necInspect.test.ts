@@ -5,6 +5,7 @@ import {
   parseGwLine,
   parseLdLine,
   parseTlLine,
+  parseNtLine,
   expectNoGroundTouchingWires,
   expectExcitation
 } from './necInspect';
@@ -55,12 +56,22 @@ describe('necInspect helpers', () => {
     expect(gw.radius).toBe(0.001);
   });
 
+  it('parseGwLine throws on non-GW line', () => {
+    const line = 'LD 4 1 1 1 50.00000 0.00000';
+    expect(() => parseGwLine(line)).toThrow(/Not a GW line/);
+  });
+
   it('parseLdLine parses LD correctly', () => {
     const line = 'LD 4 1 1 1 50.00000 0.00000';
     const ld = parseLdLine(line);
     expect(ld.type).toBe(4);
     expect(ld.tag).toBe(1);
     expect(ld.p1).toBe(50);
+  });
+
+  it('parseLdLine throws on non-LD line', () => {
+    const line = 'GW 1 11 0.00000 -5.00000 10.00000 0.00000 5.00000 10.00000 0.00100';
+    expect(() => parseLdLine(line)).toThrow(/Not an LD line/);
   });
 
   it('parseTlLine parses TL correctly', () => {
@@ -70,6 +81,31 @@ describe('necInspect helpers', () => {
     expect(tl.seg1).toBe(6);
     expect(tl.z0).toBe(50);
     expect(tl.length).toBe(10);
+  });
+
+  it('parseTlLine throws on non-TL line', () => {
+    const line = 'GW 1 11 0.00000 -5.00000 10.00000 0.00000 5.00000 10.00000 0.00100';
+    expect(() => parseTlLine(line)).toThrow(/Not a TL line/);
+  });
+
+  it('parseNtLine parses NT correctly', () => {
+    const line = 'NT 1 1 2 1 0.020000 0.000000 -0.020000 0.000000 0.020000 0.000000';
+    const nt = parseNtLine(line);
+    expect(nt.tag1).toBe(1);
+    expect(nt.seg1).toBe(1);
+    expect(nt.tag2).toBe(2);
+    expect(nt.seg2).toBe(1);
+    expect(nt.y11r).toBe(0.02);
+    expect(nt.y11i).toBe(0);
+    expect(nt.y12r).toBe(-0.02);
+    expect(nt.y12i).toBe(0);
+    expect(nt.y22r).toBe(0.02);
+    expect(nt.y22i).toBe(0);
+  });
+
+  it('parseNtLine throws on non-NT line', () => {
+    const line = 'GW 1 11 0.00000 -5.00000 10.00000 0.00000 5.00000 10.00000 0.00100';
+    expect(() => parseNtLine(line)).toThrow(/Not an NT line/);
   });
 
   it('expectNoGroundTouchingWires passes for high dipole', () => {

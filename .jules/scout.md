@@ -31,3 +31,6 @@
 
 **Learning:** When React components return fragments (`<>...</>`) containing headings (like `<h3>`), these structures are rendered as "div soup" or flat content blocks in the DOM, which obscures the document outline for search engines and screen readers.
 **Action:** When a fragment conceptually represents a distinct section of content with a heading, upgrade the fragment to a `<section>` tag and use `aria-labelledby` linked to the heading's `id`. This provides clear semantic landmarks without altering visual styling.
+## 2024-05-28 - React Three Fiber `<Canvas>` SEO
+**Learning:** The R3F `<Canvas>` component renders an opaque WebGL context that is inherently invisible to search engines and screen readers.
+**Action:** Apply `role="img"` and a descriptive `aria-label` directly to the `<Canvas>` element to provide semantic context.
