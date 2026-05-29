@@ -300,7 +300,7 @@ export const TERMINATED_DELTA_CENTRE_GAP_M = FEED_BRIDGE_LENGTH_M;
  */
 export const SLOPING_V_STUB_BOTTOM_Z_M = 0.01;
 
-const GROUND_PRESET_MAP = new Map<string, GroundPreset>(
+export const GROUND_PRESET_MAP = new Map<string, GroundPreset>(
   GROUND_PRESETS.map((p) => [p.id, p])
 );
 
