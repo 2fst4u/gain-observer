@@ -36,12 +36,17 @@ export function halfWaveLength(frequencyMHz: number, endEffect = 0.95): number {
  * Topology-aware reference length (metres).
  *
  *   - dipole: 0.475λ total (0.5λ × 0.95 end-effect).
- *   - inverted-v: 0.485λ total (0.5λ × 0.97 end-effect) per spec.
- *   - delta-loop: 1λ perimeter.
- *   - sloping-v: 2λ total (1λ per leg).
- *   - terminated-delta: 1λ perimeter (same triangle as delta-loop).
+ *   - inverted-v: 0.485λ total (0.5λ × 0.97). Slightly more wire than a flat
+ *     dipole: the V geometry reduces the effective horizontal current
+ *     component, so extra wire restores the resonant frequency.
+ *   - delta-loop: 1.02λ perimeter (ARRL formula: 1005/f ft; no end-effect
+ *     correction — loops have no free ends).
+ *   - sloping-v: 2λ total (1λ per leg). Traveling-wave antenna; no
+ *     end-effect correction applies.
+ *   - terminated-delta: 1.02λ perimeter (same triangle as delta-loop).
  *
- * Applies the standard HF end-effect factor k ~ 0.95 where noted.
+ * Applies the standard HF end-effect factor k ~ 0.95 only to resonant
+ * half-wave elements (dipole variants, quarter-wave monopoles).
  */
 export function referenceLength(type: AntennaType, frequencyMHz: number, endEffect = 0.95): number {
   const lambda = wavelengthMeters(frequencyMHz);
@@ -49,17 +54,21 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
     case 'dipole':
       return lambda * 0.5 * endEffect;
     case 'inverted-v':
-      // Slightly higher end-effect than a dipole due to the V geometry.
+      // The V geometry reduces the effective horizontal current component;
+      // slightly more wire than a flat dipole is needed to restore resonance.
       return lambda * 0.5 * 0.97;
     case 'delta-loop':
-      return lambda * 1.0 * endEffect;
+      // Full-wave loop: no free ends, so end-effect does not apply.
+      // ARRL formula (1005/f MHz ft) gives ≈1.02λ for thin wire at HF.
+      return lambda * 1.02;
     case 'sloping-v':
-      return lambda * 2.0 * endEffect;
+      // Traveling-wave V antenna: 1λ per leg. End-effect correction does not
+      // apply to non-resonant traveling-wave structures.
+      return lambda * 2.0;
     case 'terminated-delta':
-      // Same physical perimeter as a delta loop. Resonance is irrelevant in
-      // a true terminated configuration (the wave is absorbed before it can
-      // reflect), but 1λ is the canonical starting point.
-      return lambda * 1.0 * endEffect;
+      // Same perimeter as delta-loop. Resonance is irrelevant in a true
+      // terminated configuration, but 1.02λ is the canonical starting point.
+      return lambda * 1.02;
     case 'vertical-whip':
       // Quarter-wave monopole resonant length.
       return lambda * 0.25 * endEffect;
