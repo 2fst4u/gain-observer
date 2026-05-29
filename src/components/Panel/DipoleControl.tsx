@@ -180,7 +180,8 @@ export function DipoleControl() {
         id="antenna-type"
         value={antennaType}
         onChange={(e) => setAntennaType(e.target.value as AntennaType)}
-        style={{ marginBottom: 12 }}
+        aria-describedby="antenna-type-hint"
+        style={{ marginBottom: 4 }}
       >
         <option value="dipole">Horizontal Dipole</option>
         <option value="inverted-v">Inverted V</option>
@@ -191,6 +192,9 @@ export function DipoleControl() {
         <option value="inverted-l">Inverted-L</option>
         <option value="folded-dipole">Folded Dipole</option>
       </select>
+      <div id="antenna-type-hint" aria-live="polite" style={{ marginBottom: 12, fontSize: 11, color: 'var(--text-muted)' }}>
+        {resonateTitles[antennaType]}
+      </div>
 
       <label htmlFor="dipole-length" style={{ marginTop: 10 }}>{lengthLabel}</label>
       <div className="row">
@@ -258,6 +262,7 @@ export function DipoleControl() {
         max={maxHeight}
         step={units === 'metric' ? 0.5 : 1}
         value={dispHeight}
+        aria-label={isVerticalWhip ? 'Base height above ground' : isInvertedL ? 'Mast / bend-point height' : isFoldedDipole ? 'Bottom conductor height / feedpoint' : 'Height above ground'}
         onChange={(e) => {
           const val = parseFloat(e.target.value);
           if (!isNaN(val)) setHeight(fromDisplayLength(val, units));

@@ -70,6 +70,30 @@ We use the standard NEC-2 Cartesian coordinate system:
 - **Feedpoint**: The apex.
 - **Termination Support**: A single resistor across the base-centre gap (not two resistors to ground). Designed for broadband flat impedance, not directionality — the antenna remains roughly broadside-bidirectional, like a delta loop but aperiodic.
 
+### 2.6 Vertical Whip
+
+- **Structure**: A single vertical wire extending upwards from the base.
+- **Length**: The length of the vertical wire.
+- **Height**: The height of the base above ground (typically 0).
+- **Feedpoint**: Base-fed.
+- **Balanced**: No (unbalanced, driven against ground or radials).
+
+### 2.7 Inverted-L
+
+- **Structure**: A vertical wire section from the base up to a bend point, followed by a horizontal top-loading section.
+- **Length**: Total wire length (vertical + horizontal combined).
+- **Height**: The bend-point height above ground.
+- **Feedpoint**: Base-fed on the vertical section.
+- **Balanced**: No.
+
+### 2.8 Folded Dipole
+
+- **Structure**: Two parallel half-wave conductors joined at both ends, forming a narrow rectangular loop.
+- **Length**: The length of each conductor.
+- **Height**: The height of the bottom fed conductor.
+- **Feedpoint**: Center-fed on the bottom conductor.
+- **Balanced**: Yes.
+
 ---
 
 ## 3. "Terminated" Antennas

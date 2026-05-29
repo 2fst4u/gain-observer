@@ -138,3 +138,22 @@
 
 **Learning:** Array `.map()` creates shallow copies that can lead to large garbage collection pressure, particularly when generating intermediate arrays or used inside loops and computationally-heavy `useMemo` hooks.
 **Action:** Replace sequential `.map()` chains and intermediate arrays with a single optimized `for` loop that performs calculations and populates output arrays concurrently in O(N) passes, drastically minimizing overhead.
+## 2025-02-18 - Avoid O(n) array element extraction micro-optimization
+
+**Learning:** Replacing native `Array.prototype.filter()` and `find()` with manual `for` loops on small arrays (e.g., extracting antenna wires by tag in `antennaStore.ts`) is considered a forbidden micro-optimization. It sacrifices code readability and provides zero measurable performance benefit.
+**Action:** Do not replace clean, concise functional methods with verbose `for` loops for small arrays.
+
+## 2025-02-18 - Avoid Set.has() micro-optimization on tiny static arrays
+
+**Learning:** When performing membership checks against large static arrays, extracting the static array into a module-scoped `Set` and using `Set.has()` instead of `Array.includes()` achieves $O(1)$ lookup time. However, applying this to tiny, static arrays (e.g., 3-5 elements) offers no measurable performance improvement over `Array.includes()` and is considered a forbidden micro-optimization.
+**Action:** Only use `Set.has()` for larger static arrays where the performance gain is measurable.
+
+## 2025-02-18 - Pre-compute Maps for O(1) Lookups
+
+**Learning:** When frequently querying static arrays by a unique ID (e.g., `GROUND_PRESETS`), using `Array.find()` results in $O(N)$ linear searches.
+**Action:** Pre-compute a `Map` at module initialization to enable $O(1)$ lookups via `Map.get(id)`, replacing the inefficient $O(N)$ linear searches. This provides a measurable reduction in lookup time.
+
+## 2025-05-18 - Loop Fusions and Array Find optimizations
+
+**Learning:** Finding individual wires in an array generated from Three.js vectors inside `antennaStore.ts` using `.find` or `.filter` requires multiple $O(N)$ allocations and passes over the array.
+**Action:** Replace multiple separate `.find` and `.filter` calls on array elements with a single `for` loop that stores the specific matches by evaluating all cases and executing early `break` statements. This removes functional allocation overhead inside hot store selectors.

@@ -37,3 +37,14 @@
 
 **Learning:** The "V-Beam" terminology was previously added to the "Sloping V" documentation to clarify that they use the same geometry function. However, the user clarified that V-beam antennas are not actually used anymore in the project.
 **Action:** All references to "V-Beam" have been entirely removed from the documentation (`docs/antenna-model-spec.md`, `docs/antenna-spec.md`) and the codebase (`src/store/antennaGeometry.ts`) to avoid confusion and properly reflect the current state of the application.
+
+## 2025-05-26 - README phase 1 scope is outdated
+**Learning:** The `README.md` listed phase 1 scope and did not include `vertical-whip`, `inverted-l`, and `folded-dipole` which are supported in `AntennaType` type now.
+**Action:** Always verify `AntennaType` against `README.md` or other files that hardcode supported types.
+
+## 2025-05-27 - Antenna Model Spec Drift
+**Learning:** `docs/antenna-model-spec.md` drifted and omitted several supported antenna types (Vertical Whip, Inverted-L, Folded Dipole) under "2. Antenna Type Definitions". These types were already documented in the codebase, `README.md`, and `docs/antenna-spec.md`, leading to an incomplete representation of the physics model.
+**Action:** The missing topologies (Vertical Whip, Inverted-L, Folded Dipole) were added to `docs/antenna-model-spec.md` to accurately match reality.
+## 2024-05-28 - Syncing terminology
+**Learning:** The README.md still refers to "terminated delta loops", but in the app and the `antenna-spec.md` they are referred to as `Terminated Delta`.
+**Action:** Need to update README.md to be more precise about the actual application state.

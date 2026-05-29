@@ -4,3 +4,6 @@
 ## 2024-05-22 - [Kept for compatibility]
 **Learning:** Code Cleanup Safety Pattern: Never remove exported constants or variables that are explicitly marked in comments as 'kept for compatibility' (e.g., DELTA_LOOP_RIGHT_LEG_TAG), even if they appear completely unused in the current repository, to avoid breaking external systems or legacy data parsing.
 **Action:** Always read the inline comments of a variable or function before removing it to ensure it is not kept for compatibility reasons.
+## 2024-05-23 - Internal Definitions and Export Cleanup
+**Learning:** `knip` flagged `INVERTED_L_HORIZONTAL_TAG` and `INVERTED_L_RADIAL_TAG` as unused exports in `src/store/antennaStore.ts`. However, these constants are actually defined in `src/physics/constants.ts` and used in `src/store/antennaGeometry.ts`. The re-export in the store file was unnecessary, but the actual declarations were not dead code.
+**Action:** When `knip` reports an unused export, particularly in a file that seems to be re-exporting things (like an aggregator or a store), trace the variable back to its definition and do a global search (`grep`) to see if it is used *anywhere* else in the application. Only delete the original definition if it is 100% dead code application-wide. If it is used elsewhere but the re-export is truly unused, only remove the re-export.

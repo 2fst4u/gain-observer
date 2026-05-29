@@ -47,8 +47,6 @@ import {
   VERTICAL_WHIP_TAG,
   DEFAULT_WHIP_LENGTH_M,
   INVERTED_L_VERTICAL_TAG,
-  INVERTED_L_HORIZONTAL_TAG,
-  INVERTED_L_RADIAL_TAG,
   FOLDED_DIPOLE_OPPOSITE_TAG,
   FOLDED_DIPOLE_CONNECTOR_TAG,
   FOLDED_DIPOLE_TERM_BRIDGE_TAG,
@@ -72,8 +70,6 @@ export {
   TERMINATED_DELTA_BRIDGE_TAG,
   VERTICAL_WHIP_TAG,
   INVERTED_L_VERTICAL_TAG,
-  INVERTED_L_HORIZONTAL_TAG,
-  INVERTED_L_RADIAL_TAG,
   FOLDED_DIPOLE_OPPOSITE_TAG,
   FOLDED_DIPOLE_CONNECTOR_TAG,
   FOLDED_DIPOLE_TERM_BRIDGE_TAG,
@@ -1140,10 +1136,15 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
     // sharing the leg's tag. By convention `buildSlopingVWires` emits the
     // LEFT leg tip→apex (so the first sub-wire's `.start` is the tip) and
     // the RIGHT leg apex→tip (so the last sub-wire's `.end` is the tip).
-    const leftLegWires  = wires.filter((w) => w.tag === DIPOLE_LEFT_TAG);
-    const rightLegWires = wires.filter((w) => w.tag === DIPOLE_RIGHT_TAG);
-    const leftTip  = leftLegWires[0]!.start;
-    const rightTip = rightLegWires[rightLegWires.length - 1]!.end;
+    let firstLeft: Wire | undefined;
+    let lastRight: Wire | undefined;
+    for (let i = 0; i < wires.length; i++) {
+      const w = wires[i];
+      if (w.tag === DIPOLE_LEFT_TAG && !firstLeft) firstLeft = w;
+      if (w.tag === DIPOLE_RIGHT_TAG) lastRight = w;
+    }
+    const leftTip  = firstLeft!.start;
+    const rightTip = lastRight!.end;
 
     extraWires.push(
       {
@@ -1183,10 +1184,16 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
     // centreRight → rightCorner so the inner end is the wire's `.start`.
     // The bridge runs leftInner → rightInner, joining the two halves
     // electrically through the resistor.
-    const leftHalfBase  = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
-    const rightHalfBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
-    const leftInner  = leftHalfBase.end;
-    const rightInner = rightHalfBase.start;
+    let leftHalfBase: Wire | undefined;
+    let rightHalfBase: Wire | undefined;
+    for (let i = 0; i < wires.length; i++) {
+      const w = wires[i];
+      if (w.tag === TERMINATED_DELTA_LEFT_BASE_TAG && !leftHalfBase) leftHalfBase = w;
+      else if (w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG && !rightHalfBase) rightHalfBase = w;
+      if (leftHalfBase && rightHalfBase) break;
+    }
+    const leftInner  = leftHalfBase!.end;
+    const rightInner = rightHalfBase!.start;
 
     extraWires.push({
       start: leftInner,

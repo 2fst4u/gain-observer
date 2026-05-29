@@ -20,7 +20,10 @@ interface MockState {
   frequency: number;
   orientation: string | number;
   vAngle: number;
+  foldedDipoleAperture: number;
+  wireRadius: number;
   terminatingResistor: number;
+  whipCounterpoise: boolean;
   transformerEnabled: boolean;
   transformerRatio: number;
   setAntennaType: () => void;
@@ -30,6 +33,8 @@ interface MockState {
   setHeight: () => void;
   setOrientation: (o: string | number) => void;
   setVAngle: () => void;
+  setFoldedDipoleAperture: (a: number) => void;
+  setWhipCounterpoise: (w: boolean) => void;
   setTerminatingResistor: () => void;
   setTransformerEnabled: () => void;
   setTransformerRatio: () => void;
@@ -44,6 +49,9 @@ function buildMockState(overrides: Partial<MockState> = {}): MockState {
     frequency: 7.1,
     orientation: 'EW',
     vAngle: 120,
+    foldedDipoleAperture: 0.1,
+    wireRadius: 0.001,
+    whipCounterpoise: false,
     terminatingResistor: 0,
     transformerEnabled: false,
     transformerRatio: 9,
@@ -54,6 +62,8 @@ function buildMockState(overrides: Partial<MockState> = {}): MockState {
     setHeight: vi.fn(),
     setOrientation: vi.fn(),
     setVAngle: vi.fn(),
+    setFoldedDipoleAperture: vi.fn(),
+    setWhipCounterpoise: vi.fn(),
     setTerminatingResistor: vi.fn(),
     setTransformerEnabled: vi.fn(),
     setTransformerRatio: vi.fn(),
@@ -62,6 +72,42 @@ function buildMockState(overrides: Partial<MockState> = {}): MockState {
 }
 
 describe('DipoleControl', () => {
+  it('toggles whip counterpoise when antenna is vertical-whip', () => {
+    const setWhipCounterpoise = vi.fn();
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
+      return selector(buildMockState({
+        antennaType: 'vertical-whip',
+        whipCounterpoise: false,
+        setWhipCounterpoise
+      }));
+    });
+
+    render(<DipoleControl />);
+
+    const checkbox = screen.getByRole('checkbox', { name: /Add ¼λ counterpoise radials/i });
+    fireEvent.click(checkbox);
+
+    expect(setWhipCounterpoise).toHaveBeenCalledWith(true);
+  });
+
+  it('updates aperture when antenna is folded-dipole', () => {
+    const setFoldedDipoleAperture = vi.fn();
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
+      return selector(buildMockState({
+        antennaType: 'folded-dipole',
+        foldedDipoleAperture: 0.1,
+        setFoldedDipoleAperture
+      }));
+    });
+
+    render(<DipoleControl />);
+
+    const apertureInput = screen.getByRole('slider', { name: /Folded dipole conductor spacing/i });
+    fireEvent.change(apertureInput, { target: { value: '0.15' } });
+
+    expect(setFoldedDipoleAperture).toHaveBeenCalledWith(0.15);
+  });
+
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();

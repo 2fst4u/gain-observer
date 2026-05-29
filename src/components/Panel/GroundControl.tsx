@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { GROUND_PRESETS } from '../../physics/constants';
+import { GROUND_PRESETS, GROUND_PRESET_MAP } from '../../physics/constants';
 
 export function GroundControl() {
   // ⚡ Bolt: Performance Optimization
@@ -66,7 +66,7 @@ export function GroundControl() {
         <option value="custom">Custom…</option>
       </select>
       <div id="ground-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-        {GROUND_PRESETS.find((g) => g.id === groundId)?.hint ?? 'Custom ground parameters.'}
+        {GROUND_PRESET_MAP.get(groundId)?.hint ?? 'Custom ground parameters.'}
       </div>
       {(expanded || groundId === 'custom') && (
         <>

@@ -58,6 +58,7 @@ export function DisplayControl() {
         id="dynamic-range"
         type="range" min={10} max={50} step={1}
         value={dbRange}
+        aria-label="Dynamic range in dB"
         onChange={(e) => setDbRange(parseInt(e.target.value, 10))}
       />
 
@@ -66,6 +67,7 @@ export function DisplayControl() {
         id="color-max"
         type="range" min={-20} max={30} step={1}
         value={colorMaxDb}
+        aria-label="Color max in dBi"
         onChange={(e) => setColorMaxDb(parseInt(e.target.value, 10))}
       />
 
@@ -74,6 +76,7 @@ export function DisplayControl() {
         id="pattern-scale"
         type="range" min={0.3} max={3} step={0.1}
         value={patternScale}
+        aria-label="Pattern scale multiplier"
         onChange={(e) => setPatternScale(parseFloat(e.target.value))}
       />
 
