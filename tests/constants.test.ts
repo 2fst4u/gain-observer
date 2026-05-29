@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   FEEDLINE_PRESETS,
+  GROUND_PRESETS,
   feedlineLossDb,
   findFeedlinePreset,
+  findGroundPreset,
   halfWaveLength,
+  referenceLength,
   HF_BAND_PRESETS,
 } from '../src/physics/constants';
+import { type AntennaType } from '../src/physics/types';
 
 describe('physics constants and helpers', () => {
   it('halfWaveLength accounts for end effect', () => {
@@ -20,6 +24,62 @@ describe('physics constants and helpers', () => {
     expect(names).toContain('40m');
     expect(names).toContain('20m');
     expect(names).toContain('10m');
+  });
+
+  describe('referenceLength', () => {
+    const lambda = 299.792458 / 14.150; // 20m band approx 21.186m
+
+    it('calculates dipole length with default end effect', () => {
+      expect(referenceLength('dipole', 14.150)).toBeCloseTo(lambda * 0.5 * 0.95, 4);
+    });
+
+    it('calculates inverted-v length with higher end effect', () => {
+      expect(referenceLength('inverted-v', 14.150)).toBeCloseTo(lambda * 0.5 * 0.97, 4);
+    });
+
+    it('calculates delta-loop length', () => {
+      expect(referenceLength('delta-loop', 14.150)).toBeCloseTo(lambda * 1.0 * 0.95, 4);
+    });
+
+    it('calculates sloping-v length', () => {
+      expect(referenceLength('sloping-v', 14.150)).toBeCloseTo(lambda * 2.0 * 0.95, 4);
+    });
+
+    it('calculates terminated-delta length', () => {
+      expect(referenceLength('terminated-delta', 14.150)).toBeCloseTo(lambda * 1.0 * 0.95, 4);
+    });
+
+    it('calculates vertical-whip length', () => {
+      expect(referenceLength('vertical-whip', 14.150)).toBeCloseTo(lambda * 0.25 * 0.95, 4);
+    });
+
+    it('calculates inverted-l length', () => {
+      expect(referenceLength('inverted-l', 14.150)).toBeCloseTo(lambda * 0.25 * 0.95, 4);
+    });
+
+    it('calculates folded-dipole length', () => {
+      expect(referenceLength('folded-dipole', 14.150)).toBeCloseTo(lambda * 0.5 * 0.95, 4);
+    });
+
+    it('falls back to default dipole length for unknown types', () => {
+      expect(referenceLength('unknown' as AntennaType, 14.150)).toBeCloseTo(lambda * 0.5 * 0.95, 4);
+    });
+
+    it('allows custom end effect factor', () => {
+      expect(referenceLength('dipole', 14.150, 1.0)).toBeCloseTo(lambda * 0.5, 4);
+    });
+  });
+});
+
+describe('ground presets', () => {
+  it('findGroundPreset returns correct preset for valid id', () => {
+    const preset = findGroundPreset('sea');
+    expect(preset.id).toBe('sea');
+    expect(preset.label).toBe('Sea water');
+  });
+
+  it('findGroundPreset throws an error on unknown id', () => {
+    expect(() => findGroundPreset('unknown-ground-type')).toThrowError('Unknown ground preset id: unknown-ground-type');
   });
 });
 
