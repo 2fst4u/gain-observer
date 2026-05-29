@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   FEEDLINE_PRESETS,
-  GROUND_PRESETS,
   feedlineLossDb,
   findFeedlinePreset,
   findGroundPreset,
