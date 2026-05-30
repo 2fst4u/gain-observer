@@ -11,3 +11,6 @@
 ## 2026-05-29 - Adhering to Strict Application Logic in Tests
 **Learning:** When acting as a test engineer to fortify a test suite, it is crucial not to modify existing application logic or business rules (such as altering an error-throwing mechanism into a fallback default) merely to simplify tests or satisfy an assumed pattern, as it masks potential application bugs.
 **Action:** Tests must be written to assert the current behavior of the application (e.g., verifying that an error is correctly thrown on invalid inputs) rather than altering the core logic.
+## 2024-05-30 - App test worker mocking
+**Learning:** In tests/App.test.tsx, the tests fail because Worker is a stub and vitest mock overrides don't provide adequate coverage or isolation for WebWorkers under jsdom without specific stubbing. Additionally, Coverage for src/components/Panel/DipoleControl.tsx is very low.
+**Action:** Added new tests in tests/DipoleControl.test.tsx to improve line coverage and test specific functionality.
