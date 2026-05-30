@@ -13,56 +13,59 @@ export interface SwrBand {
 }
 
 /**
- * Find every contiguous frequency band where `swrs[i] <= threshold`.
+ * Find every contiguous frequency band where `getSwr(item) <= threshold`.
  *
- * `freqs` must be ascending and the same length as `swrs`. Band edges are
+ * `items` must be sorted in ascending frequency order. Band edges are
  * linearly interpolated to the exact threshold crossing. A band that touches
  * the first or last sample is flagged clipped (its true edge lies beyond the
  * swept range). Returns bands in ascending frequency order.
  */
-export function findSwrBands(
-  freqs: readonly number[],
-  swrs: readonly number[],
+export function findSwrBands<T>(
+  items: readonly T[],
+  getFreq: (item: T) => number,
+  getSwr: (item: T) => number,
   threshold = 2,
 ): SwrBand[] {
-  const n = Math.min(freqs.length, swrs.length);
+  const n = items.length;
   const bands: SwrBand[] = [];
   if (n === 0) return bands;
-
-  // Frequency where the SWR line between samples i and i+1 crosses threshold.
-  const crossing = (i: number): number => {
-    const s1 = swrs[i]!;
-    const s2 = swrs[i + 1]!;
-    if (s2 === s1) return freqs[i]!;
-    const t = (threshold - s1) / (s2 - s1);
-    return freqs[i]! + t * (freqs[i + 1]! - freqs[i]!);
-  };
 
   let curLow: number | null = null;
   let curLowClipped = false;
 
-  if (swrs[0]! <= threshold) {
-    curLow = freqs[0]!;
+  let prevS = getSwr(items[0]!);
+  let prevF = getFreq(items[0]!);
+
+  if (prevS <= threshold) {
+    curLow = prevF;
     curLowClipped = true;
   }
 
   for (let i = 0; i < n - 1; i++) {
-    const s1 = swrs[i]!;
-    const s2 = swrs[i + 1]!;
-    if (s1 > threshold && s2 <= threshold) {
+    const currItem = items[i + 1]!;
+    const currS = getSwr(currItem);
+    const currF = getFreq(currItem);
+
+    if (prevS > threshold && currS <= threshold) {
       // Entering a band.
-      curLow = crossing(i);
+      const t = currS === prevS ? 0 : (threshold - prevS) / (currS - prevS);
+      curLow = prevF + t * (currF - prevF);
       curLowClipped = false;
-    } else if (s1 <= threshold && s2 > threshold && curLow !== null) {
+    } else if (prevS <= threshold && currS > threshold && curLow !== null) {
       // Leaving a band.
-      bands.push({ fLow: curLow, fHigh: crossing(i), lowClipped: curLowClipped, highClipped: false });
+      const t = currS === prevS ? 0 : (threshold - prevS) / (currS - prevS);
+      const highEdge = prevF + t * (currF - prevF);
+      bands.push({ fLow: curLow, fHigh: highEdge, lowClipped: curLowClipped, highClipped: false });
       curLow = null;
       curLowClipped = false;
     }
+
+    prevS = currS;
+    prevF = currF;
   }
 
   if (curLow !== null) {
-    bands.push({ fLow: curLow, fHigh: freqs[n - 1]!, lowClipped: curLowClipped, highClipped: true });
+    bands.push({ fLow: curLow, fHigh: prevF, lowClipped: curLowClipped, highClipped: true });
   }
 
   return bands;

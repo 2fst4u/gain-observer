@@ -3,8 +3,18 @@ import { findSwrBands } from '../src/physics/bandwidth';
 import { formatBandwidth, computeYMax } from '../src/components/Charts/swrChartUtils';
 
 describe('findSwrBands', () => {
+  const findBandsHelper = (freqs: number[], swrs: number[], threshold = 2) => {
+    const items = freqs.map((f, i) => ({ f, s: swrs[i]! }));
+    return findSwrBands(
+      items,
+      (item) => item.f,
+      (item) => item.s,
+      threshold,
+    );
+  };
+
   it('finds a single interior band with interpolated edges', () => {
-    const bands = findSwrBands([7.0, 7.5, 8.0], [3, 1.5, 3], 2);
+    const bands = findBandsHelper([7.0, 7.5, 8.0], [3, 1.5, 3], 2);
     expect(bands).toHaveLength(1);
     expect(bands[0]!.lowClipped).toBe(false);
     expect(bands[0]!.highClipped).toBe(false);
@@ -14,7 +24,7 @@ describe('findSwrBands', () => {
   });
 
   it('detects multiple disjoint bands', () => {
-    const bands = findSwrBands(
+    const bands = findBandsHelper(
       [7.0, 7.5, 8.0, 8.5, 9.0],
       [3, 1.5, 3, 1.5, 3],
       2,
@@ -26,7 +36,7 @@ describe('findSwrBands', () => {
   });
 
   it('flags a band clipped at the low edge', () => {
-    const bands = findSwrBands([7.0, 7.1, 7.2], [1.5, 1.2, 2.5], 2);
+    const bands = findBandsHelper([7.0, 7.1, 7.2], [1.5, 1.2, 2.5], 2);
     expect(bands).toHaveLength(1);
     expect(bands[0]!.lowClipped).toBe(true);
     expect(bands[0]!.highClipped).toBe(false);
@@ -34,7 +44,7 @@ describe('findSwrBands', () => {
   });
 
   it('flags a band clipped at both edges when the whole sweep is under 2:1', () => {
-    const bands = findSwrBands([7.0, 7.1, 7.2], [1.5, 1.2, 1.5], 2);
+    const bands = findBandsHelper([7.0, 7.1, 7.2], [1.5, 1.2, 1.5], 2);
     expect(bands).toHaveLength(1);
     expect(bands[0]!.lowClipped).toBe(true);
     expect(bands[0]!.highClipped).toBe(true);
@@ -43,11 +53,11 @@ describe('findSwrBands', () => {
   });
 
   it('returns no bands when the SWR never dips to threshold', () => {
-    expect(findSwrBands([7.0, 7.5, 8.0], [3, 4, 3], 2)).toHaveLength(0);
+    expect(findBandsHelper([7.0, 7.5, 8.0], [3, 4, 3], 2)).toHaveLength(0);
   });
 
   it('handles an empty sweep', () => {
-    expect(findSwrBands([], [], 2)).toHaveLength(0);
+    expect(findBandsHelper([], [], 2)).toHaveLength(0);
   });
 });
 
