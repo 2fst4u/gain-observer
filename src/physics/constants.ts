@@ -34,9 +34,10 @@ export function halfWaveLength(frequencyMHz: number, endEffect = 0.95): number {
 
 const REFERENCE_LENGTH_STRATEGIES: Record<AntennaType, (lambda: number, endEffect: number) => number> = {
   dipole: (lambda, endEffect) => lambda * 0.5 * endEffect,
-  'inverted-v': (lambda) => {
-    // The V geometry reduces the effective horizontal current component;
-    // slightly more wire than a flat dipole is needed to restore resonance.
+  // _endEffect is intentionally unused: 0.97 is a fixed apex-angle geometry
+  // shortening factor specific to the V shape, not a wire-diameter end-effect.
+  // Composing it with the caller-supplied endEffect would double-correct.
+  'inverted-v': (lambda, _endEffect) => {
     return lambda * 0.5 * 0.97;
   },
   'delta-loop': (lambda) => {
@@ -84,6 +85,12 @@ const REFERENCE_LENGTH_STRATEGIES: Record<AntennaType, (lambda: number, endEffec
  *   - sloping-v: 2λ total (1λ per leg). Traveling-wave antenna; no
  *     end-effect correction applies.
  *   - terminated-delta: 1.02λ perimeter (same triangle as delta-loop).
+ *   - vertical-whip: 0.2375λ (0.25λ × endEffect). Quarter-wave monopole.
+ *   - inverted-l: 0.2375λ (0.25λ × endEffect). Total wire length (vertical +
+ *     horizontal) for a quarter-wave equivalent; top-loading reduces mast height.
+ *   - folded-dipole: 0.475λ (0.5λ × endEffect). Same resonant length as a
+ *     dipole; the second parallel conductor raises feedpoint impedance ~4× but
+ *     does not alter the resonant length.
  *
  * Applies the standard HF end-effect factor k ~ 0.95 only to resonant
  * half-wave elements (dipole variants, quarter-wave monopoles).
