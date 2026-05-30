@@ -48,3 +48,7 @@
 ## 2024-05-28 - Syncing terminology
 **Learning:** The README.md still refers to "terminated delta loops", but in the app and the `antenna-spec.md` they are referred to as `Terminated Delta`.
 **Action:** Need to update README.md to be more precise about the actual application state.
+
+## 2026-05-28 - Unified Terminology for Terminated Delta
+**Learning:** Some files (like `TODO.md` and `tests/useDipoleGeometry.test.tsx`) still referred to the "terminated delta" antenna type as "terminated delta loop". The official and unified term across UI, types, and documentation (`antenna-spec.md`) is strictly "Terminated Delta".
+**Action:** Replaced instances of "terminated delta loop" with "terminated delta" to ensure consistency and prevent ambiguity for developers and users referencing the codebase.

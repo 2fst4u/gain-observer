@@ -1,2 +1,2 @@
 - add terminating resistor calculations
-- add different antenna designs, namely delta loop, terminated delta loop (and inverted) sloping V, inverted V, terminated V, and other common designs
+- add different antenna designs, namely delta loop, terminated delta (and inverted) sloping V, inverted V, terminated V, and other common designs
