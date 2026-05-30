@@ -183,8 +183,6 @@ export function computeStats({
       : pt.swr;
 
   const len = sweep.length;
-  const freqs = new Array<number>(len);
-  const swrs = new Array<number>(len);
 
   let minSWR = Infinity;
   let minFreq = 0;
@@ -194,16 +192,22 @@ export function computeStats({
     const f = pt.frequencyMHz;
     const s = effectiveSwr(pt);
 
-    freqs[i] = f;
-    swrs[i] = s;
-
     if (s < minSWR) {
       minSWR = s;
       minFreq = f;
     }
   }
 
-  return { minSWR, minFreq, bands: findSwrBands(freqs, swrs, 2) };
+  return {
+    minSWR,
+    minFreq,
+    bands: findSwrBands(
+      sweep,
+      (pt) => pt.frequencyMHz,
+      (pt) => effectiveSwr(pt),
+      2,
+    ),
+  };
 }
 
 export interface ComputeYMaxArgs {
