@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeChartData } from '../src/components/Charts/swrChartUtils';
+import { computeChartData, formatBandwidth } from '../src/components/Charts/swrChartUtils';
 import type { SweepPoint } from '../src/physics/types';
 import type { ComparisonSnapshot } from '../src/store/antennaStore';
 
@@ -114,5 +114,27 @@ describe('computeChartData', () => {
     expect(curDataset.data[0].y).toBeCloseTo(2.0, 5);
     expect(curDataset.data[1].x).toBe(7.1);
     expect(curDataset.data[1].y).toBeCloseTo(1.0, 5);
+  });
+});
+
+describe('formatBandwidth', () => {
+  it('formats values less than 1 MHz in kHz', () => {
+    expect(formatBandwidth(0.5)).toBe('500 kHz');
+    expect(formatBandwidth(0.999)).toBe('999 kHz');
+    expect(formatBandwidth(0.001)).toBe('1 kHz');
+  });
+
+  it('rounds kHz values to the nearest integer', () => {
+    expect(formatBandwidth(0.1234)).toBe('123 kHz');
+    expect(formatBandwidth(0.1236)).toBe('124 kHz');
+  });
+
+  it('formats values exactly 1 MHz or greater in MHz to 2 decimal places', () => {
+    expect(formatBandwidth(1)).toBe('1.00 MHz');
+    expect(formatBandwidth(1.5)).toBe('1.50 MHz');
+    // Note: JS .toFixed() rounds 1.555 down to 1.55 due to floating point representation
+    expect(formatBandwidth(1.555)).toBe('1.55 MHz');
+    expect(formatBandwidth(1.556)).toBe('1.56 MHz');
+    expect(formatBandwidth(10)).toBe('10.00 MHz');
   });
 });

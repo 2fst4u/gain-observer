@@ -14,3 +14,6 @@
 ## 2024-05-30 - App test worker mocking
 **Learning:** In tests/App.test.tsx, the tests fail because Worker is a stub and vitest mock overrides don't provide adequate coverage or isolation for WebWorkers under jsdom without specific stubbing. Additionally, Coverage for src/components/Panel/DipoleControl.tsx is very low.
 **Action:** Added new tests in tests/DipoleControl.test.tsx to improve line coverage and test specific functionality.
+## 2026-05-30 - Add tests for formatBandwidth
+**Learning:** JS `.toFixed()` exhibits unexpected rounding behavior with `.5` boundaries (e.g. `(1.555).toFixed(2) === '1.55'`, not `'1.56'`) due to IEEE 754 floating point representation. Tests targeting exact decimal boundaries must reflect this native JS logic rather than purely mathematical rounding.
+**Action:** Created `tests/swrChartUtils.test.ts` ensuring branch logic (< 1MHz and >= 1MHz) is tested while accounting for standard floating point boundaries.
