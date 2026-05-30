@@ -160,3 +160,6 @@
 ## 2024-05-29 - Array method optimization in high frequency path
 **Learning:** In the `nec2Engine.ts` file, inside the `findSwrBands` calls, using `.map()` on the `scan` and `broadScan` arrays generates unnecessary intermediate arrays before passing them into the function. This allocates more memory and requires more GC time, especially when dealing with potentially large sweep arrays on every global state update during simulations.
 **Action:** Replace chains of array mapping methods like `scan.map(x).map(y)` with single, explicit `for` loops inside the function block to directly construct arrays and avoid intermediate allocation overhead.
+## 2025-02-18 - Optimize SWR Chart Data Processing
+**Learning:** High-frequency render blocks passing large arrays to Chart.js shouldn't use `.map()` which generates intermediate copies and garbage, but instead pre-allocate arrays and populate via `for` loops.
+**Action:** Replaced `.map()` with pre-allocated `for` loops in `src/components/Charts/swrChartUtils.ts` (computeChartData).
