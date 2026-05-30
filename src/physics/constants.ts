@@ -32,6 +32,46 @@ export function halfWaveLength(frequencyMHz: number, endEffect = 0.95): number {
   return wavelengthMeters(frequencyMHz) * 0.5 * endEffect;
 }
 
+const REFERENCE_LENGTH_STRATEGIES: Record<AntennaType, (lambda: number, endEffect: number) => number> = {
+  dipole: (lambda, endEffect) => lambda * 0.5 * endEffect,
+  'inverted-v': (lambda) => {
+    // The V geometry reduces the effective horizontal current component;
+    // slightly more wire than a flat dipole is needed to restore resonance.
+    return lambda * 0.5 * 0.97;
+  },
+  'delta-loop': (lambda) => {
+    // Full-wave loop: no free ends, so end-effect does not apply.
+    // ARRL formula (1005/f MHz ft) gives ≈1.02λ for thin wire at HF.
+    return lambda * 1.02;
+  },
+  'sloping-v': (lambda) => {
+    // Traveling-wave V antenna: 1λ per leg. End-effect correction does not
+    // apply to non-resonant traveling-wave structures.
+    return lambda * 2.0;
+  },
+  'terminated-delta': (lambda) => {
+    // Same perimeter as delta-loop. Resonance is irrelevant in a true
+    // terminated configuration, but 1.02λ is the canonical starting point.
+    return lambda * 1.02;
+  },
+  'vertical-whip': (lambda, endEffect) => {
+    // Quarter-wave monopole resonant length.
+    return lambda * 0.25 * endEffect;
+  },
+  'inverted-l': (lambda, endEffect) => {
+    // Total wire (vertical + horizontal) for a resonant quarter-wave.
+    // The horizontal top-loading section adds electrical length so the
+    // mast can be shorter than a full ¼λ vertical.
+    return lambda * 0.25 * endEffect;
+  },
+  'folded-dipole': (lambda, endEffect) => {
+    // Each conductor is a resonant half-wave, same as a standard dipole.
+    // The fold (the second parallel conductor) raises the feedpoint
+    // impedance ~4× but does not change the resonant length.
+    return lambda * 0.5 * endEffect;
+  }
+};
+
 /**
  * Topology-aware reference length (metres).
  *
@@ -50,41 +90,8 @@ export function halfWaveLength(frequencyMHz: number, endEffect = 0.95): number {
  */
 export function referenceLength(type: AntennaType, frequencyMHz: number, endEffect = 0.95): number {
   const lambda = wavelengthMeters(frequencyMHz);
-  switch (type) {
-    case 'dipole':
-      return lambda * 0.5 * endEffect;
-    case 'inverted-v':
-      // The V geometry reduces the effective horizontal current component;
-      // slightly more wire than a flat dipole is needed to restore resonance.
-      return lambda * 0.5 * 0.97;
-    case 'delta-loop':
-      // Full-wave loop: no free ends, so end-effect does not apply.
-      // ARRL formula (1005/f MHz ft) gives ≈1.02λ for thin wire at HF.
-      return lambda * 1.02;
-    case 'sloping-v':
-      // Traveling-wave V antenna: 1λ per leg. End-effect correction does not
-      // apply to non-resonant traveling-wave structures.
-      return lambda * 2.0;
-    case 'terminated-delta':
-      // Same perimeter as delta-loop. Resonance is irrelevant in a true
-      // terminated configuration, but 1.02λ is the canonical starting point.
-      return lambda * 1.02;
-    case 'vertical-whip':
-      // Quarter-wave monopole resonant length.
-      return lambda * 0.25 * endEffect;
-    case 'inverted-l':
-      // Total wire (vertical + horizontal) for a resonant quarter-wave.
-      // The horizontal top-loading section adds electrical length so the
-      // mast can be shorter than a full ¼λ vertical.
-      return lambda * 0.25 * endEffect;
-    case 'folded-dipole':
-      // Each conductor is a resonant half-wave, same as a standard dipole.
-      // The fold (the second parallel conductor) raises the feedpoint
-      // impedance ~4× but does not change the resonant length.
-      return lambda * 0.5 * endEffect;
-    default:
-      return lambda * 0.5 * endEffect;
-  }
+  const strategy = REFERENCE_LENGTH_STRATEGIES[type] || REFERENCE_LENGTH_STRATEGIES.dipole;
+  return strategy(lambda, endEffect);
 }
 
 // --- Geometry Tags ---
