@@ -50,9 +50,16 @@ export function computeChartData({
   }> = [];
 
   if (comparisonActive && reference) {
+    const len = reference.sweep.length;
+    const refData = new Array<{ x: number; y: number }>(len);
+    for (let i = 0; i < len; i++) {
+      const pt = reference.sweep[i]!;
+      refData[i] = { x: pt.frequencyMHz, y: pt.swr };
+    }
+
     datasets.push({
       label: 'Reference',
-      data: reference.sweep.map((point) => ({ x: point.frequencyMHz, y: point.swr })),
+      data: refData,
       borderColor: 'rgba(255, 179, 71, 0.9)',
       backgroundColor: referenceFill,
       fill: false,
@@ -70,12 +77,19 @@ export function computeChartData({
   // compressed on the y-axis.
   if (transformerInDisplay) {
     const label = comparisonActive ? `Current (after ${transformerRatio}:1)` : 'SWR (vs 50 Ω)';
+    const len = sweep.length;
+    const curData = new Array<{ x: number; y: number }>(len);
+    for (let i = 0; i < len; i++) {
+      const pt = sweep[i]!;
+      curData[i] = {
+        x: pt.frequencyMHz,
+        y: computeSwr({ R: pt.R / transformerRatio, X: pt.X / transformerRatio }),
+      };
+    }
+
     datasets.push({
       label,
-      data: sweep.map((point) => ({
-        x: point.frequencyMHz,
-        y: computeSwr({ R: point.R / transformerRatio, X: point.X / transformerRatio }),
-      })),
+      data: curData,
       borderColor: accent,
       backgroundColor: currentFill,
       fill: false,
@@ -86,9 +100,16 @@ export function computeChartData({
     });
   } else {
     const rawLabel = comparisonActive ? 'Current' : 'SWR (vs 50 Ω)';
+    const len = sweep.length;
+    const curData = new Array<{ x: number; y: number }>(len);
+    for (let i = 0; i < len; i++) {
+      const pt = sweep[i]!;
+      curData[i] = { x: pt.frequencyMHz, y: pt.swr };
+    }
+
     datasets.push({
       label: rawLabel,
-      data: sweep.map((point) => ({ x: point.frequencyMHz, y: point.swr })),
+      data: curData,
       borderColor: accent,
       backgroundColor: currentFill,
       fill: false,
