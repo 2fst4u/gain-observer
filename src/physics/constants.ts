@@ -34,10 +34,10 @@ export function halfWaveLength(frequencyMHz: number, endEffect = 0.95): number {
 
 const REFERENCE_LENGTH_STRATEGIES: Record<AntennaType, (lambda: number, endEffect: number) => number> = {
   dipole: (lambda, endEffect) => lambda * 0.5 * endEffect,
-  // _endEffect is intentionally unused: 0.97 is a fixed apex-angle geometry
+  // endEffect is intentionally omitted: 0.97 is a fixed apex-angle geometry
   // shortening factor specific to the V shape, not a wire-diameter end-effect.
   // Composing it with the caller-supplied endEffect would double-correct.
-  'inverted-v': (lambda, _endEffect) => {
+  'inverted-v': (lambda) => {
     return lambda * 0.5 * 0.97;
   },
   'delta-loop': (lambda) => {
