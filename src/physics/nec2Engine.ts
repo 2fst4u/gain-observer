@@ -140,12 +140,21 @@ export class Nec2Engine implements Engine {
   }
 
   private resolveAsset(path: string): string {
-    if (/^https?:|^file:/.test(this.baseUrl)) return `${this.baseUrl}${path}`;
-    const origin =
-      typeof self !== 'undefined' && typeof self.location !== 'undefined'
-        ? self.location.origin
-        : 'http://localhost/';
-    return new URL(`${this.baseUrl}${path}`, origin).href;
+    let url: string;
+    if (/^https?:|^file:/.test(this.baseUrl)) {
+      url = `${this.baseUrl}${path}`;
+    } else {
+      const origin =
+        typeof self !== 'undefined' && typeof self.location !== 'undefined'
+          ? self.location.origin
+          : 'http://localhost/';
+      url = new URL(`${this.baseUrl}${path}`, origin).href;
+    }
+    const parsedUrl = new URL(url, 'http://localhost/');
+    if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
+      throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
+    }
+    return url;
   }
 
   private async doInit(): Promise<void> {
