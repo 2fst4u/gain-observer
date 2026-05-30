@@ -74,13 +74,15 @@ export function useDipoleGeometry({
       foldedDipoleAperture,
     });
 
-    return wires.map((w, idx) => {
+    const out = [];
+    for (let idx = 0; idx < wires.length; idx++) {
+      const w = wires[idx]!;
       const a = new THREE.Vector3(...necToScene(w.start));
       const b = new THREE.Vector3(...necToScene(w.end));
       const mid = a.clone().add(b).multiplyScalar(0.5);
       const dir = b.clone().sub(a);
       const lengthScene = dir.length();
-      if (lengthScene < 1e-6) return null;
+      if (lengthScene < 1e-6) continue;
       const q = new THREE.Quaternion();
       q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
       const tag = w.tag ?? DIPOLE_TAG;
@@ -90,7 +92,7 @@ export function useDipoleGeometry({
       if (isShield) radius = Math.max(w.radius * 6, 0.025);
       else if (isBridge) radius = Math.max(w.radius * 4, 0.018);
       else radius = Math.max(w.radius * 8, 0.03);
-      return {
+      out.push({
         key: idx,
         tag,
         position: [mid.x, mid.y, mid.z] as [number, number, number],
@@ -101,8 +103,9 @@ export function useDipoleGeometry({
         sceneEnd: [b.x, b.y, b.z] as [number, number, number],
         isShield,
         isBridge,
-      };
-    }).filter((x): x is NonNullable<typeof x> => x !== null);
+      });
+    }
+    return out;
   }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, frequency, whipCounterpoise, foldedDipoleAperture]);
 
   const { shield, feedpoint } = useMemo(() => {
