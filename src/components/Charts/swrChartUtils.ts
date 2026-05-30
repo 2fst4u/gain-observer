@@ -53,7 +53,7 @@ export function computeChartData({
     const len = reference.sweep.length;
     const refData = new Array<{ x: number; y: number }>(len);
     for (let i = 0; i < len; i++) {
-      const pt = reference.sweep[i];
+      const pt = reference.sweep[i]!;
       refData[i] = { x: pt.frequencyMHz, y: pt.swr };
     }
 
@@ -75,22 +75,21 @@ export function computeChartData({
   // The raw curve is suppressed — it can always be recovered by disabling
   // the balun, and including both makes the post-balun curve unreadably
   // compressed on the y-axis.
-  const sweepLen = sweep.length;
-  const sweepData = new Array<{ x: number; y: number }>(sweepLen);
-
   if (transformerInDisplay) {
-    for (let i = 0; i < sweepLen; i++) {
-      const pt = sweep[i];
-      sweepData[i] = {
+    const label = comparisonActive ? `Current (after ${transformerRatio}:1)` : 'SWR (vs 50 Ω)';
+    const len = sweep.length;
+    const curData = new Array<{ x: number; y: number }>(len);
+    for (let i = 0; i < len; i++) {
+      const pt = sweep[i]!;
+      curData[i] = {
         x: pt.frequencyMHz,
         y: computeSwr({ R: pt.R / transformerRatio, X: pt.X / transformerRatio }),
       };
     }
 
-    const label = comparisonActive ? `Current (after ${transformerRatio}:1)` : 'SWR (vs 50 Ω)';
     datasets.push({
       label,
-      data: sweepData,
+      data: curData,
       borderColor: accent,
       backgroundColor: currentFill,
       fill: false,
@@ -100,15 +99,17 @@ export function computeChartData({
       pointBackgroundColor: accent,
     });
   } else {
-    for (let i = 0; i < sweepLen; i++) {
-      const pt = sweep[i];
-      sweepData[i] = { x: pt.frequencyMHz, y: pt.swr };
+    const rawLabel = comparisonActive ? 'Current' : 'SWR (vs 50 Ω)';
+    const len = sweep.length;
+    const curData = new Array<{ x: number; y: number }>(len);
+    for (let i = 0; i < len; i++) {
+      const pt = sweep[i]!;
+      curData[i] = { x: pt.frequencyMHz, y: pt.swr };
     }
 
-    const rawLabel = comparisonActive ? 'Current' : 'SWR (vs 50 Ω)';
     datasets.push({
       label: rawLabel,
-      data: sweepData,
+      data: curData,
       borderColor: accent,
       backgroundColor: currentFill,
       fill: false,
