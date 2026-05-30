@@ -163,3 +163,6 @@
 ## 2026-05-30 - Avoid Intermediate Array Allocations in High-Frequency Paths
 **Learning:** In high-frequency computational paths, mapping data into parallel intermediate arrays (even with pre-allocated `new Array(length)` and manual `for` loops) incurs noticeable memory allocation overhead and GC pressure. Refactoring utility functions (like `findSwrBands`) to accept a generic array (`T[]`) along with inline accessor functions (`(item: T) => number`) allows processing complex data in place, significantly reducing execution time.
 **Action:** Refactored `findSwrBands` in `src/physics/bandwidth.ts` to use generic items with accessor functions, updating calls in `nec2Engine.ts` and `swrChartUtils.ts` to avoid creating intermediate arrays for frequency and SWR values.
+## 2025-02-18 - Optimize SWR Chart Data Processing
+**Learning:** High-frequency render blocks passing large arrays to Chart.js shouldn't use `.map()` which generates intermediate copies and garbage, but instead pre-allocate arrays and populate via `for` loops.
+**Action:** Replaced `.map()` with pre-allocated `for` loops in `src/components/Charts/swrChartUtils.ts` (computeChartData).
