@@ -155,4 +155,53 @@ describe('DipoleControl', () => {
     expect(screen.getByText('Transformer at feedpoint')).toBeTruthy();
     expect(screen.getByLabelText(/Fit transformer \/ balun at the antenna/i)).toBeTruthy();
   });
+
+  it('updates antenna type when changed', () => {
+    const setAntennaType = vi.fn();
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
+      return selector(buildMockState({ setAntennaType }));
+    });
+
+    render(<DipoleControl />);
+
+    const typeSelect = screen.getByRole('combobox', { name: /Type/i });
+    fireEvent.change(typeSelect, { target: { value: 'inverted-v' } });
+
+    expect(setAntennaType).toHaveBeenCalledWith('inverted-v');
+  });
+
+  it('updates terminating resistor when input changes', () => {
+    const setTerminatingResistor = vi.fn();
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
+      return selector(buildMockState({
+        antennaType: 'terminated-delta',
+        terminatingResistor: 0,
+        setTerminatingResistor
+      }));
+    });
+
+    render(<DipoleControl />);
+
+    const resistorInput = document.getElementById('terminating-resistor') as HTMLInputElement;
+    fireEvent.change(resistorInput, { target: { value: '600' } });
+
+    expect(setTerminatingResistor).toHaveBeenCalledWith(600);
+  });
+
+  it('updates inverted-l orientation when input changes', () => {
+    const setOrientation = vi.fn();
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
+      return selector(buildMockState({
+        antennaType: 'inverted-l',
+        setOrientation
+      }));
+    });
+
+    render(<DipoleControl />);
+
+    const orientInput = document.getElementById('inverted-l-orientation') as HTMLInputElement;
+    fireEvent.change(orientInput, { target: { value: '45' } });
+
+    expect(setOrientation).toHaveBeenCalledWith(45);
+  });
 });
