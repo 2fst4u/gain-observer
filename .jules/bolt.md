@@ -167,3 +167,4 @@
 ## 2025-02-18 - Optimize SWR Chart Data Processing
 **Learning:** High-frequency render blocks passing large arrays to Chart.js shouldn't use `.map()` which generates intermediate copies and garbage, but instead pre-allocate arrays and populate via `for` loops.
 **Action:** Replaced `.map()` with pre-allocated `for` loops in `src/components/Charts/swrChartUtils.ts` (computeChartData).
+## 2026-05-30 - Avoid Map Filter Chaining Array Allocations\n**Learning:** Chaining `.map().filter()` calls inside high-frequency render functions like `useDipoleGeometry` generates unnecessary intermediate shallow array copies and incurs excessive garbage collection pressure, particularly when handling 3D scene re-renders.\n**Action:** Replace functional map/filter chaining with a single standard `for` loop and array `push()` with early `continue` statements to eliminate intermediate allocations.
