@@ -140,12 +140,21 @@ export class Nec2Engine implements Engine {
   }
 
   private resolveAsset(path: string): string {
-    if (/^https?:|^file:/.test(this.baseUrl)) return `${this.baseUrl}${path}`;
-    const origin =
-      typeof self !== 'undefined' && typeof self.location !== 'undefined'
-        ? self.location.origin
-        : 'http://localhost/';
-    return new URL(`${this.baseUrl}${path}`, origin).href;
+    let url: string;
+    if (/^https?:|^file:/.test(this.baseUrl)) {
+      url = `${this.baseUrl}${path}`;
+    } else {
+      const origin =
+        typeof self !== 'undefined' && typeof self.location !== 'undefined'
+          ? self.location.origin
+          : 'http://localhost/';
+      url = new URL(`${this.baseUrl}${path}`, origin).href;
+    }
+    const parsedUrl = new URL(url, 'http://localhost/');
+    if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
+      throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
+    }
+    return url;
   }
 
   private async doInit(): Promise<void> {
@@ -382,18 +391,14 @@ export class Nec2Engine implements Engine {
     // or harmonic resonances of an EFHW) are merged with the primary bands so
     // the final frame includes all of them.
 
-    // ⚡ Bolt: Replace intermediate arrays created by .map() with manual loops
-    // to reduce memory allocation overhead when building coordinate arrays for findSwrBands
-    const scanLen = scan.length;
-    const scanFreqs = new Array(scanLen);
-    const scanSwrs = new Array(scanLen);
-    for (let i = 0; i < scanLen; i++) {
-      const pt = scan[i]!;
-      scanFreqs[i] = pt.frequencyMHz;
-      scanSwrs[i] = effSwr(pt);
-    }
-
-    const primaryBands = findSwrBands(scanFreqs, scanSwrs, 2);
+    // ⚡ Bolt: Avoid intermediate arrays by passing the scan array and accessors directly
+    // to findSwrBands, significantly reducing memory allocation overhead and GC pressure.
+    const primaryBands = findSwrBands(
+      scan,
+      (pt) => pt.frequencyMHz,
+      (pt) => effSwr(pt),
+      2,
+    );
 
     let allBands = primaryBands;
     if (!reachedLimits) {
@@ -410,17 +415,13 @@ export class Nec2Engine implements Engine {
       // that only just breach 2:1 in the coarse scan are safely ignored.
       const BROAD_THRESHOLD = 1.5;
 
-      // ⚡ Bolt: Replace intermediate arrays created by .map() with manual loops
-      const broadLen = broadScan.length;
-      const broadFreqs = new Array(broadLen);
-      const broadSwrs = new Array(broadLen);
-      for (let i = 0; i < broadLen; i++) {
-        const pt = broadScan[i]!;
-        broadFreqs[i] = pt.frequencyMHz;
-        broadSwrs[i] = effSwr(pt);
-      }
-
-      const broadBands = findSwrBands(broadFreqs, broadSwrs, BROAD_THRESHOLD);
+      // ⚡ Bolt: Avoid intermediate arrays by passing the broadScan array and accessors directly
+      const broadBands = findSwrBands(
+        broadScan,
+        (pt) => pt.frequencyMHz,
+        (pt) => effSwr(pt),
+        BROAD_THRESHOLD,
+      );
       // Accept bands from the broad scan that lie clearly outside the primary
       // scan window (0.5 MHz guard band avoids duplicating the primary band).
       const extraBands = broadBands.filter(
