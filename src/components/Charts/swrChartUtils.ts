@@ -52,7 +52,15 @@ export function computeChartData({
   if (comparisonActive && reference) {
     datasets.push({
       label: 'Reference',
-      data: reference.sweep.map((point) => ({ x: point.frequencyMHz, y: point.swr })),
+      data: (() => {
+        const len = reference.sweep.length;
+        const arr = new Array(len);
+        for (let i = 0; i < len; i++) {
+          const pt = reference.sweep[i];
+          arr[i] = { x: pt.frequencyMHz, y: pt.swr };
+        }
+        return arr;
+      })(),
       borderColor: 'rgba(255, 179, 71, 0.9)',
       backgroundColor: referenceFill,
       fill: false,
@@ -72,10 +80,18 @@ export function computeChartData({
     const label = comparisonActive ? `Current (after ${transformerRatio}:1)` : 'SWR (vs 50 Ω)';
     datasets.push({
       label,
-      data: sweep.map((point) => ({
-        x: point.frequencyMHz,
-        y: computeSwr({ R: point.R / transformerRatio, X: point.X / transformerRatio }),
-      })),
+      data: (() => {
+        const len = sweep.length;
+        const arr = new Array(len);
+        for (let i = 0; i < len; i++) {
+          const pt = sweep[i];
+          arr[i] = {
+            x: pt.frequencyMHz,
+            y: computeSwr({ R: pt.R / transformerRatio, X: pt.X / transformerRatio }),
+          };
+        }
+        return arr;
+      })(),
       borderColor: accent,
       backgroundColor: currentFill,
       fill: false,
@@ -88,7 +104,15 @@ export function computeChartData({
     const rawLabel = comparisonActive ? 'Current' : 'SWR (vs 50 Ω)';
     datasets.push({
       label: rawLabel,
-      data: sweep.map((point) => ({ x: point.frequencyMHz, y: point.swr })),
+      data: (() => {
+        const len = sweep.length;
+        const arr = new Array(len);
+        for (let i = 0; i < len; i++) {
+          const pt = sweep[i];
+          arr[i] = { x: pt.frequencyMHz, y: pt.swr };
+        }
+        return arr;
+      })(),
       borderColor: accent,
       backgroundColor: currentFill,
       fill: false,
