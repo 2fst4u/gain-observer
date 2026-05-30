@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState } from 'react';
 import { useAntennaStore } from '../../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -9,14 +10,14 @@ const MONTH_NAMES = [
 ];
 
 /** Converts fractional UTC hour to HH:mm string format. */
-function hourToHHmm(h: number): string {
+export function hourToHHmm(h: number): string {
   const hours = Math.floor(h);
   const minutes = Math.round((h - hours) * 60);
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 /** Converts HH:mm or HHmm string format back to fractional UTC hour, or null if invalid. */
-function HHmmToHour(s: string): number | null {
+export function HHmmToHour(s: string): number | null {
   const digits = s.replace(/[^0-9]/g, '');
   if (digits.length !== 4) return null;
   const h = parseInt(digits.substring(0, 2), 10);
