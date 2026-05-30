@@ -381,11 +381,19 @@ export class Nec2Engine implements Engine {
     // primary window. Bands found there (e.g. lower-band resonances of a TFD
     // or harmonic resonances of an EFHW) are merged with the primary bands so
     // the final frame includes all of them.
-    const primaryBands = findSwrBands(
-      scan.map((p) => p.frequencyMHz),
-      scan.map(effSwr),
-      2,
-    );
+
+    // ⚡ Bolt: Replace intermediate arrays created by .map() with manual loops
+    // to reduce memory allocation overhead when building coordinate arrays for findSwrBands
+    const scanLen = scan.length;
+    const scanFreqs = new Array(scanLen);
+    const scanSwrs = new Array(scanLen);
+    for (let i = 0; i < scanLen; i++) {
+      const pt = scan[i]!;
+      scanFreqs[i] = pt.frequencyMHz;
+      scanSwrs[i] = effSwr(pt);
+    }
+
+    const primaryBands = findSwrBands(scanFreqs, scanSwrs, 2);
 
     let allBands = primaryBands;
     if (!reachedLimits) {
@@ -401,11 +409,18 @@ export class Nec2Engine implements Engine {
       // SWR comfortably below 1.5 in all their matching bands; marginal dips
       // that only just breach 2:1 in the coarse scan are safely ignored.
       const BROAD_THRESHOLD = 1.5;
-      const broadBands = findSwrBands(
-        broadScan.map((p) => p.frequencyMHz),
-        broadScan.map(effSwr),
-        BROAD_THRESHOLD,
-      );
+
+      // ⚡ Bolt: Replace intermediate arrays created by .map() with manual loops
+      const broadLen = broadScan.length;
+      const broadFreqs = new Array(broadLen);
+      const broadSwrs = new Array(broadLen);
+      for (let i = 0; i < broadLen; i++) {
+        const pt = broadScan[i]!;
+        broadFreqs[i] = pt.frequencyMHz;
+        broadSwrs[i] = effSwr(pt);
+      }
+
+      const broadBands = findSwrBands(broadFreqs, broadSwrs, BROAD_THRESHOLD);
       // Accept bands from the broad scan that lie clearly outside the primary
       // scan window (0.5 MHz guard band avoids duplicating the primary band).
       const extraBands = broadBands.filter(

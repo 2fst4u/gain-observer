@@ -157,3 +157,6 @@
 
 **Learning:** Finding individual wires in an array generated from Three.js vectors inside `antennaStore.ts` using `.find` or `.filter` requires multiple $O(N)$ allocations and passes over the array.
 **Action:** Replace multiple separate `.find` and `.filter` calls on array elements with a single `for` loop that stores the specific matches by evaluating all cases and executing early `break` statements. This removes functional allocation overhead inside hot store selectors.
+## 2024-05-29 - Array method optimization in high frequency path
+**Learning:** In the `nec2Engine.ts` file, inside the `findSwrBands` calls, using `.map()` on the `scan` and `broadScan` arrays generates unnecessary intermediate arrays before passing them into the function. This allocates more memory and requires more GC time, especially when dealing with potentially large sweep arrays on every global state update during simulations.
+**Action:** Replace chains of array mapping methods like `scan.map(x).map(y)` with single, explicit `for` loops inside the function block to directly construct arrays and avoid intermediate allocation overhead.
