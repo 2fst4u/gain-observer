@@ -37,7 +37,7 @@ describe('useDipoleGeometry', () => {
     expect(result.current.terminatedDeltaSplit).toBeNull();
   });
 
-  it('generates geometry for a terminated delta loop', () => {
+  it('generates geometry for a terminated delta', () => {
     const { result } = renderHook(() => useDipoleGeometry({
       type: 'terminated-delta',
       length: 20,
