@@ -3,8 +3,12 @@ import { findSwrBands } from '../src/physics/bandwidth';
 import { formatBandwidth, computeYMax } from '../src/components/Charts/swrChartUtils';
 
 describe('findSwrBands', () => {
+  const makePoints = (freqs: number[], swrs: number[]) =>
+    freqs.map((f, i) => ({ frequencyMHz: f, swr: swrs[i]! }));
+
   it('finds a single interior band with interpolated edges', () => {
-    const bands = findSwrBands([7.0, 7.5, 8.0], [3, 1.5, 3], 2);
+    const pts = makePoints([7.0, 7.5, 8.0], [3, 1.5, 3]);
+    const bands = findSwrBands(pts, (p) => p.frequencyMHz, (p) => p.swr, 2);
     expect(bands).toHaveLength(1);
     expect(bands[0]!.lowClipped).toBe(false);
     expect(bands[0]!.highClipped).toBe(false);
@@ -14,11 +18,11 @@ describe('findSwrBands', () => {
   });
 
   it('detects multiple disjoint bands', () => {
-    const bands = findSwrBands(
+    const pts = makePoints(
       [7.0, 7.5, 8.0, 8.5, 9.0],
       [3, 1.5, 3, 1.5, 3],
-      2,
     );
+    const bands = findSwrBands(pts, (p) => p.frequencyMHz, (p) => p.swr, 2);
     expect(bands).toHaveLength(2);
     expect(bands[0]!.fLow).toBeLessThan(bands[0]!.fHigh);
     expect(bands[1]!.fLow).toBeGreaterThan(bands[0]!.fHigh);
@@ -26,7 +30,8 @@ describe('findSwrBands', () => {
   });
 
   it('flags a band clipped at the low edge', () => {
-    const bands = findSwrBands([7.0, 7.1, 7.2], [1.5, 1.2, 2.5], 2);
+    const pts = makePoints([7.0, 7.1, 7.2], [1.5, 1.2, 2.5]);
+    const bands = findSwrBands(pts, (p) => p.frequencyMHz, (p) => p.swr, 2);
     expect(bands).toHaveLength(1);
     expect(bands[0]!.lowClipped).toBe(true);
     expect(bands[0]!.highClipped).toBe(false);
@@ -34,7 +39,8 @@ describe('findSwrBands', () => {
   });
 
   it('flags a band clipped at both edges when the whole sweep is under 2:1', () => {
-    const bands = findSwrBands([7.0, 7.1, 7.2], [1.5, 1.2, 1.5], 2);
+    const pts = makePoints([7.0, 7.1, 7.2], [1.5, 1.2, 1.5]);
+    const bands = findSwrBands(pts, (p) => p.frequencyMHz, (p) => p.swr, 2);
     expect(bands).toHaveLength(1);
     expect(bands[0]!.lowClipped).toBe(true);
     expect(bands[0]!.highClipped).toBe(true);
@@ -43,11 +49,12 @@ describe('findSwrBands', () => {
   });
 
   it('returns no bands when the SWR never dips to threshold', () => {
-    expect(findSwrBands([7.0, 7.5, 8.0], [3, 4, 3], 2)).toHaveLength(0);
+    const pts = makePoints([7.0, 7.5, 8.0], [3, 4, 3]);
+    expect(findSwrBands(pts, (p) => p.frequencyMHz, (p) => p.swr, 2)).toHaveLength(0);
   });
 
   it('handles an empty sweep', () => {
-    expect(findSwrBands([], [], 2)).toHaveLength(0);
+    expect(findSwrBands<{frequencyMHz: number, swr: number}>([], (p) => p.frequencyMHz, (p) => p.swr, 2)).toHaveLength(0);
   });
 });
 
