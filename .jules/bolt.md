@@ -163,3 +163,6 @@
 ## 2025-02-12 - Avoid intermediate array allocation in findSwrBands preparation
 **Learning:** Avoid allocating intermediate arrays for mapping object properties (like `frequencyMHz` and `swr`) prior to processing data. Passing generic array types (`T[]`) alongside inline accessor functions (`(item: T) => number`) to utility functions like `findSwrBands` is significantly faster (in this case, measured at ~47% improvement) and eliminates memory allocation and garbage collection overhead during rapid adaptive sweeps.
 **Action:** Refactored `findSwrBands` signature in `src/physics/bandwidth.ts` to accept a generic array and accessor functions. Updated call sites in `src/physics/nec2Engine.ts` and `src/components/Charts/swrChartUtils.ts` to pass the objects directly with accessors, removing multiple `.map()` equivalents (`new Array(length)` with `for` loops). Updated tests in `swrBands.test.ts` to reflect the new signature.
+## 2025-02-18 - Optimize SWR Chart Data Processing
+**Learning:** High-frequency render blocks passing large arrays to Chart.js shouldn't use `.map()` which generates intermediate copies and garbage, but instead pre-allocate arrays and populate via `for` loops.
+**Action:** Replaced `.map()` with pre-allocated `for` loops in `src/components/Charts/swrChartUtils.ts` (computeChartData).

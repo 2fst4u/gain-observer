@@ -47,46 +47,12 @@ export function App() {
               </ErrorBoundary>
             </ScenePane>
             <ScenePane title="Current" subtitle="Live controls" result={liveResult}>
-              <ErrorBoundary fallback={sceneFallback}>
-                <AntennaScene />
-              </ErrorBoundary>
-              {!engineReady && (
-                <div className="loading-overlay" role="status" aria-live="polite">
-                  <div className="spinner" aria-hidden="true" /> Loading NEC-2 WebAssembly…
-                </div>
-              )}
-              {engineReady && loading && (
-                <div className="loading-overlay" role="status" aria-live="polite">
-                  <div className="spinner" aria-hidden="true" /> Solving…
-                </div>
-              )}
-              {error && (
-                <div className="error-banner" role="alert" aria-live="assertive">
-                  <strong>Solver error:</strong> {error}
-                </div>
-              )}
+              <LiveAntennaScene engineReady={engineReady} loading={loading} error={error} />
             </ScenePane>
           </div>
         ) : (
           <ScenePane title="Radiation Pattern" subtitle="Live view" result={liveResult}>
-            <ErrorBoundary fallback={sceneFallback}>
-              <AntennaScene />
-            </ErrorBoundary>
-            {!engineReady && (
-              <div className="loading-overlay" role="status" aria-live="polite">
-                <div className="spinner" aria-hidden="true" /> Loading NEC-2 WebAssembly…
-              </div>
-            )}
-            {engineReady && loading && (
-              <div className="loading-overlay" role="status" aria-live="polite">
-                <div className="spinner" aria-hidden="true" /> Solving…
-              </div>
-            )}
-            {error && (
-              <div className="error-banner" role="alert" aria-live="assertive">
-                <strong>Solver error:</strong> {error}
-              </div>
-            )}
+            <LiveAntennaScene engineReady={engineReady} loading={loading} error={error} />
           </ScenePane>
         )}
       </section>
@@ -119,6 +85,31 @@ function ScenePane({
       <ColormapLegend result={result} />
       {children}
     </section>
+  );
+}
+
+function LiveAntennaScene({ engineReady, loading, error }: { engineReady: boolean; loading: boolean; error: string | null }) {
+  return (
+    <>
+      <ErrorBoundary fallback={sceneFallback}>
+        <AntennaScene />
+      </ErrorBoundary>
+      {!engineReady && (
+        <div className="loading-overlay" role="status" aria-live="polite">
+          <div className="spinner" aria-hidden="true" /> Loading NEC-2 WebAssembly…
+        </div>
+      )}
+      {engineReady && loading && (
+        <div className="loading-overlay" role="status" aria-live="polite">
+          <div className="spinner" aria-hidden="true" /> Solving…
+        </div>
+      )}
+      {error && (
+        <div className="error-banner" role="alert" aria-live="assertive">
+          <strong>Solver error:</strong> {error}
+        </div>
+      )}
+    </>
   );
 }
 
