@@ -30,3 +30,6 @@ nec2-build/test-*.mjs
 *.sln
 *.sw?
 coverage/
+
+# Claude Code agent worktrees (ephemeral, local-only)
+.claude/worktrees/
