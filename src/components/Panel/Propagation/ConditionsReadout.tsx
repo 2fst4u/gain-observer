@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { PropagationRadar } from '../../Charts/PropagationRadar';
 import type { PropagationPrediction, HopPrediction } from '../../../physics/propagation';
 
-function formatRange(km: number, units: 'metric' | 'imperial'): string {
+// eslint-disable-next-line react-refresh/only-export-components
+export function formatRange(km: number, units: 'metric' | 'imperial'): string {
   if (units === 'imperial') {
     return `${(km / 1.609344).toFixed(0)} mi`;
   }
