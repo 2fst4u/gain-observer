@@ -137,7 +137,7 @@ function LiveAntennaScene({ engineReady, loading, error }: { engineReady: boolea
 
 function sceneFallback(err: Error, reset: () => void) {
   return (
-    <div style={{ padding: 20, color: '#ff6b6b', fontFamily: 'monospace' }}>
+    <div style={{ padding: 20, color: '#ff6b6b', fontFamily: 'monospace' }} role="alert" aria-live="assertive">
       <strong>3D scene crashed:</strong> {err.message}
       <button onClick={reset} style={{ marginLeft: 10 }}>Retry</button>
     </div>
