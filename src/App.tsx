@@ -9,6 +9,17 @@ import { useAntennaStore } from './store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { type ReactNode, useEffect } from 'react';
 
+const ANTENNA_LABELS: Record<string, string> = {
+  'dipole': 'Dipole',
+  'inverted-v': 'Inverted V',
+  'delta-loop': 'Delta Loop',
+  'sloping-v': 'Sloping V',
+  'terminated-delta': 'Terminated Delta',
+  'vertical-whip': 'Vertical Whip',
+  'inverted-l': 'Inverted L',
+  'folded-dipole': 'Folded Dipole',
+};
+
 export function App() {
   useTheme();
   useUnitsPersistence();
@@ -22,6 +33,8 @@ export function App() {
     engineReady,
     comparisonReference,
     result: liveResult,
+    antennaType,
+    frequency,
   } = useAntennaStore(useShallow((s) => ({
     mode: s.mode,
     error: s.error,
@@ -29,9 +42,18 @@ export function App() {
     engineReady: s.engineReady,
     comparisonReference: s.comparisonReference,
     result: s.result,
+    antennaType: s.antennaType,
+    frequency: s.frequency,
   })));
 
   const showComparison = mode === 'comparison' && comparisonReference;
+
+  // SEO: Dynamically update the page title with the current configuration
+  // to provide better context and discoverability for indexed states.
+  useEffect(() => {
+    const typeLabel = ANTENNA_LABELS[antennaType] || 'Antenna';
+    document.title = `${typeLabel} at ${frequency.toFixed(3)} MHz - HF Gain Visualiser`;
+  }, [antennaType, frequency]);
 
   return (
     <>
