@@ -434,27 +434,20 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
         }
 
         const bestBase = baseRays[bestTi]!;
-        const statusDelta = baseRay.statusRankValue - bestBase.statusRankValue;
-        if (statusDelta > 0) {
+        if (
+          isBetterRay(
+            baseRay.statusRankValue,
+            bestBase.statusRankValue,
+            qRank,
+            bestQualityRank,
+            baseRay.rangeKm,
+            bestBase.rangeKm
+          )
+        ) {
           bestTi = ti;
           bestEffectiveGainDbi = effectiveGainDbi;
           bestQualityRank = qRank;
           bestLinkQuality = linkQuality;
-        } else if (statusDelta === 0) {
-          const qualityDelta = qRank - bestQualityRank;
-          if (qualityDelta > 0) {
-            bestTi = ti;
-            bestEffectiveGainDbi = effectiveGainDbi;
-            bestQualityRank = qRank;
-            bestLinkQuality = linkQuality;
-          } else if (qualityDelta === 0) {
-            if (baseRay.rangeKm > bestBase.rangeKm) {
-              bestTi = ti;
-              bestEffectiveGainDbi = effectiveGainDbi;
-              bestQualityRank = qRank;
-              bestLinkQuality = linkQuality;
-            }
-          }
         }
       }
 
@@ -639,4 +632,21 @@ function effectiveGainForElevation(p: GainPattern | undefined, elevationDeg: num
     if (g > tiMaxG) tiMaxG = g;
   }
   return tiMaxG - mismatchLossDb;
+}
+
+function isBetterRay(
+  candidateStatusRank: number,
+  bestStatusRank: number,
+  candidateQualityRank: number,
+  bestQualityRank: number,
+  candidateRangeKm: number,
+  bestRangeKm: number
+): boolean {
+  if (candidateStatusRank !== bestStatusRank) {
+    return candidateStatusRank > bestStatusRank;
+  }
+  if (candidateQualityRank !== bestQualityRank) {
+    return candidateQualityRank > bestQualityRank;
+  }
+  return candidateRangeKm > bestRangeKm;
 }
