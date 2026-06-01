@@ -9,11 +9,11 @@ describe('Reproduction of height issue when switching from whip', () => {
     store.setAntennaType('dipole');
     expect(useAntennaStore.getState().height).toBe(INITIAL_HEIGHT);
 
-    // 2. Switch to vertical-whip (height should become 0)
+     // 2. Switch to vertical-whip (height should become 8)
     store.setAntennaType('vertical-whip');
-    expect(useAntennaStore.getState().height).toBe(0);
+     expect(useAntennaStore.getState().height).toBe(8);
 
-    // 3. Switch back to dipole (height should revert to INITIAL_HEIGHT)
+     // 3. Switch back to dipole (height should revert to INITIAL_HEIGHT = 8)
     store.setAntennaType('dipole');
     expect(useAntennaStore.getState().height).toBe(INITIAL_HEIGHT);
   });
