@@ -493,6 +493,7 @@ describe("antennaStore actions", () => {
     it("sets initial defaults correctly per spec", () => {
       const s = useAntennaStore.getState();
       expect(s.antennaType).toBe("dipole");
+      expect(s.height).toBe(8);
       expect(s.vAngle).toBe(180);
       expect(s.legSlope).toBe(0);
     });
@@ -569,8 +570,8 @@ describe("antennaStore actions", () => {
       // Default is 2λ total (1λ per leg) — minimum for end-fire travelling-wave behaviour.
       expect(useAntennaStore.getState().length).toBeCloseTo(lambda * 2, 3);
       // V-angle from physics formula: cosV = (1 − 0.371λ/L) / cos(slope).
-      // At h=10m, 7.1 MHz, 2λ total: slope≈13°, cosSlope≈0.974 → V≈99.6°.
-      expect(useAntennaStore.getState().vAngle).toBeCloseTo(99.65, 1);
+      // At h=8m, 7.1 MHz, 2λ total: V ≈ 100.6°.
+      expect(useAntennaStore.getState().vAngle).toBeCloseTo(100.6, 1);
       // legSlope is unused for sloping-V (slope is auto-computed); reset to 0.
       expect(useAntennaStore.getState().legSlope).toBe(0);
     });
@@ -1407,14 +1408,14 @@ describe("antennaStore actions", () => {
   });
 
   describe("Vertical Whip actions", () => {
-    it('setAntennaType("vertical-whip") sets defaults: length = 32 ft, height = 0', () => {
+    it('setAntennaType("vertical-whip") sets defaults: length = 32 ft, height = 8', () => {
       const store = useAntennaStore.getState();
       store.setHeight(15);
       store.setAntennaType("vertical-whip");
       const s = useAntennaStore.getState();
       expect(s.antennaType).toBe("vertical-whip");
       expect(s.length).toBeCloseTo(DEFAULT_WHIP_LENGTH_M, 6);
-      expect(s.height).toBe(0);
+      expect(s.height).toBe(8);
       // No V-angle / termination / slope state should leak into the whip.
       expect(s.vAngle).toBe(180);
       expect(s.legSlope).toBe(0);

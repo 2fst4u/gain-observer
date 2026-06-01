@@ -272,7 +272,7 @@ export interface AntennaState {
 }
 
 const INITIAL_FREQ = 7.1; // 40m band per user spec
-export const INITIAL_HEIGHT = 10; // metres
+export const INITIAL_HEIGHT = 8; // metres
 const INITIAL_TYPE: AntennaType = 'dipole';
 const INITIAL_LENGTH = referenceLength(INITIAL_TYPE, INITIAL_FREQ); // resonant reference length
 
@@ -328,14 +328,12 @@ export const useAntennaStore = create<AntennaState>()(
       comparisonReference: null,
 
       setAntennaType: (type) => set((s) => {
-        const previousType = s.antennaType;
         s.antennaType = type;
 
-        // Vertical whips default to height=0 (sitting on ground). When
-        // switching to a horizontal antenna, restore the default mast height
-        // so it doesn't stay stuck at 0m. (Inverted-L keeps whatever height
+        // When switching to a horizontal antenna, restore the default mast height
+        // if the current height is 0. (Inverted-L keeps whatever height
         // is set since its height is the bend point, not the base.)
-        if (previousType === 'vertical-whip' && type !== 'vertical-whip' && type !== 'inverted-l' && s.height === 0) {
+        if (type !== 'vertical-whip' && type !== 'inverted-l' && s.height === 0) {
           s.height = INITIAL_HEIGHT;
         }
 
@@ -354,11 +352,11 @@ export const useAntennaStore = create<AntennaState>()(
           s.legSlope = 0;
           s.terminatingResistor = 0;
         } else if (type === 'vertical-whip') {
-          // User-specified default: 32 ft long, base sitting on the ground.
+          // User-specified default: 32 ft long (9.75 m).
           // The resonant length (¼λ) at the current frequency is available
           // via the "¼λ" button (setHalfWaveLength → calculateDefaultLength).
           s.length = DEFAULT_WHIP_LENGTH_M;
-          s.height = 0;
+          s.height = INITIAL_HEIGHT;
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
