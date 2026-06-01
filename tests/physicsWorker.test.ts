@@ -91,7 +91,7 @@ describe('physicsWorker error path test', () => {
   it('posts result message when simulate succeeds', async () => {
     mockEngineInstance.init.mockResolvedValue(undefined);
 
-    let messageHandler: any;
+    let messageHandler: (msg: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
     addEventListenerSpy.mockImplementation((type, handler) => {
       if (type === 'message') messageHandler = handler;
     });
@@ -117,7 +117,7 @@ describe('physicsWorker error path test', () => {
   it('posts error message when simulate fails', async () => {
     mockEngineInstance.init.mockResolvedValue(undefined);
 
-    let messageHandler: any;
+    let messageHandler: (msg: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
     addEventListenerSpy.mockImplementation((type, handler) => {
       if (type === 'message') messageHandler = handler;
     });
@@ -141,7 +141,7 @@ describe('physicsWorker error path test', () => {
 
   it('handles worker error events', async () => {
     mockEngineInstance.init.mockResolvedValue(undefined);
-    let errorHandler: any;
+    let errorHandler: (ev: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
     addEventListenerSpy.mockImplementation((type, handler) => {
       if (type === 'error') errorHandler = handler;
     });
@@ -156,7 +156,7 @@ describe('physicsWorker error path test', () => {
 
   it('handles worker unhandledrejection events', async () => {
     mockEngineInstance.init.mockResolvedValue(undefined);
-    let rejectionHandler: any;
+    let rejectionHandler: (ev: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
     addEventListenerSpy.mockImplementation((type, handler) => {
       if (type === 'unhandledrejection') rejectionHandler = handler;
     });
@@ -172,7 +172,7 @@ describe('physicsWorker error path test', () => {
   it('ignores messages with unknown types', async () => {
     mockEngineInstance.init.mockResolvedValue(undefined);
 
-    let messageHandler: any;
+    let messageHandler: (msg: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
     addEventListenerSpy.mockImplementation((type, handler) => {
       if (type === 'message') messageHandler = handler;
     });
@@ -197,7 +197,7 @@ describe('physicsWorker error path test', () => {
   it('posts error message when simulate fails with a non-Error object', async () => {
     mockEngineInstance.init.mockResolvedValue(undefined);
 
-    let messageHandler: any;
+    let messageHandler: (msg: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
     addEventListenerSpy.mockImplementation((type, handler) => {
       if (type === 'message') messageHandler = handler;
     });
