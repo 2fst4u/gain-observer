@@ -17,3 +17,6 @@
 ## 2026-05-30 - Add tests for formatBandwidth
 **Learning:** JS `.toFixed()` exhibits unexpected rounding behavior with `.5` boundaries (e.g. `(1.555).toFixed(2) === '1.55'`, not `'1.56'`) due to IEEE 754 floating point representation. Tests targeting exact decimal boundaries must reflect this native JS logic rather than purely mathematical rounding.
 **Action:** Created `tests/swrChartUtils.test.ts` ensuring branch logic (< 1MHz and >= 1MHz) is tested while accounting for standard floating point boundaries.
+## 2024-11-20 - [Avoid SetTimeout in tests for Macrotask flushing]
+**Learning:** In Vitest, using `setTimeout(resolve, 0)` to wait for asynchronous operations or dynamic imports like worker mock initializations introduces flakiness and is strictly prohibited. Use `setImmediate` via a `flushPromises` utility function (e.g., `const flushPromises = () => new Promise(resolve => setImmediate(resolve));`) for cleanly flushing the promise queue.
+**Action:** Replaced `setTimeout` with a `flushPromises` helper using `setImmediate` in `tests/physicsWorker.test.ts`.
