@@ -17,3 +17,7 @@
 ## 2026-05-30 - Add tests for formatBandwidth
 **Learning:** JS `.toFixed()` exhibits unexpected rounding behavior with `.5` boundaries (e.g. `(1.555).toFixed(2) === '1.55'`, not `'1.56'`) due to IEEE 754 floating point representation. Tests targeting exact decimal boundaries must reflect this native JS logic rather than purely mathematical rounding.
 **Action:** Created `tests/swrChartUtils.test.ts` ensuring branch logic (< 1MHz and >= 1MHz) is tested while accounting for standard floating point boundaries.
+## 2024-05-30 - Mocking Async Methods and Global Workers
+
+**Learning:** When testing worker components communicating through simulated globals (`addEventListenerSpy`, `postMessageSpy`), resetting mock implementations (`mockReset()`) is critical in `beforeEach()`. Otherwise, mocked rejections from prior test blocks will leak into subsequent setups (e.g. `simulate` continuing to reject), leading to seemingly inexplicable test failures. Ensure `simulate` and `sweepImpedance` mocks are reset before each block.
+**Action:** Explicitly reset all stubbed or mocked engine methods in the test runner's `beforeEach` to ensure a pristine state for the subsequent worker simulation.
