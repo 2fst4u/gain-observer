@@ -74,6 +74,7 @@ export {
   FOLDED_DIPOLE_CONNECTOR_TAG,
   FOLDED_DIPOLE_TERM_BRIDGE_TAG,
 };
+import type { Theme } from '../utils/themeColors';
 import type { UnitSystem } from '../physics/units';
 import {
   buildInvertedVWires,
@@ -94,7 +95,6 @@ export type { OrientationPreset, Orientation };
 
 const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta', 'folded-dipole']);
 
-export type Theme = 'dark' | 'light';
 export type Mode = 'normal' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
