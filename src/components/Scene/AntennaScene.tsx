@@ -11,7 +11,7 @@ import { Suspense, useMemo } from 'react';
 import { DipoleWire } from './DipoleWire';
 import { GroundPlane } from './GroundPlane';
 import { RadiationPattern } from './RadiationPattern';
-import { useAntennaStore, type ComparisonSnapshot } from '../../store/antennaStore';
+import { useAntennaStore, selectAtuConfig, type ComparisonSnapshot } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { displayedFeedMetrics } from '../../physics/impedance';
 import { THEME_COLORS } from '../../utils/themeColors';
@@ -36,6 +36,9 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     liveWhipCounterpoise,
     liveTransformerEnabled,
     liveTransformerRatio,
+    liveFrequency,
+    liveAtuEnabled,
+    liveAtuMainFeedlineLength,
     showGrid,
     showAxes,
     patternScale,
@@ -58,6 +61,9 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     liveWhipCounterpoise: s.whipCounterpoise,
     liveTransformerEnabled: s.transformerEnabled,
     liveTransformerRatio: s.transformerRatio,
+    liveFrequency: s.frequency,
+    liveAtuEnabled: s.atuEnabled,
+    liveAtuMainFeedlineLength: s.atuMainFeedlineLength,
     showGrid: s.showGrid,
     showAxes: s.showAxes,
     patternScale: s.patternScale,
@@ -81,18 +87,26 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const whipCounterpoise = snapshot?.whipCounterpoise ?? liveWhipCounterpoise;
 
   // Scale the pattern bubble to realized gain: the gain actually delivered after
-  // feedpoint mismatch (and any transformer) loss. The offset is realizedGain −
-  // gain, the same constant the stats readout applies. Comparison snapshots don't
-  // capture transformer settings, so they fall back to plain realized gain.
+  // feedpoint mismatch (and any transformer/ATU) loss. The offset is realizedGain
+  // − gain, the same constant the stats readout applies. Comparison snapshots
+  // don't capture transformer/ATU settings, so they fall back to plain realized
+  // gain.
   const realizedGainOffsetDb = useMemo(() => {
     if (!result || result.maxRealizedGainDbi == null) return 0;
     const { displayedRealizedGainDbi } = displayedFeedMetrics(result, {
       transformerEnabled: snapshot ? false : liveTransformerEnabled,
       transformerRatio: snapshot ? 1 : liveTransformerRatio,
       feedlineActive: feedlineId !== 'none',
+      atu: snapshot ? undefined : selectAtuConfig({
+        atuEnabled: liveAtuEnabled,
+        frequency: liveFrequency,
+        feedlineId,
+        feedlineLength,
+        atuMainFeedlineLength: liveAtuMainFeedlineLength,
+      }),
     });
     return displayedRealizedGainDbi != null ? displayedRealizedGainDbi - result.maxGainDbi : 0;
-  }, [result, snapshot, liveTransformerEnabled, liveTransformerRatio, feedlineId]);
+  }, [result, snapshot, liveTransformerEnabled, liveTransformerRatio, feedlineId, feedlineLength, liveAtuEnabled, liveFrequency, liveAtuMainFeedlineLength]);
 
   return (
     <Canvas

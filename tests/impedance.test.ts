@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer, suggestedTransformerRatio, displayedFeedMetrics } from '../src/physics/impedance';
-import { TRANSFORMER_INSERTION_LOSS_DB } from '../src/physics/constants';
+import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer, suggestedTransformerRatio, displayedFeedMetrics, atuLossDb, feedlineLossUnderSwrDb } from '../src/physics/impedance';
+import { TRANSFORMER_INSERTION_LOSS_DB, ATU_COMPONENT_Q, feedlineLossDb, findFeedlinePreset } from '../src/physics/constants';
 import type { SimulationResult } from '../src/physics/types';
 
 // Minimal result stub carrying only the fields displayedFeedMetrics reads.
@@ -74,6 +74,100 @@ describe('displayedFeedMetrics', () => {
     const result = stubResult({ impedance: { R: 50, X: 0 }, maxGainDbi: 3, maxRealizedGainDbi: undefined });
     const m = displayedFeedMetrics(result, noTransformer);
     expect(m.displayedRealizedGainDbi).toBeUndefined();
+  });
+});
+
+describe('feedlineLossUnderSwrDb', () => {
+  it('zero matched loss → zero total loss', () => {
+    expect(feedlineLossUnderSwrDb(0, 0.9)).toBe(0);
+  });
+
+  it('matched (|Γ|=0) → equals the matched loss', () => {
+    expect(feedlineLossUnderSwrDb(1, 0)).toBeCloseTo(1, 10);
+  });
+
+  it('standing wave inflates loss above the matched value', () => {
+    expect(feedlineLossUnderSwrDb(1, 0.5)).toBeGreaterThan(1);
+    // 10·log10[(a²−|Γ|²)/(a(1−|Γ|²))], a=10^0.1, |Γ|²=0.25 ⇒ ≈1.50 dB
+    expect(feedlineLossUnderSwrDb(1, 0.5)).toBeCloseTo(1.50, 1);
+  });
+
+  it('total reflection stays finite (clamped)', () => {
+    expect(Number.isFinite(feedlineLossUnderSwrDb(0.5, 1))).toBe(true);
+  });
+});
+
+describe('atuLossDb', () => {
+  it('perfect match → no loss', () => {
+    expect(atuLossDb({ R: 50, X: 0 }, 150)).toBeCloseTo(0, 10);
+  });
+
+  it('non-passive R or non-positive Q → no loss', () => {
+    expect(atuLossDb({ R: -5, X: 0 }, 150)).toBe(0);
+    expect(atuLossDb({ R: 50, X: 0 }, 0)).toBe(0);
+  });
+
+  it('folded-dipole 300 Ω is a gentle match (~0.06 dB at Q=150)', () => {
+    // Q_net = 250/√(300·50) = 2.041 ⇒ loss = -10log10(150/152.04) ≈ 0.059 dB
+    expect(atuLossDb({ R: 300, X: 0 }, 150)).toBeCloseTo(0.06, 2);
+  });
+
+  it('heavy reactance costs more loss', () => {
+    expect(atuLossDb({ R: 50, X: 500 }, 150)).toBeGreaterThan(atuLossDb({ R: 300, X: 0 }, 150));
+  });
+
+  it('higher component Q → lower loss', () => {
+    const nasty = { R: 5, X: 80 };
+    expect(atuLossDb(nasty, 250)).toBeLessThan(atuLossDb(nasty, 80));
+  });
+});
+
+describe('displayedFeedMetrics — mast-base ATU', () => {
+  const preset = findFeedlinePreset('rg213');
+  const atu = {
+    frequencyMHz: 14.2,
+    preset,
+    upmastLengthM: 6,
+    mainLengthM: 50,
+    componentQ: ATU_COMPONENT_Q,
+  };
+
+  it('presents 50 Ω at 1:1 and subtracts feedline + tuner losses from gain', () => {
+    const result = stubResult({ impedance: { R: 18, X: -40 }, maxGainDbi: 6 });
+    const m = displayedFeedMetrics(result, {
+      transformerEnabled: false, transformerRatio: 1, feedlineActive: true, atu,
+    });
+
+    expect(m.displayedZ).toEqual({ R: 50, X: 0 });
+    expect(m.displayedSwr).toBe(1);
+    expect(m.atuLoss).toBeDefined();
+
+    // Cross-check each stage against the standalone loss functions.
+    const matchedUp = feedlineLossDb(preset, 14.2, 6);
+    const gamma = Math.hypot(18 - preset.z0, -40) / Math.hypot(18 + preset.z0, -40);
+    expect(m.atuLoss!.upmastDb).toBeCloseTo(feedlineLossUnderSwrDb(matchedUp, gamma), 10);
+    expect(m.atuLoss!.mainDb).toBeCloseTo(feedlineLossDb(preset, 14.2, 50), 10);
+    expect(m.atuLoss!.tunerDb).toBeCloseTo(atuLossDb({ R: 18, X: -40 }, ATU_COMPONENT_Q), 10);
+
+    const total = m.atuLoss!.upmastDb + m.atuLoss!.mainDb + m.atuLoss!.tunerDb;
+    expect(m.displayedRealizedGainDbi!).toBeCloseTo(6 - total, 10);
+  });
+
+  it('the ATU supersedes a transformer when both are set', () => {
+    const result = stubResult({ impedance: { R: 300, X: 0 }, maxGainDbi: 2 });
+    const m = displayedFeedMetrics(result, {
+      transformerEnabled: true, transformerRatio: 9, feedlineActive: true, atu,
+    });
+    expect(m.displayedZ).toEqual({ R: 50, X: 0 });
+  });
+
+  it('a non-passive feedpoint leaves realized gain undefined but still reports losses', () => {
+    const result = stubResult({ impedance: { R: -3, X: 20 }, maxGainDbi: 4 });
+    const m = displayedFeedMetrics(result, {
+      transformerEnabled: false, transformerRatio: 1, feedlineActive: true, atu,
+    });
+    expect(m.displayedRealizedGainDbi).toBeUndefined();
+    expect(m.atuLoss).toBeDefined();
   });
 });
 

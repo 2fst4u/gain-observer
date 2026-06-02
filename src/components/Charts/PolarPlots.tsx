@@ -10,7 +10,7 @@ import {
   Tooltip,
   type ChartOptions,
 } from 'chart.js';
-import { useAntennaStore } from '../../store/antennaStore';
+import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
 import { displayedFeedMetrics } from '../../physics/impedance';
@@ -106,6 +106,10 @@ export function PolarPlots() {
     transformerEnabled,
     transformerRatio,
     feedlineId,
+    frequency,
+    feedlineLength,
+    atuEnabled,
+    atuMainFeedlineLength,
   } = useAntennaStore(useShallow((s) => ({
     result: s.result,
     dbRange: s.dbRange,
@@ -115,6 +119,10 @@ export function PolarPlots() {
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
     feedlineId: s.feedlineId,
+    frequency: s.frequency,
+    feedlineLength: s.feedlineLength,
+    atuEnabled: s.atuEnabled,
+    atuMainFeedlineLength: s.atuMainFeedlineLength,
   })));
 
   // The cuts are normalised to the pattern peak (shape only), but the ring
@@ -129,9 +137,10 @@ export function PolarPlots() {
       transformerEnabled,
       transformerRatio,
       feedlineActive: feedlineId !== 'none',
+      atu: selectAtuConfig({ atuEnabled, frequency, feedlineId, feedlineLength, atuMainFeedlineLength }),
     });
     return displayedRealizedGainDbi ?? result.maxGainDbi;
-  }, [result, transformerEnabled, transformerRatio, feedlineId]);
+  }, [result, transformerEnabled, transformerRatio, feedlineId, atuEnabled, frequency, feedlineLength, atuMainFeedlineLength]);
 
   const azData = useMemo(() => {
     if (!result) return null;

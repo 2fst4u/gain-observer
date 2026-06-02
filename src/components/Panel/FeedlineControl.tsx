@@ -36,9 +36,13 @@ export function FeedlineControl() {
     feedlineId,
     feedlineLength,
     feedlineOffset,
+    atuEnabled,
+    atuMainFeedlineLength,
     setFeedline,
     setFeedlineLength,
     setFeedlineOffset,
+    setAtuEnabled,
+    setAtuMainFeedlineLength,
   } = useAntennaStore(useShallow((s) => ({
     units: s.units,
     antennaType: s.antennaType,
@@ -47,9 +51,13 @@ export function FeedlineControl() {
     feedlineId: s.feedlineId,
     feedlineLength: s.feedlineLength,
     feedlineOffset: s.feedlineOffset,
+    atuEnabled: s.atuEnabled,
+    atuMainFeedlineLength: s.atuMainFeedlineLength,
     setFeedline: s.setFeedline,
     setFeedlineLength: s.setFeedlineLength,
     setFeedlineOffset: s.setFeedlineOffset,
+    setAtuEnabled: s.setAtuEnabled,
+    setAtuMainFeedlineLength: s.setAtuMainFeedlineLength,
   })));
 
   const preset = findFeedlinePreset(feedlineId);
@@ -69,11 +77,23 @@ export function FeedlineControl() {
     }
   }
 
+  const dispMainLen = toDisplayLength(atuMainFeedlineLength, units);
+  const [localMainLen, setLocalMainLen] = useState(dispMainLen.toFixed(2));
+  const [mainFocused, setMainFocused] = useState(false);
+  const [prevDispMainLen, setPrevDispMainLen] = useState(dispMainLen);
+  if (dispMainLen !== prevDispMainLen) {
+    setPrevDispMainLen(dispMainLen);
+    if (!mainFocused) {
+      setLocalMainLen(dispMainLen.toFixed(2));
+    }
+  }
+
   if (!SUPPORTED_ANTENNA_TYPES.has(antennaType)) return null;
 
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
   const dispOffsetLimit = toDisplayLength(offsetLimit, units);
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
+  const mainRunLossDb = enabled ? feedlineLossDb(preset, frequency, atuMainFeedlineLength) : 0;
 
   return (
     <section className="panel-section">
@@ -166,6 +186,56 @@ export function FeedlineControl() {
           <div className="stat">
             <span className="stat-label">Cable loss @ {frequency.toFixed(2)} MHz</span>
             <span className="stat-value">{lossDb.toFixed(2)} dB</span>
+          </div>
+
+          <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+            <label
+              htmlFor="atu-enable"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, margin: 0, fontSize: 12 }}
+            >
+              <input
+                id="atu-enable"
+                type="checkbox"
+                checked={atuEnabled}
+                onChange={(e) => setAtuEnabled(e.target.checked)}
+              />
+              ATU at the base of the mast
+            </label>
+
+            {atuEnabled && (
+              <>
+                <label htmlFor="atu-main-length" style={{ marginTop: 10 }}>
+                  Main run, ATU → shack ({unit})
+                </label>
+                <input
+                  id="atu-main-length"
+                  type="number"
+                  min={0}
+                  max={units === 'metric' ? 300 : 984}
+                  step={units === 'metric' ? 0.5 : 1}
+                  value={localMainLen}
+                  aria-describedby="atu-hint"
+                  onFocus={() => setMainFocused(true)}
+                  onChange={(e) => {
+                    const s = e.target.value;
+                    setLocalMainLen(s);
+                    const val = parseFloat(s);
+                    if (!isNaN(val)) setAtuMainFeedlineLength(fromDisplayLength(val, units));
+                  }}
+                  onBlur={() => {
+                    setMainFocused(false);
+                    setLocalMainLen(dispMainLen.toFixed(2));
+                  }}
+                />
+                <div id="atu-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                  The feedline above becomes the short up-mast run (carries the antenna's native SWR);
+                  the tuner conjugate-matches at the base, so this main run to the shack stays ~1:1
+                  (matched loss {mainRunLossDb.toFixed(2)} dB). Realized gain keeps the up-mast loss
+                  under SWR, this main-run loss, and a Q-based tuner loss — but a tuner cannot recover
+                  ohmic/termination (efficiency) loss.
+                </div>
+              </>
+            )}
           </div>
         </>
       )}

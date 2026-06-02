@@ -22,8 +22,10 @@ import type {
 } from '../physics/types';
 import {
   TRANSFORMER_CHOKE_OHMS,
+  ATU_COMPONENT_Q,
   DEFAULT_FEEDLINE_ID,
   DEFAULT_FEEDLINE_LENGTH_M,
+  DEFAULT_ATU_MAIN_FEEDLINE_LENGTH_M,
   DEFAULT_GROUND_ID,
   DEFAULT_WIRE_RADIUS_M,
   SLOPING_V_MIN_TIP_Z_M,
@@ -76,6 +78,7 @@ export {
 };
 import type { Theme } from '../utils/themeColors';
 import type { UnitSystem } from '../physics/units';
+import type { AtuMatchConfig } from '../physics/impedance';
 import {
   buildInvertedVWires,
   buildSlopingVWires,
@@ -199,6 +202,12 @@ export interface AntennaState {
   /** Impedance transformation ratio n² (e.g. 9 for a 3:1 turns-ratio transformer). */
   transformerRatio: number;
 
+  // Idealised ATU at the base of the mast (post-processing display only). The
+  // feedline above acts as the up-mast run; this is the main run down to the
+  // shack, which the tuner keeps at ~1:1.
+  atuEnabled: boolean;
+  atuMainFeedlineLength: number;
+
   // Propagation
   tIndex: number;
   latitudeDeg: number | null;
@@ -253,6 +262,8 @@ export interface AntennaState {
   setShowPolarCuts(v: boolean): void;
   setTransformerEnabled(enabled: boolean): void;
   setTransformerRatio(ratio: number): void;
+  setAtuEnabled(enabled: boolean): void;
+  setAtuMainFeedlineLength(meters: number): void;
   captureComparisonReference(): void;
   clearComparisonReference(): void;
 
@@ -312,6 +323,9 @@ export const useAntennaStore = create<AntennaState>()(
       showPolarCuts: true,
       transformerEnabled: false,
       transformerRatio: 9,
+
+      atuEnabled: false,
+      atuMainFeedlineLength: DEFAULT_ATU_MAIN_FEEDLINE_LENGTH_M,
 
       tIndex: 30,
       latitudeDeg: null,
@@ -553,6 +567,11 @@ export const useAntennaStore = create<AntennaState>()(
       setTransformerRatio: (ratio) => set((s) => {
         if (!Number.isFinite(ratio) || ratio <= 0) return;
         s.transformerRatio = Math.max(1, ratio);
+      }),
+      setAtuEnabled: (enabled) => set((s) => { s.atuEnabled = !!enabled; }),
+      setAtuMainFeedlineLength: (meters) => set((s) => {
+        if (!Number.isFinite(meters)) return;
+        s.atuMainFeedlineLength = Math.max(0, Math.min(300, meters));
       }),
       captureComparisonReference: () => set((s) => {
         s.comparisonReference = createComparisonSnapshot(s);
@@ -1245,6 +1264,31 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
   }
 
   return { extraWires, loads };
+}
+
+/**
+ * Build the idealised mast-base ATU config for the realized-gain post-processing,
+ * or `undefined` when the ATU is off. The currently-selected feedline doubles as
+ * the up-mast run; `atuMainFeedlineLength` is the matched run down to the shack.
+ * Pure (no store access) so it serves both the live state and comparison
+ * snapshots, and ATU fields are deliberately absent from `selectSimulationInput`
+ * — it's post-processing and must never trigger a NEC re-solve.
+ */
+export function selectAtuConfig(args: {
+  atuEnabled: boolean;
+  frequency: number;
+  feedlineId: string;
+  feedlineLength: number;
+  atuMainFeedlineLength: number;
+}): AtuMatchConfig | undefined {
+  if (!args.atuEnabled) return undefined;
+  return {
+    frequencyMHz: args.frequency,
+    preset: findFeedlinePreset(args.feedlineId),
+    upmastLengthM: args.feedlineLength,
+    mainLengthM: args.atuMainFeedlineLength,
+    componentQ: ATU_COMPONENT_Q,
+  };
 }
 
 export function selectSimulationInput(state: AntennaState): SimulationInput {
