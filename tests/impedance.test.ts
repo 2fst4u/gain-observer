@@ -1,6 +1,81 @@
 import { vi } from "vitest";
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer, suggestedTransformerRatio } from '../src/physics/impedance';
+import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer, suggestedTransformerRatio, displayedFeedMetrics } from '../src/physics/impedance';
+import { TRANSFORMER_INSERTION_LOSS_DB } from '../src/physics/constants';
+import type { SimulationResult } from '../src/physics/types';
+
+// Minimal result stub carrying only the fields displayedFeedMetrics reads.
+function stubResult(over: Partial<Pick<SimulationResult, 'impedance' | 'swr' | 'maxGainDbi' | 'maxRealizedGainDbi'>>) {
+  const impedance = over.impedance ?? { R: 50, X: 0 };
+  return {
+    impedance,
+    swr: over.swr ?? swr(impedance),
+    maxGainDbi: over.maxGainDbi ?? 0,
+    maxRealizedGainDbi:
+      'maxRealizedGainDbi' in over
+        ? over.maxRealizedGainDbi
+        : (over.maxGainDbi ?? 0) + 10 * Math.log10(mismatchLossFactor(impedance)),
+  } as Pick<SimulationResult, 'impedance' | 'swr' | 'maxGainDbi' | 'maxRealizedGainDbi'>;
+}
+
+describe('displayedFeedMetrics', () => {
+  const noTransformer = { transformerEnabled: false, transformerRatio: 1, feedlineActive: false };
+
+  it('no transformer: realized gain equals NEC realized gain; offset = 10·log10(1−|Γ|²)', () => {
+    // The 1.5λ dipole from the bug report: high gain, severe mismatch.
+    const result = stubResult({ impedance: { R: 1.7, X: 50.9 }, maxGainDbi: 9.03 });
+    const m = displayedFeedMetrics(result, noTransformer);
+
+    // Bubble offset the scene applies = realizedGain − gain.
+    const offset = m.displayedRealizedGainDbi! - result.maxGainDbi;
+    expect(offset).toBeCloseTo(10 * Math.log10(mismatchLossFactor(result.impedance)), 10);
+    // Sanity: lands near the readout's ~ −2.9 dBi (rounded inputs, so a loose
+    // bound) and the displayed Z is left untouched.
+    expect(m.displayedRealizedGainDbi!).toBeGreaterThan(-3.1);
+    expect(m.displayedRealizedGainDbi!).toBeLessThan(-2.7);
+    expect(m.displayedZ).toEqual(result.impedance);
+    expect(m.displayedSwr).toBe(result.swr);
+  });
+
+  it('perfect match: offset is 0 (bubble equals raw gain pattern)', () => {
+    const result = stubResult({ impedance: { R: 50, X: 0 }, maxGainDbi: 2.15 });
+    const m = displayedFeedMetrics(result, noTransformer);
+    expect(m.displayedRealizedGainDbi! - result.maxGainDbi).toBeCloseTo(0, 10);
+  });
+
+  it('phantom transformer (no feedline): divides Z by ratio and deducts insertion loss', () => {
+    const result = stubResult({ impedance: { R: 450, X: 0 }, maxGainDbi: 5 });
+    const m = displayedFeedMetrics(result, { transformerEnabled: true, transformerRatio: 9, feedlineActive: false });
+
+    const expectedZ = { R: 50, X: 0 };
+    expect(m.displayedZ).toEqual(expectedZ);
+    expect(m.displayedSwr).toBeCloseTo(1, 6); // 450/9 = 50 → matched
+    expect(m.displayedRealizedGainDbi!).toBeCloseTo(
+      5 + 10 * Math.log10(mismatchLossFactor(expectedZ)) - TRANSFORMER_INSERTION_LOSS_DB,
+      10,
+    );
+  });
+
+  it('transformer modelled in NEC (feedline active): NEC realized gain minus insertion loss', () => {
+    const result = stubResult({ impedance: { R: 50, X: 0 }, maxGainDbi: 5, maxRealizedGainDbi: 4.6 });
+    const m = displayedFeedMetrics(result, { transformerEnabled: true, transformerRatio: 9, feedlineActive: true });
+    // Z/SWR are taken as-is (NEC already includes the transformer).
+    expect(m.displayedZ).toEqual(result.impedance);
+    expect(m.displayedRealizedGainDbi!).toBeCloseTo(4.6 - TRANSFORMER_INSERTION_LOSS_DB, 10);
+  });
+
+  it('choke-only (ratio 1): NEC realized gain minus insertion loss', () => {
+    const result = stubResult({ impedance: { R: 73, X: 0 }, maxGainDbi: 2.15, maxRealizedGainDbi: 2.0 });
+    const m = displayedFeedMetrics(result, { transformerEnabled: true, transformerRatio: 1, feedlineActive: true });
+    expect(m.displayedRealizedGainDbi!).toBeCloseTo(2.0 - TRANSFORMER_INSERTION_LOSS_DB, 10);
+  });
+
+  it('undefined NEC realized gain leaves displayed realized gain undefined', () => {
+    const result = stubResult({ impedance: { R: 50, X: 0 }, maxGainDbi: 3, maxRealizedGainDbi: undefined });
+    const m = displayedFeedMetrics(result, noTransformer);
+    expect(m.displayedRealizedGainDbi).toBeUndefined();
+  });
+});
 
 describe('reflection coefficient and SWR', () => {
   it('perfect match => |Γ|=0, SWR=1', () => {

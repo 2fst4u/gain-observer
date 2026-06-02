@@ -7,12 +7,13 @@
 
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
-import { Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 import { DipoleWire } from './DipoleWire';
 import { GroundPlane } from './GroundPlane';
 import { RadiationPattern } from './RadiationPattern';
 import { useAntennaStore, type ComparisonSnapshot } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
+import { displayedFeedMetrics } from '../../physics/impedance';
 import { THEME_COLORS } from '../../utils/themeColors';
 
 interface AntennaSceneProps {
@@ -33,6 +34,8 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     liveFeedlineLength,
     liveFeedlineOffset,
     liveWhipCounterpoise,
+    liveTransformerEnabled,
+    liveTransformerRatio,
     showGrid,
     showAxes,
     patternScale,
@@ -53,6 +56,8 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     liveFeedlineLength: s.feedlineLength,
     liveFeedlineOffset: s.feedlineOffset,
     liveWhipCounterpoise: s.whipCounterpoise,
+    liveTransformerEnabled: s.transformerEnabled,
+    liveTransformerRatio: s.transformerRatio,
     showGrid: s.showGrid,
     showAxes: s.showAxes,
     patternScale: s.patternScale,
@@ -74,6 +79,20 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const feedlineLength = snapshot?.feedlineLength ?? liveFeedlineLength;
   const feedlineOffset = snapshot?.feedlineOffset ?? liveFeedlineOffset;
   const whipCounterpoise = snapshot?.whipCounterpoise ?? liveWhipCounterpoise;
+
+  // Scale the pattern bubble to realized gain: the gain actually delivered after
+  // feedpoint mismatch (and any transformer) loss. The offset is realizedGain −
+  // gain, the same constant the stats readout applies. Comparison snapshots don't
+  // capture transformer settings, so they fall back to plain realized gain.
+  const realizedGainOffsetDb = useMemo(() => {
+    if (!result || result.maxRealizedGainDbi == null) return 0;
+    const { displayedRealizedGainDbi } = displayedFeedMetrics(result, {
+      transformerEnabled: snapshot ? false : liveTransformerEnabled,
+      transformerRatio: snapshot ? 1 : liveTransformerRatio,
+      feedlineActive: feedlineId !== 'none',
+    });
+    return displayedRealizedGainDbi != null ? displayedRealizedGainDbi - result.maxGainDbi : 0;
+  }, [result, snapshot, liveTransformerEnabled, liveTransformerRatio, feedlineId]);
 
   return (
     <Canvas
@@ -112,6 +131,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
           dbRange={dbRange}
           colorMaxDb={colorMaxDb}
           colormap={colormap}
+          realizedGainOffsetDb={realizedGainOffsetDb}
         />
       </Suspense>
 
