@@ -13,6 +13,7 @@ import {
 import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
+import { displayedFeedMetrics } from '../../physics/impedance';
 import type { GainPattern } from '../../physics/types';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip);
@@ -102,13 +103,35 @@ export function PolarPlots() {
     showPolarCuts,
     orientation,
     theme,
+    transformerEnabled,
+    transformerRatio,
+    feedlineId,
   } = useAntennaStore(useShallow((s) => ({
     result: s.result,
     dbRange: s.dbRange,
     showPolarCuts: s.showPolarCuts,
     orientation: s.orientation,
     theme: s.theme,
+    transformerEnabled: s.transformerEnabled,
+    transformerRatio: s.transformerRatio,
+    feedlineId: s.feedlineId,
   })));
+
+  // The cuts are normalised to the pattern peak (shape only), but the ring
+  // labels report absolute dBi. Reference them to the realized-gain peak —
+  // gain minus feedpoint mismatch/insertion loss — so the rings agree with the
+  // 3D bubble and the stats readout instead of advertising the intrinsic gain.
+  // The offset is direction-independent, so relabelling every ring by it is
+  // exact for every point on the cut.
+  const peakDbi = useMemo(() => {
+    if (!result) return 0;
+    const { displayedRealizedGainDbi } = displayedFeedMetrics(result, {
+      transformerEnabled,
+      transformerRatio,
+      feedlineActive: feedlineId !== 'none',
+    });
+    return displayedRealizedGainDbi ?? result.maxGainDbi;
+  }, [result, transformerEnabled, transformerRatio, feedlineId]);
 
   const azData = useMemo(() => {
     if (!result) return null;
@@ -171,7 +194,7 @@ export function PolarPlots() {
           count: 5,
           callback: (val) => {
             if (!result) return '';
-            return `${(Number(val) + (result.maxGainDbi - dbRange)).toFixed(0)} dBi`;
+            return `${(Number(val) + (peakDbi - dbRange)).toFixed(0)} dBi`;
           },
         },
         grid: { color: chartGrid, circular: true },
@@ -179,7 +202,7 @@ export function PolarPlots() {
         pointLabels: { color: chartText, font: { size: 10 }, padding: 0 },
       },
     },
-  }), [dbRange, chartText, chartGrid, result]);
+  }), [dbRange, chartText, chartGrid, result, peakDbi]);
 
   const color = 'rgba(79, 179, 255, 0.55)';
 
