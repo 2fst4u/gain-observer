@@ -4,3 +4,6 @@
 ## 2024-05-28 - Missing `aria-describedby` for complex type select element
 **Learning:** `DipoleControl.tsx` has a `<select>` for antenna type, but no `aria-describedby` link to the helper hint text about how to set up the selected antenna. This makes the interface less intuitive for screen reader users as they miss context.
 **Action:** Always link `<select>` elements with complex options to a hint text element via `aria-describedby` when context changes based on selection.
+## 2024-05-28 - Missing ARIA alert on global error boundary
+**Learning:** React ErrorBoundary fallback UIs for rendering app crashes do not natively announce themselves to screen readers because they replace the current DOM without a page reload or focus shift.
+**Action:** Always add `role="alert"` and `aria-live="assertive"` to the container of critical error messages or crash fallbacks so screen reader users are immediately notified.

@@ -31,15 +31,19 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.error) {
       if (this.props.fallback) return this.props.fallback(this.state.error, this.reset);
       return (
-        <div style={{
-          padding: 20,
-          color: 'var(--danger, #ff6b6b)',
-          background: 'var(--bg, #111)',
-          fontFamily: 'monospace',
-          whiteSpace: 'pre-wrap',
-          height: '100%',
-          overflow: 'auto',
-        }}>
+        <div
+          role="alert"
+          aria-live="assertive"
+          style={{
+            padding: 20,
+            color: 'var(--danger, #ff6b6b)',
+            background: 'var(--bg, #111)',
+            fontFamily: 'monospace',
+            whiteSpace: 'pre-wrap',
+            height: '100%',
+            overflow: 'auto',
+          }}
+        >
           <h2 style={{ marginTop: 0 }}>Render error</h2>
           <div style={{ marginBottom: 12 }}>{this.state.error.message}</div>
           <button onClick={this.reset}>Try again</button>
