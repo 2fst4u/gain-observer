@@ -22,7 +22,7 @@ import { buildNecCards } from './necCard';
 import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
 import { computeTerminationDiagnostics } from './terminationDiagnostics';
 import { swr, mismatchLossFactor } from './impedance';
-import { findSwrBands } from './bandwidth';
+import { findSwrBands, type SwrBand } from './bandwidth';
 import type { Engine, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 
 interface EmscriptenFS {
@@ -400,6 +400,53 @@ export class Nec2Engine implements Engine {
       2,
     );
 
+    // Frame the final sweep window around a set of ≤2:1 bands, keeping the
+    // operating-frequency marker in view and clamping to the HF band limits.
+    const frameWindow = (bands: readonly SwrBand[]): { start: number; end: number } => {
+      let winStart: number;
+      let winEnd: number;
+      if (bands.length > 0) {
+        const unionLow = bands[0]!.fLow;
+        const unionHigh = bands[bands.length - 1]!.fHigh;
+        const width = Math.max(unionHigh - unionLow, f * 0.02);
+        const margin = Math.max(width * 0.25, f * 0.02);
+        // When a band is clipped the actual crossing lies beyond the scan boundary.
+        // Use the appropriate HF limit as the anchor on that side.
+        const lowAnchor = bands[0]!.lowClipped
+          ? (reachedLimits ? loEdge : F_MIN)
+          : unionLow;
+        const highAnchor = bands[bands.length - 1]!.highClipped
+          ? (reachedLimits ? hiEdge : F_MAX)
+          : unionHigh;
+        winStart = lowAnchor - margin;
+        winEnd = highAnchor + margin;
+      } else {
+        // Never dips below 2:1 within the explored window — show what we scanned.
+        winStart = loEdge;
+        winEnd = hiEdge;
+      }
+      winStart = Math.max(F_MIN, Math.min(winStart, f));
+      winEnd = Math.min(F_MAX, Math.max(winEnd, f));
+      if (!(winEnd > winStart)) {
+        ({ start: winStart, end: winEnd } = this.clampSpan(f, 0.1));
+      }
+      return { start: winStart, end: winEnd };
+    };
+
+    // Width of the operating-frequency band — the primary band containing f, or
+    // failing that the primary band nearest f. Used to protect that band's
+    // resolution when deciding whether to widen the window for distant bands.
+    const operatingBandWidth = ((): number => {
+      if (primaryBands.length === 0) return f * 0.02;
+      const containing = primaryBands.find((b) => f >= b.fLow && f <= b.fHigh);
+      const distance = (b: SwrBand): number =>
+        Math.min(Math.abs(b.fLow - f), Math.abs(b.fHigh - f));
+      const band =
+        containing ??
+        primaryBands.reduce((best, b) => (distance(b) < distance(best) ? b : best));
+      return Math.max(band.fHigh - band.fLow, f * 0.001);
+    })();
+
     let allBands = primaryBands;
     if (!reachedLimits) {
       // ~1 pt/MHz across 1.0–30 MHz — detects any band ≥ ~2 MHz wide.
@@ -428,41 +475,29 @@ export class Nec2Engine implements Engine {
         (b) => b.fHigh < loEdge - 0.5 || b.fLow > hiEdge + 0.5,
       );
       if (extraBands.length > 0) {
-        allBands = [...extraBands, ...primaryBands].sort((a, b) => a.fLow - b.fLow);
+        const merged = [...extraBands, ...primaryBands].sort((a, b) => a.fLow - b.fLow);
+        if (primaryBands.length === 0) {
+          // No operating-frequency band to protect — show whatever band exists.
+          allBands = merged;
+        } else {
+          // Resolve-aware merge: only widen the window to include a distant band
+          // (e.g. a harmonic resonance of a narrowband dipole) if the operating
+          // band stays adequately sampled at the final point count. Otherwise
+          // the operating band falls between samples — its dip vanishes from the
+          // chart and the marker reads an off-resonance SWR — so we keep the
+          // window focused on the operating band instead.
+          const MIN_OPERATING_BAND_SAMPLES = 4;
+          const { start, end } = frameWindow(merged);
+          const spacing = points > 1 ? (end - start) / (points - 1) : end - start;
+          const samplesInOperatingBand = spacing > 0 ? operatingBandWidth / spacing : Infinity;
+          if (samplesInOperatingBand >= MIN_OPERATING_BAND_SAMPLES) {
+            allBands = merged;
+          }
+        }
       }
     }
 
-    // Frame the final sweep window around every detected ≤2:1 band.
-    let winStart: number;
-    let winEnd: number;
-    if (allBands.length > 0) {
-      const unionLow = allBands[0]!.fLow;
-      const unionHigh = allBands[allBands.length - 1]!.fHigh;
-      const width = Math.max(unionHigh - unionLow, f * 0.02);
-      const margin = Math.max(width * 0.25, f * 0.02);
-      // When a band is clipped the actual crossing lies beyond the scan boundary.
-      // Use the appropriate HF limit as the anchor on that side.
-      const lowAnchor = allBands[0]!.lowClipped
-        ? (reachedLimits ? loEdge : F_MIN)
-        : unionLow;
-      const highAnchor = allBands[allBands.length - 1]!.highClipped
-        ? (reachedLimits ? hiEdge : F_MAX)
-        : unionHigh;
-      winStart = lowAnchor - margin;
-      winEnd = highAnchor + margin;
-    } else {
-      // Never dips below 2:1 within the explored window — show what we scanned.
-      winStart = loEdge;
-      winEnd = hiEdge;
-    }
-
-    // Keep the operating-frequency marker in view and clamp to the HF band.
-    winStart = Math.max(F_MIN, Math.min(winStart, f));
-    winEnd = Math.min(F_MAX, Math.max(winEnd, f));
-    if (!(winEnd > winStart)) {
-      ({ start: winStart, end: winEnd } = this.clampSpan(f, 0.1));
-    }
-
+    const { start: winStart, end: winEnd } = frameWindow(allBands);
     return this.runScan(input, winStart, winEnd, points);
   }
 
