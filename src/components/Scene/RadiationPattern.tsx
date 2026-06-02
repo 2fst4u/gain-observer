@@ -12,6 +12,14 @@ interface Props {
   readonly dbRange: number;
   readonly colorMaxDb: number;
   readonly colormap: Colormap;
+  /**
+   * Constant dB offset applied to every direction to turn the intrinsic gain
+   * pattern into the realized-gain pattern (= realizedGain − gain). Mismatch
+   * and insertion losses are direction-independent, so a single offset shrinks
+   * the whole bubble uniformly to what actually reaches the air. Defaults to 0
+   * (raw gain) when realized gain is unavailable.
+   */
+  readonly realizedGainOffsetDb?: number;
 }
 
 export function RadiationPattern({
@@ -21,6 +29,7 @@ export function RadiationPattern({
   dbRange,
   colorMaxDb,
   colormap,
+  realizedGainOffsetDb = 0,
 }: Props) {
   const lod = useAdaptiveLOD();
 
@@ -93,10 +102,12 @@ export function RadiationPattern({
 
       const v0 = v00 * (1 - fp) + v01 * fp;
       const v1 = v10 * (1 - fp) + v11 * fp;
-      gains[i] = v0 * (1 - ft) + v1 * ft;
+      // Add the realized-gain offset so radius and colour both represent the
+      // gain actually delivered after feedpoint mismatch/insertion loss.
+      gains[i] = v0 * (1 - ft) + v1 * ft + realizedGainOffsetDb;
     }
     return gains;
-  }, [result, cachedGeo]);
+  }, [result, cachedGeo, realizedGainOffsetDb]);
 
   // 2. Compute vertex positions. Re-run if gains or pattern scale change.
   const vertexPositions = useMemo(() => {

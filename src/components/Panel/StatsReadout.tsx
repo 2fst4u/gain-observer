@@ -1,11 +1,8 @@
 import { useAntennaStore, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import {
-  mismatchLossFactor,
-  swr,
-} from '../../physics/impedance';
+import { displayedFeedMetrics } from '../../physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
-import type { ImpedanceResult, TerminationDiagnostics } from '../../physics/types';
+import type { TerminationDiagnostics } from '../../physics/types';
 
 export function StatsReadout() {
   // ⚡ Bolt: Performance Optimization
@@ -38,44 +35,15 @@ export function StatsReadout() {
     );
   }
 
-  // When a feedline is active and the transformer is engaged, the NEC
-  // simulation already includes the impedance-transforming unun via an NT
-  // card — so `result.impedance` is already what the rig sees, no extra
-  // de-embed/divide/re-embed math required.
-  //
-  // When there's no feedline, the transformer is a "phantom" (nowhere
-  // physical to put it in the NEC model), so we apply Z/ratio here on the
-  // display side as a best-effort idealised representation.
-  const transformerInModel = transformerEnabled && feedlineActive && transformerRatio > 1;
-  const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
-
-  const displayedZ: ImpedanceResult = transformerInDisplay
-    ? { R: result.impedance.R / transformerRatio, X: result.impedance.X / transformerRatio }
-    : result.impedance;
-  const displayedSwr = transformerInDisplay ? swr(displayedZ) : result.swr;
-
-  let displayedRealizedGainDbi: number | undefined;
-  if (transformerInDisplay) {
-    const mlf = mismatchLossFactor(displayedZ);
-    if (mlf > 0) {
-      displayedRealizedGainDbi =
-        result.maxGainDbi + 10 * Math.log10(mlf) - TRANSFORMER_INSERTION_LOSS_DB;
-    }
-  } else if (transformerInModel) {
-    // NEC's realized gain already accounts for the matched feedpoint;
-    // subtract the transformer hardware's insertion loss.
-    displayedRealizedGainDbi = result.maxRealizedGainDbi != null
-      ? result.maxRealizedGainDbi - TRANSFORMER_INSERTION_LOSS_DB
-      : undefined;
-  } else if (transformerEnabled) {
-    // Choke-only case (ratio == 1, or transformer engaged without a feedline
-    // and with ratio 1). Use NEC's realized gain, plus insertion loss.
-    displayedRealizedGainDbi = result.maxRealizedGainDbi != null
-      ? result.maxRealizedGainDbi - TRANSFORMER_INSERTION_LOSS_DB
-      : undefined;
-  } else {
-    displayedRealizedGainDbi = result.maxRealizedGainDbi ?? undefined;
-  }
+  // The displayed feedpoint metrics (impedance, SWR, realized gain) fold in any
+  // impedance transformer — either modelled in NEC (feedline present) or applied
+  // as an idealised display-side transform (no feedline). The same helper drives
+  // the 3D pattern's realized-gain scaling, so the readout and the bubble agree.
+  const { displayedZ, displayedSwr, displayedRealizedGainDbi } = displayedFeedMetrics(result, {
+    transformerEnabled,
+    transformerRatio,
+    feedlineActive,
+  });
 
   const impedanceLabel = feedlineActive ? 'Source impedance (R + jX)' : 'Feedpoint (R + jX)';
   const impedanceTitle = feedlineActive

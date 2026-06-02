@@ -1,7 +1,7 @@
 // Impedance/SWR helpers.
 
 import { Z0_SYSTEM, TRANSFORMER_INSERTION_LOSS_DB } from './constants';
-import type { ImpedanceResult } from './types';
+import type { ImpedanceResult, SimulationResult } from './types';
 
 /**
  * Reflection coefficient magnitude for a load Z against the system impedance.
@@ -42,6 +42,66 @@ export function swr(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
 export function mismatchLossFactor(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
   const gamma = reflectionCoefficientMag(z, z0);
   return 1 - gamma * gamma;
+}
+
+/** Feedpoint metrics as actually presented to the user. */
+export interface DisplayedFeedMetrics {
+  /** Impedance the radio sees (after any idealised display-side transformer). */
+  readonly displayedZ: ImpedanceResult;
+  /** SWR vs 50 Ω matching `displayedZ`. */
+  readonly displayedSwr: number;
+  /**
+   * Peak realized gain (dBi) the user is shown: intrinsic gain reduced by
+   * feedpoint mismatch loss and any transformer insertion loss. Undefined when
+   * the mismatch loss cannot be evaluated (total reflection / non-passive R).
+   */
+  readonly displayedRealizedGainDbi: number | undefined;
+}
+
+/**
+ * Resolve the feedpoint metrics shown to the user, accounting for an impedance
+ * transformer that is either modelled directly in NEC (feedline present, so
+ * `result.impedance`/`maxRealizedGainDbi` already include it) or applied as an
+ * idealised display-side transform (no feedline, nowhere physical to place it).
+ *
+ * Mismatch loss (1 − |Γ|²) and the transformer's fixed insertion loss are both
+ * direction-independent scalars, so `displayedRealizedGainDbi` always differs
+ * from `result.maxGainDbi` by a single constant — the exact offset the 3D
+ * pattern applies to render realized gain. Centralising the rule here keeps the
+ * stats readout and the pattern bubble in lock-step.
+ */
+export function displayedFeedMetrics(
+  result: Pick<SimulationResult, 'impedance' | 'swr' | 'maxGainDbi' | 'maxRealizedGainDbi'>,
+  config: { transformerEnabled: boolean; transformerRatio: number; feedlineActive: boolean },
+): DisplayedFeedMetrics {
+  const { transformerEnabled, transformerRatio, feedlineActive } = config;
+  const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
+
+  const displayedZ: ImpedanceResult = transformerInDisplay
+    ? { R: result.impedance.R / transformerRatio, X: result.impedance.X / transformerRatio }
+    : result.impedance;
+  const displayedSwr = transformerInDisplay ? swr(displayedZ) : result.swr;
+
+  let displayedRealizedGainDbi: number | undefined;
+  if (transformerInDisplay) {
+    // Phantom transformer: NEC never saw it, so derive realized gain from the
+    // intrinsic gain and the mismatch against the transformed (radio-side) Z.
+    const mlf = mismatchLossFactor(displayedZ);
+    if (mlf > 0) {
+      displayedRealizedGainDbi =
+        result.maxGainDbi + 10 * Math.log10(mlf) - TRANSFORMER_INSERTION_LOSS_DB;
+    }
+  } else if (transformerEnabled) {
+    // Transformer (or choke-only, ratio 1) modelled in NEC: its realized gain
+    // already reflects the matched feedpoint; just deduct the hardware loss.
+    displayedRealizedGainDbi = result.maxRealizedGainDbi != null
+      ? result.maxRealizedGainDbi - TRANSFORMER_INSERTION_LOSS_DB
+      : undefined;
+  } else {
+    displayedRealizedGainDbi = result.maxRealizedGainDbi ?? undefined;
+  }
+
+  return { displayedZ, displayedSwr, displayedRealizedGainDbi };
 }
 
 /**
