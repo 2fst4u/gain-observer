@@ -1,4 +1,4 @@
-import { useAntennaStore, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG } from '../../store/antennaStore';
+import { useAntennaStore, selectAtuConfig, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { displayedFeedMetrics } from '../../physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
@@ -16,6 +16,10 @@ export function StatsReadout() {
     transformerEnabled,
     transformerRatio,
     feedlineId,
+    frequency,
+    feedlineLength,
+    atuEnabled,
+    atuMainFeedlineLength,
   } = useAntennaStore(useShallow((s) => ({
     result: s.result,
     mode: s.mode,
@@ -23,8 +27,13 @@ export function StatsReadout() {
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
     feedlineId: s.feedlineId,
+    frequency: s.frequency,
+    feedlineLength: s.feedlineLength,
+    atuEnabled: s.atuEnabled,
+    atuMainFeedlineLength: s.atuMainFeedlineLength,
   })));
   const feedlineActive = feedlineId !== 'none';
+  const atu = selectAtuConfig({ atuEnabled, frequency, feedlineId, feedlineLength, atuMainFeedlineLength });
   if (!result) {
     return (
       <section className="panel-section">
@@ -39,23 +48,34 @@ export function StatsReadout() {
   // impedance transformer — either modelled in NEC (feedline present) or applied
   // as an idealised display-side transform (no feedline). The same helper drives
   // the 3D pattern's realized-gain scaling, so the readout and the bubble agree.
-  const { displayedZ, displayedSwr, displayedRealizedGainDbi } = displayedFeedMetrics(result, {
+  const { displayedZ, displayedSwr, displayedRealizedGainDbi, atuLoss } = displayedFeedMetrics(result, {
     transformerEnabled,
     transformerRatio,
     feedlineActive,
+    atu,
   });
 
-  const impedanceLabel = feedlineActive ? 'Source impedance (R + jX)' : 'Feedpoint (R + jX)';
-  const impedanceTitle = feedlineActive
-    ? `Impedance at the source end of the feedline (what the radio sees)${transformerEnabled ? `, with the ${transformerRatio}:1 transformer fitted at the antenna terminals` : ''}. To see the antenna terminals directly, set Feedline = none.`
+  const impedanceLabel = atu || feedlineActive ? 'Source impedance (R + jX)' : 'Feedpoint (R + jX)';
+  const impedanceTitle = atu
+    ? 'Impedance the radio sees with the ATU at the mast base matched: an idealised tuner presents 50 Ω. To see the antenna terminals directly, disable the ATU and set Feedline = none.'
+    : feedlineActive
+      ? `Impedance at the source end of the feedline (what the radio sees)${transformerEnabled ? `, with the ${transformerRatio}:1 transformer fitted at the antenna terminals` : ''}. To see the antenna terminals directly, set Feedline = none.`
+      : transformerEnabled
+        ? `Impedance after the ${transformerRatio}:1 transformer fitted at the antenna terminals.`
+        : 'Impedance at the antenna feedpoint. NEC places the excitation directly at the antenna terminals.';
+  const swrTitle = atu
+    ? 'Voltage SWR your radio sees with the mast-base ATU matched. The tuner flattens the main run to ~1:1; the antenna\'s native mismatch still stands on the short up-mast feedline.'
+    : feedlineActive
+      ? `Voltage SWR at the source end of the feedline against 50 Ω${transformerEnabled ? ` (with the transformer fitted at the antenna)` : ''}. This is what your radio's SWR meter would see.`
+      : transformerEnabled
+        ? `Voltage SWR at the radio side of the antenna's ${transformerRatio}:1 transformer against 50 Ω.`
+        : 'Voltage SWR at the antenna feedpoint against 50 Ω.';
+
+  const realizedGainTitle = atu
+    ? `Realized gain (dBi): antenna gain delivered through the mast-base ATU. The tuner cancels the feedpoint mismatch (no mismatch loss), leaving${atuLoss ? ` up-mast feedline loss ${atuLoss.upmastDb.toFixed(2)} dB + main feedline loss ${atuLoss.mainDb.toFixed(2)} dB + tuner loss ${atuLoss.tunerDb.toFixed(2)} dB` : ' feedline and tuner losses'}. A tuner cannot recover ohmic/termination (efficiency) loss.`
     : transformerEnabled
-      ? `Impedance after the ${transformerRatio}:1 transformer fitted at the antenna terminals.`
-      : 'Impedance at the antenna feedpoint. NEC places the excitation directly at the antenna terminals.';
-  const swrTitle = feedlineActive
-    ? `Voltage SWR at the source end of the feedline against 50 Ω${transformerEnabled ? ` (with the transformer fitted at the antenna)` : ''}. This is what your radio's SWR meter would see.`
-    : transformerEnabled
-      ? `Voltage SWR at the radio side of the antenna's ${transformerRatio}:1 transformer against 50 Ω.`
-      : 'Voltage SWR at the antenna feedpoint against 50 Ω.';
+      ? `Realized gain (dBi): antenna gain after mismatch loss against 50 Ω with the ${transformerRatio}:1 transformer fitted at the antenna terminals, minus ${TRANSFORMER_INSERTION_LOSS_DB.toFixed(1)} dB transformer insertion loss.`
+      : 'Realized gain (dBi): antenna gain after mismatch loss against 50 Ω. = Gain × (1 − |Γ|²).';
 
   return (
     <section className="panel-section">
@@ -81,11 +101,7 @@ export function StatsReadout() {
         <div className="stat">
           <span
             className="stat-label"
-            title={
-              transformerEnabled
-                ? `Realized gain (dBi): antenna gain after mismatch loss against 50 Ω with the ${transformerRatio}:1 transformer fitted at the antenna terminals, minus ${TRANSFORMER_INSERTION_LOSS_DB.toFixed(1)} dB transformer insertion loss.`
-                : 'Realized gain (dBi): antenna gain after mismatch loss against 50 Ω. = Gain × (1 − |Γ|²).'
-            }
+            title={realizedGainTitle}
           >Realized gain</span>
           <span className="stat-value">{displayedRealizedGainDbi.toFixed(2)} dBi</span>
         </div>

@@ -461,3 +461,17 @@ export const TRANSFORMER_CHOKE_OHMS = 2000;
  * representative number, deliberately conservative.
  */
 export const TRANSFORMER_INSERTION_LOSS_DB = 0.2;
+
+/**
+ * Representative unloaded Q of the reactive components in an antenna tuning
+ * unit (dominated by the inductor). This is the *only* parameter the ATU-loss
+ * model takes, which keeps it network-topology-agnostic: L, T and π tuners
+ * differ in how they're driven, but their achievable loss is bounded by the
+ * component Q and the impedance transformation demanded. 150 is typical of a
+ * decent HF tuner inductor (roller/air-wound ~150–250; small toroidal cores
+ * lower). Higher Q → lower loss.
+ */
+export const ATU_COMPONENT_Q = 150;
+
+/** Default length (m) of the main feedline run from a mast-base ATU to the shack. */
+export const DEFAULT_ATU_MAIN_FEEDLINE_LENGTH_M = 50;

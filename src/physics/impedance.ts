@@ -1,13 +1,14 @@
 // Impedance/SWR helpers.
 
-import { Z0_SYSTEM, TRANSFORMER_INSERTION_LOSS_DB } from './constants';
+import { Z0_SYSTEM, TRANSFORMER_INSERTION_LOSS_DB, feedlineLossDb } from './constants';
+import type { FeedlinePreset } from './constants';
 import type { ImpedanceResult, SimulationResult } from './types';
 
 /**
  * Reflection coefficient magnitude for a load Z against the system impedance.
  * |Γ| = |Z - Z0| / |Z + Z0|, where Z is complex.
  */
-function reflectionCoefficientMag(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
+export function reflectionCoefficientMag(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
   const numR = z.R - z0;
   const numX = z.X;
   const denR = z.R + z0;
@@ -44,6 +45,68 @@ export function mismatchLossFactor(z: ImpedanceResult, z0: number = Z0_SYSTEM): 
   return 1 - gamma * gamma;
 }
 
+/**
+ * Extra loss when a feedline runs into a mismatched load: the standing wave
+ * raises current/voltage maxima along the line, so the cable dissipates more
+ * than its matched loss. Standard closed form (Walt Maxwell / ARRL):
+ *
+ *   total(dB) = 10·log10[ (a² − |Γ|²) / (a·(1 − |Γ|²)) ],   a = 10^(ML/10)
+ *
+ * where ML is the matched-line loss (dB) of that section and |Γ| is the
+ * reflection coefficient magnitude at the load against the *line's* Z₀.
+ * Reduces to ML when |Γ| → 0. |Γ| is invariant along a lossless-ish line, so
+ * it may be evaluated at either end.
+ */
+export function feedlineLossUnderSwrDb(matchedLossDb: number, gammaMag: number): number {
+  if (matchedLossDb <= 0) return 0;
+  const a = Math.pow(10, matchedLossDb / 10);
+  // Clamp just shy of total reflection so the (1 − |Γ|²) denominator is finite.
+  const g2 = Math.min(gammaMag * gammaMag, 0.999999);
+  return 10 * Math.log10((a * a - g2) / (a * (1 - g2)));
+}
+
+/**
+ * Insertion loss (dB) of an idealised antenna tuner matching a complex load Z
+ * to a real system impedance, parameterised solely by the components' unloaded
+ * Q — i.e. independent of the tuner topology (L/T/π).
+ *
+ * The tuner must transform R + jX to z₀, which forces it to circulate reactive
+ * power. The minimum reactive "throughput Q" of *any* lossless matching
+ * network performing that transformation is captured, model-agnostically, by
+ * the geometric-mean-normalised distance of the load from the matched point:
+ *
+ *   Q_net = ( |R − z₀| + |X| ) / √(R · z₀)
+ *
+ * (zero at a perfect match; grows with both the resistance ratio and the
+ * residual reactance). Feeding that through the single-section efficiency
+ * bound η = Q_u / (Q_u + Q_net) gives the loss. Real T/π tuners can only
+ * approach this minimum, so it is an optimistic-but-fair estimate.
+ */
+export function atuLossDb(z: ImpedanceResult, componentQ: number, z0: number = Z0_SYSTEM): number {
+  if (componentQ <= 0 || z.R <= 0) return 0;
+  const qNet = (Math.abs(z.R - z0) + Math.abs(z.X)) / Math.sqrt(z.R * z0);
+  const efficiency = componentQ / (componentQ + qNet);
+  return -10 * Math.log10(efficiency);
+}
+
+/**
+ * Configuration for an idealised ATU sited at the base of the mast: a short
+ * feedline runs up the mast to the antenna (carrying its native SWR), the
+ * tuner conjugate-matches at the base, and a longer main run continues to the
+ * shack at ~1:1. Both runs are assumed to be the same cable type.
+ */
+export interface AtuMatchConfig {
+  readonly frequencyMHz: number;
+  /** Cable type shared by both runs (the up-mast run and the main run). */
+  readonly preset: FeedlinePreset;
+  /** Up-mast run, feedpoint → ATU: runs at the antenna's native SWR. */
+  readonly upmastLengthM: number;
+  /** Main run, ATU → shack: runs matched (~1:1). */
+  readonly mainLengthM: number;
+  /** Unloaded Q of the tuner's reactive components. */
+  readonly componentQ: number;
+}
+
 /** Feedpoint metrics as actually presented to the user. */
 export interface DisplayedFeedMetrics {
   /** Impedance the radio sees (after any idealised display-side transformer). */
@@ -56,6 +119,15 @@ export interface DisplayedFeedMetrics {
    * the mismatch loss cannot be evaluated (total reflection / non-passive R).
    */
   readonly displayedRealizedGainDbi: number | undefined;
+  /** Per-stage loss (dB) when a mast-base ATU is modelled; undefined otherwise. */
+  readonly atuLoss?: {
+    /** Up-mast feedline loss under the antenna's native SWR. */
+    readonly upmastDb: number;
+    /** Main feedline loss (matched, ~1:1). */
+    readonly mainDb: number;
+    /** Tuner insertion loss (Q-based). */
+    readonly tunerDb: number;
+  };
 }
 
 /**
@@ -72,9 +144,44 @@ export interface DisplayedFeedMetrics {
  */
 export function displayedFeedMetrics(
   result: Pick<SimulationResult, 'impedance' | 'swr' | 'maxGainDbi' | 'maxRealizedGainDbi'>,
-  config: { transformerEnabled: boolean; transformerRatio: number; feedlineActive: boolean },
+  config: {
+    transformerEnabled: boolean;
+    transformerRatio: number;
+    feedlineActive: boolean;
+    /** When present, an idealised ATU at the mast base supersedes the transformer. */
+    atu?: AtuMatchConfig;
+  },
 ): DisplayedFeedMetrics {
-  const { transformerEnabled, transformerRatio, feedlineActive } = config;
+  const { transformerEnabled, transformerRatio, feedlineActive, atu } = config;
+
+  if (atu) {
+    // The tuner conjugate-matches whatever impedance reaches the mast base, so
+    // the rig sees 50 Ω at 1:1 and mismatch loss → 0. `result.impedance` is the
+    // impedance at the foot of the (lossless-in-NEC) up-mast feedline — exactly
+    // where the tuner sits — so it is both the load the tuner matches and the
+    // point whose |Γ| sets the up-mast standing-wave loss. What remains:
+    //   • up-mast feedline loss under the antenna's native SWR,
+    //   • main feedline loss (matched, ~1:1),
+    //   • the tuner's own Q-based loss.
+    const z = result.impedance;
+    const gammaUpmast = atu.preset.z0 > 0 ? reflectionCoefficientMag(z, atu.preset.z0) : 0;
+    const upmastDb = feedlineLossUnderSwrDb(
+      feedlineLossDb(atu.preset, atu.frequencyMHz, atu.upmastLengthM),
+      gammaUpmast,
+    );
+    const mainDb = feedlineLossDb(atu.preset, atu.frequencyMHz, atu.mainLengthM);
+    const tunerDb = atuLossDb(z, atu.componentQ);
+    return {
+      displayedZ: { R: Z0_SYSTEM, X: 0 },
+      displayedSwr: 1,
+      // A non-passive feedpoint (R ≤ 0) can't be matched — leave realized gain
+      // undefined so the readout hides it, consistent with the other branches.
+      displayedRealizedGainDbi:
+        z.R > 0 ? result.maxGainDbi - upmastDb - mainDb - tunerDb : undefined,
+      atuLoss: { upmastDb, mainDb, tunerDb },
+    };
+  }
+
   const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
 
   const displayedZ: ImpedanceResult = transformerInDisplay
