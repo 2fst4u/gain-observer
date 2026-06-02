@@ -139,4 +139,55 @@ describe('adaptive sweep framing (no spanFraction)', () => {
     }
     expect(minEff).toBeLessThan(2);
   }, 90_000);
+
+  it('keeps a narrowband dipole framed on its operating band, not a harmonic', async () => {
+    // Regression: a regular horizontal dipole is resonant on its fundamental
+    // AND on harmonics (a 26.58 m dipole driven on the 60 m band at 5.358 MHz
+    // is also resonant near ~28 MHz). The broad-scan multi-band detection used
+    // to merge that distant harmonic into the window, stretching the sweep to
+    // span the whole HF range. With only 15 points across ~29 MHz the narrow
+    // operating band fell between samples — so Min SWR / the marker reported
+    // the harmonic instead of the resonant operating frequency. The
+    // resolve-aware merge must keep the window focused on the operating band.
+    const engine = new Nec2Engine({ baseUrl: wasmUrl });
+    await engine.init();
+
+    const opFreq = 5.358;
+    const state = {
+      ...useAntennaStore.getState(),
+      antennaType: 'dipole',
+      length: 26.58,
+      height: 8,
+      frequency: opFreq,
+      orientation: 'EW',
+      transformerEnabled: false,
+      feedlineId: 'none',
+    } as AntennaState;
+
+    const sweep = await engine.sweepImpedance(selectSimulationInput(state), { points: 15 });
+
+    const start = sweep[0]!.frequencyMHz;
+    const end = sweep[sweep.length - 1]!.frequencyMHz;
+
+    // Operating frequency is in view, framed by a window centred on its band.
+    expect(start).toBeLessThanOrEqual(opFreq);
+    expect(end).toBeGreaterThanOrEqual(opFreq);
+    // The distant ~28 MHz harmonic must NOT pull the window open — the span
+    // stays tight around the operating band rather than reaching up to it.
+    expect(end).toBeLessThan(10);
+
+    // The resolved minimum SWR sits on the operating band (low and near opFreq),
+    // not on the harmonic up near 28 MHz.
+    let minSwr = Infinity;
+    let minFreq = 0;
+    for (const p of sweep) {
+      if (p.swr < minSwr) {
+        minSwr = p.swr;
+        minFreq = p.frequencyMHz;
+      }
+    }
+    expect(minSwr).toBeLessThan(2);
+    expect(minFreq).toBeGreaterThan(4.5);
+    expect(minFreq).toBeLessThan(6.5);
+  }, 90_000);
 });
