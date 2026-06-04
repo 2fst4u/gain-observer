@@ -118,4 +118,51 @@ describe('useAdaptiveLOD', () => {
       expect(result.current.level).toBe('medium');
     });
   });
+
+  describe('ultra-low', () => {
+    it('returns ultra-low when mobile has deviceMemory <= 1', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile)',
+        hardwareConcurrency: 4,
+        deviceMemory: 1,
+      });
+
+      const { result } = renderHook(() => useAdaptiveLOD());
+      expect(result.current.level).toBe('ultra-low');
+      expect(result.current.thetaSegments).toBe(16);
+      expect(result.current.phiSegments).toBe(32);
+    });
+
+    it('returns ultra-low when mobile has deviceMemory < 1', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Mozilla/5.0 (Linux; Android 9; Mobile)',
+        hardwareConcurrency: 4,
+        deviceMemory: 0.5,
+      });
+
+      const { result } = renderHook(() => useAdaptiveLOD());
+      expect(result.current.level).toBe('ultra-low');
+    });
+
+    it('returns low (not ultra-low) for mobile when deviceMemory is 2', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Mozilla/5.0 (Linux; Android 12; Mobile)',
+        hardwareConcurrency: 4,
+        deviceMemory: 2,
+      });
+
+      const { result } = renderHook(() => useAdaptiveLOD());
+      expect(result.current.level).toBe('low');
+    });
+
+    it('returns low (not ultra-low) when deviceMemory is absent on mobile', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)',
+        hardwareConcurrency: 4,
+      });
+
+      const { result } = renderHook(() => useAdaptiveLOD());
+      expect(result.current.level).toBe('low');
+    });
+  });
 });

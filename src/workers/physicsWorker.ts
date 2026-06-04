@@ -1,7 +1,8 @@
 // Physics worker — hosts the NEC-2 Wasm solver off the main thread.
 //
 // Protocol:
-//   → main posts { id, type: 'simulate', input, displayRatio? }
+//   → main posts { id, type: 'simulate', input, displayRatio?, sweepPoints?,
+//                  charPoints?, maxAdaptiveIter?, skipBroadScan? }
 //   ← worker posts { id, type: 'result', result } or { id, type: 'error', message }
 //
 // The worker also emits { type: 'ready' } when the engine has initialised.
@@ -12,7 +13,16 @@ import { Nec2Engine } from '../physics/nec2Engine';
 import type { SimulationInput, SimulationResult, SweepPoint } from '../physics/types';
 
 export type WorkerRequest =
-  | { id: number; type: 'simulate'; input: SimulationInput; displayRatio?: number };
+  | {
+      id: number;
+      type: 'simulate';
+      input: SimulationInput;
+      displayRatio?: number;
+      sweepPoints?: number;
+      charPoints?: number;
+      maxAdaptiveIter?: number;
+      skipBroadScan?: boolean;
+    };
 
 export type WorkerResponse =
   | { type: 'ready' }
@@ -36,8 +46,6 @@ const engine = new Nec2Engine({
   baseUrl: '/',
 });
 
-const SWEEP_POINTS = 15;
-
 engine
   .init()
   .then(() => {
@@ -58,8 +66,11 @@ ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
     Promise.all([
       engine.simulate(msg.input),
       engine.sweepImpedance(msg.input, {
-        points: SWEEP_POINTS,
+        points: msg.sweepPoints,
         displayRatio: msg.displayRatio,
+        charPoints: msg.charPoints,
+        maxIter: msg.maxAdaptiveIter,
+        skipBroadScan: msg.skipBroadScan,
       }),
     ])
       .then(([result, sweep]) => {
