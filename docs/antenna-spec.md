@@ -280,7 +280,7 @@ This document defines the physical and mathematical model for all antenna types 
 
 ### 7.3 Termination Definition
 
-- **Topology:** Optional. A single `LD 4` resistor at the **centre segment** of the conductor opposite the feed (`FOLDED_DIPOLE_OPPOSITE_TAG`). The opposite conductor is emitted with an **odd** segment count so its centre segment is exactly at the midpoint — no extra wire is needed.
+- **Topology:** Optional. The opposite conductor is split into two halves at the centre. When terminated, a single `LD 4` resistor sits on a short horizontal bridge wire (`FOLDED_DIPOLE_TERM_BRIDGE_TAG`) that spans the gap between the two halves.
 - **Unterminated (`terminatingResistor = 0`):** A classic folded dipole — ~300 Ω, narrowband, dipole gain and pattern.
 - **Terminated (`terminatingResistor > 0`):** A terminated folded dipole (TFD). The resistor flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated). Typical value ~390–600 Ω. This is the straight-conductor cousin of the T2FD modelled under §5 as a terminated delta.
 
@@ -292,9 +292,9 @@ This document defines the physical and mathematical model for all antenna types 
 ### 7.5 Segmentation Rules
 
 - **Target segment length:** `min(λ / 20, aperture / 2)`. NEC's thin-wire kernel loses accuracy for closely-spaced parallel wires once the segment length grows much larger than the wire separation; tying the segment length to half the aperture is the empirical point at which the free-space gain converges to the dipole value. All segment counts derive from this single target length, capped at `MAX_SEGS_PER_LEG` (100). This is also why the aperture is capped at 0.5 m — wider spacings would need more than 100 segments to converge.
-- **Minimum:** 9 segments (`MIN_SEGS_PER_LEG`) per fed half-conductor and for the opposite conductor.
-- **Alignment:** The opposite conductor uses an **odd** number of segments to give a precise centre for the termination resistor. The fed conductor is split into two halves around the 1-segment feed bridge.
-- **Wires:** 6 wires total — fed-conductor left half, feed bridge, fed-conductor right half, opposite conductor, and the two end connectors across the aperture (shared `FOLDED_DIPOLE_CONNECTOR_TAG`).
+- **Minimum:** 9 segments (`MIN_SEGS_PER_LEG`) per fed half-conductor and for each half of the opposite conductor.
+- **Alignment:** The opposite conductor is always split into two symmetric halves (each with the same segment count) around the centre. The fed conductor is split into two halves around the 1-segment feed bridge.
+- **Wires:** 7 wires total — fed-conductor left half, feed bridge, fed-conductor right half, opposite conductor left half, opposite conductor right half, and the two end connectors across the aperture (shared `FOLDED_DIPOLE_CONNECTOR_TAG`). An 8th wire (the termination bridge) is added when terminated.
 
 ### 7.6 Gain
 
