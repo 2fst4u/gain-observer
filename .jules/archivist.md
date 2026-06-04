@@ -52,3 +52,7 @@
 ## 2026-05-28 - Unified Terminology for Terminated Delta
 **Learning:** Some files (like `TODO.md` and `tests/useDipoleGeometry.test.tsx`) still referred to the "terminated delta" antenna type as "terminated delta loop". The official and unified term across UI, types, and documentation (`antenna-spec.md`) is strictly "Terminated Delta".
 **Action:** Replaced instances of "terminated delta loop" with "terminated delta" to ensure consistency and prevent ambiguity for developers and users referencing the codebase.
+
+## 2026-06-04 - Folded Dipole Termination Topology Drift
+**Learning:** The `docs/antenna-spec.md` incorrectly stated that the terminated folded dipole's termination resistor sits on an odd-numbered centre segment of a single opposite conductor. In reality, the codebase (`src/store/antennaGeometry.ts`) splits the opposite conductor into two symmetric halves and uses a separate short horizontal bridge wire (`FOLDED_DIPOLE_TERM_BRIDGE_TAG`) to house the resistor, mirroring the terminated delta topology.
+**Action:** Updated `docs/antenna-spec.md` sections 7.3 and 7.5 to correctly document the split opposite conductor, the termination bridge wire, and the correct total wire count.
