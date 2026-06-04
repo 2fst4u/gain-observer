@@ -113,6 +113,25 @@ export interface SweepOptions {
    * display transform — raw SWR is already what's shown).
    */
   displayRatio?: number;
+  /**
+   * Points per characterisation scan in the adaptive expansion phase. Each
+   * scan is a separate Wasm invocation, so fewer points here mainly reduces
+   * text-parse cost — the matrix solve dominates. Default 11.
+   */
+  charPoints?: number;
+  /**
+   * Maximum number of adaptive expansion iterations before giving up and
+   * using the widest explored window. Reducing this caps the number of
+   * serial Wasm invocations on the expansion path. Default 5.
+   */
+  maxIter?: number;
+  /**
+   * Skip the secondary broad HF-range scan that detects ≤2:1 bands outside
+   * the primary window (e.g. harmonic resonances). Saves one Wasm invocation.
+   * Safe to enable on low-power devices where the multi-band edge case is
+   * less important than total latency. Default false.
+   */
+  skipBroadScan?: boolean;
 }
 
 export class Nec2Engine implements Engine {
@@ -293,7 +312,7 @@ export class Nec2Engine implements Engine {
       return this.runScan(input, start, end, points);
     }
     // Otherwise auto-frame the window around the antenna's 2:1 bandwidth.
-    return this.adaptiveSweep(input, points, Math.max(1, opts.displayRatio ?? 1));
+    return this.adaptiveSweep(input, points, Math.max(1, opts.displayRatio ?? 1), opts);
   }
 
   // Lower bound for the SWR-sweep display window. Deliberately below the 1.8 MHz
@@ -356,7 +375,12 @@ export class Nec2Engine implements Engine {
     input: SimulationInput,
     points: number,
     displayRatio: number,
+    opts: Pick<SweepOptions, 'charPoints' | 'maxIter' | 'skipBroadScan'> = {},
   ): Promise<SweepPoint[]> {
+    const CHAR_POINTS = Math.max(3, opts.charPoints ?? 11);
+    const MAX_ITER = Math.max(1, opts.maxIter ?? 5);
+    const SKIP_BROAD = opts.skipBroadScan ?? false;
+
     const { F_MIN_MHZ: F_MIN, F_MAX_MHZ: F_MAX } = Nec2Engine;
     const f = input.frequencyMHz;
     // Effective SWR = what the user sees (after any display-only balun).
@@ -364,12 +388,11 @@ export class Nec2Engine implements Engine {
       displayRatio > 1 ? swr({ R: p.R / displayRatio, X: p.X / displayRatio }) : p.swr;
 
     // Phase 1 — expand until both edges exceed 2:1, or we hit the band limits.
-    const CHAR_POINTS = 11;
     let span = 0.1;
     const first = this.clampSpan(f, span);
     let scan = await this.runScan(input, first.start, first.end, CHAR_POINTS);
     let reachedLimits = false;
-    for (let iter = 0; iter < 5; iter++) {
+    for (let iter = 0; iter < MAX_ITER; iter++) {
       const lowOK = effSwr(scan[0]!) > 2;
       const highOK = effSwr(scan[scan.length - 1]!) > 2;
       const atLimits =
@@ -448,9 +471,11 @@ export class Nec2Engine implements Engine {
     })();
 
     let allBands = primaryBands;
-    if (!reachedLimits) {
+    if (!reachedLimits && !SKIP_BROAD) {
       // ~1 pt/MHz across 1.0–30 MHz — detects any band ≥ ~2 MHz wide.
-      const BROAD_CHAR_POINTS = 29;
+      // Scale down with CHAR_POINTS so low-power devices get proportionally
+      // fewer Wasm points here too (floor at 11 to retain ~1 pt/2.5 MHz).
+      const BROAD_CHAR_POINTS = Math.max(11, Math.round(CHAR_POINTS * 29 / 11));
       const broadScan = await this.runScan(input, F_MIN, F_MAX, BROAD_CHAR_POINTS);
       // Use a stricter threshold than the display 2:1 boundary. The broad scan
       // has only ~1 pt/MHz resolution: a single sample can dip just under 2:1

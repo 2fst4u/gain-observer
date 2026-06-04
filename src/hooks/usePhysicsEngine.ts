@@ -5,6 +5,10 @@ import { useEffect, useRef } from 'react';
 import type { WorkerRequest, WorkerResponse } from '../workers/physicsWorker';
 import { useAntennaStore, selectSimulationInput, type AntennaState } from '../store/antennaStore';
 import type { SimulationResult } from '../physics/types';
+import { detectLODLevel, LOD_TABLE } from './useAdaptiveLOD';
+
+// Detected once per page load — navigator properties don't change at runtime.
+const LOD_CONFIG = LOD_TABLE[detectLODLevel()];
 
 export interface UsePhysicsEngineOptions {
   /** Debounce window in ms for rapid slider/input changes. */
@@ -83,7 +87,13 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
         const worker = workerRef.current;
         if (!worker) return;
         const state = useAntennaStore.getState();
-        const input = selectSimulationInput(state);
+        // Override the store's hardcoded pattern resolution with the
+        // LOD-appropriate one: coarser on slow devices → fewer NEC-2 RP
+        // evaluations → significantly faster solve on low-power hardware.
+        const input = {
+          ...selectSimulationInput(state),
+          patternResolution: LOD_CONFIG.patternResolution,
+        };
         const id = ++nextIdRef.current;
         latestIdRef.current = id;
         state._setLoading(true);
@@ -92,6 +102,10 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
           type: 'simulate',
           input,
           displayRatio: displayTransformerRatio(state),
+          sweepPoints: LOD_CONFIG.sweepPoints,
+          charPoints: LOD_CONFIG.charPoints,
+          maxAdaptiveIter: LOD_CONFIG.maxAdaptiveIter,
+          skipBroadScan: LOD_CONFIG.skipBroadScan,
         };
         worker.postMessage(msg);
       }, debounceMs);

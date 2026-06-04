@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { useAdaptiveLOD } from '../../hooks/useAdaptiveLOD';
 import type { SimulationResult } from '../../physics/types';
@@ -58,26 +58,50 @@ export function RadiationPattern({
       angles[i * 2 + 1] = phiDeg;
     }
 
-    return { source, basePositions, angles, count };
+    source.dispose();
+    return { basePositions, angles, count };
   }, [lod.phiSegments, lod.thetaSegments]);
 
-  // 1. Cache the gain for each vertex. Only re-run if the simulation result
-  //    or the LOD geometry (vertex count/angles) changes.
-  const vertexGains = useMemo(() => {
-    if (!result) return null;
-    const { count, angles } = cachedGeo;
-    const gains = new Float32Array(count);
+  // Stable mutable geometry — allocated once per LOD level, updated in-place.
+  // This avoids two geometry clones per result update (previously positionedGeo
+  // and geometry each called .clone(), triggering GC churn on every solve).
+  const renderGeo = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    const { count } = cachedGeo;
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(count * 3), 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(count * 4), 4));
+    return geo;
+  }, [cachedGeo]);
+
+  // Track whether the geometry has been populated at least once so we don't
+  // render a zero-vertex mesh before the first effect fires.
+  const [initialized, setInitialized] = useState(false);
+
+  // Update geometry in-place whenever result or display parameters change.
+  useEffect(() => {
+    if (!result) return;
+    const { count, basePositions, angles } = cachedGeo;
     const { data, dTheta, dPhi, thetaSteps, phiSteps } = result.pattern;
 
-    // Local optimization: avoid property lookups in the hot loop
+    const posAttr = renderGeo.attributes.position as THREE.Float32BufferAttribute;
+    const colorAttr = renderGeo.attributes.color as THREE.Float32BufferAttribute;
+    const posArray = posAttr.array as Float32Array;
+    const colorArray = colorAttr.array as Float32Array;
+
     const invDTheta = 1 / dTheta;
     const invDPhi = 1 / dPhi;
+    const linearRangeFactor = patternScale * 2.5;
+    const scaleFactor = Math.LN10 / 20;
+
+    const minDb = colorMaxDb - dbRange;
+    const invRange = 1 / dbRange;
+    const table = pickTable(colormap);
 
     for (let i = 0; i < count; i++) {
       const thetaDeg = angles[i * 2]!;
       const phiDeg = angles[i * 2 + 1]!;
 
-      // Inline and optimize samplePatternDb for the hot loop
+      // Bilinear interpolation into the NEC pattern grid.
       const phi = ((phiDeg % 360) + 360) % 360;
       const theta = thetaDeg < 0 ? 0 : thetaDeg > 180 ? 180 : thetaDeg;
 
@@ -102,87 +126,36 @@ export function RadiationPattern({
 
       const v0 = v00 * (1 - fp) + v01 * fp;
       const v1 = v10 * (1 - fp) + v11 * fp;
-      // Add the realized-gain offset so radius and colour both represent the
-      // gain actually delivered after feedpoint mismatch/insertion loss.
-      gains[i] = v0 * (1 - ft) + v1 * ft + realizedGainOffsetDb;
-    }
-    return gains;
-  }, [result, cachedGeo, realizedGainOffsetDb]);
+      const gainDb = v0 * (1 - ft) + v1 * ft + realizedGainOffsetDb;
 
-  // 2. Compute vertex positions. Re-run if gains or pattern scale change.
-  const vertexPositions = useMemo(() => {
-    if (!result || !vertexGains) return null;
-    const { count, basePositions } = cachedGeo;
-    const positions = new Float32Array(count * 3);
-    const linearRangeFactor = patternScale * 2.5;
-
-    // Pre-calculate scale factor for Math.exp optimization over Math.pow
-    // 10^(x/20) = exp(x * ln(10)/20)
-    const scaleFactor = Math.LN10 / 20;
-
-    for (let i = 0; i < count; i++) {
-      const gainDb = vertexGains[i]!;
+      // Position
       const radius = Math.exp(gainDb * scaleFactor) * linearRangeFactor;
       const idx = i * 3;
-      positions[idx] = basePositions[idx]! * radius;
-      positions[idx + 1] = basePositions[idx + 1]! * radius;
-      positions[idx + 2] = basePositions[idx + 2]! * radius;
-    }
-    return positions;
-  }, [vertexGains, patternScale, cachedGeo, result]);
+      posArray[idx] = basePositions[idx]! * radius;
+      posArray[idx + 1] = basePositions[idx + 1]! * radius;
+      posArray[idx + 2] = basePositions[idx + 2]! * radius;
 
-  // 3. Compute vertex colors. Re-run if gains, colormap, or mode change.
-  const vertexColors = useMemo(() => {
-    if (!result || !vertexGains) return null;
-    const { count } = cachedGeo;
-    const colors = new Float32Array(count * 4);
-
-    // Fetch the colormap table outside the hot loop
-    const table = pickTable(colormap);
-
-    // Pre-calculate color scale invariants for inline linear mapping
-    const minDb = colorMaxDb - dbRange;
-    const invRange = 1 / dbRange;
-
-    for (let i = 0; i < count; i++) {
-      const gainDb = vertexGains[i]!;
+      // Color
       const t = gainDb >= colorMaxDb ? 1 : (gainDb <= minDb ? 0 : (gainDb - minDb) * invRange);
-
-      const idx = i * 4;
-      sampleColormapFast(table, t, colors, idx);
-      colors[idx + 3] = 1;
+      const cidx = i * 4;
+      sampleColormapFast(table, t, colorArray, cidx);
+      colorArray[cidx + 3] = 1;
     }
-    return colors;
-  }, [vertexGains, colormap, colorMaxDb, dbRange, cachedGeo, result]);
 
-  // 4. Cache the geometry with positions and normals.
-  // This avoids recomputing normals when only colors change.
-  const positionedGeo = useMemo(() => {
-    if (!vertexPositions) return null;
-    const geo = cachedGeo.source.clone();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertexPositions, 3));
-    geo.computeVertexNormals();
-    geo.computeBoundingSphere();
-    return geo;
-  }, [cachedGeo, vertexPositions]);
+    posAttr.needsUpdate = true;
+    colorAttr.needsUpdate = true;
+    renderGeo.computeVertexNormals();
+    renderGeo.computeBoundingSphere();
+    setInitialized(true);
+  }, [result, patternScale, dbRange, colorMaxDb, colormap, realizedGainOffsetDb, cachedGeo, renderGeo]);
 
-  // 5. Final geometry with colors applied. Re-runs if colors change.
-  const geometry = useMemo(() => {
-    if (!positionedGeo || !vertexColors) return null;
-    const geo = positionedGeo.clone();
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(vertexColors, 4));
-    return geo;
-  }, [positionedGeo, vertexColors]);
+  // Dispose geometry on unmount.
+  useEffect(() => () => renderGeo.dispose(), [renderGeo]);
 
-  // Clean up cached geometry when unmounting
-  useEffect(() => () => cachedGeo.source.dispose(), [cachedGeo]);
-  useEffect(() => () => positionedGeo?.dispose(), [positionedGeo]);
-  useEffect(() => () => geometry?.dispose(), [geometry]);
-
-  if (!geometry) return null;
+  if (!result || !initialized) return null;
 
   return (
-    <mesh position={[0, originY, 0]} geometry={geometry}>
+    <mesh position={[0, originY, 0]} geometry={renderGeo}>
       <meshStandardMaterial
         vertexColors
         side={THREE.DoubleSide}
