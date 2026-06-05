@@ -8,6 +8,12 @@ While this repository is fully open source and developers are welcome to fork or
 
 Current scope (Phase 1): horizontal dipoles, inverted Vs, sloping Vs, delta loops, terminated deltas, vertical whips, inverted Ls, and folded dipoles, 1.8–30 MHz, real-ground support, offset feed points, feedlines & baluns, comparison mode, SWR/polar cut charts, dark/light theming, metric/imperial toggle.
 
+## Keyboard Shortcuts
+
+- **`t`**: Toggle dark/light theme
+- **`u`**: Toggle metric/imperial units
+- **`m`**: Return to normal mode
+
 ## Stack
 
 - React 19 + Vite + TypeScript (strict)

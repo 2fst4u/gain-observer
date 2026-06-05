@@ -56,3 +56,7 @@
 ## 2026-06-04 - Folded Dipole Termination Topology Drift
 **Learning:** The `docs/antenna-spec.md` incorrectly stated that the terminated folded dipole's termination resistor sits on an odd-numbered centre segment of a single opposite conductor. In reality, the codebase (`src/store/antennaGeometry.ts`) splits the opposite conductor into two symmetric halves and uses a separate short horizontal bridge wire (`FOLDED_DIPOLE_TERM_BRIDGE_TAG`) to house the resistor, mirroring the terminated delta topology.
 **Action:** Updated `docs/antenna-spec.md` sections 7.3 and 7.5 to correctly document the split opposite conductor, the termination bridge wire, and the correct total wire count.
+
+## 2026-06-05 - Undiscoverable Keyboard Shortcuts
+**Learning:** Global keyboard shortcuts (`t` for Theme, `u` for Units, `m` for Mode) were fully implemented in the root `App.tsx` component via `useKeyboardShortcuts` but were not documented anywhere. This leaves powerful application features completely undiscoverable to users.
+**Action:** Always audit for global event listeners (like `keydown` on `window`) when verifying documentation completeness. Added a `## Keyboard Shortcuts` section to `README.md` to expose these features.
