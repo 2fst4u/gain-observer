@@ -220,9 +220,49 @@ This document defines the physical and mathematical model for all antenna types 
 
 ---
 
-## 6. Inverted-L
+
+## 6. Vertical Whip
 
 ### 6.1 Geometry Definition
+
+- **Shape:** A single vertical wire extending upwards from the base.
+- **`height` parameter:** The height of the base above ground (metres). Usually 0 or very small.
+- **`length` parameter:** The length of the vertical wire (metres).
+- **Orientation:** Not applicable (omnidirectional).
+- **Base:** The vertical wire starts at `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above `height` to ensure electrical isolation from the ground unless a counterpoise is used.
+- **Reference length:** ¼λ (quarter-wave monopole).
+
+### 6.2 Feedpoint Definition
+
+- **NEC Excitation:** Segment 1 of `VERTICAL_WHIP_TAG` (12) — the lowest segment at the base.
+- **Feed Type:** Base-fed monopole (unbalanced). Coax shield connects at the base; the antenna is driven against the ground / counterpoise.
+- **Feedline Support:** Not modelled. The feedline is treated as ideal.
+
+### 6.3 Counterpoise
+
+- **Model:** When enabled, `VERTICAL_WHIP_RADIAL_COUNT` (4) horizontal ¼λ radials fan out from the base at equal azimuth spacing, tagged `VERTICAL_WHIP_RADIAL_TAG` (13).
+- **Without counterpoise:** The source has no proper return path; NEC reports the high reactance and SWR that a radial-less base-fed antenna physically exhibits.
+
+### 6.4 SWR Convention
+
+- **Reference:** 50 Ω.
+- **Notes:** A resonant ¼λ vertical over a good ground plane presents roughly 36 Ω.
+
+### 6.5 Segmentation Rules
+
+- **Density:** 20 segments per λ minimum for the whip and each radial.
+- **Minimum:** 9 segments (`MIN_SEGS_PER_LEG`) per wire.
+- **Whip and radials are emitted as separate `Wire` objects**, tagged independently.
+
+### 6.6 Glossary
+
+- Same as Section 1.6.
+
+---
+
+## 7. Inverted-L
+
+### 7.1 Geometry Definition
 
 - **Shape:** Two wire segments forming an L: a vertical section from the base up to the bend point, followed by a horizontal top-loading section extending outward at right angles.
 - **`height` parameter:** Bend-point height above ground (metres). This equals the length of the vertical section (base gap excluded). Controls how tall the mast needs to be.
@@ -232,76 +272,76 @@ This document defines the physical and mathematical model for all antenna types 
 - **Bend junction:** The end of the vertical wire and the start of the horizontal wire share an exact coordinate so NEC creates a proper wire junction.
 - **Reference length:** ¼λ total (same as a quarter-wave vertical); the horizontal section provides the electrical length the mast height falls short of.
 
-### 6.2 Feedpoint Definition
+### 7.2 Feedpoint Definition
 
 - **NEC Excitation:** Segment 1 of `INVERTED_L_VERTICAL_TAG` (14) — the lowest segment at the base of the vertical section.
 - **Feed Type:** Base-fed monopole (unbalanced). Coax shield connects at the base; the antenna is driven against the ground / counterpoise.
 - **Feedline Support:** Not modelled (same convention as vertical whip). The feedline is treated as ideal.
 
-### 6.3 Counterpoise
+### 7.3 Counterpoise
 
 - **Model:** When enabled, `VERTICAL_WHIP_RADIAL_COUNT` (4) horizontal ¼λ radials fan out from the base at equal azimuth spacing, tagged `INVERTED_L_RADIAL_TAG` (16). Identical pattern to the vertical whip's counterpoise.
 - **Without counterpoise:** The source has no proper return path; NEC reports the high reactance and SWR that a radial-less base-fed antenna physically exhibits.
 
-### 6.4 SWR Convention
+### 7.4 SWR Convention
 
 - **Reference:** 50 Ω.
 - **Notes:** A resonant ¼λ inverted-L over a good ground presents roughly 30–50 Ω — a usable direct coax match. Feedpoint impedance varies with height, horizontal-section fraction, and ground quality. The vertical-section fraction has a stronger influence on the radiation pattern (more vertical component → more omnidirectional; more horizontal component → slight gain asymmetry in the horizontal-section direction).
 
-### 6.5 Segmentation Rules
+### 7.5 Segmentation Rules
 
 - **Density:** 20 segments per λ minimum for each section independently.
 - **Minimum:** 9 segments per section (`MIN_SEGS_PER_LEG`).
 - **Vertical and horizontal sections are emitted as separate `Wire` objects**, tagged independently so current-ripple diagnostics can distinguish them.
 
-### 6.6 Glossary
+### 7.6 Glossary
 
 - Same as Section 1.6.
 
 ---
 
-## 7. Folded Dipole
+## 8. Folded Dipole
 
-### 7.1 Geometry Definition
+### 8.1 Geometry Definition
 
 - **Shape:** Two parallel half-wave conductors joined at both ends, forming a narrow rectangular loop in the vertical plane. The bottom (fed) conductor sits at `z = height`; the top (un-fed) conductor sits at `z = height + aperture`. The connectors are short vertical wires at each end. The overall structure is fully buildable at a modest height — the top conductor only rises `aperture` (≤ 0.5 m) above the feedpoint, unlike a vertical loop.
 - **`length` parameter:** Each conductor's length (metres). Reference length: ½λ (0.475λ with end-effect) — same as a standard dipole; the fold does not change the resonant length.
-- **`foldedDipoleAperture` parameter:** Vertical spacing between the two parallel conductors (metres). Default 0.3 m. Clamped to [0.02 m, `FOLDED_DIPOLE_MAX_APERTURE_M` = 0.5 m]. The upper cap keeps the antenna a genuine folded dipole and, crucially, within the spacing range where NEC's close-parallel-wire solution converges inside `MAX_SEGS_PER_LEG` (see §7.5).
+- **`foldedDipoleAperture` parameter:** Vertical spacing between the two parallel conductors (metres). Default 0.3 m. Clamped to [0.02 m, `FOLDED_DIPOLE_MAX_APERTURE_M` = 0.5 m]. The upper cap keeps the antenna a genuine folded dipole and, crucially, within the spacing range where NEC's close-parallel-wire solution converges inside `MAX_SEGS_PER_LEG` (see §8.5).
 - **Orientation:** Azimuth the conductor axis runs. The aperture is in the vertical (Z) direction; changing the orientation rotates the axis in the horizontal plane but the top/bottom wire layout is preserved.
 - **Fed conductor:** Split at its centre by a `FEED_BRIDGE_LENGTH_M` feed bridge (the two halves carry `DIPOLE_LEFT_TAG` / `DIPOLE_RIGHT_TAG`, the same split-fed convention as the standard dipole).
 - **Min Height:** Bottom conductor at `z = height`; `height ≥ 0.1` m to avoid NEC `GE 1` instability. The top conductor is automatically at `z = height + aperture`.
 
-### 7.2 Feedpoint Definition
+### 8.2 Feedpoint Definition
 
 - **NEC Excitation:** Segment 1 of `FEED_BRIDGE_TAG` (3) at the centre of the lower conductor — handled by the existing `hasBridge` excitation path.
 - **Feed Type:** Single-segment voltage source on the bridge; balanced.
 - **Feedline Support:** Not currently modelled (the antenna is balanced and typically fed via 300 Ω twin-lead or a 4:1 balun). The transformer/balun post-processing control is available.
 - **Feedpoint Impedance:** Approximately 4× a plain dipole (~300 Ω) for equal-diameter conductors, largely independent of spacing. A 4:1 balun brings this to ~75 Ω; a 6:1 brings it to ~50 Ω for direct coax use. 300 Ω twin-lead matches it directly.
 
-### 7.3 Termination Definition
+### 8.3 Termination Definition
 
 - **Topology:** Optional. The opposite conductor is split into two halves at the centre. When terminated, a single `LD 4` resistor sits on a short horizontal bridge wire (`FOLDED_DIPOLE_TERM_BRIDGE_TAG`) that spans the gap between the two halves.
 - **Unterminated (`terminatingResistor = 0`):** A classic folded dipole — ~300 Ω, narrowband, dipole gain and pattern.
 - **Terminated (`terminatingResistor > 0`):** A terminated folded dipole (TFD). The resistor flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated). Typical value ~390–600 Ω. This is the straight-conductor cousin of the T2FD modelled under §5 as a terminated delta.
 
-### 7.4 SWR Convention
+### 8.4 SWR Convention
 
 - **Reference:** 50 Ω.
 - **Statement:** Raw SWR against 50 Ω is high (~6:1) for the unterminated ~300 Ω feedpoint. A 6:1 impedance-transforming balun is **enabled by default** when this antenna type is selected, transforming the feedpoint to ~50 Ω and showing the characteristic flat broadband SWR curve. The terminated variant (TFD) shows an even flatter curve, reflecting the resistive termination rather than improved efficiency.
 
-### 7.5 Segmentation Rules
+### 8.5 Segmentation Rules
 
 - **Target segment length:** `min(λ / 20, aperture / 2)`. NEC's thin-wire kernel loses accuracy for closely-spaced parallel wires once the segment length grows much larger than the wire separation; tying the segment length to half the aperture is the empirical point at which the free-space gain converges to the dipole value. All segment counts derive from this single target length, capped at `MAX_SEGS_PER_LEG` (100). This is also why the aperture is capped at 0.5 m — wider spacings would need more than 100 segments to converge.
 - **Minimum:** 9 segments (`MIN_SEGS_PER_LEG`) per fed half-conductor and for each half of the opposite conductor.
 - **Alignment:** The opposite conductor is always split into two symmetric halves (each with the same segment count) around the centre. The fed conductor is split into two halves around the 1-segment feed bridge.
 - **Wires:** 7 wires total — fed-conductor left half, feed bridge, fed-conductor right half, opposite conductor left half, opposite conductor right half, and the two end connectors across the aperture (shared `FOLDED_DIPOLE_CONNECTOR_TAG`). An 8th wire (the termination bridge) is added when terminated.
 
-### 7.6 Gain
+### 8.6 Gain
 
 - **Unterminated:** Identical to a standard dipole (~2.15 dBi in free space) at narrow apertures. The fold is an impedance transformation, not a gain mechanism.
 - **Wide aperture:** As the spacing grows toward a notable fraction of a wavelength, the two in-phase conductors begin to act as a broadside two-element array and the pattern departs from a simple dipole.
 - **Terminated:** Lower than a plain dipole — the terminating resistor dissipates a substantial fraction of the input power (the broadband-vs-efficiency trade).
 
-### 7.7 Glossary
+### 8.7 Glossary
 
 - Same as Section 1.6.
