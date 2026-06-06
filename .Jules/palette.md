@@ -7,3 +7,6 @@
 ## 2024-05-28 - Missing ARIA alert on global error boundary
 **Learning:** React ErrorBoundary fallback UIs for rendering app crashes do not natively announce themselves to screen readers because they replace the current DOM without a page reload or focus shift.
 **Action:** Always add `role="alert"` and `aria-live="assertive"` to the container of critical error messages or crash fallbacks so screen reader users are immediately notified.
+## 2024-05-28 - Dynamic hint text accessibility
+**Learning:** Even when a dynamic hint text is linked to an input via `aria-describedby`, screen readers may not reliably announce changes to the hint text if focus remains on the input while the hint changes (e.g. using arrow keys in a `<select>` or adjusting a `<input type="range">`).
+**Action:** Always add `aria-live="polite"` to dynamic hint text containers (like `#feedline-hint` or `#whip-counterpoise-hint`) so screen reader users are notified immediately when the contextual guidance updates.

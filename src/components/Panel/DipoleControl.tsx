@@ -307,7 +307,7 @@ export function DipoleControl() {
               if (!isNaN(val)) setFoldedDipoleAperture(fromDisplayLength(val, units));
             }}
           />
-          <div id="folded-dipole-aperture-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+          <div id="folded-dipole-aperture-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             Vertical spacing between the bottom (fed) and top (un-fed) conductors. The fed conductor is at the antenna height; the top conductor is aperture above it. For equal-diameter wires the feedpoint stays ~4× a plain dipole (~300 Ω) regardless of spacing; wider spacing raises Z₀ of the two-wire line (currently Z₀ ≈ {tfdZ0} Ω), requiring a higher terminating resistor for a broadband T2FD match. Capped at {maxApertureDisp.toFixed(2)} {unit} — beyond a realistic folded-dipole spacing the structure morphs toward a loop and no longer solves reliably as two close parallel wires.
           </div>
         </>
@@ -359,7 +359,7 @@ export function DipoleControl() {
               Off
             </button>
           </div>
-          <div id="terminating-resistor-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+          <div id="terminating-resistor-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             {terminatingResistor === 0
               ? antennaType === 'folded-dipole'
                 ? 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor for a broadband terminated folded dipole (T2FD); click Z₀ to set the optimal termination for this conductor spacing. Use the Match button in the Transformer section below to apply the suggested ratio.'
@@ -388,7 +388,7 @@ export function DipoleControl() {
             />
             Add ¼λ counterpoise radials
           </label>
-          <div id="whip-counterpoise-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+          <div id="whip-counterpoise-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             {whipCounterpoise
               ? '4 horizontal ¼λ radials fan out from the base, giving the source a proper low-loss return path (canonical ground-plane vertical).'
               : 'No counterpoise. NEC will report the high reactance and poor SWR that a radial-less base-fed antenna actually exhibits — switch the toggle on to model a proper ground-plane antenna.'}
