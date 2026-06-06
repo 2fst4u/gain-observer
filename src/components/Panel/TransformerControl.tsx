@@ -134,7 +134,7 @@ export function TransformerControl() {
               </button>
             )}
           </div>
-          <div id="transformer-hint" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.4 }}>
+          <div id="transformer-hint" aria-live="polite" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.4 }}>
             {transformerRatio === 1
               ? 'Ratio 1:1 — a current ("choke") balun. Suppresses common-mode current on the feedline shield, leaves antenna impedance unchanged.'
               : `Ratio ${transformerRatio}:1 — divides antenna feedpoint impedance by ${transformerRatio} and chokes common-mode current on the shield.`}

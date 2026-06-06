@@ -110,7 +110,7 @@ export function FeedlineControl() {
           <option key={f.id} value={f.id}>{f.label}</option>
         ))}
       </select>
-      <div id="feedline-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+      <div id="feedline-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         {preset.hint}
       </div>
 
@@ -227,7 +227,7 @@ export function FeedlineControl() {
                     setLocalMainLen(dispMainLen.toFixed(2));
                   }}
                 />
-                <div id="atu-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                <div id="atu-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
                   The feedline above becomes the short up-mast run (carries the antenna's native SWR);
                   the tuner conjugate-matches at the base, so this main run to the shack stays ~1:1
                   (matched loss {mainRunLossDb.toFixed(2)} dB). Realized gain keeps the up-mast loss
