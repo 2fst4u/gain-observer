@@ -1207,11 +1207,6 @@ describe("antennaStore actions", () => {
     });
 
     describe("Delta Loop Preset Verification — low mast heights", () => {
-      // Regression: at h=8 and h=8.5 the feedline shield was incorrectly
-      // extended below the delta loop base wire, causing the NEC MOM solver
-      // to produce -999.99 sentinel gains and negative resistance. The fix
-      // clamps the shield bottom to the base wire z-coordinate so the shield
-      // never crosses the base wire plane.
       it.each([
         { name: "160m", mhz: 1.9, height: 8 },
         { name: "160m", mhz: 1.9, height: 8.5 },
