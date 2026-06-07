@@ -5,6 +5,7 @@
 //     the component edge via useUnits() / toDisplayLength().
 //   - `result` is read-only for UI code; it is written only by the physics
 //     worker bridge via the underscored _setResult action.
+import { cleanZero } from "../utils/math";
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -882,7 +883,7 @@ export function buildWires(
   }
 
   const [dx, dy] = orientationVector(state.orientation);
-  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+
 
   const layout = computeFeedlineLayout(state);
 
