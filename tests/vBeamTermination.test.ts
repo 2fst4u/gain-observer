@@ -8,8 +8,8 @@ import {
   expectExcitation,
 } from './necInspect';
 import {
-  DIPOLE_LEFT_TAG,
-  DIPOLE_RIGHT_TAG,
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
   FEED_BRIDGE_TAG,
   SLOPING_V_LEFT_STUB_TAG,
   SLOPING_V_RIGHT_STUB_TAG,
@@ -74,8 +74,8 @@ describe('V-antenna termination topology', () => {
     // With graded segmentation each leg is multiple sub-wires sharing a tag:
     //   LEFT  leg is emitted tip → apex (first sub-wire's `.start` is the tip)
     //   RIGHT leg is emitted apex → tip (last sub-wire's `.end` is the tip)
-    const leftLegWires  = input.wires.filter((w) => w.tag === DIPOLE_LEFT_TAG);
-    const rightLegWires = input.wires.filter((w) => w.tag === DIPOLE_RIGHT_TAG);
+    const leftLegWires  = input.wires.filter((w) => w.tag === LEFT_LEG_TAG);
+    const rightLegWires = input.wires.filter((w) => w.tag === RIGHT_LEG_TAG);
     const leftLegTip  = leftLegWires[0]!.start;
     const rightLegTip = rightLegWires[rightLegWires.length - 1]!.end;
     const leftStub  = input.wires.find((w) => w.tag === SLOPING_V_LEFT_STUB_TAG)!;
@@ -134,7 +134,7 @@ describe('V-antenna termination topology', () => {
     setupSlopingV(800);
     const input = selectSimulationInput(useAntennaStore.getState());
     const legLoads = (input.loads ?? []).filter(
-      (l) => l.wireTag === DIPOLE_LEFT_TAG || l.wireTag === DIPOLE_RIGHT_TAG,
+      (l) => l.wireTag === LEFT_LEG_TAG || l.wireTag === RIGHT_LEG_TAG,
     );
     expect(legLoads).toHaveLength(0);
   });

@@ -3,8 +3,8 @@ import {
   useAntennaStore,
   buildWires,
   selectSimulationInput,
-  DIPOLE_LEFT_TAG,
-  DIPOLE_RIGHT_TAG,
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
   FEED_BRIDGE_TAG,
   FOLDED_DIPOLE_OPPOSITE_TAG,
   FOLDED_DIPOLE_CONNECTOR_TAG,
@@ -16,7 +16,7 @@ import { TERMINATED_DELTA_CENTRE_GAP_M, FEEDLINE_SHIELD_TAG } from '../src/physi
 const FREQ = 7.1;
 const APERTURE = 0.5;
 
-function foldedDipoleWires(overrides: Partial<Parameters<typeof buildWires>[0]> = {}) {
+function foldedAntennaWires(overrides: Partial<Parameters<typeof buildWires>[0]> = {}) {
   return buildWires({
     antennaType: 'folded-dipole',
     length: 20,
@@ -35,11 +35,11 @@ function foldedDipoleWires(overrides: Partial<Parameters<typeof buildWires>[0]> 
 
 describe('folded dipole geometry', () => {
   it('emits the seven expected wires with the correct tags', () => {
-    const wires = foldedDipoleWires();
+    const wires = foldedAntennaWires();
     expect(wires).toHaveLength(7);
     const tags = wires.map((w) => w.tag);
-    expect(tags).toContain(DIPOLE_LEFT_TAG);
-    expect(tags).toContain(DIPOLE_RIGHT_TAG);
+    expect(tags).toContain(LEFT_LEG_TAG);
+    expect(tags).toContain(RIGHT_LEG_TAG);
     expect(tags).toContain(FEED_BRIDGE_TAG);
     // Top conductor split into 2 halves — both share FOLDED_DIPOLE_OPPOSITE_TAG.
     expect(tags.filter((t) => t === FOLDED_DIPOLE_OPPOSITE_TAG)).toHaveLength(2);
@@ -48,9 +48,9 @@ describe('folded dipole geometry', () => {
   });
 
   it('places the fed (bottom) conductor at height and the opposite (top) conductor at height + aperture', () => {
-    const wires = foldedDipoleWires({ height: 12 });
+    const wires = foldedAntennaWires({ height: 12 });
     // Fed conductor wires (left half, bridge, right half) must be at z = 12.
-    const fedTags = new Set([DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG, FEED_BRIDGE_TAG]);
+    const fedTags = new Set([LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG]);
     for (const w of wires.filter((w) => fedTags.has(w.tag))) {
       expect(w.start[2]).toBeCloseTo(12, 9);
       expect(w.end[2]).toBeCloseTo(12, 9);
@@ -72,8 +72,8 @@ describe('folded dipole geometry', () => {
   });
 
   it('separates the two conductors vertically by exactly the aperture', () => {
-    const wires = foldedDipoleWires();
-    const fed = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+    const wires = foldedAntennaWires();
+    const fed = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
     const opp = wires.find((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG)!;
     // Vertical separation — top conductor is aperture above the bottom conductor.
     expect(opp.start[2] - fed.start[2]).toBeCloseTo(APERTURE, 9);
@@ -83,7 +83,7 @@ describe('folded dipole geometry', () => {
   });
 
   it('unterminated: top conductor halves share a common junction at topCenter (no gap)', () => {
-    const wires = foldedDipoleWires({ height: 12, terminatingResistor: 0 });
+    const wires = foldedAntennaWires({ height: 12, terminatingResistor: 0 });
     const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
     expect(oppWires).toHaveLength(2);
     // topCenter = (0, 0, height + aperture) for any orientation.
@@ -100,7 +100,7 @@ describe('folded dipole geometry', () => {
   });
 
   it('terminated: top conductor halves have a gap of TERMINATED_DELTA_CENTRE_GAP_M at the centre', () => {
-    const wires = foldedDipoleWires({ height: 12, terminatingResistor: 600 });
+    const wires = foldedAntennaWires({ height: 12, terminatingResistor: 600 });
     const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
     expect(oppWires).toHaveLength(2);
     const leftEnd = oppWires[0]!.end;    // topCenterLeft
@@ -118,8 +118,8 @@ describe('folded dipole geometry', () => {
   });
 
   it('forms a closed loop — connector endpoints coincide with both conductors', () => {
-    const wires = foldedDipoleWires();
-    const left = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+    const wires = foldedAntennaWires();
+    const left = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
     const opp = wires.find((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG)!;
     const connectors = wires.filter((w) => w.tag === FOLDED_DIPOLE_CONNECTOR_TAG);
     // One connector must touch the fed conductor's left end and the opposite

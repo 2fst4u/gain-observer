@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useAntennaStore, selectSimulationInput } from '../src/store/antennaStore';
 import { buildNecCards } from '../src/physics/necCard';
 import { getNecLines, expectExcitation } from './necInspect';
-import { DIPOLE_LEFT_TAG } from '../src/physics/constants';
+import { LEFT_LEG_TAG } from '../src/physics/constants';
 
 function setupDeltaLoop(terminatingResistor?: number) {
   const store = useAntennaStore.getState();
@@ -38,11 +38,11 @@ describe('Delta Loop termination (removed)', () => {
     expect(useAntennaStore.getState().terminatingResistor).toBe(0);
   });
 
-  it('excitation remains on left leg (DIPOLE_LEFT_TAG) last segment', () => {
+  it('excitation remains on left leg (LEFT_LEG_TAG) last segment', () => {
     setupDeltaLoop(0);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    expectExcitation(buildNecCards(input), DIPOLE_LEFT_TAG, leftLeg.segments);
+    const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
+    expectExcitation(buildNecCards(input), LEFT_LEG_TAG, leftLeg.segments);
   });
 
   it('no NT card emitted for delta-loop termination', () => {

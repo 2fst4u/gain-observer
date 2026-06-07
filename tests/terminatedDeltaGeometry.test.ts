@@ -15,8 +15,8 @@ import {
   expectNoGroundTouchingWires,
 } from './necInspect';
 import {
-  DIPOLE_LEFT_TAG,
-  DIPOLE_RIGHT_TAG,
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   SLOPING_V_MIN_TIP_Z_M,
@@ -181,8 +181,8 @@ describe('Terminated Delta — base geometry', () => {
   it('emits two top legs and two half-base wires (no continuous base)', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG);
-    const rightLeg = input.wires.find((w) => w.tag === DIPOLE_RIGHT_TAG);
+    const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG);
+    const rightLeg = input.wires.find((w) => w.tag === RIGHT_LEG_TAG);
     const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
     const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG);
     expect(leftLeg).toBeDefined();
@@ -194,14 +194,14 @@ describe('Terminated Delta — base geometry', () => {
   it('left leg ends at the apex (.end is at the mast height)', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+    const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
     expect(leftLeg.end[2]).toBeCloseTo(15, 6);
   });
 
   it('right leg starts at the apex (.start is at the mast height)', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const rightLeg = input.wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+    const rightLeg = input.wires.find((w) => w.tag === RIGHT_LEG_TAG)!;
     expect(rightLeg.start[2]).toBeCloseTo(15, 6);
   });
 
@@ -246,8 +246,8 @@ describe('Terminated Delta — base geometry', () => {
   it('the outer ends of the half-base wires coincide with the leg corners', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    const rightLeg = input.wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+    const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
+    const rightLeg = input.wires.find((w) => w.tag === RIGHT_LEG_TAG)!;
     const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
     const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
     // Left leg goes leftCorner → apex, so .start is the left corner.
@@ -269,7 +269,7 @@ describe('Terminated Delta — base geometry', () => {
     store.setLength(42);
     store.setHeight(30); // tall enough for equilateral height ~12.12 m
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+    const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
     const legLen = Math.hypot(
       leftLeg.end[0] - leftLeg.start[0],
       leftLeg.end[1] - leftLeg.start[1],
@@ -285,7 +285,7 @@ describe('Terminated Delta — base geometry', () => {
     store.setLength(42);
     store.setHeight(5); // less than equilateral height (~12.12 m)
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+    const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
     const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
     const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
     const legLen = Math.hypot(
@@ -399,8 +399,8 @@ describe('Terminated Delta — terminated (T2FD-style bridge resistor)', () => {
     const input = selectSimulationInput(useAntennaStore.getState());
     const radiatingLoads = (input.loads ?? []).filter(
       (l) =>
-        l.wireTag === DIPOLE_LEFT_TAG ||
-        l.wireTag === DIPOLE_RIGHT_TAG ||
+        l.wireTag === LEFT_LEG_TAG ||
+        l.wireTag === RIGHT_LEG_TAG ||
         l.wireTag === TERMINATED_DELTA_LEFT_BASE_TAG ||
         l.wireTag === TERMINATED_DELTA_RIGHT_BASE_TAG,
     );
@@ -442,15 +442,15 @@ describe('Terminated Delta — excitation', () => {
   it('unterminated: excitation is on the last segment of the left leg (apex)', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    expectExcitation(buildNecCards(input), DIPOLE_LEFT_TAG, leftLeg.segments);
+    const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
+    expectExcitation(buildNecCards(input), LEFT_LEG_TAG, leftLeg.segments);
   });
 
   it('terminated: excitation is still on the last segment of the left leg (apex)', () => {
     setupTerminatedDelta(600);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    expectExcitation(buildNecCards(input), DIPOLE_LEFT_TAG, leftLeg.segments);
+    const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
+    expectExcitation(buildNecCards(input), LEFT_LEG_TAG, leftLeg.segments);
   });
 });
 

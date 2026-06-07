@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { useAntennaStore, selectSimulationInput } from '../src/store/antennaStore';
 import { buildNecCards } from '../src/physics/necCard';
 import { parseGwLine, getNecLines, expectExcitation } from './necInspect';
-import { FEED_BRIDGE_TAG, DIPOLE_LEFT_TAG, DELTA_BASE_TAG } from '../src/physics/constants';
+import { FEED_BRIDGE_TAG, LEFT_LEG_TAG, DELTA_BASE_TAG } from '../src/physics/constants';
 
 describe('Apex Feed and Geometry', () => {
   it('should generate a balanced bridge for Inverted V', () => {
@@ -75,13 +75,13 @@ describe('Apex Feed and Geometry', () => {
     const gwLines = getNecLines(deck, 'GW');
 
     // Left leg (tag 1) ends at the apex — excitation must land on its last segment.
-    const leftLegLine = gwLines.find(l => parseGwLine(l).tag === DIPOLE_LEFT_TAG);
+    const leftLegLine = gwLines.find(l => parseGwLine(l).tag === LEFT_LEG_TAG);
     expect(leftLegLine).toBeDefined();
     const leftLeg = parseGwLine(leftLegLine!);
 
-    expectExcitation(deck, DIPOLE_LEFT_TAG, leftLeg.segments);
+    expectExcitation(deck, LEFT_LEG_TAG, leftLeg.segments);
 
-    // Base wire must use DELTA_BASE_TAG (tag 6), not DIPOLE_RIGHT_TAG (tag 2).
+    // Base wire must use DELTA_BASE_TAG (tag 6), not RIGHT_LEG_TAG (tag 2).
     const baseLine = gwLines.find(l => parseGwLine(l).tag === DELTA_BASE_TAG);
     expect(baseLine).toBeDefined();
   });

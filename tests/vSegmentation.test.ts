@@ -6,7 +6,7 @@ import {
   MIN_SEGS_PER_LEG,
   MAX_SEGS_PER_LEG,
 } from '../src/store/antennaGeometry';
-import { wavelengthMeters, FEED_BRIDGE_LENGTH_M, FEED_BRIDGE_TAG, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG } from '../src/physics/constants';
+import { wavelengthMeters, FEED_BRIDGE_LENGTH_M, FEED_BRIDGE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../src/physics/constants';
 import type { Wire } from '../src/physics/types';
 
 const BASE_PARAMS = {
@@ -24,7 +24,7 @@ const V_PARAMS = { ...BASE_PARAMS, vAngle: 90, legSlope: 0 };
  * prefix segment plus one multi-segment Wire for the uniform tail; the
  * effective "segments per leg" is the sum across all of them.
  */
-function legSegs(wires: Wire[], tag: number = DIPOLE_LEFT_TAG): number {
+function legSegs(wires: Wire[], tag: number = LEFT_LEG_TAG): number {
   return wires.filter((w) => w.tag === tag).reduce((sum, w) => sum + w.segments, 0);
 }
 
@@ -45,7 +45,7 @@ describe('V-antenna wavelength-based segmentation', () => {
       const total = 2 * lambda + FEED_BRIDGE_LENGTH_M;
       const wires = buildSlopingVWires({ ...V_PARAMS, frequency: freq, length: total, legSlope: 15 });
 
-      expect(legSegs(wires, DIPOLE_LEFT_TAG)).toBe(legSegs(wires, DIPOLE_RIGHT_TAG));
+      expect(legSegs(wires, LEFT_LEG_TAG)).toBe(legSegs(wires, RIGHT_LEG_TAG));
     });
   });
 
@@ -174,8 +174,8 @@ describe('V-antenna wavelength-based segmentation', () => {
       const total = 20 * lambda + FEED_BRIDGE_LENGTH_M; // 10λ per leg
       const wires = buildSlopingVWires({ ...V_PARAMS, frequency: freq, length: total, legSlope: 10 });
 
-      for (const tag of [DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG] as const) {
-        const segs = apexToTipSegLengths(wires, tag, tag === DIPOLE_LEFT_TAG ? 'left' : 'right');
+      for (const tag of [LEFT_LEG_TAG, RIGHT_LEG_TAG] as const) {
+        const segs = apexToTipSegLengths(wires, tag, tag === LEFT_LEG_TAG ? 'left' : 'right');
         // First segment (closest to the apex source) should equal the bridge.
         expect(segs[0]).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 9);
       }
@@ -187,8 +187,8 @@ describe('V-antenna wavelength-based segmentation', () => {
       const total = 20 * lambda + FEED_BRIDGE_LENGTH_M; // 10λ per leg
       const wires = buildSlopingVWires({ ...V_PARAMS, frequency: freq, length: total, legSlope: 10 });
 
-      for (const tag of [DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG] as const) {
-        const segs = apexToTipSegLengths(wires, tag, tag === DIPOLE_LEFT_TAG ? 'left' : 'right');
+      for (const tag of [LEFT_LEG_TAG, RIGHT_LEG_TAG] as const) {
+        const segs = apexToTipSegLengths(wires, tag, tag === LEFT_LEG_TAG ? 'left' : 'right');
         for (let i = 1; i < segs.length; i++) {
           const a = segs[i - 1]!;
           const b = segs[i]!;
@@ -203,7 +203,7 @@ describe('V-antenna wavelength-based segmentation', () => {
       const lambda = wavelengthMeters(freq);
       const total = 20 * lambda + FEED_BRIDGE_LENGTH_M; // 10λ per leg
       const wires = buildSlopingVWires({ ...V_PARAMS, frequency: freq, length: total, legSlope: 10 });
-      const segs = apexToTipSegLengths(wires, DIPOLE_RIGHT_TAG, 'right');
+      const segs = apexToTipSegLengths(wires, RIGHT_LEG_TAG, 'right');
 
       // The first few segments should monotonically increase until plateauing
       // at the uniform tail length, which is bounded by λ/SEGS_PER_WAVELENGTH.

@@ -1,8 +1,8 @@
 import {
   SLOPING_V_MIN_TIP_Z_M,
   wavelengthMeters,
-  DIPOLE_LEFT_TAG,
-  DIPOLE_RIGHT_TAG,
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
   FEED_BRIDGE_TAG,
   FEED_BRIDGE_LENGTH_M,
   DELTA_BASE_TAG,
@@ -175,14 +175,14 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
       end: apexLeft,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
-      tag: DIPOLE_LEFT_TAG,
+      tag: LEFT_LEG_TAG,
     },
     {
       start: apexRight,
       end: legPointAt(legLen, 1),
       radius: params.wireRadius,
       segments: segmentsPerLeg,
-      tag: DIPOLE_RIGHT_TAG,
+      tag: RIGHT_LEG_TAG,
     },
     {
       start: apexLeft,
@@ -222,7 +222,7 @@ export interface SlopingVWiresParams {
  *
  * A leg is emitted as one Wire per graded prefix segment plus one
  * multi-segment Wire covering the uniform tail. All sub-wires of a given leg
- * share the same tag (DIPOLE_LEFT_TAG / DIPOLE_RIGHT_TAG) so that current-
+ * share the same tag (LEFT_LEG_TAG / RIGHT_LEG_TAG) so that current-
  * ripple and load diagnostics continue to group by leg correctly.
  *
  * Convention:
@@ -311,7 +311,7 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
       end: legPointAt(prefixEnd, -1),
       radius: params.wireRadius,
       segments: tailCount,
-      tag: DIPOLE_LEFT_TAG,
+      tag: LEFT_LEG_TAG,
     });
   }
   // (2) Graded prefix wires in reverse (largest to smallest, toward apex).
@@ -321,7 +321,7 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
       end: legPointAt(breakpoints[i]!, -1),
       radius: params.wireRadius,
       segments: 1,
-      tag: DIPOLE_LEFT_TAG,
+      tag: LEFT_LEG_TAG,
     });
   }
 
@@ -333,7 +333,7 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
       end: legPointAt(breakpoints[i + 1]!, 1),
       radius: params.wireRadius,
       segments: 1,
-      tag: DIPOLE_RIGHT_TAG,
+      tag: RIGHT_LEG_TAG,
     });
   }
   // (2) Uniform tail wire from end of prefix out to tip.
@@ -343,7 +343,7 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
       end: legPointAt(legLen, 1),
       radius: params.wireRadius,
       segments: tailCount,
-      tag: DIPOLE_RIGHT_TAG,
+      tag: RIGHT_LEG_TAG,
     });
   }
 
@@ -384,11 +384,11 @@ export interface DeltaLoopWiresParams {
  * preserving the full perimeter.
  *
  * Tags:
- *   DIPOLE_LEFT_TAG  (1) — left leg:  leftCorner → apex
- *   DIPOLE_RIGHT_TAG (2) — right leg: apex → rightCorner
+ *   LEFT_LEG_TAG  (1) — left leg:  leftCorner → apex
+ *   RIGHT_LEG_TAG (2) — right leg: apex → rightCorner
  *   DELTA_BASE_TAG   (6) — base wire: leftCorner → rightCorner
  *
- * Excitation is placed on the last segment of DIPOLE_LEFT_TAG (the apex end).
+ * Excitation is placed on the last segment of LEFT_LEG_TAG (the apex end).
  */
 export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   const perimeter = params.length;
@@ -445,14 +445,14 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
       end: apexLeft,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
-      tag: DIPOLE_LEFT_TAG,
+      tag: LEFT_LEG_TAG,
     },
     {
       start: apexRight,
       end: rightCorner,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
-      tag: DIPOLE_RIGHT_TAG,
+      tag: RIGHT_LEG_TAG,
     },
     {
       start: leftCorner,
@@ -513,12 +513,12 @@ export interface TerminatedDeltaWiresParams {
  * physically-correct sloping-V tip-to-earth shunt termination.
  *
  * Tags:
- *   DIPOLE_LEFT_TAG               (1)  — top-left leg:  leftCorner → apex
- *   DIPOLE_RIGHT_TAG              (2)  — top-right leg: apex → rightCorner
+ *   LEFT_LEG_TAG               (1)  — top-left leg:  leftCorner → apex
+ *   RIGHT_LEG_TAG              (2)  — top-right leg: apex → rightCorner
  *   TERMINATED_DELTA_LEFT_BASE_TAG  (9)  — left half-base:  leftCorner → centreLeft
  *   TERMINATED_DELTA_RIGHT_BASE_TAG (10) — right half-base: centreRight → rightCorner
  *
- * Excitation is placed on the last segment of DIPOLE_LEFT_TAG (the apex
+ * Excitation is placed on the last segment of LEFT_LEG_TAG (the apex
  * end), or on the feed bridge / shield when a feedline is active —
  * exactly as for the delta loop.
  */
@@ -595,14 +595,14 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
       end: apexLeft,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
-      tag: DIPOLE_LEFT_TAG,
+      tag: LEFT_LEG_TAG,
     },
     {
       start: apexRight,
       end: rightCorner,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
-      tag: DIPOLE_RIGHT_TAG,
+      tag: RIGHT_LEG_TAG,
     },
     {
       start: leftCorner,
@@ -848,7 +848,7 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   return wires;
 }
 
-export interface FoldedDipoleWiresParams {
+export interface FoldedAntennaWiresParams {
   /** Each conductor's length, metres (≈½λ resonant). */
   length: number;
   /** Height of the (planar, horizontal) antenna above ground, metres. */
@@ -895,13 +895,13 @@ export interface FoldedDipoleWiresParams {
  *     terminated-delta's centre-gap bridge.
  *
  * Tags:
- *   DIPOLE_LEFT_TAG              (1)  — fed (bottom) conductor, left half (left → bridge)
- *   DIPOLE_RIGHT_TAG             (2)  — fed (bottom) conductor, right half (bridge → right)
+ *   LEFT_LEG_TAG              (1)  — fed (bottom) conductor, left half (left → bridge)
+ *   RIGHT_LEG_TAG             (2)  — fed (bottom) conductor, right half (bridge → right)
  *   FEED_BRIDGE_TAG              (3)  — 1-segment source bridge at the centre
  *   FOLDED_DIPOLE_OPPOSITE_TAG   (17) — un-fed (top) conductor, 2 halves (always split)
  *   FOLDED_DIPOLE_CONNECTOR_TAG  (18) — both end connectors (vertical, bottom → top)
  */
-export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] {
+export function buildFoldedAntennaWires(params: FoldedAntennaWiresParams): Wire[] {
   const h = params.height;
   const half = Math.max(0.1, params.length) / 2;
   const aperture = Math.max(0.02, params.aperture);
@@ -980,7 +980,7 @@ export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] 
       end: bridgeLeft,
       radius: params.wireRadius,
       segments: halfSegs,
-      tag: DIPOLE_LEFT_TAG,
+      tag: LEFT_LEG_TAG,
     },
     // Feed bridge at the centre of the fed conductor.
     {
@@ -996,7 +996,7 @@ export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] 
       end: rightFed,
       radius: params.wireRadius,
       segments: halfSegs,
-      tag: DIPOLE_RIGHT_TAG,
+      tag: RIGHT_LEG_TAG,
     },
     // Un-fed (top) conductor — left half.
     // Unterminated: ends at topCenter (same as right half's start) → continuous.
