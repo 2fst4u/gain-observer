@@ -11,16 +11,16 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useAntennaStore } from '../../store/antennaStore';
 import { THEME_COLORS } from '../../utils/themeColors';
-import { useDipoleGeometry, type DipoleWireProps } from './useDipoleGeometry';
+import { useAntennaGeometry, type AntennaWireProps } from './useAntennaGeometry';
 
-export function DipoleWire(props: DipoleWireProps) {
+export function AntennaWire(props: AntennaWireProps) {
   const { theme, transformerEnabled, terminatingResistor } = useAntennaStore(useShallow((s) => ({
     theme: s.theme,
     transformerEnabled: s.transformerEnabled,
     terminatingResistor: s.terminatingResistor,
   })));
 
-  const { rendered, shield, feedpoint, terminatedDeltaSplit } = useDipoleGeometry(props);
+  const { rendered, shield, feedpoint, terminatedDeltaSplit } = useAntennaGeometry(props);
   return (
     <group>
       {rendered.map((s) => (

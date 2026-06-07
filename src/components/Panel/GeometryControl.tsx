@@ -14,7 +14,7 @@ import {
 import { FOLDED_DIPOLE_MAX_APERTURE_M } from '../../physics/constants';
 import { TransformerControl } from './TransformerControl';
 
-export function DipoleControl() {
+export function GeometryControl() {
   // ⚡ Bolt: Performance Optimization
   // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
   // This reduces React hook allocation overhead and minimizes the number of store listeners,

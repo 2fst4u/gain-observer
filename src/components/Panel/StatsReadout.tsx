@@ -1,4 +1,4 @@
-import { useAntennaStore, selectAtuConfig, DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG } from '../../store/antennaStore';
+import { useAntennaStore, selectAtuConfig, LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { displayedFeedMetrics } from '../../physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
@@ -194,8 +194,8 @@ function rippleColor(rippleDb: number): string {
 }
 
 function legLabel(tagNo: number): string {
-  if (tagNo === DIPOLE_LEFT_TAG) return 'Left leg ripple';
-  if (tagNo === DIPOLE_RIGHT_TAG) return 'Right leg ripple';
+  if (tagNo === LEFT_LEG_TAG) return 'Left leg ripple';
+  if (tagNo === RIGHT_LEG_TAG) return 'Right leg ripple';
   return `Tag ${tagNo} ripple`;
 }
 
@@ -211,7 +211,7 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
 
   const { currentRippleByTag, powerBudget, frontBackDb } = diagnostics;
   const legRipples = currentRippleByTag.filter(
-    (r) => r.tagNo === DIPOLE_LEFT_TAG || r.tagNo === DIPOLE_RIGHT_TAG,
+    (r) => r.tagNo === LEFT_LEG_TAG || r.tagNo === RIGHT_LEG_TAG,
   );
 
   const hasContent =

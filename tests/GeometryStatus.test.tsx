@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { DipoleControl } from '../src/components/Panel/DipoleControl';
+import { GeometryControl } from '../src/components/Panel/GeometryControl';
 import { useAntennaStore } from '../src/store/antennaStore';
 
 describe('GeometryStatus', () => {
@@ -21,7 +21,7 @@ describe('GeometryStatus', () => {
     });
 
     // Act
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     // Assert
     expect(screen.getByText(/Slope auto-snaps/i)).toBeTruthy();
@@ -38,7 +38,7 @@ describe('GeometryStatus', () => {
     });
 
     // Act
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     // Assert
     expect(screen.getByText(/Geometry Clamped/i)).toBeTruthy();

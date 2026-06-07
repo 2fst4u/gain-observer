@@ -4,8 +4,8 @@ import { useShallow } from 'zustand/react/shallow';
 import {
   useAntennaStore,
   buildWires,
-  DIPOLE_TAG,
-  DIPOLE_LEFT_TAG,
+  MAIN_WIRE_TAG,
+  LEFT_LEG_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   TERMINATED_DELTA_LEFT_BASE_TAG,
@@ -15,7 +15,7 @@ import {
 } from '../../store/antennaStore';
 import type { AntennaType } from '../../physics/types';
 
-export interface DipoleWireProps {
+export interface AntennaWireProps {
   readonly type: AntennaType;
   readonly length: number;
   readonly height: number;
@@ -32,7 +32,7 @@ function necToScene(p: readonly [number, number, number]): [number, number, numb
   return [p[0], p[2], -p[1]];
 }
 
-export function useDipoleGeometry({
+export function useAntennaGeometry({
   type,
   length,
   height,
@@ -43,7 +43,7 @@ export function useDipoleGeometry({
   feedlineLength,
   feedlineOffset,
   whipCounterpoise,
-}: DipoleWireProps) {
+}: AntennaWireProps) {
   const {
     vAngle,
     legSlope,
@@ -85,7 +85,7 @@ export function useDipoleGeometry({
       if (lengthScene < 1e-6) continue;
       const q = new THREE.Quaternion();
       q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-      const tag = w.tag ?? DIPOLE_TAG;
+      const tag = w.tag ?? MAIN_WIRE_TAG;
       const isShield = tag === FEEDLINE_SHIELD_TAG;
       const isBridge = tag === FEED_BRIDGE_TAG;
       let radius: number;
@@ -113,7 +113,7 @@ export function useDipoleGeometry({
     const isWhip = type === 'vertical-whip';
 
     let bridge: typeof rendered[0] | undefined;
-    let dipoleSingle: typeof rendered[0] | undefined;
+    let mainWireSingle: typeof rendered[0] | undefined;
     let shieldWire: typeof rendered[0] | undefined;
     let apexFedLeft: typeof rendered[0] | undefined;
     let verticalWhip: typeof rendered[0] | undefined;
@@ -125,10 +125,10 @@ export function useDipoleGeometry({
       if (s.isShield && !shieldWire) shieldWire = s;
 
       switch (s.tag) {
-        case DIPOLE_TAG:
-          if (!dipoleSingle) dipoleSingle = s;
+        case MAIN_WIRE_TAG:
+          if (!mainWireSingle) mainWireSingle = s;
           break;
-        case DIPOLE_LEFT_TAG:
+        case LEFT_LEG_TAG:
           if (isDelta && !apexFedLeft) apexFedLeft = s;
           break;
         case VERTICAL_WHIP_TAG:
@@ -139,7 +139,7 @@ export function useDipoleGeometry({
       if (
         bridge &&
         shieldWire &&
-        dipoleSingle &&
+        mainWireSingle &&
         (!isDelta || apexFedLeft) &&
         (!isWhip || verticalWhip)
       ) {
@@ -148,7 +148,7 @@ export function useDipoleGeometry({
     }
 
     // If we have a bridge, the legacy dipole wire isn't the primary feed.
-    const feedSingle = bridge ? undefined : dipoleSingle;
+    const feedSingle = bridge ? undefined : mainWireSingle;
 
     // Feedpoint: bridge midpoint (split-fed) > apex-fed left-leg end >
     // vertical-whip base > dipole wire midpoint (single-wire legacy).

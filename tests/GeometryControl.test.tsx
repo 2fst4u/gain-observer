@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { DipoleControl } from '../src/components/Panel/DipoleControl';
+import { GeometryControl } from '../src/components/Panel/GeometryControl';
 import { useAntennaStore } from '../src/store/antennaStore';
 
 // Mock the store
@@ -71,7 +71,7 @@ function buildMockState(overrides: Partial<MockState> = {}): MockState {
   };
 }
 
-describe('DipoleControl', () => {
+describe('GeometryControl', () => {
   it('toggles whip counterpoise when antenna is vertical-whip', () => {
     const setWhipCounterpoise = vi.fn();
     vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
@@ -82,7 +82,7 @@ describe('DipoleControl', () => {
       }));
     });
 
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     const checkbox = screen.getByRole('checkbox', { name: /Add ¼λ counterpoise radials/i });
     fireEvent.click(checkbox);
@@ -100,7 +100,7 @@ describe('DipoleControl', () => {
       }));
     });
 
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     const apertureInput = screen.getByRole('slider', { name: /Folded dipole conductor spacing/i });
     fireEvent.change(apertureInput, { target: { value: '0.15' } });
@@ -119,7 +119,7 @@ describe('DipoleControl', () => {
       return selector(buildMockState({ setOrientation }));
     });
 
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     const orientInput = document.getElementById('dipole-orientation') as HTMLInputElement;
     fireEvent.change(orientInput, { target: { value: '45' } });
@@ -133,7 +133,7 @@ describe('DipoleControl', () => {
       return selector(buildMockState({ setOrientation }));
     });
 
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     const nsButton = screen.getByRole('button', { name: 'NS' });
     fireEvent.click(nsButton);
@@ -146,7 +146,7 @@ describe('DipoleControl', () => {
       return selector(buildMockState());
     });
 
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     // Both the Antenna section heading and the Transformer subheading
     // should render under the same control — proves the Transformer
@@ -162,7 +162,7 @@ describe('DipoleControl', () => {
       return selector(buildMockState({ setAntennaType }));
     });
 
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     const typeSelect = screen.getByRole('combobox', { name: /Type/i });
     fireEvent.change(typeSelect, { target: { value: 'inverted-v' } });
@@ -180,7 +180,7 @@ describe('DipoleControl', () => {
       }));
     });
 
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     const resistorInput = document.getElementById('terminating-resistor') as HTMLInputElement;
     fireEvent.change(resistorInput, { target: { value: '600' } });
@@ -197,7 +197,7 @@ describe('DipoleControl', () => {
       }));
     });
 
-    render(<DipoleControl />);
+    render(<GeometryControl />);
 
     const orientInput = document.getElementById('inverted-l-orientation') as HTMLInputElement;
     fireEvent.change(orientInput, { target: { value: '45' } });

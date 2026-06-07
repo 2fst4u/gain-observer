@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { DipoleWire } from '../src/components/Scene/DipoleWire';
+import { AntennaWire } from '../src/components/Scene/AntennaWire';
 import { useAntennaStore } from '../src/store/antennaStore';
 
 // Mock specific three.js components to avoid jsdom warnings
@@ -16,7 +16,7 @@ vi.mock('../src/store/antennaStore', async () => {
   };
 });
 
-describe('DipoleWire', () => {
+describe('AntennaWire', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -49,7 +49,7 @@ describe('DipoleWire', () => {
 
   it('renders a basic dipole wire', () => {
     const { container } = render(
-      <DipoleWire
+      <AntennaWire
         type="dipole"
         length={10}
         height={5}
@@ -85,7 +85,7 @@ describe('DipoleWire', () => {
     });
 
     const { container } = render(
-      <DipoleWire
+      <AntennaWire
         type="terminated-delta"
         length={20}
         height={10}
@@ -118,7 +118,7 @@ describe('DipoleWire', () => {
     });
 
     const { container } = render(
-      <DipoleWire
+      <AntennaWire
         type="dipole"
         length={10}
         height={5}

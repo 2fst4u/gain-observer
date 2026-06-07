@@ -6,8 +6,8 @@ import {
   computeEffectiveSlope,
   legMultipleFromLength,
   computeOptimalVAngleDeg,
-  DIPOLE_LEFT_TAG,
-  DIPOLE_RIGHT_TAG,
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
   DELTA_BASE_TAG,
   FEEDLINE_SHIELD_TAG,
   VERTICAL_WHIP_TAG,
@@ -960,7 +960,7 @@ describe("antennaStore actions", () => {
         antennaType: "inverted-v",
         vAngle: 120,
       });
-      const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+      const leftWire = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
       expect(leftWire.start[2]).toBeCloseTo(5.025);
     });
 
@@ -975,7 +975,7 @@ describe("antennaStore actions", () => {
         height: 2,
         vAngle: 60,
       });
-      const leftWire = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+      const leftWire = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
       expect(leftWire.start[2]).toBeGreaterThanOrEqual(0.49);
       expect(leftWire.start[2]).toBeLessThanOrEqual(0.51);
     });
@@ -1086,13 +1086,13 @@ describe("antennaStore actions", () => {
       const wires = buildWires(baseState);
       expect(wires).toHaveLength(3);
       const tags = wires.map((w) => w.tag).sort((a, b) => a - b);
-      expect(tags).toEqual([DIPOLE_LEFT_TAG, DIPOLE_RIGHT_TAG, DELTA_BASE_TAG]);
+      expect(tags).toEqual([LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG]);
     });
 
     it("apex is at full mast height on all leg endpoints", () => {
       const wires = buildWires(baseState);
-      const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-      const rightLeg = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+      const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
+      const rightLeg = wires.find((w) => w.tag === RIGHT_LEG_TAG)!;
       // Left leg: start = leftCorner, end = apex
       expect(leftLeg.end[2]).toBeCloseTo(baseState.height);
       // Right leg: start = apex, end = rightCorner
@@ -1110,7 +1110,7 @@ describe("antennaStore actions", () => {
       const equilateralHeight = (lambda * Math.sqrt(3)) / 6;
       const sideLen = lambda / 3;
 
-      const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
+      const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
       const base = wires.find((w) => w.tag === DELTA_BASE_TAG)!;
 
       // Base width = side length (equilateral)
@@ -1129,8 +1129,8 @@ describe("antennaStore actions", () => {
       const shortState = { ...baseState, height: 5 };
       const wires = buildWires(shortState);
 
-      const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-      const rightLeg = wires.find((w) => w.tag === DIPOLE_RIGHT_TAG)!;
+      const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
+      const rightLeg = wires.find((w) => w.tag === RIGHT_LEG_TAG)!;
       const base = wires.find((w) => w.tag === DELTA_BASE_TAG)!;
 
       const dist3d = (
@@ -1164,8 +1164,8 @@ describe("antennaStore actions", () => {
       };
       const input = selectSimulationInput(state as AntennaState);
 
-      const leftLeg = input.wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-      expect(input.excitation.wireTag).toBe(DIPOLE_LEFT_TAG);
+      const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
+      expect(input.excitation.wireTag).toBe(LEFT_LEG_TAG);
       expect(input.excitation.segment).toBe(leftLeg.segments);
     });
 

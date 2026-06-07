@@ -8,7 +8,7 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Suspense, useMemo } from 'react';
-import { DipoleWire } from './DipoleWire';
+import { AntennaWire } from './AntennaWire';
 import { GroundPlane } from './GroundPlane';
 import { RadiationPattern } from './RadiationPattern';
 import { useAntennaStore, selectAtuConfig, type ComparisonSnapshot } from '../../store/antennaStore';
@@ -126,7 +126,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
 
       <Suspense fallback={null}>
         <GroundPlane groundId={groundId} height={height} showGrid={showGrid} />
-        <DipoleWire
+        <AntennaWire
           type={type}
           length={length}
           height={height}

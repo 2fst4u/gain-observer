@@ -95,9 +95,9 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
 }
 
 // --- Geometry Tags ---
-export const DIPOLE_TAG = 1; // single-wire dipole (no feedline)
-export const DIPOLE_LEFT_TAG = 1; // left half of split dipole
-export const DIPOLE_RIGHT_TAG = 2; // right half of split dipole
+export const MAIN_WIRE_TAG = 1; // single-wire dipole (no feedline)
+export const LEFT_LEG_TAG = 1; // left leg of split antenna
+export const RIGHT_LEG_TAG = 2; // right leg of split antenna
 export const FEED_BRIDGE_TAG = 3; // 1-segment source bridge
 export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
 export const DELTA_BASE_TAG = 6; // base wire of delta loop (left corner to right corner)
@@ -166,8 +166,8 @@ export const SLOPING_V_RIGHT_STUB_TAG = 8;
  * Wire tags for the Terminated Delta antenna.
  *
  * The terminated delta is the same isosceles triangle as a delta loop with
- * the apex at the top and feedpoint at the apex (DIPOLE_LEFT_TAG /
- * DIPOLE_RIGHT_TAG carry the two top legs, exactly as in the delta loop).
+ * the apex at the top and feedpoint at the apex (LEFT_LEG_TAG /
+ * RIGHT_LEG_TAG carry the two top legs, exactly as in the delta loop).
  *
  * The base wire is **split** in the middle into two independent half-base
  * wires, each running inward from its corner toward (but not touching) the
@@ -186,7 +186,7 @@ export const TERMINATED_DELTA_BRIDGE_TAG = 11;
 
 /**
  * Wire tag for the vertical whip (single-wire monopole).
- * Distinct from DIPOLE_TAG so the renderer can place the feedpoint marker
+ * Distinct from MAIN_WIRE_TAG so the renderer can place the feedpoint marker
  * at the base of the whip rather than at its midpoint.
  */
 export const VERTICAL_WHIP_TAG = 12;
@@ -240,8 +240,8 @@ export const INVERTED_L_RADIAL_TAG = 16;
  * Wire tags for the Folded Dipole antenna.
  *
  * Two parallel half-wave conductors joined at both ends form a narrow loop.
- * The lower conductor is fed at its centre (split into DIPOLE_LEFT_TAG /
- * DIPOLE_RIGHT_TAG halves around the FEED_BRIDGE_TAG = 3 source bridge, the
+ * The lower conductor is fed at its centre (split into LEFT_LEG_TAG /
+ * RIGHT_LEG_TAG halves around the FEED_BRIDGE_TAG = 3 source bridge, the
  * same split-fed convention as the standard dipole). The upper conductor is
  * split at its centre into two halves that share a wire junction at the top
  * centre point (FOLDED_DIPOLE_OPPOSITE_TAG × 2); in the unterminated case

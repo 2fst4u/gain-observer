@@ -34,9 +34,9 @@ import {
   findGroundPreset,
   referenceLength,
   halfWaveLength,
-  DIPOLE_TAG,
-  DIPOLE_LEFT_TAG,
-  DIPOLE_RIGHT_TAG,
+  MAIN_WIRE_TAG,
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   FEED_BRIDGE_LENGTH_M,
@@ -59,9 +59,9 @@ import {
 
 // Re-export geometry tags for UI and tests.
 export {
-  DIPOLE_TAG,
-  DIPOLE_LEFT_TAG,
-  DIPOLE_RIGHT_TAG,
+  MAIN_WIRE_TAG,
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   FEED_BRIDGE_LENGTH_M,
@@ -87,7 +87,7 @@ import {
   buildTerminatedDeltaWires,
   buildVerticalWhipWires,
   buildInvertedLWires,
-  buildFoldedDipoleWires,
+  buildFoldedAntennaWires,
   orientationVector,
   type OrientationPreset,
   type Orientation,
@@ -858,7 +858,7 @@ export function buildWires(
 
   if (antennaType === 'folded-dipole') {
     const layout = computeFeedlineLayout(state);
-    const wires = buildFoldedDipoleWires({
+    const wires = buildFoldedAntennaWires({
       length: state.length,
       height: h,
       aperture: state.foldedDipoleAperture ?? FOLDED_DIPOLE_DEFAULT_APERTURE_M,
@@ -893,7 +893,7 @@ export function buildWires(
       end: [cleanZero(half * dx), cleanZero(half * dy), h],
       radius: state.wireRadius,
       segments: state.segments,
-      tag: DIPOLE_TAG,
+      tag: MAIN_WIRE_TAG,
     }];
   }
 
@@ -930,13 +930,13 @@ export function buildWires(
       start: leftTip, end: bridgeStart,
       radius: state.wireRadius,
       segments: leftSeg,
-      tag: DIPOLE_LEFT_TAG,
+      tag: LEFT_LEG_TAG,
     },
     {
       start: bridgeEnd, end: rightTip,
       radius: state.wireRadius,
       segments: rightSeg,
-      tag: DIPOLE_RIGHT_TAG,
+      tag: RIGHT_LEG_TAG,
     },
     {
       start: bridgeStart, end: bridgeEnd,
@@ -1039,8 +1039,8 @@ function buildExcitation(
   } else if (state.antennaType === 'delta-loop' || state.antennaType === 'terminated-delta') {
     // Apex-fed: excitation lives on the last segment of the left leg
     // (whose .end is the apex by convention in build*Wires).
-    const leftLeg = wires.find((w) => w.tag === DIPOLE_LEFT_TAG)!;
-    return { wireTag: DIPOLE_LEFT_TAG, segment: leftLeg.segments };
+    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
+    return { wireTag: LEFT_LEG_TAG, segment: leftLeg.segments };
   } else if (state.antennaType === 'vertical-whip') {
     // Base-fed monopole: excitation on the first (lowest) segment.
     return { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
@@ -1048,8 +1048,8 @@ function buildExcitation(
     // Base-fed: excitation on the first (lowest) segment of the vertical section.
     return { wireTag: INVERTED_L_VERTICAL_TAG, segment: 1 };
   } else {
-    const dipoleCentreSeg = Math.ceil(state.segments / 2);
-    return { wireTag: DIPOLE_TAG, segment: dipoleCentreSeg };
+    const mainWireCentreSeg = Math.ceil(state.segments / 2);
+    return { wireTag: MAIN_WIRE_TAG, segment: mainWireCentreSeg };
   }
 }
 
@@ -1158,8 +1158,8 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
     let lastRight: Wire | undefined;
     for (let i = 0; i < wires.length; i++) {
       const w = wires[i];
-      if (w.tag === DIPOLE_LEFT_TAG && !firstLeft) firstLeft = w;
-      if (w.tag === DIPOLE_RIGHT_TAG) lastRight = w;
+      if (w.tag === LEFT_LEG_TAG && !firstLeft) firstLeft = w;
+      if (w.tag === RIGHT_LEG_TAG) lastRight = w;
     }
     const leftTip  = firstLeft!.start;
     const rightTip = lastRight!.end;
@@ -1229,7 +1229,7 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
     const R = state.terminatingResistor;
     // Terminated Folded Dipole (TFD) — correct travelling-wave gap-bridge topology.
     //
-    // buildFoldedDipoleWires splits the top (un-fed) conductor into two halves
+    // buildFoldedAntennaWires splits the top (un-fed) conductor into two halves
     // with a gap of TERMINATED_DELTA_CENTRE_GAP_M at the centre when a
     // terminating resistor is non-zero. The gap inner ends are:
     //   left-half  .end = topCenterLeft

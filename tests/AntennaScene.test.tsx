@@ -15,8 +15,8 @@ vi.mock('@react-three/drei', () => ({
   GizmoViewport: () => <div data-testid="gizmo-viewport" />,
 }));
 
-vi.mock('../src/components/Scene/DipoleWire', () => ({
-  DipoleWire: (props: unknown) => <div data-testid="dipole-wire" data-props={JSON.stringify(props)} />
+vi.mock('../src/components/Scene/AntennaWire', () => ({
+  AntennaWire: (props: unknown) => <div data-testid="antenna-wire" data-props={JSON.stringify(props)} />
 }));
 
 vi.mock('../src/components/Scene/GroundPlane', () => ({
@@ -84,12 +84,12 @@ describe('AntennaScene', () => {
     const { getByTestId } = render(<AntennaScene />);
     expect(getByTestId('canvas')).toBeTruthy();
 
-    // DipoleWire should receive live state props
-    const dipoleWire = getByTestId('dipole-wire');
-    const dipoleProps = JSON.parse(dipoleWire.getAttribute('data-props') || '{}');
-    expect(dipoleProps.type).toBe('dipole');
-    expect(dipoleProps.length).toBe(20);
-    expect(dipoleProps.feedlineId).toBe('coax');
+    // AntennaWire should receive live state props
+    const antennaWire = getByTestId('antenna-wire');
+    const antennaProps = JSON.parse(antennaWire.getAttribute('data-props') || '{}');
+    expect(antennaProps.type).toBe('dipole');
+    expect(antennaProps.length).toBe(20);
+    expect(antennaProps.feedlineId).toBe('coax');
 
     // RadiationPattern should receive live state props
     const radiationPattern = getByTestId('radiation-pattern');
@@ -123,15 +123,15 @@ describe('AntennaScene', () => {
 
     const { getByTestId } = render(<AntennaScene snapshot={snapshot as unknown as import('../src/store/antennaStore').ComparisonSnapshot} />);
 
-    // DipoleWire should receive snapshot state props
-    const dipoleWire = getByTestId('dipole-wire');
-    const dipoleProps = JSON.parse(dipoleWire.getAttribute('data-props') || '{}');
-    expect(dipoleProps.type).toBe('vertical-whip');
-    expect(dipoleProps.length).toBe(5);
-    expect(dipoleProps.height).toBe(0);
-    expect(dipoleProps.orientation).toBe('NS');
-    expect(dipoleProps.feedlineId).toBe('ladder');
-    expect(dipoleProps.whipCounterpoise).toBe(4);
+    // AntennaWire should receive snapshot state props
+    const antennaWire = getByTestId('antenna-wire');
+    const antennaProps = JSON.parse(antennaWire.getAttribute('data-props') || '{}');
+    expect(antennaProps.type).toBe('vertical-whip');
+    expect(antennaProps.length).toBe(5);
+    expect(antennaProps.height).toBe(0);
+    expect(antennaProps.orientation).toBe('NS');
+    expect(antennaProps.feedlineId).toBe('ladder');
+    expect(antennaProps.whipCounterpoise).toBe(4);
 
     // RadiationPattern should receive snapshot state props
     const radiationPattern = getByTestId('radiation-pattern');
