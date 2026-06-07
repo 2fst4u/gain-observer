@@ -1,3 +1,4 @@
+import { cleanZero } from "../utils/math";
 import {
   SLOPING_V_MIN_TIP_Z_M,
   wavelengthMeters,
@@ -132,7 +133,7 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
   const h = params.height;
   const [dx, dy] = orientationVector(params.orientation);
-  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+
 
   const slopeDeg = (180 - params.vAngle) / 2;
 
@@ -250,7 +251,7 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   const cosV = Math.cos(halfV);
   const sinV = Math.sin(halfV);
 
-  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+
 
   function legPointAt(axis: number, side: number): [number, number, number] {
     // axis is distance along the sloping leg starting from the apex.
@@ -909,7 +910,7 @@ export function buildFoldedDipoleWires(params: FoldedDipoleWiresParams): Wire[] 
   const hasTermination = (params.terminatingResistor ?? 0) > 0;
 
   const [dx, dy] = orientationVector(params.orientation);
-  const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+
 
   // Bottom (fed) conductor at z = h; top (opposite) conductor at z = h + aperture.
   const zBottom = h;

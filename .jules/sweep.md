@@ -7,3 +7,6 @@
 ## 2024-05-23 - Internal Definitions and Export Cleanup
 **Learning:** `knip` flagged `INVERTED_L_HORIZONTAL_TAG` and `INVERTED_L_RADIAL_TAG` as unused exports in `src/store/antennaStore.ts`. However, these constants are actually defined in `src/physics/constants.ts` and used in `src/store/antennaGeometry.ts`. The re-export in the store file was unnecessary, but the actual declarations were not dead code.
 **Action:** When `knip` reports an unused export, particularly in a file that seems to be re-exporting things (like an aggregator or a store), trace the variable back to its definition and do a global search (`grep`) to see if it is used *anywhere* else in the application. Only delete the original definition if it is 100% dead code application-wide. If it is used elsewhere but the re-export is truly unused, only remove the re-export.
+## 2024-06-07 - Extracted duplicated cleanZero function
+**Learning:** Ensure all duplicated instances of a function are removed when extracting it to a central utility file.
+**Action:** Replaced all 4 local declarations of cleanZero with an import from the new math utility file.
