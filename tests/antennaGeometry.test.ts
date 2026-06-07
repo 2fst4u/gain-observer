@@ -133,4 +133,21 @@ describe('buildInvertedLWires', () => {
     const radials = wires.filter(w => w.tag === INVERTED_L_RADIAL_TAG);
     expect(radials).toHaveLength(VERTICAL_WHIP_RADIAL_COUNT);
   });
+
+  it('clamps segments for very short sections to maintain NEC stability', () => {
+    const shortParams = {
+      ...baseParams,
+      length: 8.01,
+      height: 8,
+      wireRadius: 0.001,
+      segments: 51,
+    };
+    // baseZ = 0.01. vertLen = min(8.01, 8 - 0.01) = 7.99.
+    // horizLen = 8.01 - 7.99 = 0.02.
+    // safeSegs for horiz: floor(0.02 / (4 * 0.001)) = 5.
+    const wires = buildInvertedLWires(shortParams);
+    const horizontal = wires.find(w => w.tag === INVERTED_L_HORIZONTAL_TAG);
+    expect(horizontal).toBeDefined();
+    expect(horizontal!.segments).toBeLessThanOrEqual(5);
+  });
 });

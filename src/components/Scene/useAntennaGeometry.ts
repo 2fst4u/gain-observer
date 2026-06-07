@@ -11,6 +11,7 @@ import {
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   VERTICAL_WHIP_TAG,
+  INVERTED_L_VERTICAL_TAG,
   type Orientation,
 } from '../../store/antennaStore';
 import type { AntennaType } from '../../physics/types';
@@ -111,12 +112,14 @@ export function useAntennaGeometry({
   const { shield, feedpoint } = useMemo(() => {
     const isDelta = type === 'delta-loop' || type === 'terminated-delta';
     const isWhip = type === 'vertical-whip';
+    const isInvertedL = type === 'inverted-l';
 
     let bridge: typeof rendered[0] | undefined;
     let mainWireSingle: typeof rendered[0] | undefined;
     let shieldWire: typeof rendered[0] | undefined;
     let apexFedLeft: typeof rendered[0] | undefined;
     let verticalWhip: typeof rendered[0] | undefined;
+    let invertedLVertical: typeof rendered[0] | undefined;
 
     // Single pass to locate all special elements.
     for (let i = 0; i < rendered.length; i++) {
@@ -134,6 +137,9 @@ export function useAntennaGeometry({
         case VERTICAL_WHIP_TAG:
           if (isWhip && !verticalWhip) verticalWhip = s;
           break;
+        case INVERTED_L_VERTICAL_TAG:
+          if (isInvertedL && !invertedLVertical) invertedLVertical = s;
+          break;
       }
 
       if (
@@ -141,7 +147,8 @@ export function useAntennaGeometry({
         shieldWire &&
         mainWireSingle &&
         (!isDelta || apexFedLeft) &&
-        (!isWhip || verticalWhip)
+        (!isWhip || verticalWhip) &&
+        (!isInvertedL || invertedLVertical)
       ) {
         break;
       }
@@ -151,10 +158,11 @@ export function useAntennaGeometry({
     const feedSingle = bridge ? undefined : mainWireSingle;
 
     // Feedpoint: bridge midpoint (split-fed) > apex-fed left-leg end >
-    // vertical-whip base > dipole wire midpoint (single-wire legacy).
+    // vertical-whip base > inverted-l base > dipole wire midpoint (single-wire legacy).
     const feedpointObj = bridge?.position
       ?? apexFedLeft?.sceneEnd
       ?? verticalWhip?.sceneStart
+      ?? invertedLVertical?.sceneStart
       ?? feedSingle?.position
       ?? null;
 

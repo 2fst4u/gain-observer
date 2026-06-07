@@ -783,9 +783,11 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   const totalLen = Math.max(0.1, params.length);
   const baseZ = VERTICAL_WHIP_BASE_GAP_M;
 
-  // Clamp bend height so there is always a meaningful vertical section.
-  const bendZ = Math.max(baseZ + 0.1, params.height);
-  const vertLen = bendZ - baseZ;
+  // Vertical section is either the total length (if shorter than the mast)
+  // or the mast height itself.
+  const maxVertLen = Math.max(0.1, params.height - baseZ);
+  const vertLen = Math.min(totalLen, maxVertLen);
+  const bendZ = baseZ + vertLen;
 
   // Horizontal section is whatever total length remains after the vertical.
   const horizLen = Math.max(0, totalLen - vertLen);
@@ -793,11 +795,20 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   const [dx, dy] = orientationVector(params.orientation);
   const lambda = wavelengthMeters(params.frequency);
 
+  // NEC-2 stability: segment length should be at least ~4x the wire radius.
+  const safeSegs = (len: number, requested: number) => {
+    const maxSafe = Math.max(1, Math.floor(len / (4 * params.wireRadius)));
+    return Math.min(requested, maxSafe);
+  };
+
   // Segments for the vertical section.
   const minVertSegs = Math.ceil((SEGS_PER_WAVELENGTH * vertLen) / lambda);
-  const vertSegs = Math.min(
-    MAX_SEGS_PER_LEG,
-    Math.max(MIN_SEGS_PER_LEG, minVertSegs, Math.round(params.segments / 2)),
+  const vertSegs = safeSegs(
+    vertLen,
+    Math.min(
+      MAX_SEGS_PER_LEG,
+      Math.max(MIN_SEGS_PER_LEG, minVertSegs, Math.round(params.segments / 2)),
+    ),
   );
 
   const wires: Wire[] = [
@@ -812,9 +823,12 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
 
   if (horizLen > 0.01) {
     const minHorizSegs = Math.ceil((SEGS_PER_WAVELENGTH * horizLen) / lambda);
-    const horizSegs = Math.min(
-      MAX_SEGS_PER_LEG,
-      Math.max(MIN_SEGS_PER_LEG, minHorizSegs, Math.round(params.segments / 2)),
+    const horizSegs = safeSegs(
+      horizLen,
+      Math.min(
+        MAX_SEGS_PER_LEG,
+        Math.max(MIN_SEGS_PER_LEG, minHorizSegs, Math.round(params.segments / 2)),
+      ),
     );
     wires.push({
       start: [0, 0, bendZ],
