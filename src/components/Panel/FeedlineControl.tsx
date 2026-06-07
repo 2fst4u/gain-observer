@@ -171,7 +171,7 @@ export function FeedlineControl() {
                   Centre
                 </button>
               </div>
-              <div id="feedline-offset-hint" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+              <div id="feedline-offset-hint" aria-live="polite" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
                 {Math.abs(feedlineOffset) < 1e-6
                   ? 'Centred (perfectly balanced — no common-mode current).'
                   : `Shifted ${Math.abs(dispOffset).toFixed(2)} ${unit} ${feedlineOffset > 0 ? '+ axis' : '− axis'}; common-mode current will flow on the shield.`}
