@@ -226,7 +226,7 @@ This document defines the physical and mathematical model for all antenna types 
 ### 6.1 Geometry Definition
 
 - **Shape:** A single vertical wire extending upwards from the base.
-- **`height` parameter:** The height of the base above ground (metres). Usually 0 or very small.
+- **`height` parameter:** The height of the base above ground (metres). Defaults to an elevated position of 8 meters.
 - **`length` parameter:** The length of the vertical wire (metres).
 - **Orientation:** Not applicable (omnidirectional).
 - **Base:** The vertical wire starts at `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above `height` to ensure electrical isolation from the ground unless a counterpoise is used.
