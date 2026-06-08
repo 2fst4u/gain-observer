@@ -135,7 +135,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
       <directionalLight position={[-10, 8, -8]} intensity={0.45} />
 
       <Suspense fallback={null}>
-        <GroundPlane groundId={groundId} height={height} showGrid={showGrid} />
+        <GroundPlane groundId={groundId} height={height} showGrid={showGrid} antennaType={type} />
         <AntennaWire
           type={type}
           length={length}

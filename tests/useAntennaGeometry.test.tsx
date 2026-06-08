@@ -28,6 +28,10 @@ describe('useAntennaGeometry', () => {
       feedlineLength: 0,
       feedlineOffset: 0.5,
       whipCounterpoise: false,
+      vAngle: 180,
+      legSlope: 0,
+      frequency: 14.1,
+      foldedDipoleAperture: 0.3,
     }));
 
     expect(result.current.rendered.length).toBeGreaterThan(0);
@@ -49,6 +53,10 @@ describe('useAntennaGeometry', () => {
       feedlineLength: 0,
       feedlineOffset: 0.5,
       whipCounterpoise: false,
+      vAngle: 180,
+      legSlope: 0,
+      frequency: 14.1,
+      foldedDipoleAperture: 0.3,
     }));
 
     expect(result.current.rendered.length).toBeGreaterThan(0);
@@ -68,6 +76,10 @@ describe('useAntennaGeometry', () => {
       feedlineLength: 10,
       feedlineOffset: 0.5,
       whipCounterpoise: false,
+      vAngle: 180,
+      legSlope: 0,
+      frequency: 14.1,
+      foldedDipoleAperture: 0.3,
     }));
 
     expect(result.current.shield).toBeDefined();
@@ -87,6 +99,10 @@ describe('useAntennaGeometry', () => {
       feedlineLength: 0,
       feedlineOffset: 0,
       whipCounterpoise: true,
+      vAngle: 180,
+      legSlope: 0,
+      frequency: 14.1,
+      foldedDipoleAperture: 0.3,
     }));
 
     expect(result.current.rendered.length).toBeGreaterThan(0);
@@ -106,6 +122,10 @@ describe('useAntennaGeometry', () => {
       feedlineLength: 0,
       feedlineOffset: 0,
       whipCounterpoise: false,
+      vAngle: 180,
+      legSlope: 0,
+      frequency: 14.1,
+      foldedDipoleAperture: 0.3,
     }));
 
     expect(result.current.rendered.length).toBeGreaterThan(0);
