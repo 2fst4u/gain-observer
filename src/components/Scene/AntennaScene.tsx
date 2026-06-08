@@ -34,6 +34,9 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     liveFeedlineLength,
     liveFeedlineOffset,
     liveWhipCounterpoise,
+    liveVAngle,
+    liveLegSlope,
+    liveFoldedDipoleAperture,
     liveTransformerEnabled,
     liveTransformerRatio,
     liveFrequency,
@@ -59,6 +62,9 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
     liveFeedlineLength: s.feedlineLength,
     liveFeedlineOffset: s.feedlineOffset,
     liveWhipCounterpoise: s.whipCounterpoise,
+    liveVAngle: s.vAngle,
+    liveLegSlope: s.legSlope,
+    liveFoldedDipoleAperture: s.foldedDipoleAperture,
     liveTransformerEnabled: s.transformerEnabled,
     liveTransformerRatio: s.transformerRatio,
     liveFrequency: s.frequency,
@@ -85,6 +91,10 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   const feedlineLength = snapshot?.feedlineLength ?? liveFeedlineLength;
   const feedlineOffset = snapshot?.feedlineOffset ?? liveFeedlineOffset;
   const whipCounterpoise = snapshot?.whipCounterpoise ?? liveWhipCounterpoise;
+  const vAngle = snapshot?.vAngle ?? liveVAngle;
+  const legSlope = snapshot?.legSlope ?? liveLegSlope;
+  const foldedDipoleAperture = snapshot?.foldedDipoleAperture ?? liveFoldedDipoleAperture;
+  const frequency = snapshot?.frequency ?? liveFrequency;
 
   // Scale the pattern bubble to realized gain: the gain actually delivered after
   // feedpoint mismatch (and any transformer/ATU) loss. The offset is realizedGain
@@ -99,14 +109,14 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
       feedlineActive: feedlineId !== 'none',
       atu: snapshot ? undefined : selectAtuConfig({
         atuEnabled: liveAtuEnabled,
-        frequency: liveFrequency,
+        frequency,
         feedlineId,
         feedlineLength,
         atuMainFeedlineLength: liveAtuMainFeedlineLength,
       }),
     });
     return displayedRealizedGainDbi != null ? displayedRealizedGainDbi - result.maxGainDbi : 0;
-  }, [result, snapshot, liveTransformerEnabled, liveTransformerRatio, feedlineId, feedlineLength, liveAtuEnabled, liveFrequency, liveAtuMainFeedlineLength]);
+  }, [result, snapshot, liveTransformerEnabled, liveTransformerRatio, feedlineId, feedlineLength, liveAtuEnabled, frequency, liveAtuMainFeedlineLength]);
 
   return (
     <Canvas
@@ -137,10 +147,14 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
           feedlineLength={feedlineLength}
           feedlineOffset={feedlineOffset}
           whipCounterpoise={whipCounterpoise}
+          vAngle={vAngle}
+          legSlope={legSlope}
+          frequency={frequency}
+          foldedDipoleAperture={foldedDipoleAperture}
         />
         <RadiationPattern
           result={result}
-          originY={height}
+          originY={type === 'inverted-l' ? 0 : height}
           patternScale={patternScale}
           dbRange={dbRange}
           colorMaxDb={colorMaxDb}

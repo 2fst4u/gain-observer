@@ -1,11 +1,8 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { useShallow } from 'zustand/react/shallow';
 import {
-  useAntennaStore,
   buildWires,
   MAIN_WIRE_TAG,
-  LEFT_LEG_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   TERMINATED_DELTA_LEFT_BASE_TAG,
@@ -27,6 +24,10 @@ export interface AntennaWireProps {
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
   readonly whipCounterpoise: boolean;
+  readonly vAngle: number;
+  readonly legSlope: number;
+  readonly frequency: number;
+  readonly foldedDipoleAperture: number;
 }
 
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
@@ -44,19 +45,11 @@ export function useAntennaGeometry({
   feedlineLength,
   feedlineOffset,
   whipCounterpoise,
+  vAngle,
+  legSlope,
+  frequency,
+  foldedDipoleAperture,
 }: AntennaWireProps) {
-  const {
-    vAngle,
-    legSlope,
-    frequency,
-    foldedDipoleAperture,
-  } = useAntennaStore(useShallow((s) => ({
-    vAngle: s.vAngle,
-    legSlope: s.legSlope,
-    frequency: s.frequency,
-    foldedDipoleAperture: s.foldedDipoleAperture,
-  })));
-
   const rendered = useMemo(() => {
     const wires = buildWires({
       antennaType: type,
@@ -129,9 +122,8 @@ export function useAntennaGeometry({
 
       switch (s.tag) {
         case MAIN_WIRE_TAG:
+          // MAIN_WIRE_TAG and LEFT_LEG_TAG are both 1.
           if (!mainWireSingle) mainWireSingle = s;
-          break;
-        case LEFT_LEG_TAG:
           if (isDelta && !apexFedLeft) apexFedLeft = s;
           break;
         case VERTICAL_WHIP_TAG:
