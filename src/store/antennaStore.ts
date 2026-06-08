@@ -371,7 +371,7 @@ export const useAntennaStore = create<AntennaState>()(
           // The resonant length (¼λ) at the current frequency is available
           // via the "¼λ" button (setHalfWaveLength → calculateDefaultLength).
           s.length = DEFAULT_WHIP_LENGTH_M;
-          s.height = INITIAL_HEIGHT;
+          s.height = 0;
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;

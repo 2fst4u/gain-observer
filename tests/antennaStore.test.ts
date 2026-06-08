@@ -1403,14 +1403,14 @@ describe("antennaStore actions", () => {
   });
 
   describe("Vertical Whip actions", () => {
-    it('setAntennaType("vertical-whip") sets defaults: length = 32 ft, height = 8', () => {
+    it('setAntennaType("vertical-whip") sets defaults: length = 32 ft, height = 0', () => {
       const store = useAntennaStore.getState();
       store.setHeight(15);
       store.setAntennaType("vertical-whip");
       const s = useAntennaStore.getState();
       expect(s.antennaType).toBe("vertical-whip");
       expect(s.length).toBeCloseTo(DEFAULT_WHIP_LENGTH_M, 6);
-      expect(s.height).toBe(8);
+      expect(s.height).toBe(0);
       // No V-angle / termination / slope state should leak into the whip.
       expect(s.vAngle).toBe(180);
       expect(s.legSlope).toBe(0);

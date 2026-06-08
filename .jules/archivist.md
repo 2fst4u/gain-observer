@@ -62,5 +62,5 @@
 **Action:** Always audit for global event listeners (like `keydown` on `window`) when verifying documentation completeness. Added a `## Keyboard Shortcuts` section to `README.md` to expose these features.
 
 ## 2026-06-08 - Vertical Whip Height Drift
-**Learning:** The documentation assumed the vertical whip antenna defaults to a physically typical ground-mounted height (0m). However, the engine ('src/store/antennaStore.ts') enforces the generic default height ('INITIAL_HEIGHT' = 8m) for the vertical whip, treating it as an elevated monopole. The documentation drifted from the codebase's actual initialization behavior.
-**Action:** The documentation in 'docs/antenna-model-spec.md' and 'docs/antenna-spec.md' was updated to explicitly state the 8-meter elevated default behavior, matching the source code.
+**Learning:** The documentation assumed the vertical whip antenna defaults to a physically typical ground-mounted height (0m). However, the engine (`src/store/antennaStore.ts`) was enforcing a generic default height (`INITIAL_HEIGHT` = 8m) for the vertical whip, incorrectly treating it as an elevated monopole rather than a ground-mounted radiator. The application logic drifted from the correct, documented physical intention.
+**Action:** The documentation was kept as-is, and the application logic in `src/store/antennaStore.ts` was updated to explicitly default the vertical whip to a height of 0m when selected.

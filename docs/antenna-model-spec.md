@@ -74,7 +74,7 @@ We use the standard NEC-2 Cartesian coordinate system:
 
 - **Structure**: A single vertical wire extending upwards from the base.
 - **Length**: The length of the vertical wire.
-- **Height**: The height of the base above ground (defaults to an elevated position of 8 meters).
+- **Height**: The height of the base above ground (typically 0).
 - **Feedpoint**: Base-fed.
 - **Balanced**: No (unbalanced, driven against ground or radials).
 
