@@ -379,6 +379,7 @@ export const useAntennaStore = create<AntennaState>()(
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
+          s.whipCounterpoise = true;
           // Force the transformer off — its UI is hidden for verticals and
           // the StatsReadout's realized-gain math would otherwise apply a
           // stale ratio/insertion-loss to the monopole result.
@@ -391,6 +392,7 @@ export const useAntennaStore = create<AntennaState>()(
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
+          s.whipCounterpoise = true;
           s.transformerEnabled = false;
         } else if (type === 'folded-dipole') {
           // Two parallel half-wave conductors separated vertically by the
