@@ -10,3 +10,7 @@
 ## 2024-06-07 - Extracted duplicated cleanZero function
 **Learning:** Ensure all duplicated instances of a function are removed when extracting it to a central utility file.
 **Action:** Replaced all 4 local declarations of cleanZero with an import from the new math utility file.
+
+## 2024-06-09 - Extract duplicated Delta Loop geometry math
+**Learning:** We extracted duplicated identical geometry logic from `buildDeltaLoopWires` and `buildTerminatedDeltaWires` into a single helper function `calcDeltaLoopGeometry` in `src/store/antennaGeometry.ts`, destructuring only the required return values.
+**Action:** Created `calcDeltaLoopGeometry` utility function, refactored both callers to use the utility, verified safety with code coverage tests, lint, and build.

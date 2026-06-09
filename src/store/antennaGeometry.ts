@@ -376,6 +376,25 @@ export interface DeltaLoopWiresParams {
   feedlineShield?: FeedlineShield | null;
 }
 
+function calcDeltaLoopGeometry(perimeter: number, h: number) {
+  // Maximum available triangle height given the mast height.
+  // Identical to the delta loop's geometry math so that the two
+  // antennas occupy the same physical envelope for the same length.
+  const equilateralHeight = (perimeter * Math.sqrt(3)) / 6;
+  const maxAvailable = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
+  const triHeight = Math.min(equilateralHeight, maxAvailable);
+
+  const bottomZ = h - triHeight;
+
+  // Isosceles triangle with fixed perimeter P and height t:
+  //   leg  = t²/P + P/4
+  //   base = P − 2·leg  →  halfBase = P/4 − t²/P
+  const legLength = (triHeight * triHeight) / perimeter + perimeter / 4;
+  const halfBase = perimeter / 4 - (triHeight * triHeight) / perimeter;
+
+  return { triHeight, bottomZ, legLength, halfBase };
+}
+
 /**
  * Builds the wires for a Delta Loop antenna (apex-up, apex-fed).
  *
@@ -396,18 +415,7 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   const h = params.height;
   const [dx, dy] = orientationVector(params.orientation);
 
-  // Maximum available triangle height given the mast height.
-  const equilateralHeight = (perimeter * Math.sqrt(3)) / 6;
-  const maxAvailable = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
-  const triHeight = Math.min(equilateralHeight, maxAvailable);
-
-  const bottomZ = h - triHeight;
-
-  // Isosceles triangle with fixed perimeter P and height t:
-  //   leg  = t²/P + P/4
-  //   base = P − 2·leg  →  halfBase = P/4 − t²/P
-  const legLength = (triHeight * triHeight) / perimeter + perimeter / 4;
-  const halfBase = perimeter / 4 - (triHeight * triHeight) / perimeter;
+  const { bottomZ, legLength, halfBase } = calcDeltaLoopGeometry(perimeter, h);
 
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
   const apex: [number, number, number] = [0, 0, h];
@@ -528,20 +536,7 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
   const h = params.height;
   const [dx, dy] = orientationVector(params.orientation);
 
-  // Maximum available triangle height given the mast height.
-  // Identical to the delta loop's geometry math so that the two
-  // antennas occupy the same physical envelope for the same length.
-  const equilateralHeight = (perimeter * Math.sqrt(3)) / 6;
-  const maxAvailable = Math.max(0, h - SLOPING_V_MIN_TIP_Z_M);
-  const triHeight = Math.min(equilateralHeight, maxAvailable);
-
-  const bottomZ = h - triHeight;
-
-  // Isosceles triangle with fixed perimeter P and height t:
-  //   leg  = t²/P + P/4
-  //   base = P − 2·leg  →  halfBase = P/4 − t²/P
-  const legLength = (triHeight * triHeight) / perimeter + perimeter / 4;
-  const halfBase = perimeter / 4 - (triHeight * triHeight) / perimeter;
+  const { bottomZ, legLength, halfBase } = calcDeltaLoopGeometry(perimeter, h);
 
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
   const apex: [number, number, number] = [0, 0, h];
