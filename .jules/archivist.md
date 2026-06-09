@@ -64,3 +64,7 @@
 ## 2026-06-08 - Vertical Whip Height Drift
 **Learning:** The documentation assumed the vertical whip antenna defaults to a physically typical ground-mounted height (0m). However, the engine (`src/store/antennaStore.ts`) was enforcing a generic default height (`INITIAL_HEIGHT` = 8m) for the vertical whip, incorrectly treating it as an elevated monopole rather than a ground-mounted radiator. The application logic drifted from the correct, documented physical intention.
 **Action:** The documentation was kept as-is, and the application logic in `src/store/antennaStore.ts` was updated to explicitly default the vertical whip to a height of 0m when selected.
+
+## 2026-06-09 - Delta Loop Feedpoint Topology Drift
+**Learning:** The documentation for the Delta Loop claimed it was fed at the center of the bottom horizontal wire (or 1/4 λ from the apex for vertical polarization) and could be configured apex-down. However, the codebase (`src/store/antennaGeometry.ts`) strictly constructs the delta loop as apex-up and apex-fed (excitation on the last segment of the left leg, nearest the apex). The documentation drifted from the implemented physics model.
+**Action:** The documentation in `docs/antenna-model-spec.md` and `docs/antenna-spec.md` was updated to correctly reflect the apex-up, apex-fed geometry, removing inaccurate claims about base-feeding and vertical polarization.
