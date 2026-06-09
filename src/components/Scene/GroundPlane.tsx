@@ -11,15 +11,16 @@ interface GroundPlaneProps {
   readonly groundId: string;
   readonly height: number;
   readonly showGrid: boolean;
+  readonly antennaType: string;
 }
 
-export function GroundPlane({ groundId, height, showGrid }: GroundPlaneProps) {
+export function GroundPlane({ groundId, height, showGrid, antennaType }: GroundPlaneProps) {
   const theme = useAntennaStore((s) => s.theme);
-  const antennaType = useAntennaStore((s) => s.antennaType);
-  // Vertical whips extend upward from their base, so a height of 0 still
+  // Vertical antennas extend upward from their base, so a height of 0 still
   // means a real, ground-mounted antenna and we keep the ground visible.
   // Horizontal antennas at height=0 are treated as free-space (no ground).
-  const groundlessHeight = height <= 0 && antennaType !== 'vertical-whip';
+  const isVertical = antennaType === 'vertical-whip' || antennaType === 'inverted-l';
+  const groundlessHeight = height <= 0 && !isVertical;
   if (groundlessHeight || groundId === 'free') return null;
 
   const colors = THEME_COLORS[theme].ground;

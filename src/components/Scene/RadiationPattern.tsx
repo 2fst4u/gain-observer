@@ -86,6 +86,11 @@ export function RadiationPattern({
     const linearRangeFactor = patternScale * 2.5;
     // 10^(x/20) = exp(x * ln(10)/20)
     const scaleFactor = Math.LN10 / 20;
+    // Floor the gain used for radius calculation to ensure the pattern remains
+    // visible even for extremely lossy antennas (e.g. verticals without a
+    // counterpoise). At -25 dBi the bubble is ~0.15m radius, large enough to
+    // peek out from the feedpoint marker.
+    const RADIUS_GAIN_FLOOR_DBI = -25;
     const minDb = colorMaxDb - dbRange;
     const invRange = 1 / dbRange;
     const table = pickTable(colormap);
@@ -122,7 +127,7 @@ export function RadiationPattern({
       const gainDb = v0 * (1 - ft) + v1 * ft + realizedGainOffsetDb;
 
       // Position
-      const radius = Math.exp(gainDb * scaleFactor) * linearRangeFactor;
+      const radius = Math.exp(Math.max(gainDb, RADIUS_GAIN_FLOOR_DBI) * scaleFactor) * linearRangeFactor;
       const idx = i * 3;
       posBuffer[idx] = basePositions[idx]! * radius;
       posBuffer[idx + 1] = basePositions[idx + 1]! * radius;

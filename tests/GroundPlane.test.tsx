@@ -33,7 +33,7 @@ describe('GroundPlane', () => {
       return selector(state);
     });
 
-    const { container, getByTestId } = render(<GroundPlane groundId="pastoral" height={10} showGrid={true} />);
+    const { container, getByTestId } = render(<GroundPlane groundId="pastoral" height={10} showGrid={true} antennaType="dipole" />);
 
     const mesh = container.querySelector('mesh');
     expect(mesh).not.toBeNull();
@@ -51,7 +51,7 @@ describe('GroundPlane', () => {
       return selector(state);
     });
 
-    const { container } = render(<GroundPlane groundId="pastoral" height={0} showGrid={true} />);
+    const { container } = render(<GroundPlane groundId="pastoral" height={0} showGrid={true} antennaType="dipole" />);
     expect(container.innerHTML).toBe('');
   });
 
@@ -61,7 +61,17 @@ describe('GroundPlane', () => {
       return selector(state);
     });
 
-    const { container } = render(<GroundPlane groundId="pastoral" height={0} showGrid={true} />);
+    const { container } = render(<GroundPlane groundId="pastoral" height={0} showGrid={true} antennaType="vertical-whip" />);
+    expect(container.innerHTML).not.toBe('');
+  });
+
+  it('renders when height <= 0 and antenna IS inverted-l', () => {
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: { theme: string }) => unknown) => {
+      const state = { theme: 'light' };
+      return selector(state);
+    });
+
+    const { container } = render(<GroundPlane groundId="pastoral" height={0} showGrid={true} antennaType="inverted-l" />);
     expect(container.innerHTML).not.toBe('');
   });
 
@@ -71,7 +81,7 @@ describe('GroundPlane', () => {
       return selector(state);
     });
 
-    const { container } = render(<GroundPlane groundId="free" height={10} showGrid={true} />);
+    const { container } = render(<GroundPlane groundId="free" height={10} showGrid={true} antennaType="dipole" />);
     expect(container.innerHTML).toBe('');
   });
 
@@ -81,7 +91,7 @@ describe('GroundPlane', () => {
       return selector(state);
     });
 
-    const { container, queryByTestId } = render(<GroundPlane groundId="pastoral" height={10} showGrid={false} />);
+    const { container, queryByTestId } = render(<GroundPlane groundId="pastoral" height={10} showGrid={false} antennaType="dipole" />);
     expect(container.innerHTML).not.toBe('');
     expect(queryByTestId('mock-grid')).toBeNull();
   });

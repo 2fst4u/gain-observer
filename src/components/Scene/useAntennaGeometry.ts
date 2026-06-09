@@ -1,16 +1,14 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { useShallow } from 'zustand/react/shallow';
 import {
-  useAntennaStore,
   buildWires,
   MAIN_WIRE_TAG,
-  LEFT_LEG_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   VERTICAL_WHIP_TAG,
+  INVERTED_L_VERTICAL_TAG,
   type Orientation,
 } from '../../store/antennaStore';
 import type { AntennaType } from '../../physics/types';
@@ -26,6 +24,10 @@ export interface AntennaWireProps {
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
   readonly whipCounterpoise: boolean;
+  readonly vAngle: number;
+  readonly legSlope: number;
+  readonly frequency: number;
+  readonly foldedDipoleAperture: number;
 }
 
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
@@ -43,19 +45,11 @@ export function useAntennaGeometry({
   feedlineLength,
   feedlineOffset,
   whipCounterpoise,
+  vAngle,
+  legSlope,
+  frequency,
+  foldedDipoleAperture,
 }: AntennaWireProps) {
-  const {
-    vAngle,
-    legSlope,
-    frequency,
-    foldedDipoleAperture,
-  } = useAntennaStore(useShallow((s) => ({
-    vAngle: s.vAngle,
-    legSlope: s.legSlope,
-    frequency: s.frequency,
-    foldedDipoleAperture: s.foldedDipoleAperture,
-  })));
-
   const rendered = useMemo(() => {
     const wires = buildWires({
       antennaType: type,
@@ -111,12 +105,14 @@ export function useAntennaGeometry({
   const { shield, feedpoint } = useMemo(() => {
     const isDelta = type === 'delta-loop' || type === 'terminated-delta';
     const isWhip = type === 'vertical-whip';
+    const isInvertedL = type === 'inverted-l';
 
     let bridge: typeof rendered[0] | undefined;
     let mainWireSingle: typeof rendered[0] | undefined;
     let shieldWire: typeof rendered[0] | undefined;
     let apexFedLeft: typeof rendered[0] | undefined;
     let verticalWhip: typeof rendered[0] | undefined;
+    let invertedLVertical: typeof rendered[0] | undefined;
 
     // Single pass to locate all special elements.
     for (let i = 0; i < rendered.length; i++) {
@@ -126,13 +122,15 @@ export function useAntennaGeometry({
 
       switch (s.tag) {
         case MAIN_WIRE_TAG:
+          // MAIN_WIRE_TAG and LEFT_LEG_TAG are both 1.
           if (!mainWireSingle) mainWireSingle = s;
-          break;
-        case LEFT_LEG_TAG:
           if (isDelta && !apexFedLeft) apexFedLeft = s;
           break;
         case VERTICAL_WHIP_TAG:
           if (isWhip && !verticalWhip) verticalWhip = s;
+          break;
+        case INVERTED_L_VERTICAL_TAG:
+          if (isInvertedL && !invertedLVertical) invertedLVertical = s;
           break;
       }
 
@@ -141,7 +139,8 @@ export function useAntennaGeometry({
         shieldWire &&
         mainWireSingle &&
         (!isDelta || apexFedLeft) &&
-        (!isWhip || verticalWhip)
+        (!isWhip || verticalWhip) &&
+        (!isInvertedL || invertedLVertical)
       ) {
         break;
       }
@@ -151,10 +150,11 @@ export function useAntennaGeometry({
     const feedSingle = bridge ? undefined : mainWireSingle;
 
     // Feedpoint: bridge midpoint (split-fed) > apex-fed left-leg end >
-    // vertical-whip base > dipole wire midpoint (single-wire legacy).
+    // vertical-whip base > inverted-l base > dipole wire midpoint (single-wire legacy).
     const feedpointObj = bridge?.position
       ?? apexFedLeft?.sceneEnd
       ?? verticalWhip?.sceneStart
+      ?? invertedLVertical?.sceneStart
       ?? feedSingle?.position
       ?? null;
 
