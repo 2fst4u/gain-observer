@@ -18,15 +18,16 @@ export function ColormapLegend({ result }: Props) {
   const gradient = getColormapCssGradient(colormap);
 
   return (
-    <div className="colormap-legend">
-      <div className="colormap-legend-labels">
+    /* SEO: Upgrade generic div wrapper to a semantic figure tag, with figcaption for clear labeling */
+    <figure className="colormap-legend" aria-label="Gain colormap legend">
+      <figcaption className="colormap-legend-labels">
         <span>{colorMaxDb.toFixed(1)} dBi</span>
         <span>{minDb.toFixed(1)} dBi</span>
-      </div>
+      </figcaption>
       <div
         className="colormap-legend-gradient"
         style={{ background: gradient }}
       />
-    </div>
+    </figure>
   );
 }
