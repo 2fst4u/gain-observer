@@ -153,9 +153,9 @@ This document defines the physical and mathematical model for all antenna types 
 
 ### 4.2 Feedpoint Definition
 
-- **NEC Excitation:** Center of the bottom horizontal wire (Tag 2).
-- **Segment:** Center segment of Tag 2.
-- **Feed Type:** Single-segment voltage source.
+- **NEC Excitation:** Last segment of the left leg (Tag 1), nearest the apex.
+- **Segment:** Segment `segmentsPerLeg` of Tag 1.
+- **Feed Type:** Single-segment voltage source (or split bridge if feedline connected).
 - **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable).
 
 ### 4.3 Termination Definition
@@ -171,7 +171,7 @@ This document defines the physical and mathematical model for all antenna types 
 
 - **Density:** 20 segments per $\lambda$.
 - **Minimum:** 9 segments per side.
-- **Alignment:** Bottom wire should have an **odd** number of segments for center feed.
+- **Alignment:** Excitation is placed at the apex, so segment count alignment on the bottom wire is not strictly constrained by feedpoint centering.
 
 ### 4.6 Glossary
 

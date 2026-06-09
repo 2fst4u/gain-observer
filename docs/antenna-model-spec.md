@@ -57,10 +57,10 @@ We use the standard NEC-2 Cartesian coordinate system:
 
 - **Structure**: A triangular loop of wire.
 - **Length**: The total perimeter of the loop.
-- **Configuration**: Apex-up or Apex-down.
-- **Height**: Typically the height of the highest point (apex or top wire).
-- **Feedpoint**: Center of the bottom wire (for horizontal polarization) or $1/4 \lambda$ from the apex (for vertical polarization).
-- **Balanced**: Yes (if fed at center of a side).
+- **Configuration**: Apex-up.
+- **Height**: Typically the height of the highest point (apex).
+- **Feedpoint**: The apex.
+- **Balanced**: Yes.
 
 ### 2.5 Terminated Delta
 
