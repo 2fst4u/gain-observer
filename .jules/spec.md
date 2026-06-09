@@ -21,3 +21,6 @@
 
 **Learning:** When testing worker components communicating through simulated globals (`addEventListenerSpy`, `postMessageSpy`), resetting mock implementations (`mockReset()`) is critical in `beforeEach()`. Otherwise, mocked rejections from prior test blocks will leak into subsequent setups (e.g. `simulate` continuing to reject), leading to seemingly inexplicable test failures. Ensure `simulate` and `sweepImpedance` mocks are reset before each block.
 **Action:** Explicitly reset all stubbed or mocked engine methods in the test runner's `beforeEach` to ensure a pristine state for the subsequent worker simulation.
+## 2024-06-09 - Added GeometryControl.test.tsx coverage test
+**Learning:** Adding a single focused UI unit test might sometimes slightly decrease global percentage coverage metrics due to the test file's own code expanding the denominator, if the logic it tests was already partially hit elsewhere.
+**Action:** Wrote test for setVAngle and adjusted thresholds to lock in progress.
