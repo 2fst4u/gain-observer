@@ -34,3 +34,4 @@
 ## 2024-05-28 - React Three Fiber `<Canvas>` SEO
 **Learning:** The R3F `<Canvas>` component renders an opaque WebGL context that is inherently invisible to search engines and screen readers.
 **Action:** Apply `role="img"` and a descriptive `aria-label` directly to the `<Canvas>` element to provide semantic context.
+## 2026-06-09 - Semantics for Colormap Legend\n**Learning:** Using `<figure>` and `<figcaption>` to group related content, instead of generic `<div>`s, adds semantic value without fundamentally modifying the rendering logic or user interaction. Testing confirmed this structural change integrates cleanly with existing styles and React components.\n**Action:** Look for generic containers acting as labels or grouped elements (like legends) and upgrade them to HTML5 semantic structural tags.
