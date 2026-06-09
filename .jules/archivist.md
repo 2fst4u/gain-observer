@@ -60,3 +60,7 @@
 ## 2026-06-05 - Undiscoverable Keyboard Shortcuts
 **Learning:** Global keyboard shortcuts (`t` for Theme, `u` for Units, `m` for Mode) were fully implemented in the root `App.tsx` component via `useKeyboardShortcuts` but were not documented anywhere. This leaves powerful application features completely undiscoverable to users.
 **Action:** Always audit for global event listeners (like `keydown` on `window`) when verifying documentation completeness. Added a `## Keyboard Shortcuts` section to `README.md` to expose these features.
+
+## 2026-06-08 - Vertical Whip Height Drift
+**Learning:** The documentation assumed the vertical whip antenna defaults to a physically typical ground-mounted height (0m). However, the engine (`src/store/antennaStore.ts`) was enforcing a generic default height (`INITIAL_HEIGHT` = 8m) for the vertical whip, incorrectly treating it as an elevated monopole rather than a ground-mounted radiator. The application logic drifted from the correct, documented physical intention.
+**Action:** The documentation was kept as-is, and the application logic in `src/store/antennaStore.ts` was updated to explicitly default the vertical whip to a height of 0m when selected.
