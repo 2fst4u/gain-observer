@@ -72,6 +72,24 @@ function buildMockState(overrides: Partial<MockState> = {}): MockState {
 }
 
 describe('GeometryControl', () => {
+  it('updates V angle when input changes', () => {
+    const setVAngle = vi.fn();
+    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
+      return selector(buildMockState({
+        antennaType: 'sloping-v',
+        vAngle: 120,
+        setVAngle
+      }));
+    });
+
+    render(<GeometryControl />);
+
+    const angleInput = screen.getByRole('slider', { name: /V opening angle in degrees/i });
+    fireEvent.change(angleInput, { target: { value: '90' } });
+
+    expect(setVAngle).toHaveBeenCalledWith(90);
+  });
+
   it('toggles whip counterpoise when antenna is vertical-whip', () => {
     const setWhipCounterpoise = vi.fn();
     vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
