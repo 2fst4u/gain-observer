@@ -1,3 +1,4 @@
+import { type SimulationResult } from '../src/physics/types';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { fireEvent } from '@testing-library/dom';
@@ -75,7 +76,7 @@ describe('TransformerControl', () => {
       transformerEnabled: true,
       transformerRatio: 1,
       feedlineId: 'none',
-      result: { impedance: { R: 200, X: 0 } } as any
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
     });
     const { getByRole } = render(<TransformerControl />);
     const button = getByRole('button', { name: /Match/i });
@@ -87,7 +88,7 @@ describe('TransformerControl', () => {
       transformerEnabled: true,
       transformerRatio: 4,
       feedlineId: 'none',
-      result: { impedance: { R: 200, X: 0 } } as any
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
     });
     const { queryByRole } = render(<TransformerControl />);
     expect(queryByRole('button', { name: /Match/i })).toBeNull();
@@ -98,7 +99,7 @@ describe('TransformerControl', () => {
       transformerEnabled: true,
       transformerRatio: 1,
       feedlineId: 'none',
-      result: { impedance: { R: 200, X: 0 } } as any
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
     });
     const { getByRole } = render(<TransformerControl />);
     const button = getByRole('button', { name: /Match/i });
@@ -122,10 +123,9 @@ describe('TransformerControl', () => {
       feedlineId: 'rg58',
       feedlineLength: 0,
       frequency: 14.1,
-      result: { impedance: { R: 200, X: 0 } } as any
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
     });
     const { getByRole } = render(<TransformerControl />);
-        const optimalRatio = 4; // Assuming 200/50 = 4 for rg58
     expect(getByRole('button', { name: /Match/i })).not.toBeNull();
   });
 });
