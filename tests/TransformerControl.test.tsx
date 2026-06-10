@@ -1,3 +1,4 @@
+import { type SimulationResult } from '../src/physics/types';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { fireEvent } from '@testing-library/dom';
@@ -68,5 +69,63 @@ describe('TransformerControl', () => {
   it('shows shield-radiates hint when transformer is disabled', () => {
     const { container } = render(<TransformerControl />);
     expect(container.textContent).toContain('feedline shield carries common-mode current');
+  });
+
+  it('suggests optimal ratio when result is present', () => {
+    useAntennaStore.setState({
+      transformerEnabled: true,
+      transformerRatio: 1,
+      feedlineId: 'none',
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
+    });
+    const { getByRole } = render(<TransformerControl />);
+    const button = getByRole('button', { name: /Match/i });
+    expect(button).not.toBeNull();
+  });
+
+  it('does not suggest optimal ratio if it matches current ratio', () => {
+    useAntennaStore.setState({
+      transformerEnabled: true,
+      transformerRatio: 4,
+      feedlineId: 'none',
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
+    });
+    const { queryByRole } = render(<TransformerControl />);
+    expect(queryByRole('button', { name: /Match/i })).toBeNull();
+  });
+
+  it('applies optimal ratio when match button is clicked', () => {
+    useAntennaStore.setState({
+      transformerEnabled: true,
+      transformerRatio: 1,
+      feedlineId: 'none',
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
+    });
+    const { getByRole } = render(<TransformerControl />);
+    const button = getByRole('button', { name: /Match/i });
+    fireEvent.click(button);
+    expect(useAntennaStore.getState().transformerRatio).toBe(4);
+  });
+
+  it('handles input blur and invalid values gracefully', () => {
+    useAntennaStore.setState({ transformerEnabled: true, transformerRatio: 2 });
+    const { getByLabelText } = render(<TransformerControl />);
+    const input = getByLabelText(/Impedance ratio/i) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    expect(useAntennaStore.getState().transformerRatio).toBe(2);
+  });
+
+  it('suggests optimal ratio considering feedline if active', () => {
+    useAntennaStore.setState({
+      transformerEnabled: true,
+      transformerRatio: 1,
+      feedlineId: 'rg58',
+      feedlineLength: 0,
+      frequency: 14.1,
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
+    });
+    const { getByRole } = render(<TransformerControl />);
+    expect(getByRole('button', { name: /Match/i })).not.toBeNull();
   });
 });
