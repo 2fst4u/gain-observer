@@ -68,3 +68,7 @@
 ## 2026-06-09 - Delta Loop Feedpoint Topology Drift
 **Learning:** The documentation for the Delta Loop claimed it was fed at the center of the bottom horizontal wire (or 1/4 λ from the apex for vertical polarization) and could be configured apex-down. However, the codebase (`src/store/antennaGeometry.ts`) strictly constructs the delta loop as apex-up and apex-fed (excitation on the last segment of the left leg, nearest the apex). The documentation drifted from the implemented physics model.
 **Action:** The documentation in `docs/antenna-model-spec.md` and `docs/antenna-spec.md` was updated to correctly reflect the apex-up, apex-fed geometry, removing inaccurate claims about base-feeding and vertical polarization.
+
+## 2026-06-10 - Offset Feed Points Scope Drift
+**Learning:** The `README.md` listed "offset feed points" as a supported feature in its Phase 1 scope. However, exploring the codebase (`src/store/antennaGeometry.ts` and `docs/antenna-spec.md`) shows that the feedpoint geometry is hardcoded to specific segments (e.g., center segment for dipoles, apex for delta loops) with no mechanism for offset feeding. The document drifted and advertised an unsupported feature.
+**Action:** Removed "offset feed points" from the `README.md` scope list to ensure users have an accurate understanding of the engine's current capabilities.
