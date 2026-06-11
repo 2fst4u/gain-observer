@@ -201,12 +201,16 @@ export function PropagationInputs() {
             setMonthOverride(v === '' ? null : parseInt(v, 10));
           }}
           aria-label="Month override"
+          aria-describedby="month-hint"
         >
           <option value="">Auto ({MONTH_NAMES[autoMonth - 1]})</option>
           {MONTH_NAMES.map((n, i) => (
             <option key={n} value={i + 1}>{n}</option>
           ))}
         </select>
+      </div>
+      <div id="month-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+        Month for ionospheric prediction. Leave as Auto to use current time.
       </div>
 
       <label htmlFor="utc-hour-input" style={{ marginTop: 10 }}>
