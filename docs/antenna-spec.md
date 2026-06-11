@@ -20,7 +20,7 @@ This document defines the physical and mathematical model for all antenna types 
 - **NEC Excitation:** Single-segment voltage source (`EX`) on Tag 1.
 - **Segment:** Center segment of the wire.
 - **Feed Type:** Single-segment voltage source.
-- **Feedline Support:** Supported (Radiating shield + NEC `TL` card).
+- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; offset feedpoints are supported via splitting the wire).
 
 ### 1.3 Termination Definition
 
