@@ -14,3 +14,7 @@
 ## 2024-06-09 - Extract duplicated Delta Loop geometry math
 **Learning:** We extracted duplicated identical geometry logic from `buildDeltaLoopWires` and `buildTerminatedDeltaWires` into a single helper function `calcDeltaLoopGeometry` in `src/store/antennaGeometry.ts`, destructuring only the required return values.
 **Action:** Created `calcDeltaLoopGeometry` utility function, refactored both callers to use the utility, verified safety with code coverage tests, lint, and build.
+
+## 2024-06-11 - Constant export cleanup
+**Learning:** Removing an unused export for a constant that is still used internally within the same file requires leaving the import intact.
+**Action:** When un-exporting variables, do a local grep to see if they are still used in the file; if so, do not remove the import.
