@@ -1,6 +1,6 @@
 import { type SimulationResult } from '../src/physics/types';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, waitFor } from '@testing-library/react';
 import { fireEvent } from '@testing-library/dom';
 import { TransformerControl } from '../src/components/Panel/TransformerControl';
 import { useAntennaStore } from '../src/store/antennaStore';
@@ -127,5 +127,36 @@ describe('TransformerControl', () => {
     });
     const { getByRole } = render(<TransformerControl />);
     expect(getByRole('button', { name: /Match/i })).not.toBeNull();
+  });
+
+  it('updates localRatio from store when not focused', async () => {
+    useAntennaStore.setState({ transformerEnabled: true, transformerRatio: 2 });
+    const { getByLabelText } = render(<TransformerControl />);
+    const input = getByLabelText(/Impedance ratio/i) as HTMLInputElement;
+    expect(input.value).toBe('2');
+
+    // Change ratio from outside (store)
+    useAntennaStore.setState({ transformerRatio: 4 });
+    await waitFor(() => {
+      expect(input.value).toBe('4');
+    });
+  });
+
+  it('does not update localRatio from store when focused', async () => {
+    useAntennaStore.setState({ transformerEnabled: true, transformerRatio: 2 });
+    const { getByLabelText } = render(<TransformerControl />);
+    const input = getByLabelText(/Impedance ratio/i) as HTMLInputElement;
+    expect(input.value).toBe('2');
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '3' } });
+
+    // Change ratio from outside (store)
+    useAntennaStore.setState({ transformerRatio: 4 });
+
+    // Wait a tick to make sure it doesn't change
+    await waitFor(() => {
+      expect(input.value).toBe('3'); // Local state preserved while focused
+    });
   });
 });
