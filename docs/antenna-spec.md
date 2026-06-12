@@ -4,7 +4,7 @@ This document defines the physical and mathematical model for all antenna types 
 
 ---
 
-## 1. Center-Fed Dipole
+## 1. Dipole
 
 ### 1.1 Geometry Definition
 
