@@ -32,7 +32,7 @@ We use the standard NEC-2 Cartesian coordinate system:
 - **Structure**: A single straight horizontal wire or two collinear wires.
 - **Length**: The total end-to-end physical length.
 - **Height**: The Z-coordinate of the wire(s).
-- **Feedpoint**: Center-fed (split at the midpoint).
+- **Feedpoint**: Center-fed by default, but supports offset feedpoints (e.g., Off-Center Fed Dipole) by splitting the wire asymmetrically.
 - **Balanced**: Yes.
 
 ### 2.2 Inverted V

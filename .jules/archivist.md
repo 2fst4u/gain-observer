@@ -72,3 +72,7 @@
 ## 2026-06-11 - Dipole Offset Feedpoint Documentation Drift
 **Learning:** The documentation for the Center-Fed Dipole in `docs/antenna-spec.md` implied it only supported a center feed segment. However, the `buildWires` fallback logic in `src/store/antennaStore.ts` explicitly supports calculating offset feedpoints (e.g., for an Off-Center Fed Dipole) by splitting the dipole into a left and right leg around a shifted `FEED_BRIDGE_TAG`. The documentation had drifted and failed to reflect this implemented capability.
 **Action:** Updated `docs/antenna-spec.md` to explicitly note that offset feedpoints are supported for the dipole topology.
+
+## 2026-06-12 - Dipole Model Spec Documentation Drift
+**Learning:** The documentation for the Dipole in `docs/antenna-model-spec.md` implied its feedpoint was strictly "Center-fed (split at the midpoint)." However, the application engine supports asymmetric/offset feedpoints (e.g., Off-Center Fed Dipoles). The documentation had drifted and failed to reflect this capability in the modeling spec, though it was noted in the implementation spec.
+**Action:** Updated `docs/antenna-model-spec.md` to accurately reflect that while center-fed by default, offset feedpoints are fully supported via asymmetric wire splitting.
