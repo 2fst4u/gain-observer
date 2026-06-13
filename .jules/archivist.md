@@ -76,3 +76,7 @@
 ## 2026-06-12 - Dipole Model Spec Documentation Drift
 **Learning:** The documentation for the Dipole in `docs/antenna-model-spec.md` implied its feedpoint was strictly "Center-fed (split at the midpoint)." However, the application engine supports asymmetric/offset feedpoints (e.g., Off-Center Fed Dipoles). The documentation had drifted and failed to reflect this capability in the modeling spec, though it was noted in the implementation spec.
 **Action:** Updated `docs/antenna-model-spec.md` to accurately reflect that while center-fed by default, offset feedpoints are fully supported via asymmetric wire splitting.
+
+## 2026-06-13 - Delta Loop and Terminated Delta Reference Length Drift
+**Learning:** The documentation listed delta loop reference length as 1.03λ and terminated delta as 1.0λ, but the engine (`src/physics/constants.ts`) uses 1.02λ for both, based on the ARRL formula for full-wave HF loops.
+**Action:** `docs/antenna-spec.md` was updated to accurately reflect 1.02λ.
