@@ -8,7 +8,7 @@ import type { ImpedanceResult, SimulationResult } from './types';
  * Reflection coefficient magnitude for a load Z against the system impedance.
  * |Γ| = |Z - Z0| / |Z + Z0|, where Z is complex.
  */
-export function reflectionCoefficientMag(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
+function reflectionCoefficientMag(z: ImpedanceResult, z0: number = Z0_SYSTEM): number {
   const numR = z.R - z0;
   const numX = z.X;
   const denR = z.R + z0;

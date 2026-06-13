@@ -18,3 +18,6 @@
 ## 2024-06-11 - Constant export cleanup
 **Learning:** Removing an unused export for a constant that is still used internally within the same file requires leaving the import intact.
 **Action:** When un-exporting variables, do a local grep to see if they are still used in the file; if so, do not remove the import.
+## $(date +%Y-%m-%d) - Un-exporting Internal Utilities and Constants
+**Learning:** `knip` correctly flagged `reflectionCoefficientMag`, `INITIAL_HEIGHT`, and `FEED_BRIDGE_LENGTH_M` (re-export) as unused outside their declaring files. When a function or constant is only used internally, it should not be exported, improving module encapsulation.
+**Action:** When cleaning up unused exports, simply remove the `export` keyword if the symbol is used locally. If it was re-exported in a centralized `export { ... }` block but unused outside, remove it from that block while keeping its import intact if it's used within the aggregator file. Always verify with `npm run build` and `npm run test` afterward.

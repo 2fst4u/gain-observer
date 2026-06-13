@@ -64,7 +64,6 @@ export {
   RIGHT_LEG_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
-  FEED_BRIDGE_LENGTH_M,
   DELTA_BASE_TAG,
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
@@ -282,7 +281,7 @@ export interface AntennaState {
 }
 
 const INITIAL_FREQ = 7.1; // 40m band per user spec
-export const INITIAL_HEIGHT = 8; // metres
+const INITIAL_HEIGHT = 8; // metres
 const INITIAL_TYPE: AntennaType = 'dipole';
 const INITIAL_LENGTH = referenceLength(INITIAL_TYPE, INITIAL_FREQ); // resonant reference length
 
