@@ -223,9 +223,9 @@ export function PolarPlots() {
       <h2>Polar cuts</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
+          <h3 style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: 0, fontWeight: 'normal' }}>
             Azimuth @ Peak ({result.takeoffElevationDeg.toFixed(0)}°)
-          </div>
+          </h3>
           <div style={{ height: 160 }}>
             <Radar
               data={{
@@ -245,9 +245,9 @@ export function PolarPlots() {
           </div>
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
+          <h3 style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: 0, fontWeight: 'normal' }}>
             Elevation (Broadside)
-          </div>
+          </h3>
           <div style={{ height: 160 }}>
             <Radar
               data={{
@@ -267,9 +267,9 @@ export function PolarPlots() {
           </div>
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
+          <h3 style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: 0, fontWeight: 'normal' }}>
             Elevation (End-on)
-          </div>
+          </h3>
           <div style={{ height: 160 }}>
             <Radar
               data={{
