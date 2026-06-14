@@ -80,3 +80,6 @@
 ## 2026-06-13 - Delta Loop and Terminated Delta Reference Length Drift
 **Learning:** The documentation listed delta loop reference length as 1.03λ and terminated delta as 1.0λ, but the engine (`src/physics/constants.ts`) uses 1.02λ for both, based on the ARRL formula for full-wave HF loops.
 **Action:** `docs/antenna-spec.md` was updated to accurately reflect 1.02λ.
+## 2026-06-15 - Terminated Folded Dipole Drift
+**Learning:** The Terminated Folded Dipole (TFD) termination topology was incorrectly described in `docs/antenna-spec.md` as a horizontal bridge wire, and it was entirely missing from the termination types overview in `docs/antenna-model-spec.md`. It actually uses a vertical bridge wire spanning the aperture between the top and bottom conductors.
+**Action:** Updated the specifications to accurately describe the TFD topology and its vertical termination bridge to match the implementation in `src/physics/constants.ts` and `src/store/antennaGeometry.ts`.
