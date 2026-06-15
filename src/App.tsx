@@ -53,6 +53,12 @@ export function App() {
   useEffect(() => {
     const typeLabel = ANTENNA_LABELS[antennaType] || 'Antenna';
     document.title = `${typeLabel} at ${frequency.toFixed(3)} MHz - HF Gain Visualiser`;
+
+    // SEO: Dynamically update the meta description for better snippet representation in search results
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute('content', `Interactive 3D radiation pattern and SWR chart for a ${typeLabel} antenna at ${frequency.toFixed(3)} MHz, powered by NEC-2 WebAssembly.`);
+    }
   }, [antennaType, frequency]);
 
   return (
