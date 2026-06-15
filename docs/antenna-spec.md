@@ -220,7 +220,6 @@ This document defines the physical and mathematical model for all antenna types 
 
 ---
 
-
 ## 6. Vertical Whip
 
 ### 6.1 Geometry Definition
@@ -320,7 +319,7 @@ This document defines the physical and mathematical model for all antenna types 
 
 ### 8.3 Termination Definition
 
-- **Topology:** Optional. The opposite conductor is split into two halves at the centre. When terminated, a single `LD 4` resistor sits on a short vertical bridge wire (`FOLDED_DIPOLE_TERM_BRIDGE_TAG`) that spans the aperture from the centre junction of the un-fed (top) conductor down to the feed-bridge junction on the fed (bottom) conductor.
+- **Topology:** Optional. The opposite conductor is split into two halves at the centre. When terminated, a single `LD 4` resistor sits on a short horizontal bridge wire (`FOLDED_DIPOLE_TERM_BRIDGE_TAG`) that spans the gap between the two inner ends of the un-fed (top) conductor.
 - **Unterminated (`terminatingResistor = 0`):** A classic folded dipole — ~300 Ω, narrowband, dipole gain and pattern.
 - **Terminated (`terminatingResistor > 0`):** A terminated folded dipole (TFD). The resistor flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated). Typical value ~390–600 Ω. This is the straight-conductor cousin of the T2FD modelled under §5 as a terminated delta.
 

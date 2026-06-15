@@ -83,3 +83,7 @@
 ## 2026-06-15 - Terminated Folded Dipole Drift
 **Learning:** The Terminated Folded Dipole (TFD) termination topology was incorrectly described in `docs/antenna-spec.md` as a horizontal bridge wire, and it was entirely missing from the termination types overview in `docs/antenna-model-spec.md`. It actually uses a vertical bridge wire spanning the aperture between the top and bottom conductors.
 **Action:** Updated the specifications to accurately describe the TFD topology and its vertical termination bridge to match the implementation in `src/physics/constants.ts` and `src/store/antennaGeometry.ts`.
+
+## 2026-06-16 - Terminated Folded Dipole Bridge Orientation Drift
+**Learning:** The `docs/antenna-spec.md` and `docs/antenna-model-spec.md` incorrectly stated that the terminated folded dipole's termination resistor sits on a *vertical* bridge wire spanning the aperture between the center of the top (un-fed) conductor and the center of the bottom (fed) conductor. In reality, the codebase (`src/store/antennaGeometry.ts` and `src/store/antennaStore.ts`) constructs this as a short *horizontal* bridge wire spanning the gap specifically between the two inner ends of the split top (un-fed) conductor, exactly mirroring the terminated delta topology.
+**Action:** Updated both specification files to correctly document the termination as a single resistor on a short horizontal bridge wire spanning the gap at the center of the top conductor.
