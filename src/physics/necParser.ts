@@ -242,7 +242,7 @@ export function parseNecOutput(
     notices.push('Radiation pattern block not found in NEC output.');
   }
   // Look for NEC-2 warning banners.
-  const warnMatch = text.match(/\*\*\*\*\*.*?WARNING.*?\*\*\*\*\*/g);
+  const warnMatch = text.match(/\*\*\*\*\*[^*\r\n]*WARNING[^*\r\n]*\*\*\*\*\*/g);
   if (warnMatch) notices.push(...warnMatch.map((s) => s.trim()));
 
   return {
