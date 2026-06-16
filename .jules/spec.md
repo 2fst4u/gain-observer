@@ -24,3 +24,6 @@
 ## 2024-06-09 - Added GeometryControl.test.tsx coverage test
 **Learning:** Adding a single focused UI unit test might sometimes slightly decrease global percentage coverage metrics due to the test file's own code expanding the denominator, if the logic it tests was already partially hit elsewhere.
 **Action:** Wrote test for setVAngle and adjusted thresholds to lock in progress.
+## 2024-06-16 - Add Tests for buildVerticalWhipWires
+**Learning:** In `src/store/antennaGeometry.ts`, the `buildVerticalWhipWires` function enforces a minimum whip length of 0.1m and a minimum base gap (`baseZ`) of `VERTICAL_WHIP_BASE_GAP_M` (0.01m). When `counterpoise` is true, it generates `VERTICAL_WHIP_RADIAL_COUNT` radials with a length of `λ * 0.25 * 0.95`.
+**Action:** Added targeted unit tests in `tests/antennaGeometry.test.ts` for this function ensuring that length bounds, gap enforcement, counterpoise radials, and segment generation are correctly validated.
