@@ -593,7 +593,8 @@ function qualityRank(quality: LinkQuality): number {
 
 function selectBestAzimuthalRay(azimuthal: NonNullable<PropagationPrediction['azimuthalHops']>): RayPrediction {
   let best = azimuthal[0]!;
-  for (const ray of azimuthal.slice(1)) {
+  for (let i = 1; i < azimuthal.length; i++) {
+    const ray = azimuthal[i]!;
     const candidate: RayPrediction = {
       takeoffElevationDeg: ray.takeoffElevationDeg,
       rangeKm: ray.rangeKm[0] ?? 0,
