@@ -34,3 +34,7 @@
 ## 2024-05-19 - Removed unused OrientationPreset import and re-export in antennaStore.ts
 **Learning:** Found that `type OrientationPreset` was imported in `src/store/antennaStore.ts` just to be re-exported, causing an unused import warning by standard code health checks since it isn't used internally.
 **Action:** Removed the import and re-export of `OrientationPreset` in `src/store/antennaStore.ts` and updated the `GeometryControl.tsx` component to import it directly from `../../store/antennaGeometry` where it is defined, improving clarity and maintainability.
+
+## 2025-02-13 - [Safely Resolving False Positive Unused Type Imports]
+**Learning:** A static analysis tool incorrectly flagged a valid type import (`AntennaState` in `src/hooks/usePhysicsEngine.ts`) as unused, when it was actually being used as a type annotation for a local function parameter. While it is a false positive, leaving it unresolved is messy. Simply dropping the type annotation or using an inline type `ReturnType<>` hurts readability. The safest way to cleanly remove the dependency on the imported type while preserving strict type safety is applying the Interface Segregation Principle: defining a localized interface (`TransformerState`) that models only the properties actually needed by the function.
+**Action:** Resolved the static analysis warning by removing the `AntennaState` import and defining a local `TransformerState` interface to type the function parameter, verifying safety with `tsc --noEmit` and tests.
