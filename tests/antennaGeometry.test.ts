@@ -1,10 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { gradedSegmentPlan, orientationVector, buildInvertedLWires } from '../src/store/antennaGeometry';
+import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildDeltaLoopWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
 import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
-  VERTICAL_WHIP_RADIAL_COUNT
+  VERTICAL_WHIP_RADIAL_COUNT,
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
+  DELTA_BASE_TAG,
+  FEED_BRIDGE_TAG,
+  FEEDLINE_SHIELD_TAG
 } from '../src/physics/constants';
 
 describe('gradedSegmentPlan', () => {
@@ -149,5 +154,124 @@ describe('buildInvertedLWires', () => {
     const horizontal = wires.find(w => w.tag === INVERTED_L_HORIZONTAL_TAG);
     expect(horizontal).toBeDefined();
     expect(horizontal!.segments).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('buildDeltaLoopWires', () => {
+  const baseParams = {
+    length: 21, // perimeter ~ 1 wavelength at 14.15 MHz
+    height: 10,
+    frequency: 14.15,
+    segments: 51,
+    wireRadius: 0.001,
+    orientation: 'NS' as const,
+    feedlineShield: null,
+  };
+
+  it('creates three wires for a basic un-fed delta loop', () => {
+    const wires = buildDeltaLoopWires(baseParams);
+    expect(wires).toHaveLength(3);
+
+    const leftLeg = wires.find(w => w.tag === LEFT_LEG_TAG);
+    const rightLeg = wires.find(w => w.tag === RIGHT_LEG_TAG);
+    const baseWire = wires.find(w => w.tag === DELTA_BASE_TAG);
+
+    expect(leftLeg).toBeDefined();
+    expect(rightLeg).toBeDefined();
+    expect(baseWire).toBeDefined();
+  });
+
+  it('creates five wires when a feedline shield is present', () => {
+    const params = {
+      ...baseParams,
+      feedlineShield: {
+        bottomZ: 0,
+        radius: 0.005,
+        segments: 10,
+      },
+    };
+    const wires = buildDeltaLoopWires(params);
+    expect(wires).toHaveLength(5);
+
+    const feedBridge = wires.find(w => w.tag === FEED_BRIDGE_TAG);
+    const feedlineShield = wires.find(w => w.tag === FEEDLINE_SHIELD_TAG);
+
+    expect(feedBridge).toBeDefined();
+    expect(feedlineShield).toBeDefined();
+  });
+
+  it('clamps feedline shield bottom Z to prevent crossing the base wire', () => {
+    const params = {
+      ...baseParams,
+      feedlineShield: {
+        bottomZ: -10, // Far below the base wire
+        radius: 0.005,
+        segments: 10,
+      },
+    };
+    const wires = buildDeltaLoopWires(params);
+    const feedlineShield = wires.find(w => w.tag === FEEDLINE_SHIELD_TAG);
+
+    // Height is 10, triangle height is roughly ~6, so bottomZ is roughly ~4
+    // The shield end Z should be clamped to bottomZ.
+    expect(feedlineShield!.end[2]).toBeGreaterThan(0);
+  });
+  it('calculates segment counts based on geometry and safe bounds', () => {
+    const params = {
+      ...baseParams,
+      frequency: 28.3, // Higher frequency -> shorter wavelength -> more min segments
+      segments: 51,
+    };
+    const wires = buildDeltaLoopWires(params);
+
+    const leftLeg = wires.find(w => w.tag === LEFT_LEG_TAG);
+    const baseWire = wires.find(w => w.tag === DELTA_BASE_TAG);
+
+    // It should have reasonable segment counts that are > 0
+    expect(leftLeg!.segments).toBeGreaterThan(0);
+    expect(baseWire!.segments).toBeGreaterThan(0);
+    // Base segments should be odd
+    expect(baseWire!.segments % 2).toBe(1);
+  });
+it('caps segments per leg to max and ensures minimum', () => {
+    // Force a very high segments value to test MAX_SEGS_PER_LEG
+    const paramsMax = {
+      ...baseParams,
+      frequency: 28.3,
+      segments: 5000,
+    };
+    const wiresMax = buildDeltaLoopWires(paramsMax);
+    const leftLegMax = wiresMax.find(w => w.tag === LEFT_LEG_TAG);
+    const baseWireMax = wiresMax.find(w => w.tag === DELTA_BASE_TAG);
+
+    // MAX_SEGS_PER_LEG is 100, but base segments rounds up to odd, so could be 101
+    expect(leftLegMax!.segments).toBeLessThanOrEqual(MAX_SEGS_PER_LEG + 1);
+    expect(baseWireMax!.segments).toBeLessThanOrEqual(MAX_SEGS_PER_LEG + 1);
+
+    // Force a very low segments value to test MIN_SEGS_PER_LEG
+    const paramsMin = {
+      ...baseParams,
+      frequency: 1.8,
+      segments: 1,
+    };
+    const wiresMin = buildDeltaLoopWires(paramsMin);
+    const leftLegMin = wiresMin.find(w => w.tag === LEFT_LEG_TAG);
+    const baseWireMin = wiresMin.find(w => w.tag === DELTA_BASE_TAG);
+
+    expect(leftLegMin!.segments).toBeGreaterThanOrEqual(MIN_SEGS_PER_LEG);
+    expect(baseWireMin!.segments).toBeGreaterThanOrEqual(MIN_SEGS_PER_LEG);
+  });
+
+  it('handles small segments with odd number calculation for base wire', () => {
+    const params = {
+      ...baseParams,
+      frequency: 14.15,
+      segments: 6, // Base segments will be roughly 6 / 3 = 2, so to make it odd it becomes 3
+    };
+    const wires = buildDeltaLoopWires(params);
+    const baseWire = wires.find(w => w.tag === DELTA_BASE_TAG);
+
+    // Check it forces an odd number
+    expect(baseWire!.segments % 2).toBe(1);
   });
 });
