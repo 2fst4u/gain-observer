@@ -38,3 +38,7 @@
 ## 2025-02-13 - [Safely Resolving False Positive Unused Type Imports]
 **Learning:** A static analysis tool incorrectly flagged a valid type import (`AntennaState` in `src/hooks/usePhysicsEngine.ts`) as unused, when it was actually being used as a type annotation for a local function parameter. While it is a false positive, leaving it unresolved is messy. Simply dropping the type annotation or using an inline type `ReturnType<>` hurts readability. The safest way to cleanly remove the dependency on the imported type while preserving strict type safety is applying the Interface Segregation Principle: defining a localized interface (`TransformerState`) that models only the properties actually needed by the function.
 **Action:** Resolved the static analysis warning by removing the `AntennaState` import and defining a local `TransformerState` interface to type the function parameter, verifying safety with `tsc --noEmit` and tests.
+
+## 2024-10-24 - False Positive on AntennaWireProps Import
+**Learning:** The static analysis scanner incorrectly flagged `type AntennaWireProps` in `src/components/Scene/AntennaWire.tsx` as an unused import. Manual inspection verified it was used as the type for the `props` argument in `export function AntennaWire(props: AntennaWireProps)`.
+**Action:** Closed the task without making changes to the codebase, preserving valid code.
