@@ -1,11 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { gradedSegmentPlan, orientationVector, buildInvertedLWires } from '../src/store/antennaGeometry';
+import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildFoldedAntennaWires } from '../src/store/antennaGeometry';
 import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
-  VERTICAL_WHIP_RADIAL_COUNT
+  VERTICAL_WHIP_RADIAL_COUNT,
+  TERMINATED_DELTA_CENTRE_GAP_M
 } from '../src/physics/constants';
+import {
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
+  FEED_BRIDGE_TAG,
+  FOLDED_DIPOLE_OPPOSITE_TAG,
+  FOLDED_DIPOLE_CONNECTOR_TAG
+} from '../src/store/antennaStore';
 
 describe('gradedSegmentPlan', () => {
   it('returns empty plan for zero or negative length', () => {
@@ -149,5 +157,87 @@ describe('buildInvertedLWires', () => {
     const horizontal = wires.find(w => w.tag === INVERTED_L_HORIZONTAL_TAG);
     expect(horizontal).toBeDefined();
     expect(horizontal!.segments).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('buildFoldedAntennaWires', () => {
+  const baseParams = {
+    length: 20,
+    height: 10,
+    aperture: 0.5,
+    orientation: 'NS' as const,
+    wireRadius: 0.001,
+    segments: 21,
+    frequency: 14.15,
+  };
+
+  it('creates continuous top conductor without gap for unterminated antenna', () => {
+    const params = { ...baseParams, terminatingResistor: 0 };
+    const wires = buildFoldedAntennaWires(params);
+
+    expect(wires).toHaveLength(7);
+
+    const leftOpp = wires[3];
+    const rightOpp = wires[4];
+
+    expect(leftOpp.tag).toBe(FOLDED_DIPOLE_OPPOSITE_TAG);
+    expect(rightOpp.tag).toBe(FOLDED_DIPOLE_OPPOSITE_TAG);
+
+    // Ensure the top opposite wires meet at the exact center without a gap
+    expect(leftOpp.end[0]).toBeCloseTo(rightOpp.start[0]);
+    expect(leftOpp.end[1]).toBeCloseTo(rightOpp.start[1]);
+    expect(leftOpp.end[2]).toBeCloseTo(rightOpp.start[2]);
+
+    // Top wires should be elevated by aperture (h + aperture = 10.5)
+    expect(leftOpp.end[2]).toBeCloseTo(10.5);
+
+    // And other tags should exist
+    expect(wires.filter(w => w.tag === LEFT_LEG_TAG)).toHaveLength(1);
+    expect(wires.filter(w => w.tag === RIGHT_LEG_TAG)).toHaveLength(1);
+    expect(wires.filter(w => w.tag === FEED_BRIDGE_TAG)).toHaveLength(1);
+    expect(wires.filter(w => w.tag === FOLDED_DIPOLE_CONNECTOR_TAG)).toHaveLength(2);
+  });
+
+  it('creates gap in top conductor for terminated antenna', () => {
+    const params = { ...baseParams, terminatingResistor: 800 };
+    const wires = buildFoldedAntennaWires(params);
+
+    expect(wires).toHaveLength(7);
+
+    const leftOpp = wires[3];
+    const rightOpp = wires[4];
+
+    expect(leftOpp.tag).toBe(FOLDED_DIPOLE_OPPOSITE_TAG);
+    expect(rightOpp.tag).toBe(FOLDED_DIPOLE_OPPOSITE_TAG);
+
+    // Calculate distance between the inner ends of the top conductors
+    const dx = leftOpp.end[0] - rightOpp.start[0];
+    const dy = leftOpp.end[1] - rightOpp.start[1];
+    const dz = leftOpp.end[2] - rightOpp.start[2];
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    // The gap should equal TERMINATED_DELTA_CENTRE_GAP_M
+    expect(distance).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M);
+  });
+
+  it('respects orientation by rotating the antenna along the correct axis', () => {
+    // NS orientation extends along Y axis
+    const nsParams = { ...baseParams, orientation: 'NS' as const };
+    const nsWires = buildFoldedAntennaWires(nsParams);
+
+    // EW orientation extends along X axis
+    const ewParams = { ...baseParams, orientation: 'EW' as const };
+    const ewWires = buildFoldedAntennaWires(ewParams);
+
+    const nsLeftFed = nsWires[0];
+    const ewLeftFed = ewWires[0];
+
+    // For NS, the start of the left fed conductor should have a large negative Y and zero X
+    expect(Math.abs(nsLeftFed.start[1])).toBeGreaterThan(0);
+    expect(nsLeftFed.start[0]).toBeCloseTo(0);
+
+    // For EW, the start of the left fed conductor should have a large negative X and zero Y
+    expect(Math.abs(ewLeftFed.start[0])).toBeGreaterThan(0);
+    expect(ewLeftFed.start[1]).toBeCloseTo(0);
   });
 });
