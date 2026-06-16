@@ -24,3 +24,12 @@
 ## 2024-06-09 - Added GeometryControl.test.tsx coverage test
 **Learning:** Adding a single focused UI unit test might sometimes slightly decrease global percentage coverage metrics due to the test file's own code expanding the denominator, if the logic it tests was already partially hit elsewhere.
 **Action:** Wrote test for setVAngle and adjusted thresholds to lock in progress.
+## 2024-06-16 - Add missing tests for cleanZero in math.ts
+**Learning:** Adding tests for small, seemingly trivial pure functions like `cleanZero` improves code health and serves as a strict regression safety net. Object.is is needed to effectively check for strict -0 vs 0 conversions.
+**Action:** Created `tests/math.test.ts` to test `cleanZero`, specifically validating its correct handling of `-0` to `0` conversion using `Object.is`.
+## 2024-06-16 - Add Tests for buildVerticalWhipWires
+**Learning:** In `src/store/antennaGeometry.ts`, the `buildVerticalWhipWires` function enforces a minimum whip length of 0.1m and a minimum base gap (`baseZ`) of `VERTICAL_WHIP_BASE_GAP_M` (0.01m). When `counterpoise` is true, it generates `VERTICAL_WHIP_RADIAL_COUNT` radials with a length of `λ * 0.25 * 0.95`.
+**Action:** Added targeted unit tests in `tests/antennaGeometry.test.ts` for this function ensuring that length bounds, gap enforcement, counterpoise radials, and segment generation are correctly validated.
+## 2024-06-16 - Broaden Panel control test coverage
+**Learning:** The weakest-covered units were the `src/components/Panel` controls — `GeometryControl`, `FeedlineControl`, and `GroundControl` — whose interactive branches (number-input focus/blur reconciliation, preset/Off/Z₀/Centre buttons, slider changes, NaN guards, and conditional hints) were largely untested. Controls that share a real Zustand store across tests need explicit `setState` resets (e.g. `antennaType`, `atuEnabled`) in `beforeEach` so state does not leak between cases.
+**Action:** Expanded `tests/GeometryControl.test.tsx`, `tests/FeedlineControl.test.tsx`, and `tests/GroundControl.test.tsx` covering the controlled-input blur reset pattern, preset buttons, slider handlers, and conditional hints; raised the coverage thresholds in `vitest.config.ts` to lock in the gains (Panel statements 81.7%→93.3%; overall functions 72.5%→75.2%).
