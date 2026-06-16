@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeChartData, formatBandwidth } from '../src/components/Charts/swrChartUtils';
+import { computeChartData, computeStats, formatBandwidth } from '../src/components/Charts/swrChartUtils';
 import type { SweepPoint } from '../src/physics/types';
 import type { ComparisonSnapshot } from '../src/store/antennaStore';
 
@@ -136,5 +136,73 @@ describe('formatBandwidth', () => {
     expect(formatBandwidth(1.555)).toBe('1.55 MHz');
     expect(formatBandwidth(1.556)).toBe('1.56 MHz');
     expect(formatBandwidth(10)).toBe('10.00 MHz');
+  });
+});
+
+describe('computeStats', () => {
+  it('returns null when sweep array is empty', () => {
+    const result = computeStats({ sweep: [] });
+    expect(result).toBeNull();
+  });
+
+  it('evaluates minSWR, minFreq, and bands with inactive transformer', () => {
+    const sweep: SweepPoint[] = [
+      { frequencyMHz: 7.0, R: 50, X: 0, swr: 1.5 },
+      { frequencyMHz: 7.1, R: 50, X: 0, swr: 1.1 }, // minSWR
+      { frequencyMHz: 7.2, R: 50, X: 0, swr: 2.1 },
+    ];
+    const result = computeStats({ sweep });
+
+    expect(result).not.toBeNull();
+    expect(result?.minSWR).toBe(1.1);
+    expect(result?.minFreq).toBe(7.1);
+
+    expect(result?.bands).toHaveLength(1);
+    const band = result!.bands[0];
+    expect(band.fLow).toBe(7.0);
+    expect(band.lowClipped).toBe(true);
+    expect(band.fHigh).toBeCloseTo(7.19, 3);
+    expect(band.highClipped).toBe(false);
+  });
+
+  it('evaluates minSWR, minFreq, and bands with active transformer', () => {
+    // With a 4:1 transformer, impedance gets divided by 4 before SWR is calculated.
+    // 50 Ohm vs 50 Ohm -> SWR 1.0 (Raw SWR)
+    // Post balun: 12.5 Ohm vs 50 Ohm -> SWR 4.0
+    //
+    // 200 Ohm vs 50 Ohm -> SWR 4.0 (Raw SWR)
+    // Post balun: 50 Ohm vs 50 Ohm -> SWR 1.0
+    //
+    // Let's create a sweep with a high raw SWR but good post-balun SWR.
+    const sweep: SweepPoint[] = [
+      { frequencyMHz: 7.0, R: 250, X: 0, swr: 5.0 }, // Post balun (250/4) = 62.5 -> SWR 1.25
+      { frequencyMHz: 7.1, R: 200, X: 0, swr: 4.0 }, // Post balun (200/4) = 50.0 -> SWR 1.0 (minSWR)
+      { frequencyMHz: 7.2, R: 50, X: 0, swr: 1.0 },  // Post balun (50/4)  = 12.5 -> SWR 4.0
+    ];
+
+    const result = computeStats({
+      sweep,
+      transformerInDisplay: true,
+      transformerRatio: 4,
+    });
+
+    expect(result).not.toBeNull();
+    // It should evaluate based on post-balun SWR, so the minSWR should be 1.0 at 7.1 MHz.
+    expect(result?.minSWR).toBeCloseTo(1.0, 3);
+    expect(result?.minFreq).toBe(7.1);
+
+    // Post balun SWR:
+    // 7.0: 1.25 (<=2)
+    // 7.1: 1.0 (<=2)
+    // 7.2: 4.0 (>2)
+    // Crossing 2.0 between 7.1 and 7.2.
+    // t = (2 - 1.0) / (4.0 - 1.0) = 1.0 / 3.0 = 0.333...
+    // fHigh = 7.1 + 0.333... * 0.1 = 7.1333...
+    expect(result?.bands).toHaveLength(1);
+    const band = result!.bands[0];
+    expect(band.fLow).toBe(7.0);
+    expect(band.lowClipped).toBe(true);
+    expect(band.fHigh).toBeCloseTo(7.133, 3);
+    expect(band.highClipped).toBe(false);
   });
 });
