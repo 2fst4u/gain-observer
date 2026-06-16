@@ -27,3 +27,7 @@
 ## 2024-06-25 - False Positive on AntennaType Import
 **Learning:** The static analysis scanner incorrectly flagged `type AntennaType` in `src/components/Panel/GeometryControl.tsx` as an unused import. However, manual inspection verified it was used as a type parameter in definitions like `Record<AntennaType, string>`. Removing valid, in-use imports causes build failures and is an anti-pattern.
 **Action:** Closed the task without making changes to the codebase, strictly adhering to the Code Health Refactoring Pattern which dictates preserving valid code when confronted with false positives.
+
+## 2024-05-19 - Removed unused OrientationPreset import and re-export in antennaStore.ts
+**Learning:** Found that `type OrientationPreset` was imported in `src/store/antennaStore.ts` just to be re-exported, causing an unused import warning by standard code health checks since it isn't used internally.
+**Action:** Removed the import and re-export of `OrientationPreset` in `src/store/antennaStore.ts` and updated the `GeometryControl.tsx` component to import it directly from `../../store/antennaGeometry` where it is defined, improving clarity and maintainability.

@@ -86,13 +86,12 @@ import {
   buildInvertedLWires,
   buildFoldedAntennaWires,
   orientationVector,
-  type OrientationPreset,
   type Orientation,
 } from './antennaGeometry';
 
 // Re-export shared types for UI and geometry.
 export type { AntennaType };
-export type { OrientationPreset, Orientation };
+export type { Orientation };
 
 const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta', 'folded-dipole']);
 
