@@ -3,6 +3,12 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { GeometryControl } from '../src/components/Panel/GeometryControl';
 import { useAntennaStore } from '../src/store/antennaStore';
 
+function mockStore(state: MockState) {
+  vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) =>
+    selector(state),
+  );
+}
+
 // Mock the store
 vi.mock('../src/store/antennaStore', async () => {
   const actual = await vi.importActual('../src/store/antennaStore');
@@ -221,5 +227,167 @@ describe('GeometryControl', () => {
     fireEvent.change(orientInput, { target: { value: '45' } });
 
     expect(setOrientation).toHaveBeenCalledWith(45);
+  });
+
+  it('updates length and resets the local value on blur', () => {
+    const setLength = vi.fn();
+    mockStore(buildMockState({ length: 20, setLength }));
+
+    render(<GeometryControl />);
+
+    const lengthInput = document.getElementById('dipole-length') as HTMLInputElement;
+    fireEvent.focus(lengthInput);
+    fireEvent.change(lengthInput, { target: { value: '33.5' } });
+    expect(setLength).toHaveBeenCalledWith(33.5);
+
+    // Editing should keep the typed value while focused...
+    expect(lengthInput.value).toBe('33.5');
+
+    // ...and snap back to the canonical store value (20.00) on blur.
+    fireEvent.blur(lengthInput);
+    expect(lengthInput.value).toBe('20.00');
+  });
+
+  it('ignores non-numeric length input', () => {
+    const setLength = vi.fn();
+    mockStore(buildMockState({ setLength }));
+
+    render(<GeometryControl />);
+
+    const lengthInput = document.getElementById('dipole-length') as HTMLInputElement;
+    fireEvent.change(lengthInput, { target: { value: 'abc' } });
+
+    expect(setLength).not.toHaveBeenCalled();
+  });
+
+  it('resonates the antenna to ½λ when the resonate button is clicked', () => {
+    const setHalfWaveLength = vi.fn();
+    mockStore(buildMockState({ antennaType: 'dipole', setHalfWaveLength }));
+
+    render(<GeometryControl />);
+
+    const resonate = screen.getByRole('button', { name: /Resonate antenna length/i });
+    fireEvent.click(resonate);
+
+    expect(setHalfWaveLength).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies the 1.25λ Extended Double Zepp preset for a dipole', () => {
+    const setLength = vi.fn();
+    mockStore(buildMockState({ antennaType: 'dipole', frequency: 7.1, setLength }));
+
+    render(<GeometryControl />);
+
+    const zepp = screen.getByRole('button', { name: /Extended Double Zepp/i });
+    fireEvent.click(zepp);
+
+    // lambda = 299.792458 / 7.1 ≈ 42.22 m, ×1.25 ≈ 52.78 m
+    expect(setLength).toHaveBeenCalledWith(expect.closeTo(52.78, 1));
+  });
+
+  it('sets the leg-length multiple for a sloping-v', () => {
+    const setLegLengthMultiple = vi.fn();
+    mockStore(buildMockState({ antennaType: 'sloping-v', setLegLengthMultiple }));
+
+    render(<GeometryControl />);
+
+    const threeLambda = screen.getByRole('button', { name: '3λ' });
+    fireEvent.click(threeLambda);
+
+    expect(setLegLengthMultiple).toHaveBeenCalledWith(3);
+  });
+
+  it('updates height when the slider changes', () => {
+    const setHeight = vi.fn();
+    mockStore(buildMockState({ setHeight }));
+
+    render(<GeometryControl />);
+
+    const heightSlider = screen.getByRole('slider', { name: 'Height above ground' });
+    fireEvent.change(heightSlider, { target: { value: '15' } });
+
+    expect(setHeight).toHaveBeenCalledWith(15);
+  });
+
+  it('sets the terminating resistor to Z₀ for a folded dipole', () => {
+    const setTerminatingResistor = vi.fn();
+    mockStore(buildMockState({
+      antennaType: 'folded-dipole',
+      foldedDipoleAperture: 0.1,
+      wireRadius: 0.001,
+      terminatingResistor: 0,
+      setTerminatingResistor,
+    }));
+
+    render(<GeometryControl />);
+
+    const z0Button = screen.getByRole('button', { name: /Set terminating resistor to Z₀/i });
+    fireEvent.click(z0Button);
+
+    expect(setTerminatingResistor).toHaveBeenCalledTimes(1);
+    // Z₀ = round(120 · acosh(0.1 / 0.002)) ≈ 552 Ω — well above zero.
+    expect(setTerminatingResistor.mock.calls[0][0]).toBeGreaterThan(100);
+  });
+
+  it('turns the termination off and resets the resistor field on blur', () => {
+    const setTerminatingResistor = vi.fn();
+    mockStore(buildMockState({
+      antennaType: 'terminated-delta',
+      terminatingResistor: 600,
+      setTerminatingResistor,
+    }));
+
+    render(<GeometryControl />);
+
+    const offButton = screen.getByRole('button', { name: /Turn off termination resistor/i });
+    fireEvent.click(offButton);
+    expect(setTerminatingResistor).toHaveBeenCalledWith(0);
+
+    const resistorInput = document.getElementById('terminating-resistor') as HTMLInputElement;
+    fireEvent.focus(resistorInput);
+    fireEvent.change(resistorInput, { target: { value: '450' } });
+    expect(setTerminatingResistor).toHaveBeenCalledWith(450);
+
+    fireEvent.blur(resistorInput);
+    expect(resistorInput.value).toBe('600');
+  });
+
+  it('renders the counterpoise-enabled hint for a vertical whip', () => {
+    mockStore(buildMockState({ antennaType: 'vertical-whip', whipCounterpoise: true }));
+
+    render(<GeometryControl />);
+
+    const checkbox = screen.getByRole('checkbox', { name: /Add ¼λ counterpoise radials/i }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    expect(screen.getByText(/canonical ground-plane vertical/i)).toBeTruthy();
+  });
+
+  it('selects an inverted-l horizontal direction preset', () => {
+    const setOrientation = vi.fn();
+    mockStore(buildMockState({ antennaType: 'inverted-l', setOrientation }));
+
+    render(<GeometryControl />);
+
+    const group = screen.getByRole('group', { name: /Horizontal section direction presets/i });
+    const ewButton = screen.getByRole('button', { name: 'EW' });
+    expect(group.contains(ewButton)).toBe(true);
+    fireEvent.click(ewButton);
+
+    expect(setOrientation).toHaveBeenCalledWith('EW');
+  });
+
+  it('reconciles the length field when the store value changes while unfocused', () => {
+    mockStore(buildMockState({ length: 20 }));
+
+    const { rerender } = render(<GeometryControl />);
+    const lengthInput = document.getElementById('dipole-length') as HTMLInputElement;
+    expect(lengthInput.value).toBe('20.00');
+
+    // External store update (e.g. a resonate click elsewhere) should flow into
+    // the controlled input because the field is not focused.
+    mockStore(buildMockState({ length: 42 }));
+    rerender(<GeometryControl />);
+
+    expect(lengthInput.value).toBe('42.00');
   });
 });
