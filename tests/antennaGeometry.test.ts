@@ -1,19 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildFoldedAntennaWires } from '../src/store/antennaGeometry';
+import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires } from '../src/store/antennaGeometry';
 import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
   VERTICAL_WHIP_RADIAL_COUNT,
-  TERMINATED_DELTA_CENTRE_GAP_M
-} from '../src/physics/constants';
-import {
+  VERTICAL_WHIP_TAG,
+  VERTICAL_WHIP_RADIAL_TAG,
   LEFT_LEG_TAG,
   RIGHT_LEG_TAG,
+  TERMINATED_DELTA_LEFT_BASE_TAG,
+  TERMINATED_DELTA_RIGHT_BASE_TAG,
   FEED_BRIDGE_TAG,
+  FEEDLINE_SHIELD_TAG,
+  TERMINATED_DELTA_CENTRE_GAP_M,
   FOLDED_DIPOLE_OPPOSITE_TAG,
   FOLDED_DIPOLE_CONNECTOR_TAG
-} from '../src/store/antennaStore';
+} from '../src/physics/constants';
 
 describe('gradedSegmentPlan', () => {
   it('returns empty plan for zero or negative length', () => {
@@ -53,6 +56,93 @@ describe('gradedSegmentPlan', () => {
     expect(plan.prefixLens).toEqual([]);
     expect(plan.tailCount).toBe(1000000000);
     expect(plan.tailLen).toBeCloseTo(1e-9);
+  });
+});
+
+describe('buildTerminatedDeltaWires', () => {
+  const baseParams = {
+    length: 42,
+    height: 15,
+    frequency: 7.1,
+    segments: 51,
+    wireRadius: 0.001,
+    orientation: 'NS' as const,
+  };
+
+  it('creates 4 primary wires for an unterminated/no-feedline delta', () => {
+    const wires = buildTerminatedDeltaWires(baseParams);
+    expect(wires).toHaveLength(4);
+
+    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG);
+    const rightLeg = wires.find((w) => w.tag === RIGHT_LEG_TAG);
+    const leftBase = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
+    const rightBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG);
+
+    expect(leftLeg).toBeDefined();
+    expect(rightLeg).toBeDefined();
+    expect(leftBase).toBeDefined();
+    expect(rightBase).toBeDefined();
+
+    // Verify connectivity: legs meet at apex
+    expect(leftLeg!.end[0]).toBeCloseTo(rightLeg!.start[0]);
+    expect(leftLeg!.end[1]).toBeCloseTo(rightLeg!.start[1]);
+    expect(leftLeg!.end[2]).toBeCloseTo(rightLeg!.start[2]);
+    expect(leftLeg!.end[2]).toBeCloseTo(baseParams.height);
+  });
+
+  it('maintains the specified central gap between the two half-base wires', () => {
+    const wires = buildTerminatedDeltaWires(baseParams);
+
+    const leftBase = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
+    const rightBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG);
+
+    expect(leftBase).toBeDefined();
+    expect(rightBase).toBeDefined();
+
+    // Calculate the distance between the inner ends of the half-base wires
+    const gap = Math.hypot(
+      rightBase!.start[0] - leftBase!.end[0],
+      rightBase!.start[1] - leftBase!.end[1],
+      rightBase!.start[2] - leftBase!.end[2]
+    );
+
+    expect(gap).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
+  });
+
+  it('creates 6 wires including feed bridge and shield wires when feedlineShield is provided', () => {
+    const paramsWithFeedline = {
+      ...baseParams,
+      feedlineShield: {
+        radius: 0.005,
+        bottomZ: 0,
+        segments: 10,
+      },
+    };
+
+    const wires = buildTerminatedDeltaWires(paramsWithFeedline);
+    expect(wires).toHaveLength(6);
+
+    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
+    const shield = wires.find((w) => w.tag === FEEDLINE_SHIELD_TAG);
+
+    expect(bridge).toBeDefined();
+    expect(shield).toBeDefined();
+
+    // Verify bridge spans the apex
+    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG);
+    const rightLeg = wires.find((w) => w.tag === RIGHT_LEG_TAG);
+
+    expect(leftLeg!.end[0]).toBeCloseTo(bridge!.start[0]);
+    expect(rightLeg!.start[0]).toBeCloseTo(bridge!.end[0]);
+
+    // Verify shield connects to right side of the bridge and goes down
+    expect(shield!.start[0]).toBeCloseTo(bridge!.end[0]);
+    expect(shield!.start[2]).toBeCloseTo(baseParams.height);
+    // The shield's bottomZ is clamped to the antenna's bottomZ to prevent crossing the base plane
+    const leftBase = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
+    const bottomZ = leftBase!.start[2];
+    const expectedShieldEndZ = Math.max(paramsWithFeedline.feedlineShield.bottomZ, bottomZ);
+    expect(shield!.end[2]).toBeCloseTo(expectedShieldEndZ);
   });
 });
 
@@ -239,5 +329,75 @@ describe('buildFoldedAntennaWires', () => {
     // For EW, the start of the left fed conductor should have a large negative X and zero Y
     expect(Math.abs(ewLeftFed.start[0])).toBeGreaterThan(0);
     expect(ewLeftFed.start[1]).toBeCloseTo(0);
+  });
+});
+
+describe('buildVerticalWhipWires', () => {
+  const baseParams = {
+    length: 10,
+    height: 0,
+    frequency: 14.15,
+    segments: 51,
+    wireRadius: 0.001,
+    counterpoise: false,
+  };
+
+  it('creates a single vertical wire with the correct tag', () => {
+    const wires = buildVerticalWhipWires(baseParams);
+    expect(wires).toHaveLength(1);
+
+    const vertical = wires[0];
+    expect(vertical.tag).toBe(VERTICAL_WHIP_TAG);
+    expect(vertical.start).toEqual([0, 0, 0.01]); // VERTICAL_WHIP_BASE_GAP_M is 0.01
+    expect(vertical.end).toEqual([0, 0, 10.01]); // 0.01 + 10
+  });
+
+  it('respects minimum length and height gap bounds', () => {
+    const smallParams = {
+      ...baseParams,
+      length: 0.05, // Should be max(0.1, length) = 0.1
+      height: 0.005, // Should be max(0.01, height) = 0.01
+    };
+    const wires = buildVerticalWhipWires(smallParams);
+    expect(wires).toHaveLength(1);
+
+    const vertical = wires[0];
+    expect(vertical.start).toEqual([0, 0, 0.01]);
+    expect(vertical.end[2]).toBeCloseTo(0.11); // 0.01 + 0.1
+  });
+
+  it('adds radials when counterpoise is true', () => {
+    const params = { ...baseParams, counterpoise: true };
+    const wires = buildVerticalWhipWires(params);
+
+    // 1 vertical wire + 4 radials
+    expect(wires).toHaveLength(1 + VERTICAL_WHIP_RADIAL_COUNT);
+
+    const radials = wires.filter(w => w.tag === VERTICAL_WHIP_RADIAL_TAG);
+    expect(radials).toHaveLength(VERTICAL_WHIP_RADIAL_COUNT);
+
+    // Radials should start at the baseZ
+    radials.forEach(radial => {
+      expect(radial.start).toEqual([0, 0, 0.01]);
+      expect(radial.end[2]).toBe(0.01);
+    });
+  });
+
+  it('calculates segment lengths based on frequency lambda bounds', () => {
+    const params = {
+      ...baseParams,
+      length: 20, // Long whip
+      segments: 5, // Request very few segments
+    };
+
+    // lambda ~ 21.2m
+    // minSegs = ceil((21 * 20) / 21.2) ~ 20.
+    // segments = min(200, max(1, 20, 5)) -> 20.
+
+    const wires = buildVerticalWhipWires(params);
+    expect(wires).toHaveLength(1);
+
+    const vertical = wires[0];
+    expect(vertical.segments).toBeGreaterThan(5); // Forced up by minSegs
   });
 });
