@@ -8,11 +8,10 @@ import {
   LineElement,
   Filler,
   Tooltip,
-  type ChartOptions,
 } from 'chart.js';
 import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useMemo } from 'react';
+import { useMemo, type ComponentProps } from 'react';
 import { displayedFeedMetrics } from '../../physics/impedance';
 import type { GainPattern } from '../../physics/types';
 
@@ -185,7 +184,7 @@ export function PolarPlots() {
   const chartText = theme === 'dark' ? getCssVar('--chart-text') || '#c6cdd6' : getCssVar('--chart-text') || '#3a4250';
   const chartGrid = theme === 'dark' ? getCssVar('--chart-grid') || 'rgba(255, 255, 255, 0.08)' : getCssVar('--chart-grid') || 'rgba(0, 0, 0, 0.08)';
 
-  const options = useMemo<ChartOptions<'radar'>>(() => ({
+  const options = useMemo<ComponentProps<typeof Radar>['options']>(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false }, tooltip: { enabled: true } },
