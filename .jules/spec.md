@@ -27,3 +27,6 @@
 ## 2024-06-16 - Add missing tests for cleanZero in math.ts
 **Learning:** Adding tests for small, seemingly trivial pure functions like `cleanZero` improves code health and serves as a strict regression safety net. Object.is is needed to effectively check for strict -0 vs 0 conversions.
 **Action:** Created `tests/math.test.ts` to test `cleanZero`, specifically validating its correct handling of `-0` to `0` conversion using `Object.is`.
+## 2024-06-16 - Add Tests for buildVerticalWhipWires
+**Learning:** In `src/store/antennaGeometry.ts`, the `buildVerticalWhipWires` function enforces a minimum whip length of 0.1m and a minimum base gap (`baseZ`) of `VERTICAL_WHIP_BASE_GAP_M` (0.01m). When `counterpoise` is true, it generates `VERTICAL_WHIP_RADIAL_COUNT` radials with a length of `λ * 0.25 * 0.95`.
+**Action:** Added targeted unit tests in `tests/antennaGeometry.test.ts` for this function ensuring that length bounds, gap enforcement, counterpoise radials, and segment generation are correctly validated.
