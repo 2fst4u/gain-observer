@@ -152,7 +152,8 @@ export function PropagationRadar({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+    /* SEO: Upgrading generic <div> to a semantic <figure> tag groups the radar plot and its legend logically for crawlers and assistive technologies. margin: 0 prevents visual changes. */
+    <figure style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, margin: 0 }}>
       <svg
         width={size}
         height={size}
@@ -223,14 +224,14 @@ export function PropagationRadar({
         ))}
       </svg>
 
-      {/* Inline legend */}
-      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-muted)' }}>
+      {/* SEO: Using <figcaption> instead of a generic <div> clearly associates this legend with the preceding <svg> graphic. */}
+      <figcaption style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-muted)' }}>
         <LegendSwatch color="var(--success)" label="Open" />
         <LegendSwatch color="var(--warning)" label="Marginal" />
         <LegendSwatch color="var(--danger)" label="Closed" />
         <span>Faint/dashed = weak signal</span>
-      </div>
-    </div>
+      </figcaption>
+    </figure>
   );
 }
 
