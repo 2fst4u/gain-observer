@@ -24,3 +24,6 @@
 ## 2024-05-18 - [False Positive on Unused Type Import]
 **Learning:** A static analysis tool incorrectly flagged a valid type import (`ComparisonSnapshot` in `src/components/Scene/AntennaScene.tsx`) as unused, when it was actually being used as a type for a property in an interface definition (`interface AntennaSceneProps`).
 **Action:** When investigating reported unused type imports, carefully examine the file to ensure the type isn't used within type signatures or interfaces. If verified as a false positive, do not remove the import, and instead note the false positive in the journal and close the task without making codebase changes.
+## 2024-06-25 - False Positive on AntennaType Import
+**Learning:** The static analysis scanner incorrectly flagged `type AntennaType` in `src/components/Panel/GeometryControl.tsx` as an unused import. However, manual inspection verified it was used as a type parameter in definitions like `Record<AntennaType, string>`. Removing valid, in-use imports causes build failures and is an anti-pattern.
+**Action:** Closed the task without making changes to the codebase, strictly adhering to the Code Health Refactoring Pattern which dictates preserving valid code when confronted with false positives.
