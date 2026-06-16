@@ -7,10 +7,8 @@ import {
   fromDisplayLength,
   displayLengthUnit,
 } from '../../physics/units';
-import {
-  type OrientationPreset,
-  type AntennaType,
-} from '../../store/antennaStore';
+import { type AntennaType } from '../../store/antennaStore';
+import { type OrientationPreset } from '../../store/antennaGeometry';
 import { FOLDED_DIPOLE_MAX_APERTURE_M } from '../../physics/constants';
 import { TransformerControl } from './TransformerControl';
 
