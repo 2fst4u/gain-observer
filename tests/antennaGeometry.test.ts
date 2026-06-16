@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { gradedSegmentPlan, orientationVector, buildInvertedLWires } from '../src/store/antennaGeometry';
+import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildTerminatedDeltaWires } from '../src/store/antennaGeometry';
 import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
   INVERTED_L_RADIAL_TAG,
-  VERTICAL_WHIP_RADIAL_COUNT
+  VERTICAL_WHIP_RADIAL_COUNT,
+  LEFT_LEG_TAG,
+  RIGHT_LEG_TAG,
+  TERMINATED_DELTA_LEFT_BASE_TAG,
+  TERMINATED_DELTA_RIGHT_BASE_TAG,
+  FEED_BRIDGE_TAG,
+  FEEDLINE_SHIELD_TAG,
+  TERMINATED_DELTA_CENTRE_GAP_M
 } from '../src/physics/constants';
 
 describe('gradedSegmentPlan', () => {
@@ -45,6 +52,93 @@ describe('gradedSegmentPlan', () => {
     expect(plan.prefixLens).toEqual([]);
     expect(plan.tailCount).toBe(1000000000);
     expect(plan.tailLen).toBeCloseTo(1e-9);
+  });
+});
+
+describe('buildTerminatedDeltaWires', () => {
+  const baseParams = {
+    length: 42,
+    height: 15,
+    frequency: 7.1,
+    segments: 51,
+    wireRadius: 0.001,
+    orientation: 'NS' as const,
+  };
+
+  it('creates 4 primary wires for an unterminated/no-feedline delta', () => {
+    const wires = buildTerminatedDeltaWires(baseParams);
+    expect(wires).toHaveLength(4);
+
+    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG);
+    const rightLeg = wires.find((w) => w.tag === RIGHT_LEG_TAG);
+    const leftBase = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
+    const rightBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG);
+
+    expect(leftLeg).toBeDefined();
+    expect(rightLeg).toBeDefined();
+    expect(leftBase).toBeDefined();
+    expect(rightBase).toBeDefined();
+
+    // Verify connectivity: legs meet at apex
+    expect(leftLeg!.end[0]).toBeCloseTo(rightLeg!.start[0]);
+    expect(leftLeg!.end[1]).toBeCloseTo(rightLeg!.start[1]);
+    expect(leftLeg!.end[2]).toBeCloseTo(rightLeg!.start[2]);
+    expect(leftLeg!.end[2]).toBeCloseTo(baseParams.height);
+  });
+
+  it('maintains the specified central gap between the two half-base wires', () => {
+    const wires = buildTerminatedDeltaWires(baseParams);
+
+    const leftBase = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
+    const rightBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG);
+
+    expect(leftBase).toBeDefined();
+    expect(rightBase).toBeDefined();
+
+    // Calculate the distance between the inner ends of the half-base wires
+    const gap = Math.hypot(
+      rightBase!.start[0] - leftBase!.end[0],
+      rightBase!.start[1] - leftBase!.end[1],
+      rightBase!.start[2] - leftBase!.end[2]
+    );
+
+    expect(gap).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
+  });
+
+  it('creates 6 wires including feed bridge and shield wires when feedlineShield is provided', () => {
+    const paramsWithFeedline = {
+      ...baseParams,
+      feedlineShield: {
+        radius: 0.005,
+        bottomZ: 0,
+        segments: 10,
+      },
+    };
+
+    const wires = buildTerminatedDeltaWires(paramsWithFeedline);
+    expect(wires).toHaveLength(6);
+
+    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
+    const shield = wires.find((w) => w.tag === FEEDLINE_SHIELD_TAG);
+
+    expect(bridge).toBeDefined();
+    expect(shield).toBeDefined();
+
+    // Verify bridge spans the apex
+    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG);
+    const rightLeg = wires.find((w) => w.tag === RIGHT_LEG_TAG);
+
+    expect(leftLeg!.end[0]).toBeCloseTo(bridge!.start[0]);
+    expect(rightLeg!.start[0]).toBeCloseTo(bridge!.end[0]);
+
+    // Verify shield connects to right side of the bridge and goes down
+    expect(shield!.start[0]).toBeCloseTo(bridge!.end[0]);
+    expect(shield!.start[2]).toBeCloseTo(baseParams.height);
+    // The shield's bottomZ is clamped to the antenna's bottomZ to prevent crossing the base plane
+    const leftBase = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
+    const bottomZ = leftBase!.start[2];
+    const expectedShieldEndZ = Math.max(paramsWithFeedline.feedlineShield.bottomZ, bottomZ);
+    expect(shield!.end[2]).toBeCloseTo(expectedShieldEndZ);
   });
 });
 
