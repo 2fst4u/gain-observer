@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { WorkerRequest, WorkerResponse } from '../workers/physicsWorker';
-import { useAntennaStore, selectSimulationInput, type AntennaState } from '../store/antennaStore';
+import { useAntennaStore, selectSimulationInput } from '../store/antennaStore';
 import type { SimulationResult } from '../physics/types';
 import { detectLODLevel, LOD_TABLE } from './useAdaptiveLOD';
 
@@ -15,13 +15,19 @@ export interface UsePhysicsEngineOptions {
   debounceMs?: number;
 }
 
+interface TransformerState {
+  feedlineId: string;
+  transformerEnabled: boolean;
+  transformerRatio: number;
+}
+
 /**
  * The transformer ratio applied only in the display layer (not baked into the
  * NEC model). Mirrors SWRChart's `transformerInDisplay` rule so the adaptive
  * sweep frames its window around the SWR curve the user actually sees. Returns
  * 1 when the swept R/X already reflect what's displayed.
  */
-function displayTransformerRatio(s: AntennaState): number {
+function displayTransformerRatio(s: TransformerState): number {
   const feedlineActive = s.feedlineId !== 'none';
   const inDisplay = s.transformerEnabled && !feedlineActive && s.transformerRatio > 1;
   return inDisplay ? s.transformerRatio : 1;
