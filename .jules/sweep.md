@@ -27,6 +27,14 @@
 ## 2024-06-25 - False Positive on AntennaType Import
 **Learning:** The static analysis scanner incorrectly flagged `type AntennaType` in `src/components/Panel/GeometryControl.tsx` as an unused import. However, manual inspection verified it was used as a type parameter in definitions like `Record<AntennaType, string>`. Removing valid, in-use imports causes build failures and is an anti-pattern.
 **Action:** Closed the task without making changes to the codebase, strictly adhering to the Code Health Refactoring Pattern which dictates preserving valid code when confronted with false positives.
+## 2024-05-19 - [False Positive on Unused Type Import]
+**Learning:** A static analysis tool incorrectly flagged a valid type import (`SwrBand` in `src/physics/nec2Engine.ts`) as unused, when it was actually being used as a type annotation for function parameters (`bands: readonly SwrBand[]` and `b: SwrBand`). Removing it causes `tsc` build errors.
+**Action:** When investigating reported unused type imports, carefully examine the file to ensure the type isn't used within type signatures or interfaces. If verified as a false positive, do not remove the import, and instead note the false positive in the journal and close the task without making codebase changes.
+
+## 2024-05-19 - Removed unused OrientationPreset import and re-export in antennaStore.ts
+**Learning:** Found that `type OrientationPreset` was imported in `src/store/antennaStore.ts` just to be re-exported, causing an unused import warning by standard code health checks since it isn't used internally.
+**Action:** Removed the import and re-export of `OrientationPreset` in `src/store/antennaStore.ts` and updated the `GeometryControl.tsx` component to import it directly from `../../store/antennaGeometry` where it is defined, improving clarity and maintainability.
+
 ## 2025-02-13 - [Safely Resolving False Positive Unused Type Imports]
 **Learning:** A static analysis tool incorrectly flagged a valid type import (`AntennaState` in `src/hooks/usePhysicsEngine.ts`) as unused, when it was actually being used as a type annotation for a local function parameter. While it is a false positive, leaving it unresolved is messy. Simply dropping the type annotation or using an inline type `ReturnType<>` hurts readability. The safest way to cleanly remove the dependency on the imported type while preserving strict type safety is applying the Interface Segregation Principle: defining a localized interface (`TransformerState`) that models only the properties actually needed by the function.
 **Action:** Resolved the static analysis warning by removing the `AntennaState` import and defining a local `TransformerState` interface to type the function parameter, verifying safety with `tsc --noEmit` and tests.
