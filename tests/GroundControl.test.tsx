@@ -20,6 +20,21 @@ interface MockState {
   setCustomGround: (sigma: number, epsilon: number) => void;
 }
 
+function mockGround(overrides: Partial<MockState> = {}) {
+  const state: MockState = {
+    groundId: 'pastoral',
+    groundSigma: 0.005,
+    groundEpsilon: 13,
+    setGround: vi.fn(),
+    setCustomGround: vi.fn(),
+    ...overrides,
+  };
+  vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) =>
+    selector(state),
+  );
+  return state;
+}
+
 describe('GroundControl', () => {
   beforeEach(() => {
     cleanup();
@@ -95,5 +110,67 @@ describe('GroundControl', () => {
     // After clicking, they should be visible
     expect(screen.getByLabelText('Conductivity σ (S/m)')).toBeDefined();
     expect(screen.getByLabelText('Permittivity εr')).toBeDefined();
+  });
+
+  it('collapses the custom inputs again via the Simple toggle', () => {
+    mockGround({ groundId: 'pastoral' });
+
+    render(<GroundControl />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Custom/i }));
+    expect(screen.getByLabelText('Conductivity σ (S/m)')).toBeDefined();
+
+    // Once expanded the toggle reads "Simple" and hides the inputs again.
+    fireEvent.click(screen.getByRole('button', { name: /Simple/i }));
+    expect(screen.queryByLabelText('Conductivity σ (S/m)')).toBeNull();
+  });
+
+  it('resets the sigma field to the store value on blur', () => {
+    mockGround({ groundId: 'custom', groundSigma: 0.005 });
+
+    render(<GroundControl />);
+
+    const sigmaInput = screen.getByLabelText('Conductivity σ (S/m)') as HTMLInputElement;
+    fireEvent.focus(sigmaInput);
+    fireEvent.change(sigmaInput, { target: { value: '0.02' } });
+    expect(sigmaInput.value).toBe('0.02');
+
+    // The mocked store value stays at 0.005, so blur restores that text.
+    fireEvent.blur(sigmaInput);
+    expect(sigmaInput.value).toBe('0.005');
+  });
+
+  it('resets the epsilon field to the store value on blur', () => {
+    mockGround({ groundId: 'custom', groundEpsilon: 13 });
+
+    render(<GroundControl />);
+
+    const epsilonInput = screen.getByLabelText('Permittivity εr') as HTMLInputElement;
+    fireEvent.focus(epsilonInput);
+    fireEvent.change(epsilonInput, { target: { value: '20' } });
+    expect(epsilonInput.value).toBe('20');
+
+    fireEvent.blur(epsilonInput);
+    expect(epsilonInput.value).toBe('13');
+  });
+
+  it('ignores non-numeric custom ground entries', () => {
+    const setCustomGround = vi.fn();
+    mockGround({ groundId: 'custom', setCustomGround });
+
+    render(<GroundControl />);
+
+    fireEvent.change(screen.getByLabelText('Conductivity σ (S/m)'), { target: { value: 'abc' } });
+    fireEvent.change(screen.getByLabelText('Permittivity εr'), { target: { value: 'xyz' } });
+
+    expect(setCustomGround).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a generic hint for an unknown ground id', () => {
+    mockGround({ groundId: 'custom' });
+
+    render(<GroundControl />);
+
+    expect(screen.getByText('Custom ground parameters.')).toBeDefined();
   });
 });
