@@ -21,3 +21,6 @@
 ## $(date +%Y-%m-%d) - Un-exporting Internal Utilities and Constants
 **Learning:** `knip` correctly flagged `reflectionCoefficientMag`, `INITIAL_HEIGHT`, and `FEED_BRIDGE_LENGTH_M` (re-export) as unused outside their declaring files. When a function or constant is only used internally, it should not be exported, improving module encapsulation.
 **Action:** When cleaning up unused exports, simply remove the `export` keyword if the symbol is used locally. If it was re-exported in a centralized `export { ... }` block but unused outside, remove it from that block while keeping its import intact if it's used within the aggregator file. Always verify with `npm run build` and `npm run test` afterward.
+## 2024-05-18 - [False Positive on Unused Type Import]
+**Learning:** A static analysis tool incorrectly flagged a valid type import (`ComparisonSnapshot` in `src/components/Scene/AntennaScene.tsx`) as unused, when it was actually being used as a type for a property in an interface definition (`interface AntennaSceneProps`).
+**Action:** When investigating reported unused type imports, carefully examine the file to ensure the type isn't used within type signatures or interfaces. If verified as a false positive, do not remove the import, and instead note the false positive in the journal and close the task without making codebase changes.
