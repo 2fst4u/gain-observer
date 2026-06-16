@@ -3,6 +3,7 @@ import {
   useAntennaStore,
   buildWires,
   selectSimulationInput,
+  selectAtuConfig,
   computeEffectiveSlope,
   legMultipleFromLength,
   computeOptimalVAngleDeg,
@@ -14,6 +15,8 @@ import {
   type AntennaState,
 } from "../src/store/antennaStore";
 import {
+  ATU_COMPONENT_Q,
+  findFeedlinePreset,
   DEFAULT_WHIP_LENGTH_M,
   VERTICAL_WHIP_BASE_GAP_M,
   VERTICAL_WHIP_RADIAL_TAG,
@@ -223,6 +226,36 @@ describe("antennaStore selectors", () => {
         expect(input.ground.sigma).toBe(0.005);
         expect(input.ground.epsilon).toBe(13);
       }
+    });
+  });
+
+  describe("selectAtuConfig", () => {
+    it("returns undefined when atuEnabled is false", () => {
+      const config = selectAtuConfig({
+        atuEnabled: false,
+        frequency: 14.1,
+        feedlineId: "rg58",
+        feedlineLength: 10,
+        atuMainFeedlineLength: 20,
+      });
+      expect(config).toBeUndefined();
+    });
+
+    it("returns a populated AtuMatchConfig when atuEnabled is true", () => {
+      const config = selectAtuConfig({
+        atuEnabled: true,
+        frequency: 7.1,
+        feedlineId: "rg213",
+        feedlineLength: 15,
+        atuMainFeedlineLength: 30,
+      });
+
+      expect(config).toBeDefined();
+      expect(config?.frequencyMHz).toBe(7.1);
+      expect(config?.preset).toEqual(findFeedlinePreset("rg213"));
+      expect(config?.upmastLengthM).toBe(15);
+      expect(config?.mainLengthM).toBe(30);
+      expect(config?.componentQ).toBe(ATU_COMPONENT_Q);
     });
   });
 
