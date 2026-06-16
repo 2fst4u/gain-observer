@@ -24,3 +24,6 @@
 ## 2024-06-09 - Added GeometryControl.test.tsx coverage test
 **Learning:** Adding a single focused UI unit test might sometimes slightly decrease global percentage coverage metrics due to the test file's own code expanding the denominator, if the logic it tests was already partially hit elsewhere.
 **Action:** Wrote test for setVAngle and adjusted thresholds to lock in progress.
+## 2024-06-16 - Add missing tests for cleanZero in math.ts
+**Learning:** Adding tests for small, seemingly trivial pure functions like `cleanZero` improves code health and serves as a strict regression safety net. Object.is is needed to effectively check for strict -0 vs 0 conversions.
+**Action:** Created `tests/math.test.ts` to test `cleanZero`, specifically validating its correct handling of `-0` to `0` conversion using `Object.is`.
