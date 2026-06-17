@@ -5,13 +5,6 @@ import { TRANSFORMER_INSERTION_LOSS_DB, findFeedlinePreset } from '../../physics
 import { suggestedTransformerRatio } from '../../physics/impedance';
 import type { SimulationResult } from '../../physics/types';
 
-/**
- * Calculates the optimal transformer ratio for the current antenna.
- * Derived from the raw antenna feedpoint impedance, recovered from the NEC
- * source reading by de-embedding the feedline when one is present.
- * This is stable — it does not depend on the ratio currently applied —
- * so clicking Match never oscillates.
- */
 interface TransformerRatioInputProps {
   transformerRatio: number;
   optimalRatio: number | null;
@@ -87,6 +80,13 @@ function TransformerRatioInput({
   );
 }
 
+/**
+ * Calculates the optimal transformer ratio for the current antenna.
+ * Derived from the raw antenna feedpoint impedance, recovered from the NEC
+ * source reading by de-embedding the feedline when one is present.
+ * This is stable — it does not depend on the ratio currently applied —
+ * so clicking Match never oscillates.
+ */
 function calculateOptimalRatio(
   result: SimulationResult | null,
   feedlineActive: boolean,
