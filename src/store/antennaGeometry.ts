@@ -752,6 +752,14 @@ export interface InvertedLWiresParams {
 }
 
 /**
+ * Ensures segment length is at least ~4x the wire radius for NEC-2 stability.
+ */
+export const safeSegs = (len: number, requested: number, wireRadius: number): number => {
+  const maxSafe = Math.max(1, Math.floor(len / (4 * wireRadius)));
+  return Math.min(requested, maxSafe);
+};
+
+/**
  * Builds the wires for an Inverted-L antenna.
  *
  * The Inverted-L consists of:
@@ -774,14 +782,6 @@ export interface InvertedLWiresParams {
  * Excitation is placed on segment 1 of INVERTED_L_VERTICAL_TAG (the
  * lowest segment at the base), exactly as for the vertical whip.
  */
-/**
- * Ensures segment length is at least ~4x the wire radius for NEC-2 stability.
- */
-export const safeSegs = (len: number, requested: number, wireRadius: number): number => {
-  const maxSafe = Math.max(1, Math.floor(len / (4 * wireRadius)));
-  return Math.min(requested, maxSafe);
-};
-
 export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   const totalLen = Math.max(0.1, params.length);
   const baseZ = VERTICAL_WHIP_BASE_GAP_M;
@@ -979,7 +979,7 @@ export function buildFoldedAntennaWires(params: FoldedAntennaWiresParams): Wire[
 
   // End connectors span the aperture vertically, segmented at the same target
   // length so their segments match the adjacent conductor segments at the corners.
-  const connSegs = Math.max(1, Math.min(MAX_SEGS_PER_LEG, Math.ceil(aperture / targetSegLen)));
+  const connSegs = safeSegs(aperture, Math.max(1, Math.min(MAX_SEGS_PER_LEG, Math.ceil(aperture / targetSegLen))), params.wireRadius);
 
   const leftFed = pt(-half, zBottom);
   const rightFed = pt(half, zBottom);
