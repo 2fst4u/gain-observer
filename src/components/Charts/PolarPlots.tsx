@@ -217,6 +217,9 @@ export function PolarPlots() {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [result, dbRange, endOnAz]);
 
+  const azLabels = useMemo(() => (result ? getAzimuthLabels(result.pattern) : []), [result]);
+  const elLabels = useMemo(() => (result ? getElevationLabels(result.pattern) : []), [result]);
+
   const chartText = theme === 'dark' ? getCssVar('--chart-text') || '#c6cdd6' : getCssVar('--chart-text') || '#3a4250';
   const chartGrid = theme === 'dark' ? getCssVar('--chart-grid') || 'rgba(255, 255, 255, 0.08)' : getCssVar('--chart-grid') || 'rgba(0, 0, 0, 0.08)';
 
@@ -257,19 +260,19 @@ export function PolarPlots() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
         <PolarPlotPanel
           title={`Azimuth @ Peak (${result.takeoffElevationDeg.toFixed(0)}°)`}
-          labels={getAzimuthLabels(result.pattern)}
+          labels={azLabels}
           data={azData}
           options={options}
         />
         <PolarPlotPanel
           title="Elevation (Broadside)"
-          labels={getElevationLabels(result.pattern)}
+          labels={elLabels}
           data={elDataBroadside}
           options={options}
         />
         <PolarPlotPanel
           title="Elevation (End-on)"
-          labels={getElevationLabels(result.pattern)}
+          labels={elLabels}
           data={elDataEndOn}
           options={options}
         />
