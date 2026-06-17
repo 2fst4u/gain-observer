@@ -18,7 +18,7 @@
 ## 2024-06-11 - Constant export cleanup
 **Learning:** Removing an unused export for a constant that is still used internally within the same file requires leaving the import intact.
 **Action:** When un-exporting variables, do a local grep to see if they are still used in the file; if so, do not remove the import.
-## $(date +%Y-%m-%d) - Un-exporting Internal Utilities and Constants
+## 2026-06-17 - Un-exporting Internal Utilities and Constants
 **Learning:** `knip` correctly flagged `reflectionCoefficientMag`, `INITIAL_HEIGHT`, and `FEED_BRIDGE_LENGTH_M` (re-export) as unused outside their declaring files. When a function or constant is only used internally, it should not be exported, improving module encapsulation.
 **Action:** When cleaning up unused exports, simply remove the `export` keyword if the symbol is used locally. If it was re-exported in a centralized `export { ... }` block but unused outside, remove it from that block while keeping its import intact if it's used within the aggregator file. Always verify with `npm run build` and `npm run test` afterward.
 ## 2024-05-18 - [False Positive on Unused Type Import]
@@ -50,9 +50,9 @@
 ## 2024-06-17 - Extract PolarPlotPanel to Reduce Component Complexity
 **Learning:** Large React components rendering multiple instances of heavily configured sub-components (like Chart.js instances) can obscure their core structure. Extracting these configurations into a stateless sub-component locally within the same file dramatically improves readability while preserving scope and minimizing hook overhead.
 **Action:** Refactored the `PolarPlots` component by extracting the repetitive Chart.js `<Radar />` setup into a local `PolarPlotPanel` sub-component.
-## $(date +%Y-%m-%d) - Refactored complex GeometryControl component
+## 2026-06-17 - Refactored complex GeometryControl component
 **Learning:** Refactoring a 500-line React component with complex, intertwined state requires isolating discrete functional blocks (like length, termination, and orientation controls) into separate local sub-components. By extracting these and using \`useShallow\` within each sub-component to select only the required global state, we not only improve readability and maintainability but also reduce unnecessary re-renders when unrelated state changes.
 **Action:** Identified distinct functional areas in \`GeometryControl.tsx\` and extracted them into \`LengthControl\`, \`TerminationControl\`, and \`OrientationControl\` components within the same file. Cleaned up unused variables and verified with test and lint passes.
-## $(date +%Y-%m-%d) - Component Refactoring Duplication
+## 2026-06-17 - Component Refactoring Duplication
 **Learning:** When refactoring a large React component by extracting inline sections into separate functional components within the same file, be careful to look out for duplicated constant definitions (e.g., `resonateTitles`) and duplicated computations (e.g., `tfdZ0` calculation) that might have been copied directly into each new sub-component.
 **Action:** Always hoist shared constants and logic computations to the module scope (outside the component functions) to eliminate duplication. Also, use conditional properties inside `useShallow` when subscribing to Zustand stores to avoid unnecessary subscriptions that fire when the parent component isn't even active or using the data.

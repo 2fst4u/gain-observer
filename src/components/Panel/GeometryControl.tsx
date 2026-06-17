@@ -12,7 +12,6 @@ import { type OrientationPreset } from '../../store/antennaGeometry';
 import { FOLDED_DIPOLE_MAX_APERTURE_M } from '../../physics/constants';
 import { TransformerControl } from './TransformerControl';
 
-
 const resonateTitles: Record<AntennaType, string> = {
   'dipole': 'Half-wave resonant length: ~73 Ω feedpoint — close to a direct 50 Ω coax match with no ATU needed. ~2.15 dBi gain. The most practical starting point for most installations.',
   'inverted-v': 'Set length to resonant ½λ',
@@ -153,7 +152,6 @@ function LengthControl() {
   );
 }
 
-
 function TerminationControl() {
   const {
     antennaType,
@@ -251,7 +249,6 @@ function TerminationControl() {
     </>
   );
 }
-
 
 function OrientationControl() {
   const { antennaType, orientation, setOrientation } = useAntennaStore(
