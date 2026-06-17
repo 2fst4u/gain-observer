@@ -1,6 +1,7 @@
 import { useAntennaStore, selectAtuConfig, LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { displayedFeedMetrics } from '../../physics/impedance';
+import type { AtuMatchConfig } from '../../physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 import type { TerminationDiagnostics } from '../../physics/types';
 import { StatRow } from '../UI/StatRow';
@@ -78,7 +79,7 @@ export function StatsReadout() {
       )}
       <StatRow label="Take-off elevation" value={`${result.takeoffElevationDeg.toFixed(1)}°`} />
       <StatRow label="Azimuth of peak" value={`${result.takeoffAzimuthDeg.toFixed(0)}°`} />
-      <StatRow label={impedanceLabel as string} title={impedanceTitle} value={`${displayedZ.R.toFixed(1)} ${displayedZ.X >= 0 ? '+' : '−'}j${Math.abs(displayedZ.X).toFixed(1)} Ω`} />
+      <StatRow label={impedanceLabel} title={impedanceTitle} value={`${displayedZ.R.toFixed(1)} ${displayedZ.X >= 0 ? '+' : '−'}j${Math.abs(displayedZ.X).toFixed(1)} Ω`} />
       <StatRow label="SWR (vs 50 Ω)" title={swrTitle} value={`${displayedSwr.toFixed(2)}:1`} valueStyle={{ color: displayedSwr > 2 ? 'var(--danger)' : displayedSwr > 1.5 ? 'var(--warning)' : 'var(--success)' }} />
       {mode === 'comparison' && reference && (
         <ComparisonStats current={result} reference={reference.result} />
@@ -156,7 +157,7 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
         Termination effectiveness
       </h3>
       {legRipples.map((r) => (
-        <div key={r.tagNo}><StatRow label={legLabel(r.tagNo)} value={Number.isFinite(r.rippleDb) ? `${r.rippleDb.toFixed(1)} dB` : '∞ dB'} valueStyle={{ color: rippleColor(r.rippleDb) }} /></div>
+        <StatRow key={r.tagNo} label={legLabel(r.tagNo)} value={Number.isFinite(r.rippleDb) ? `${r.rippleDb.toFixed(1)} dB` : '∞ dB'} valueStyle={{ color: rippleColor(r.rippleDb) }} />
       ))}
       {frontBackDb !== null && (
         <StatRow label="Front/back ratio" value={`${frontBackDb.toFixed(1)} dB`} />
@@ -177,7 +178,7 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
 
 
 function getImpedanceTitle(
-  atu: boolean | object | undefined,
+  atu: AtuMatchConfig | undefined,
   feedlineActive: boolean,
   transformerEnabled: boolean,
   transformerRatio: number
@@ -195,7 +196,7 @@ function getImpedanceTitle(
 }
 
 function getSwrTitle(
-  atu: boolean | object | undefined,
+  atu: AtuMatchConfig | undefined,
   feedlineActive: boolean,
   transformerEnabled: boolean,
   transformerRatio: number
@@ -213,7 +214,7 @@ function getSwrTitle(
 }
 
 function getRealizedGainTitle(
-  atu: boolean | object | undefined,
+  atu: AtuMatchConfig | undefined,
   atuLoss: { upmastDb: number; mainDb: number; tunerDb: number } | null | undefined,
   transformerEnabled: boolean,
   transformerRatio: number
