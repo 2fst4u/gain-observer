@@ -50,3 +50,7 @@
 ## 2024-06-17 - Extract PolarPlotPanel to Reduce Component Complexity
 **Learning:** Large React components rendering multiple instances of heavily configured sub-components (like Chart.js instances) can obscure their core structure. Extracting these configurations into a stateless sub-component locally within the same file dramatically improves readability while preserving scope and minimizing hook overhead.
 **Action:** Refactored the `PolarPlots` component by extracting the repetitive Chart.js `<Radar />` setup into a local `PolarPlotPanel` sub-component.
+
+## 2024-06-17 - [Extract Component Details]
+**Learning:** Extracting component details into smaller subcomponents within the same file can help maintainability and readability without creating unnecessary files for localized components.
+**Action:** Extracted `<FeedlineOffsetControl>` and `<AtuControl>` into the same `src/components/Panel/FeedlineControl.tsx` file, and created a reusable `<StatRow>` component.
