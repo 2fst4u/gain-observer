@@ -13,6 +13,21 @@ import { FOLDED_DIPOLE_MAX_APERTURE_M } from '../../physics/constants';
 import { TransformerControl } from './TransformerControl';
 
 
+const resonateTitles: Record<AntennaType, string> = {
+  'dipole': 'Half-wave resonant length: ~73 Ω feedpoint — close to a direct 50 Ω coax match with no ATU needed. ~2.15 dBi gain. The most practical starting point for most installations.',
+  'inverted-v': 'Set length to resonant ½λ',
+  'delta-loop': 'Set perimeter to resonant 1λ',
+  'sloping-v': 'Set total length to 2λ (1λ per leg)',
+  'terminated-delta': 'Set perimeter to 1λ',
+  'vertical-whip': 'Set whip length to resonant ¼λ',
+  'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
+  'folded-dipole': 'Set each conductor to a resonant ½λ. Raw feedpoint ~300 Ω (~4× a plain dipole). A 6:1 impedance-transforming balun is enabled by default, which transforms this to ~50 Ω and reveals the characteristic narrowband resonant curve. Same gain and pattern as a plain dipole when unterminated. For a broadband T2FD, add a terminating resistor (click Z₀) and apply the suggested transformer ratio.',
+};
+
+function calculateTfdZ0(aperture: number, radius: number): number {
+  return Math.round(120 * Math.acosh(aperture / (2 * radius)));
+}
+
 function LengthControl() {
   const {
     units,
@@ -61,17 +76,6 @@ function LengthControl() {
     'vertical-whip': '¼λ',
     'inverted-l': '¼λ',
     'folded-dipole': '½λ',
-  };
-
-  const resonateTitles: Record<AntennaType, string> = {
-    'dipole': 'Half-wave resonant length: ~73 Ω feedpoint — close to a direct 50 Ω coax match with no ATU needed. ~2.15 dBi gain. The most practical starting point for most installations.',
-    'inverted-v': 'Set length to resonant ½λ',
-    'delta-loop': 'Set perimeter to resonant 1λ',
-    'sloping-v': 'Set total length to 2λ (1λ per leg)',
-    'terminated-delta': 'Set perimeter to 1λ',
-    'vertical-whip': 'Set whip length to resonant ¼λ',
-    'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
-    'folded-dipole': 'Set each conductor to a resonant ½λ. Raw feedpoint ~300 Ω (~4× a plain dipole). A 6:1 impedance-transforming balun is enabled by default, which transforms this to ~50 Ω and reveals the characteristic narrowband resonant curve. Same gain and pattern as a plain dipole when unterminated. For a broadband T2FD, add a terminating resistor (click Z₀) and apply the suggested transformer ratio.',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
@@ -150,7 +154,6 @@ function LengthControl() {
 }
 
 
-
 function TerminationControl() {
   const {
     antennaType,
@@ -163,8 +166,8 @@ function TerminationControl() {
       antennaType: s.antennaType,
       terminatingResistor: s.terminatingResistor,
       setTerminatingResistor: s.setTerminatingResistor,
-      foldedDipoleAperture: s.foldedDipoleAperture,
-      wireRadius: s.wireRadius,
+      foldedDipoleAperture: s.antennaType === 'folded-dipole' ? s.foldedDipoleAperture : 0,
+      wireRadius: s.antennaType === 'folded-dipole' ? s.wireRadius : 0,
     }))
   );
 
@@ -186,7 +189,7 @@ function TerminationControl() {
   // Characteristic impedance of the two-wire line formed by the folded-dipole conductors.
   // Z₀ = 120 × acosh(D / (2r))  where D = spacing (aperture), r = wire radius.
   // Terminating at R ≈ Z₀ gives a travelling-wave (T2FD) — broadband flat SWR.
-  const tfdZ0 = Math.round(120 * Math.acosh(foldedDipoleAperture / (2 * wireRadius)));
+  const tfdZ0 = antennaType === 'folded-dipole' ? calculateTfdZ0(foldedDipoleAperture, wireRadius) : 0;
 
   return (
     <>
@@ -248,7 +251,6 @@ function TerminationControl() {
     </>
   );
 }
-
 
 
 function OrientationControl() {
@@ -332,7 +334,6 @@ function OrientationControl() {
   );
 }
 
-
 export function GeometryControl() {
   const {
     units,
@@ -367,17 +368,6 @@ export function GeometryControl() {
 
   const maxHeight = units === 'metric' ? 40 : 131;
 
-  const resonateTitles: Record<AntennaType, string> = {
-    'dipole': 'Half-wave resonant length: ~73 Ω feedpoint — close to a direct 50 Ω coax match with no ATU needed. ~2.15 dBi gain. The most practical starting point for most installations.',
-    'inverted-v': 'Set length to resonant ½λ',
-    'delta-loop': 'Set perimeter to resonant 1λ',
-    'sloping-v': 'Set total length to 2λ (1λ per leg)',
-    'terminated-delta': 'Set perimeter to 1λ',
-    'vertical-whip': 'Set whip length to resonant ¼λ',
-    'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
-    'folded-dipole': 'Set each conductor to a resonant ½λ. Raw feedpoint ~300 Ω (~4× a plain dipole). A 6:1 impedance-transforming balun is enabled by default, which transforms this to ~50 Ω and reveals the characteristic narrowband resonant curve. Same gain and pattern as a plain dipole when unterminated. For a broadband T2FD, add a terminating resistor (click Z₀) and apply the suggested transformer ratio.',
-  };
-
   const isVerticalWhip = antennaType === 'vertical-whip';
   const isInvertedL = antennaType === 'inverted-l';
 
@@ -397,7 +387,7 @@ export function GeometryControl() {
   const maxApertureDisp = toDisplayLength(FOLDED_DIPOLE_MAX_APERTURE_M, units);
 
   // Characteristic impedance of the two-wire line formed by the folded-dipole conductors.
-  const tfdZ0 = Math.round(120 * Math.acosh(foldedDipoleAperture / (2 * wireRadius)));
+  const tfdZ0 = isFoldedDipole ? calculateTfdZ0(foldedDipoleAperture, wireRadius) : 0;
 
   return (
     <section className="panel-section">
