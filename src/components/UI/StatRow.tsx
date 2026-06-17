@@ -4,6 +4,7 @@ export interface StatRowProps {
   label: ReactNode;
   value: ReactNode;
   title?: string;
+  labelClassName?: string;
   valueClassName?: string;
   style?: CSSProperties;
   labelStyle?: CSSProperties;
@@ -14,6 +15,7 @@ export function StatRow({
   label,
   value,
   title,
+  labelClassName = 'stat-label',
   valueClassName = 'stat-value',
   style,
   labelStyle,
@@ -21,7 +23,7 @@ export function StatRow({
 }: StatRowProps) {
   return (
     <div className="stat" style={style} title={title}>
-      <span className="stat-label" style={labelStyle}>
+      <span className={labelClassName} style={labelStyle}>
         {label}
       </span>
       <span className={valueClassName} style={valueStyle}>
