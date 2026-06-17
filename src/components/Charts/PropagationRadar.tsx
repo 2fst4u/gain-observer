@@ -11,6 +11,7 @@
 //   - SVG is easy to make theme-responsive (CSS variables work directly);
 //   - it keeps the bundle small.
 
+import type { JSX } from 'react';
 import type { PropagationPrediction } from '../../physics/propagation';
 import type { UnitSystem } from '../../physics/units';
 
