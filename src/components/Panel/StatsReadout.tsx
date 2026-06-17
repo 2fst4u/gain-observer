@@ -1,10 +1,8 @@
 import { useAntennaStore, selectAtuConfig, LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { displayedFeedMetrics } from '../../physics/impedance';
-import type { AtuMatchConfig } from '../../physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 import type { TerminationDiagnostics } from '../../physics/types';
-import { StatRow } from '../UI/StatRow';
 
 export function StatsReadout() {
   // ⚡ Bolt: Performance Optimization
@@ -58,29 +56,85 @@ export function StatsReadout() {
   });
 
   const impedanceLabel = atu || feedlineActive ? 'Source impedance (R + jX)' : 'Feedpoint (R + jX)';
-  const impedanceTitle = getImpedanceTitle(atu, feedlineActive, transformerEnabled, transformerRatio);
-  const swrTitle = getSwrTitle(atu, feedlineActive, transformerEnabled, transformerRatio);
+  const impedanceTitle = atu
+    ? 'Impedance the radio sees with the ATU at the mast base matched: an idealised tuner presents 50 Ω. To see the antenna terminals directly, disable the ATU and set Feedline = none.'
+    : feedlineActive
+      ? `Impedance at the source end of the feedline (what the radio sees)${transformerEnabled ? `, with the ${transformerRatio}:1 transformer fitted at the antenna terminals` : ''}. To see the antenna terminals directly, set Feedline = none.`
+      : transformerEnabled
+        ? `Impedance after the ${transformerRatio}:1 transformer fitted at the antenna terminals.`
+        : 'Impedance at the antenna feedpoint. NEC places the excitation directly at the antenna terminals.';
+  const swrTitle = atu
+    ? 'Voltage SWR your radio sees with the mast-base ATU matched. The tuner flattens the main run to ~1:1; the antenna\'s native mismatch still stands on the short up-mast feedline.'
+    : feedlineActive
+      ? `Voltage SWR at the source end of the feedline against 50 Ω${transformerEnabled ? ` (with the transformer fitted at the antenna)` : ''}. This is what your radio's SWR meter would see.`
+      : transformerEnabled
+        ? `Voltage SWR at the radio side of the antenna's ${transformerRatio}:1 transformer against 50 Ω.`
+        : 'Voltage SWR at the antenna feedpoint against 50 Ω.';
 
-  const realizedGainTitle = getRealizedGainTitle(atu, atuLoss, transformerEnabled, transformerRatio);
+  const realizedGainTitle = atu
+    ? `Realized gain (dBi): antenna gain delivered through the mast-base ATU. The tuner cancels the feedpoint mismatch (no mismatch loss), leaving${atuLoss ? ` up-mast feedline loss ${atuLoss.upmastDb.toFixed(2)} dB + main feedline loss ${atuLoss.mainDb.toFixed(2)} dB + tuner loss ${atuLoss.tunerDb.toFixed(2)} dB` : ' feedline and tuner losses'}. A tuner cannot recover ohmic/termination (efficiency) loss.`
+    : transformerEnabled
+      ? `Realized gain (dBi): antenna gain after mismatch loss against 50 Ω with the ${transformerRatio}:1 transformer fitted at the antenna terminals, minus ${TRANSFORMER_INSERTION_LOSS_DB.toFixed(1)} dB transformer insertion loss.`
+      : 'Realized gain (dBi): antenna gain after mismatch loss against 50 Ω. = Gain × (1 − |Γ|²).';
 
   return (
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Results <span className="badge">{result.computeTimeMs.toFixed(0)} ms</span></h2>
-      <StatRow label="Gain" title="Antenna gain (dBi): NEC total power gain relative to isotropic, normalised to accepted input power. Includes all ohmic and termination losses." value={`${result.maxGainDbi.toFixed(2)} dBi`} valueClassName="accent" />
+      <div className="stat">
+        <span
+          className="stat-label"
+          title="Antenna gain (dBi): NEC total power gain relative to isotropic, normalised to accepted input power. Includes all ohmic and termination losses."
+        >Gain</span>
+        <span className="stat-value accent">{result.maxGainDbi.toFixed(2)} dBi</span>
+      </div>
       {result.maxDirectivityDbi != null && (
-        <StatRow label="Directivity" title="Directivity (dBi): normalised to radiated power only, excluding all losses. = Gain / efficiency." value={`${result.maxDirectivityDbi.toFixed(2)} dBi`} />
+        <div className="stat">
+          <span
+            className="stat-label"
+            title="Directivity (dBi): normalised to radiated power only, excluding all losses. = Gain / efficiency."
+          >Directivity</span>
+          <span className="stat-value">{result.maxDirectivityDbi.toFixed(2)} dBi</span>
+        </div>
       )}
       {displayedRealizedGainDbi != null && (
-        <StatRow label="Realized gain" title={realizedGainTitle} value={`${displayedRealizedGainDbi.toFixed(2)} dBi`} />
+        <div className="stat">
+          <span
+            className="stat-label"
+            title={realizedGainTitle}
+          >Realized gain</span>
+          <span className="stat-value">{displayedRealizedGainDbi.toFixed(2)} dBi</span>
+        </div>
       )}
       {result.efficiency != null && (
-        <StatRow label="Efficiency" title="Radiation efficiency: radiated power / accepted input power. Losses include wire conductors and any termination resistors." value={`${(result.efficiency * 100).toFixed(1)}%`} />
+        <div className="stat">
+          <span
+            className="stat-label"
+            title="Radiation efficiency: radiated power / accepted input power. Losses include wire conductors and any termination resistors."
+          >Efficiency</span>
+          <span className="stat-value">{(result.efficiency * 100).toFixed(1)}%</span>
+        </div>
       )}
-      <StatRow label="Take-off elevation" value={`${result.takeoffElevationDeg.toFixed(1)}°`} />
-      <StatRow label="Azimuth of peak" value={`${result.takeoffAzimuthDeg.toFixed(0)}°`} />
-      <StatRow label={impedanceLabel} title={impedanceTitle} value={`${displayedZ.R.toFixed(1)} ${displayedZ.X >= 0 ? '+' : '−'}j${Math.abs(displayedZ.X).toFixed(1)} Ω`} />
-      <StatRow label="SWR (vs 50 Ω)" title={swrTitle} value={`${displayedSwr.toFixed(2)}:1`} valueStyle={{ color: displayedSwr > 2 ? 'var(--danger)' : displayedSwr > 1.5 ? 'var(--warning)' : 'var(--success)' }} />
+      <div className="stat">
+        <span className="stat-label">Take-off elevation</span>
+        <span className="stat-value">{result.takeoffElevationDeg.toFixed(1)}°</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Azimuth of peak</span>
+        <span className="stat-value">{result.takeoffAzimuthDeg.toFixed(0)}°</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label" title={impedanceTitle}>{impedanceLabel}</span>
+        <span className="stat-value">
+          {displayedZ.R.toFixed(1)} {displayedZ.X >= 0 ? '+' : '−'}j{Math.abs(displayedZ.X).toFixed(1)} Ω
+        </span>
+      </div>
+      <div className="stat">
+        <span className="stat-label" title={swrTitle}>SWR (vs 50 Ω)</span>
+        <span className="stat-value" style={{
+          color: displayedSwr > 2 ? 'var(--danger)' : displayedSwr > 1.5 ? 'var(--warning)' : 'var(--success)',
+        }}>{displayedSwr.toFixed(2)}:1</span>
+      </div>
       {mode === 'comparison' && reference && (
         <ComparisonStats current={result} reference={reference.result} />
       )}
@@ -103,11 +157,26 @@ function ComparisonStats({
       <h3 id="comparison-stats-heading" style={{ fontSize: 11, margin: 0, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         Versus reference
       </h3>
-      <StatRow label="Gain delta" value={`${formatSigned(current.maxGainDbi - reference.maxGainDbi, 2)} dB`} />
-      <StatRow label="Take-off delta" value={`${formatSigned(current.takeoffElevationDeg - reference.takeoffElevationDeg, 1)}°`} />
-      <StatRow label="SWR delta (vs 50 Ω)" value={formatSigned(current.swr - reference.swr, 2)} />
-      <StatRow label="R delta" value={`${formatSigned(current.impedance.R - reference.impedance.R, 1)} Ω`} />
-      <StatRow label="X delta" value={`${formatSigned(current.impedance.X - reference.impedance.X, 1)} Ω`} />
+      <div className="stat">
+        <span className="stat-label">Gain delta</span>
+        <span className="stat-value">{formatSigned(current.maxGainDbi - reference.maxGainDbi, 2)} dB</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Take-off delta</span>
+        <span className="stat-value">{formatSigned(current.takeoffElevationDeg - reference.takeoffElevationDeg, 1)}°</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">SWR delta (vs 50 Ω)</span>
+        <span className="stat-value">{formatSigned(current.swr - reference.swr, 2)}</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">R delta</span>
+        <span className="stat-value">{formatSigned(current.impedance.R - reference.impedance.R, 1)} Ω</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">X delta</span>
+        <span className="stat-value">{formatSigned(current.impedance.X - reference.impedance.X, 1)} Ω</span>
+      </div>
     </section>
   );
 }
@@ -157,15 +226,33 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
         Termination effectiveness
       </h3>
       {legRipples.map((r) => (
-        <StatRow key={r.tagNo} label={legLabel(r.tagNo)} value={Number.isFinite(r.rippleDb) ? `${r.rippleDb.toFixed(1)} dB` : '∞ dB'} valueStyle={{ color: rippleColor(r.rippleDb) }} />
+        <div className="stat" key={r.tagNo}>
+          <span className="stat-label">{legLabel(r.tagNo)}</span>
+          <span className="stat-value" style={{ color: rippleColor(r.rippleDb) }}>
+            {Number.isFinite(r.rippleDb) ? `${r.rippleDb.toFixed(1)} dB` : '∞ dB'}
+          </span>
+        </div>
       ))}
       {frontBackDb !== null && (
-        <StatRow label="Front/back ratio" value={`${frontBackDb.toFixed(1)} dB`} />
+        <div className="stat">
+          <span className="stat-label">Front/back ratio</span>
+          <span className="stat-value">{frontBackDb.toFixed(1)} dB</span>
+        </div>
       )}
       {powerBudget !== null && (
         <>
-          <StatRow label="Termination load" value={`${(powerBudget.networkLossW * 1000).toFixed(2)} mW`} />
-          <StatRow label="Radiated power" value={`${(powerBudget.radiatedW * 1000).toFixed(2)} mW`} />
+          <div className="stat">
+            <span className="stat-label">Termination load</span>
+            <span className="stat-value">
+              {(powerBudget.networkLossW * 1000).toFixed(2)} mW
+            </span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Radiated power</span>
+            <span className="stat-value">
+              {(powerBudget.radiatedW * 1000).toFixed(2)} mW
+            </span>
+          </div>
         </>
       )}
       <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
@@ -176,54 +263,3 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
   );
 }
 
-
-function getImpedanceTitle(
-  atu: AtuMatchConfig | undefined,
-  feedlineActive: boolean,
-  transformerEnabled: boolean,
-  transformerRatio: number
-) {
-  if (atu) {
-    return 'Impedance the radio sees with the ATU at the mast base matched: an idealised tuner presents 50 Ω. To see the antenna terminals directly, disable the ATU and set Feedline = none.';
-  }
-  if (feedlineActive) {
-    return `Impedance at the source end of the feedline (what the radio sees)${transformerEnabled ? `, with the ${transformerRatio}:1 transformer fitted at the antenna terminals` : ''}. To see the antenna terminals directly, set Feedline = none.`;
-  }
-  if (transformerEnabled) {
-    return `Impedance after the ${transformerRatio}:1 transformer fitted at the antenna terminals.`;
-  }
-  return 'Impedance at the antenna feedpoint. NEC places the excitation directly at the antenna terminals.';
-}
-
-function getSwrTitle(
-  atu: AtuMatchConfig | undefined,
-  feedlineActive: boolean,
-  transformerEnabled: boolean,
-  transformerRatio: number
-) {
-  if (atu) {
-    return 'Voltage SWR your radio sees with the mast-base ATU matched. The tuner flattens the main run to ~1:1; the antenna\'s native mismatch still stands on the short up-mast feedline.';
-  }
-  if (feedlineActive) {
-    return `Voltage SWR at the source end of the feedline against 50 Ω${transformerEnabled ? ` (with the transformer fitted at the antenna)` : ''}. This is what your radio's SWR meter would see.`;
-  }
-  if (transformerEnabled) {
-    return `Voltage SWR at the radio side of the antenna's ${transformerRatio}:1 transformer against 50 Ω.`;
-  }
-  return 'Voltage SWR at the antenna feedpoint against 50 Ω.';
-}
-
-function getRealizedGainTitle(
-  atu: AtuMatchConfig | undefined,
-  atuLoss: { upmastDb: number; mainDb: number; tunerDb: number } | null | undefined,
-  transformerEnabled: boolean,
-  transformerRatio: number
-) {
-  if (atu) {
-    return `Realized gain (dBi): antenna gain delivered through the mast-base ATU. The tuner cancels the feedpoint mismatch (no mismatch loss), leaving${atuLoss ? ` up-mast feedline loss ${atuLoss.upmastDb.toFixed(2)} dB + main feedline loss ${atuLoss.mainDb.toFixed(2)} dB + tuner loss ${atuLoss.tunerDb.toFixed(2)} dB` : ' feedline and tuner losses'}. A tuner cannot recover ohmic/termination (efficiency) loss.`;
-  }
-  if (transformerEnabled) {
-    return `Realized gain (dBi): antenna gain after mismatch loss against 50 Ω with the ${transformerRatio}:1 transformer fitted at the antenna terminals, minus ${TRANSFORMER_INSERTION_LOSS_DB.toFixed(1)} dB transformer insertion loss.`;
-  }
-  return 'Realized gain (dBi): antenna gain after mismatch loss against 50 Ω. = Gain × (1 − |Γ|²).';
-}
