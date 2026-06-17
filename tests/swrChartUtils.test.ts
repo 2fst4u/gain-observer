@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeChartData, computeStats, formatBandwidth, computeXBounds } from '../src/components/Charts/swrChartUtils';
+import { computeChartData, computeStats, formatBandwidth, computeXBounds, computeYMax, computeOptions } from '../src/components/Charts/swrChartUtils';
 import type { SweepPoint } from '../src/physics/types';
 import type { ComparisonSnapshot } from '../src/store/antennaStore';
 
@@ -275,5 +275,179 @@ describe('computeStats', () => {
     expect(band.lowClipped).toBe(true);
     expect(band.fHigh).toBeCloseTo(7.133, 3);
     expect(band.highClipped).toBe(false);
+  });
+});
+
+describe('computeOptions', () => {
+  const baseArgs = {
+    frequency: 7.1,
+    accent: '#ff0000',
+    stats: null,
+    yMax: 5,
+    xBounds: { min: 6.9, max: 7.3 },
+    chartText: '#ffffff',
+    chartGrid: '#333333',
+    comparisonActive: false,
+  };
+
+  it('generates basic chart options without stats', () => {
+    const options = computeOptions(baseArgs);
+
+    expect(options.responsive).toBe(true);
+    expect(options.maintainAspectRatio).toBe(false);
+    expect(options.scales?.y?.max).toBe(5);
+    expect(options.scales?.y?.min).toBe(1);
+    expect(options.scales?.x?.min).toBe(6.9);
+    expect(options.scales?.x?.max).toBe(7.3);
+
+    // Basic annotations should exist
+    const annotations = options.plugins?.annotation?.annotations as Record<string, { yMin?: number; xMin?: number }> | undefined;
+    expect(annotations).toBeDefined();
+    expect(annotations?.swr2).toBeDefined();
+    expect(annotations?.swr2?.yMin).toBe(2);
+    expect(annotations?.currentFrequency).toBeDefined();
+    expect(annotations?.currentFrequency?.xMin).toBe(7.1);
+
+    // No stats annotations
+    expect(annotations?.minFreq).toBeUndefined();
+    expect(annotations?.band0Low).toBeUndefined();
+  });
+
+  it('adds stats annotations when stats are provided', () => {
+    const stats = {
+      minSWR: 1.2,
+      minFreq: 7.15,
+      bands: [
+        { fLow: 7.05, fHigh: 7.25, lowClipped: false, highClipped: false },
+        { fLow: 7.28, fHigh: 7.29, lowClipped: true, highClipped: true }
+      ]
+    };
+
+    const options = computeOptions({ ...baseArgs, stats });
+    const annotations = options.plugins?.annotation?.annotations as Record<string, { yMin?: number; xMin?: number }> | undefined;
+
+    // Min freq line
+    expect(annotations?.minFreq).toBeDefined();
+    expect(annotations?.minFreq?.xMin).toBe(7.15);
+
+    // Unclipped band should have both edge markers
+    expect(annotations?.band0Low).toBeDefined();
+    expect(annotations?.band0Low?.xMin).toBe(7.05);
+    expect(annotations?.band0High).toBeDefined();
+    expect(annotations?.band0High?.xMin).toBe(7.25);
+
+    // Clipped band should not have edge markers
+    expect(annotations?.band1Low).toBeUndefined();
+    expect(annotations?.band1High).toBeUndefined();
+  });
+
+  it('toggles legend display based on comparisonActive', () => {
+    const optsInactive = computeOptions({ ...baseArgs, comparisonActive: false });
+    expect(optsInactive.plugins?.legend?.display).toBe(false);
+
+    const optsActive = computeOptions({ ...baseArgs, comparisonActive: true });
+    expect(optsActive.plugins?.legend?.display).toBe(true);
+  });
+});
+
+describe('computeYMax', () => {
+  const mockSweep: SweepPoint[] = [
+    { frequencyMHz: 7.0, R: 50, X: 0, swr: 1.5 },
+    { frequencyMHz: 7.1, R: 50, X: 0, swr: 1.8 },
+  ];
+
+  const mockReference: ComparisonSnapshot = {
+    antennaType: 'dipole',
+    height: 10,
+    sweep: [
+      { frequencyMHz: 7.0, R: 150, X: 0, swr: 2.5 },
+    ],
+  };
+
+  const baseArgs = {
+    sweep: mockSweep,
+    comparisonActive: false,
+    reference: null,
+    transformerInDisplay: false,
+    transformerRatio: 1,
+  };
+
+  it('returns default of 5 when sweeps are empty and no active reference', () => {
+    expect(computeYMax({ ...baseArgs, sweep: [] })).toBe(5);
+  });
+
+  it('calculates based on raw swr values when transformer is inactive', () => {
+    expect(computeYMax(baseArgs)).toBe(3);
+  });
+
+  it('returns appropriate scaled yMax when values cross 2.0', () => {
+    const sweep = [
+      ...mockSweep,
+      { frequencyMHz: 7.2, R: 50, X: 0, swr: 4.0 }, // max
+    ];
+    expect(computeYMax({ ...baseArgs, sweep })).toBe(6);
+  });
+
+  it('clips tight scale at SWR_CAP of 10 if bands are usable', () => {
+    const sweep = [
+      ...mockSweep, // has values below 2
+      { frequencyMHz: 7.2, R: 50, X: 0, swr: 20.0 }, // Huge spike
+    ];
+    expect(computeYMax({ ...baseArgs, sweep })).toBe(10);
+  });
+
+  it('allows higher scales (no SWR_CAP) when no points are below 2', () => {
+    const sweep: SweepPoint[] = [
+      { frequencyMHz: 7.0, R: 50, X: 0, swr: 5.0 },
+      { frequencyMHz: 7.1, R: 50, X: 0, swr: 15.0 }, // max
+    ];
+    expect(computeYMax({ ...baseArgs, sweep })).toBeCloseTo(16.5);
+  });
+
+  it('includes reference sweep max values when comparison is active', () => {
+    expect(computeYMax({
+      ...baseArgs,
+      comparisonActive: true,
+      reference: mockReference,
+    })).toBe(4);
+  });
+
+  it('uses post-balun values when transformerInDisplay is true', () => {
+    const sweep: SweepPoint[] = [
+      { frequencyMHz: 7.0, R: 200, X: 0, swr: 4.0 },
+      { frequencyMHz: 7.1, R: 400, X: 0, swr: 8.0 },
+    ];
+
+    expect(computeYMax({
+      ...baseArgs,
+      sweep,
+      transformerInDisplay: true,
+      transformerRatio: 4,
+    })).toBe(3);
+  });
+});
+
+describe('computeOptions callbacks', () => {
+  const baseArgs = {
+    frequency: 7.1,
+    accent: '#ff0000',
+    stats: null,
+    yMax: 5,
+    xBounds: { min: 6.9, max: 7.3 },
+    chartText: '#ffffff',
+    chartGrid: '#333333',
+    comparisonActive: false,
+  };
+
+  it('x-axis callback formats tick to 2 decimal places', () => {
+    const options = computeOptions(baseArgs);
+    const callback = options.scales?.x?.ticks?.callback as (value: number | string) => string;
+    expect(callback).toBeDefined();
+
+    // Simulating chart.js tick callback
+    if (callback) {
+      expect(callback(7.1234)).toBe('7.12');
+      expect(callback('7.5')).toBe('7.50');
+    }
   });
 });
