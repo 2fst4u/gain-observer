@@ -11,7 +11,7 @@ import {
 } from 'chart.js';
 import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useMemo, type ComponentProps } from 'react';
+import React, { useMemo, type ComponentProps } from 'react';
 import { displayedFeedMetrics } from '../../physics/impedance';
 import type { GainPattern } from '../../physics/types';
 
@@ -90,6 +90,42 @@ function getCssVar(name: string): string {
   if (typeof window === 'undefined') return '';
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
+
+const RADAR_COLOR = 'rgba(79, 179, 255, 0.55)';
+
+interface PolarPlotPanelProps {
+  title: string;
+  labels: string[];
+  data: number[];
+  options: ComponentProps<typeof Radar>['options'];
+}
+
+const PolarPlotPanel = React.memo(function PolarPlotPanel({ title, labels, data, options }: PolarPlotPanelProps) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <h3 style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: 0, fontWeight: 'normal' }}>
+        {title}
+      </h3>
+      <div style={{ height: 160 }}>
+        <Radar
+          data={{
+            labels,
+            datasets: [{
+              data,
+              backgroundColor: RADAR_COLOR,
+              borderColor: RADAR_COLOR,
+              borderWidth: 1,
+              pointRadius: 0,
+              pointHoverRadius: 4,
+              fill: true,
+            }],
+          }}
+          options={options}
+        />
+      </div>
+    </div>
+  );
+});
 
 export function PolarPlots() {
   // ⚡ Bolt: Performance Optimization
@@ -181,6 +217,9 @@ export function PolarPlots() {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [result, dbRange, endOnAz]);
 
+  const azLabels = useMemo(() => (result ? getAzimuthLabels(result.pattern) : []), [result]);
+  const elLabels = useMemo(() => (result ? getElevationLabels(result.pattern) : []), [result]);
+
   const chartText = theme === 'dark' ? getCssVar('--chart-text') || '#c6cdd6' : getCssVar('--chart-text') || '#3a4250';
   const chartGrid = theme === 'dark' ? getCssVar('--chart-grid') || 'rgba(255, 255, 255, 0.08)' : getCssVar('--chart-grid') || 'rgba(0, 0, 0, 0.08)';
 
@@ -212,8 +251,6 @@ export function PolarPlots() {
     },
   }), [dbRange, chartText, chartGrid, result, peakDbi]);
 
-  const color = 'rgba(79, 179, 255, 0.55)';
-
   if (!showPolarCuts || !result || !azData || !elDataBroadside || !elDataEndOn) return null;
 
   return (
@@ -221,72 +258,24 @@ export function PolarPlots() {
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Polar cuts</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <h3 style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: 0, fontWeight: 'normal' }}>
-            Azimuth @ Peak ({result.takeoffElevationDeg.toFixed(0)}°)
-          </h3>
-          <div style={{ height: 160 }}>
-            <Radar
-              data={{
-                labels: getAzimuthLabels(result.pattern),
-                datasets: [{
-                  data: azData,
-                  backgroundColor: color,
-                  borderColor: color,
-                  borderWidth: 1,
-                  pointRadius: 0,
-                  pointHoverRadius: 4,
-                  fill: true,
-                }],
-              }}
-              options={options}
-            />
-          </div>
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <h3 style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: 0, fontWeight: 'normal' }}>
-            Elevation (Broadside)
-          </h3>
-          <div style={{ height: 160 }}>
-            <Radar
-              data={{
-                labels: getElevationLabels(result.pattern),
-                datasets: [{
-                  data: elDataBroadside,
-                  backgroundColor: color,
-                  borderColor: color,
-                  borderWidth: 1,
-                  pointRadius: 0,
-                  pointHoverRadius: 4,
-                  fill: true,
-                }],
-              }}
-              options={options}
-            />
-          </div>
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <h3 style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: 0, fontWeight: 'normal' }}>
-            Elevation (End-on)
-          </h3>
-          <div style={{ height: 160 }}>
-            <Radar
-              data={{
-                labels: getElevationLabels(result.pattern),
-                datasets: [{
-                  data: elDataEndOn,
-                  backgroundColor: color,
-                  borderColor: color,
-                  borderWidth: 1,
-                  pointRadius: 0,
-                  pointHoverRadius: 4,
-                  fill: true,
-                }],
-              }}
-              options={options}
-            />
-          </div>
-        </div>
+        <PolarPlotPanel
+          title={`Azimuth @ Peak (${result.takeoffElevationDeg.toFixed(0)}°)`}
+          labels={azLabels}
+          data={azData}
+          options={options}
+        />
+        <PolarPlotPanel
+          title="Elevation (Broadside)"
+          labels={elLabels}
+          data={elDataBroadside}
+          options={options}
+        />
+        <PolarPlotPanel
+          title="Elevation (End-on)"
+          labels={elLabels}
+          data={elDataEndOn}
+          options={options}
+        />
       </div>
     </section>
   );

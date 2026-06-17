@@ -46,3 +46,7 @@
 ## 2024-06-17 - Complex function refactor PropagationRadar
 **Learning:** We refactored `PropagationRadar` in `src/components/Charts/PropagationRadar.tsx` by extracting complex logic into smaller helper functions (`calculateMaxRangeKm` and `buildAzimuthalWedges`), improving code readability and maintainability without changing behavior.
 **Action:** Identified the logic that could be extracted, created the pure helper functions, and verified no regressions by running tests.
+
+## 2024-06-17 - Extract PolarPlotPanel to Reduce Component Complexity
+**Learning:** Large React components rendering multiple instances of heavily configured sub-components (like Chart.js instances) can obscure their core structure. Extracting these configurations into a stateless sub-component locally within the same file dramatically improves readability while preserving scope and minimizing hook overhead.
+**Action:** Refactored the `PolarPlots` component by extracting the repetitive Chart.js `<Radar />` setup into a local `PolarPlotPanel` sub-component.
