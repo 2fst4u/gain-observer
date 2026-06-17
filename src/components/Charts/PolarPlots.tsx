@@ -11,7 +11,7 @@ import {
 } from 'chart.js';
 import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useMemo, type ComponentProps } from 'react';
+import React, { useMemo, type ComponentProps } from 'react';
 import { displayedFeedMetrics } from '../../physics/impedance';
 import type { GainPattern } from '../../physics/types';
 
@@ -91,6 +91,8 @@ function getCssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+const RADAR_COLOR = 'rgba(79, 179, 255, 0.55)';
+
 interface PolarPlotPanelProps {
   title: string;
   labels: string[];
@@ -98,8 +100,7 @@ interface PolarPlotPanelProps {
   options: ComponentProps<typeof Radar>['options'];
 }
 
-function PolarPlotPanel({ title, labels, data, options }: PolarPlotPanelProps) {
-  const color = 'rgba(79, 179, 255, 0.55)';
+const PolarPlotPanel = React.memo(function PolarPlotPanel({ title, labels, data, options }: PolarPlotPanelProps) {
   return (
     <div style={{ minWidth: 0 }}>
       <h3 style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: 0, fontWeight: 'normal' }}>
@@ -111,8 +112,8 @@ function PolarPlotPanel({ title, labels, data, options }: PolarPlotPanelProps) {
             labels,
             datasets: [{
               data,
-              backgroundColor: color,
-              borderColor: color,
+              backgroundColor: RADAR_COLOR,
+              borderColor: RADAR_COLOR,
               borderWidth: 1,
               pointRadius: 0,
               pointHoverRadius: 4,
@@ -124,7 +125,7 @@ function PolarPlotPanel({ title, labels, data, options }: PolarPlotPanelProps) {
       </div>
     </div>
   );
-}
+});
 
 export function PolarPlots() {
   // ⚡ Bolt: Performance Optimization
