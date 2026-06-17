@@ -50,3 +50,7 @@
 ## 2024-06-17 - Extract PolarPlotPanel to Reduce Component Complexity
 **Learning:** Large React components rendering multiple instances of heavily configured sub-components (like Chart.js instances) can obscure their core structure. Extracting these configurations into a stateless sub-component locally within the same file dramatically improves readability while preserving scope and minimizing hook overhead.
 **Action:** Refactored the `PolarPlots` component by extracting the repetitive Chart.js `<Radar />` setup into a local `PolarPlotPanel` sub-component.
+
+## 2024-05-18 - [TransformerControl Refactoring]
+**Learning:** Extracting complex inline logic, especially IIFEs and blocks containing multiple local `useState` declarations, into separate, pure sub-components (`TransformerRatioInput`) and pure helper functions (`calculateOptimalRatio`) dramatically improves readability, reduces line count in the parent component, and adheres closely to React's compositional nature without altering functionality.
+**Action:** Refactored `TransformerControl.tsx` to separate stateful input rendering and pure math logic from the main layout wrapper.
