@@ -50,3 +50,7 @@
 ## 2024-06-17 - Extract PolarPlotPanel to Reduce Component Complexity
 **Learning:** Large React components rendering multiple instances of heavily configured sub-components (like Chart.js instances) can obscure their core structure. Extracting these configurations into a stateless sub-component locally within the same file dramatically improves readability while preserving scope and minimizing hook overhead.
 **Action:** Refactored the `PolarPlots` component by extracting the repetitive Chart.js `<Radar />` setup into a local `PolarPlotPanel` sub-component.
+
+## 2026-06-17 - Extracted Sub-hooks for Complex React Hooks
+**Learning:** Massive generic hooks covering multiple disparate responsibilities (like `useAntennaGeometry` which previously handled layout calculations, topology detection, and termination dimension logic simultaneously) are brittle and unreadable. Grouping the internal `useMemo` calls into explicit, specialized internal hooks allows the main exported hook to act purely as an orchestrator. This significantly boosts type safety and reasoning.
+**Action:** Refactored `src/components/Scene/useAntennaGeometry.ts` into three focused sub-hooks (`useRenderedWires`, `useFeedpointAndShield`, `useTerminatedDeltaSplit`) and added typed interfaces.
