@@ -53,3 +53,7 @@
 ## 2024-06-17 - [Extract Reusable StatRow Component]
 **Learning:** For displaying statistical readouts, use the reusable `StatRow` component from `src/components/UI/StatRow.tsx` instead of hardcoding `<div className="stat">` blocks. Extracted complex ternary logic into isolated helper functions to dramatically reduce React component complexity.
 **Action:** Created `<StatRow>`, replaced all static div blocks in `StatsReadout.tsx`, and migrated tooltip logic into `getImpedanceTitle`, `getSwrTitle`, and `getRealizedGainTitle`.
+
+## 2024-05-18 - [TransformerControl Refactoring]
+**Learning:** Extracting complex inline logic, especially IIFEs and blocks containing multiple local `useState` declarations, into separate, pure sub-components (`TransformerRatioInput`) and pure helper functions (`calculateOptimalRatio`) dramatically improves readability, reduces line count in the parent component, and adheres closely to React's compositional nature without altering functionality.
+**Action:** Refactored `TransformerControl.tsx` to separate stateful input rendering and pure math logic from the main layout wrapper.
