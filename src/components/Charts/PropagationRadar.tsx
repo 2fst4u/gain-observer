@@ -74,15 +74,15 @@ function buildAzimuthalWedges(
   cx: number,
   cy: number,
   kmToPx: number
-) {
+): JSX.Element[] {
   const wedges = [];
   for (let i = 0; i < az.length; i++) {
-    const aPoint = az[i];
+    const aPoint = az[i]!;
     const bPoint = az[(i + 1) % az.length]!;
     const rA = (aPoint.rangeKm[ringN - 1] ?? 0) * kmToPx;
     const rB = (bPoint.rangeKm[ringN - 1] ?? 0) * kmToPx;
-    const aRad = (((aPoint.phiDeg % 360) + 360) % 360 * Math.PI) / 180;
-    const bRad = (((bPoint.phiDeg % 360) + 360) % 360 * Math.PI) / 180;
+    const aRad = ((((aPoint.phiDeg % 360) + 360) % 360) * Math.PI) / 180;
+    const bRad = ((((bPoint.phiDeg % 360) + 360) % 360) * Math.PI) / 180;
     const ax = cx + rA * Math.sin(aRad);
     const ay = cy - rA * Math.cos(aRad);
     const bx = cx + rB * Math.sin(bRad);
