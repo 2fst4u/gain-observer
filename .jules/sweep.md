@@ -42,3 +42,7 @@
 ## 2024-10-24 - False Positive on AntennaWireProps Import
 **Learning:** The static analysis scanner incorrectly flagged `type AntennaWireProps` in `src/components/Scene/AntennaWire.tsx` as an unused import. Manual inspection verified it was used as the type for the `props` argument in `export function AntennaWire(props: AntennaWireProps)`.
 **Action:** Closed the task without making changes to the codebase, preserving valid code.
+
+## 2024-06-17 - Complex function refactor PropagationRadar
+**Learning:** We refactored `PropagationRadar` in `src/components/Charts/PropagationRadar.tsx` by extracting complex logic into smaller helper functions (`calculateMaxRangeKm` and `buildAzimuthalWedges`), improving code readability and maintainability without changing behavior.
+**Action:** Identified the logic that could be extracted, created the pure helper functions, and verified no regressions by running tests.

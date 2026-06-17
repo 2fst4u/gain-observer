@@ -55,6 +55,60 @@ function worseQuality(a: 'useful' | 'weak' | 'unusable', b: 'useful' | 'weak' | 
   return rank[a] <= rank[b] ? a : b;
 }
 
+function calculateMaxRangeKm(prediction: PropagationPrediction): number {
+  let maxRangeKm = prediction.hops[prediction.hops.length - 1]?.rangeKm ?? 1;
+  if (prediction.azimuthalHops) {
+    for (const az of prediction.azimuthalHops) {
+      const lastRange = az.rangeKm[az.rangeKm.length - 1];
+      if (lastRange && lastRange > maxRangeKm) {
+        maxRangeKm = lastRange;
+      }
+    }
+  }
+  return maxRangeKm;
+}
+
+function buildAzimuthalWedges(
+  az: NonNullable<PropagationPrediction['azimuthalHops']>,
+  ringN: number,
+  cx: number,
+  cy: number,
+  kmToPx: number
+) {
+  const wedges = [];
+  for (let i = 0; i < az.length; i++) {
+    const aPoint = az[i];
+    const bPoint = az[(i + 1) % az.length]!;
+    const rA = (aPoint.rangeKm[ringN - 1] ?? 0) * kmToPx;
+    const rB = (bPoint.rangeKm[ringN - 1] ?? 0) * kmToPx;
+    const aRad = (((aPoint.phiDeg % 360) + 360) % 360 * Math.PI) / 180;
+    const bRad = (((bPoint.phiDeg % 360) + 360) % 360 * Math.PI) / 180;
+    const ax = cx + rA * Math.sin(aRad);
+    const ay = cy - rA * Math.cos(aRad);
+    const bx = cx + rB * Math.sin(bRad);
+    const by = cy - rB * Math.cos(bRad);
+    // Colour the wedge by the worse status / quality of its two
+    // bounding radials, so a closed bearing visually pulls the
+    // wedge into "closed" rather than borrowing colour from a
+    // neighbouring open bearing.
+    const status = worseStatus(aPoint.status, bPoint.status);
+    const linkQuality = worseQuality(aPoint.linkQuality, bPoint.linkQuality);
+    wedges.push(
+      <polygon
+        key={`${ringN}-${i}`}
+        points={`${cx},${cy} ${ax},${ay} ${bx},${by}`}
+        fill={statusFill(status)}
+        fillOpacity={qualityOpacity(linkQuality)}
+        stroke={statusFill(status)}
+        strokeOpacity={linkQuality === 'unusable' ? 0.25 : 0.6}
+        strokeWidth={1}
+        strokeDasharray={linkQuality === 'unusable' ? '4 3' : undefined}
+      />
+    );
+  }
+  return wedges;
+}
+
 export function PropagationRadar({
   prediction,
   units,
@@ -65,17 +119,7 @@ export function PropagationRadar({
   // Leave a margin for axis labels.
   const margin = 24;
 
-  // Find overall maximum range to scale the radar.
-  let maxRangeKm = prediction.hops[prediction.hops.length - 1]?.rangeKm ?? 1;
-  if (prediction.azimuthalHops) {
-    for (const az of prediction.azimuthalHops) {
-      const lastRange = az.rangeKm[az.rangeKm.length - 1];
-      if (lastRange && lastRange > maxRangeKm) {
-        maxRangeKm = lastRange;
-      }
-    }
-  }
-
+  const maxRangeKm = calculateMaxRangeKm(prediction);
   const maxRadiusPx = (size / 2) - margin;
   const kmToPx = maxRadiusPx / Math.max(1, maxRangeKm);
 
@@ -100,38 +144,7 @@ export function PropagationRadar({
   for (let k = rings.length - 1; k >= 0; k--) {
     const ring = rings[k];
     if (prediction.azimuthalHops && prediction.azimuthalHops.length > 1) {
-      const az = prediction.azimuthalHops;
-      const wedges = [];
-      for (let i = 0; i < az.length; i++) {
-        const aPoint = az[i];
-        const bPoint = az[(i + 1) % az.length]!;
-        const rA = (aPoint.rangeKm[ring.n - 1] ?? 0) * kmToPx;
-        const rB = (bPoint.rangeKm[ring.n - 1] ?? 0) * kmToPx;
-        const aRad = (((aPoint.phiDeg % 360) + 360) % 360 * Math.PI) / 180;
-        const bRad = (((bPoint.phiDeg % 360) + 360) % 360 * Math.PI) / 180;
-        const ax = cx + rA * Math.sin(aRad);
-        const ay = cy - rA * Math.cos(aRad);
-        const bx = cx + rB * Math.sin(bRad);
-        const by = cy - rB * Math.cos(bRad);
-        // Colour the wedge by the worse status / quality of its two
-        // bounding radials, so a closed bearing visually pulls the
-        // wedge into "closed" rather than borrowing colour from a
-        // neighbouring open bearing.
-        const status = worseStatus(aPoint.status, bPoint.status);
-        const linkQuality = worseQuality(aPoint.linkQuality, bPoint.linkQuality);
-        wedges.push(
-          <polygon
-            key={`${ring.n}-${i}`}
-            points={`${cx},${cy} ${ax},${ay} ${bx},${by}`}
-            fill={statusFill(status)}
-            fillOpacity={qualityOpacity(linkQuality)}
-            stroke={statusFill(status)}
-            strokeOpacity={linkQuality === 'unusable' ? 0.25 : 0.6}
-            strokeWidth={1}
-            strokeDasharray={linkQuality === 'unusable' ? '4 3' : undefined}
-          />
-        );
-      }
+      const wedges = buildAzimuthalWedges(prediction.azimuthalHops, ring.n, cx, cy, kmToPx);
       hopRings.push(<g key={ring.n}>{wedges}</g>);
     } else {
       hopRings.push(
