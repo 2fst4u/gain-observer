@@ -50,3 +50,6 @@
 ## 2024-06-17 - Extract PolarPlotPanel to Reduce Component Complexity
 **Learning:** Large React components rendering multiple instances of heavily configured sub-components (like Chart.js instances) can obscure their core structure. Extracting these configurations into a stateless sub-component locally within the same file dramatically improves readability while preserving scope and minimizing hook overhead.
 **Action:** Refactored the `PolarPlots` component by extracting the repetitive Chart.js `<Radar />` setup into a local `PolarPlotPanel` sub-component.
+## $(date +%Y-%m-%d) - Extracted safeSegs and Refactored buildFoldedAntennaWires
+**Learning:** `safeSegs` was defined locally inside `buildInvertedLWires` but is a globally applicable constraint for NEC-2 stability (segment length >= 4 * wire radius). Complex functions like `buildFoldedAntennaWires` returning arrays of similar objects can be greatly simplified with local factory helpers like `createWire`.
+**Action:** Extracted `safeSegs` to an exported top-level utility in `src/store/antennaGeometry.ts`, updated all call sites to pass `wireRadius`, and refactored `buildFoldedAntennaWires` to use `safeSegs` and a local `createWire` helper, drastically reducing verbosity.

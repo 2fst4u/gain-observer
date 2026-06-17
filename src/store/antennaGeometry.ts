@@ -774,6 +774,14 @@ export interface InvertedLWiresParams {
  * Excitation is placed on segment 1 of INVERTED_L_VERTICAL_TAG (the
  * lowest segment at the base), exactly as for the vertical whip.
  */
+/**
+ * Ensures segment length is at least ~4x the wire radius for NEC-2 stability.
+ */
+export const safeSegs = (len: number, requested: number, wireRadius: number): number => {
+  const maxSafe = Math.max(1, Math.floor(len / (4 * wireRadius)));
+  return Math.min(requested, maxSafe);
+};
+
 export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   const totalLen = Math.max(0.1, params.length);
   const baseZ = VERTICAL_WHIP_BASE_GAP_M;
@@ -790,12 +798,6 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   const [dx, dy] = orientationVector(params.orientation);
   const lambda = wavelengthMeters(params.frequency);
 
-  // NEC-2 stability: segment length should be at least ~4x the wire radius.
-  const safeSegs = (len: number, requested: number) => {
-    const maxSafe = Math.max(1, Math.floor(len / (4 * params.wireRadius)));
-    return Math.min(requested, maxSafe);
-  };
-
   // Segments for the vertical section.
   const minVertSegs = Math.ceil((SEGS_PER_WAVELENGTH * vertLen) / lambda);
   const vertSegs = safeSegs(
@@ -804,6 +806,7 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
       MAX_SEGS_PER_LEG,
       Math.max(MIN_SEGS_PER_LEG, minVertSegs, Math.round(params.segments / 2)),
     ),
+    params.wireRadius,
   );
 
   const wires: Wire[] = [
@@ -824,6 +827,7 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
         MAX_SEGS_PER_LEG,
         Math.max(MIN_SEGS_PER_LEG, minHorizSegs, Math.round(params.segments / 2)),
       ),
+      params.wireRadius,
     );
     wires.push({
       start: [0, 0, bendZ],
@@ -947,9 +951,13 @@ export function buildFoldedAntennaWires(params: FoldedAntennaWiresParams): Wire[
   const targetSegLen = Math.max(1e-3, Math.min(lambda / SEGS_PER_WAVELENGTH, aperture / 2));
 
   const segsForLen = (len: number, userFloor: number): number =>
-    Math.min(
-      MAX_SEGS_PER_LEG,
-      Math.max(MIN_SEGS_PER_LEG, Math.ceil(len / targetSegLen), userFloor),
+    safeSegs(
+      len,
+      Math.min(
+        MAX_SEGS_PER_LEG,
+        Math.max(MIN_SEGS_PER_LEG, Math.ceil(len / targetSegLen), userFloor),
+      ),
+      params.wireRadius,
     );
 
   // Each half of the fed conductor (corner → feed bridge edge).
@@ -983,64 +991,35 @@ export function buildFoldedAntennaWires(params: FoldedAntennaWiresParams): Wire[
   const topCenterLeft = pt(-gapHalf, zTop);
   const topCenterRight = pt(gapHalf, zTop);
 
+  const createWire = (
+    start: [number, number, number],
+    end: [number, number, number],
+    segments: number,
+    tag: number,
+  ): Wire => ({
+    start,
+    end,
+    radius: params.wireRadius,
+    segments,
+    tag,
+  });
+
   return [
     // Fed conductor — left half (left end → bridge).
-    {
-      start: leftFed,
-      end: bridgeLeft,
-      radius: params.wireRadius,
-      segments: halfSegs,
-      tag: LEFT_LEG_TAG,
-    },
+    createWire(leftFed, bridgeLeft, halfSegs, LEFT_LEG_TAG),
     // Feed bridge at the centre of the fed conductor.
-    {
-      start: bridgeLeft,
-      end: bridgeRight,
-      radius: params.wireRadius,
-      segments: 1,
-      tag: FEED_BRIDGE_TAG,
-    },
+    createWire(bridgeLeft, bridgeRight, 1, FEED_BRIDGE_TAG),
     // Fed conductor — right half (bridge → right end).
-    {
-      start: bridgeRight,
-      end: rightFed,
-      radius: params.wireRadius,
-      segments: halfSegs,
-      tag: RIGHT_LEG_TAG,
-    },
+    createWire(bridgeRight, rightFed, halfSegs, RIGHT_LEG_TAG),
     // Un-fed (top) conductor — left half.
     // Unterminated: ends at topCenter (same as right half's start) → continuous.
     // Terminated:   ends at topCenterLeft, separated from topCenterRight by the gap.
-    {
-      start: leftOpp,
-      end: topCenterLeft,
-      radius: params.wireRadius,
-      segments: leftOppSegs,
-      tag: FOLDED_DIPOLE_OPPOSITE_TAG,
-    },
+    createWire(leftOpp, topCenterLeft, leftOppSegs, FOLDED_DIPOLE_OPPOSITE_TAG),
     // Un-fed (top) conductor — right half.
-    {
-      start: topCenterRight,
-      end: rightOpp,
-      radius: params.wireRadius,
-      segments: rightOppSegs,
-      tag: FOLDED_DIPOLE_OPPOSITE_TAG,
-    },
+    createWire(topCenterRight, rightOpp, rightOppSegs, FOLDED_DIPOLE_OPPOSITE_TAG),
     // Left end connector across the aperture.
-    {
-      start: leftFed,
-      end: leftOpp,
-      radius: params.wireRadius,
-      segments: connSegs,
-      tag: FOLDED_DIPOLE_CONNECTOR_TAG,
-    },
+    createWire(leftFed, leftOpp, connSegs, FOLDED_DIPOLE_CONNECTOR_TAG),
     // Right end connector across the aperture.
-    {
-      start: rightFed,
-      end: rightOpp,
-      radius: params.wireRadius,
-      segments: connSegs,
-      tag: FOLDED_DIPOLE_CONNECTOR_TAG,
-    },
+    createWire(rightFed, rightOpp, connSegs, FOLDED_DIPOLE_CONNECTOR_TAG),
   ];
 }
