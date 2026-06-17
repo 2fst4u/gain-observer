@@ -301,16 +301,16 @@ describe('computeOptions', () => {
     expect(options.scales?.x?.max).toBe(7.3);
 
     // Basic annotations should exist
-    const annotations = options.plugins?.annotation?.annotations as any;
+    const annotations = options.plugins?.annotation?.annotations as Record<string, { yMin?: number; xMin?: number }> | undefined;
     expect(annotations).toBeDefined();
-    expect(annotations.swr2).toBeDefined();
-    expect(annotations.swr2.yMin).toBe(2);
-    expect(annotations.currentFrequency).toBeDefined();
-    expect(annotations.currentFrequency.xMin).toBe(7.1);
+    expect(annotations?.swr2).toBeDefined();
+    expect(annotations?.swr2?.yMin).toBe(2);
+    expect(annotations?.currentFrequency).toBeDefined();
+    expect(annotations?.currentFrequency?.xMin).toBe(7.1);
 
     // No stats annotations
-    expect(annotations.minFreq).toBeUndefined();
-    expect(annotations.band0Low).toBeUndefined();
+    expect(annotations?.minFreq).toBeUndefined();
+    expect(annotations?.band0Low).toBeUndefined();
   });
 
   it('adds stats annotations when stats are provided', () => {
@@ -324,21 +324,21 @@ describe('computeOptions', () => {
     };
 
     const options = computeOptions({ ...baseArgs, stats });
-    const annotations = options.plugins?.annotation?.annotations as any;
+    const annotations = options.plugins?.annotation?.annotations as Record<string, { yMin?: number; xMin?: number }> | undefined;
 
     // Min freq line
-    expect(annotations.minFreq).toBeDefined();
-    expect(annotations.minFreq.xMin).toBe(7.15);
+    expect(annotations?.minFreq).toBeDefined();
+    expect(annotations?.minFreq?.xMin).toBe(7.15);
 
     // Unclipped band should have both edge markers
-    expect(annotations.band0Low).toBeDefined();
-    expect(annotations.band0Low.xMin).toBe(7.05);
-    expect(annotations.band0High).toBeDefined();
-    expect(annotations.band0High.xMin).toBe(7.25);
+    expect(annotations?.band0Low).toBeDefined();
+    expect(annotations?.band0Low?.xMin).toBe(7.05);
+    expect(annotations?.band0High).toBeDefined();
+    expect(annotations?.band0High?.xMin).toBe(7.25);
 
     // Clipped band should not have edge markers
-    expect(annotations.band1Low).toBeUndefined();
-    expect(annotations.band1High).toBeUndefined();
+    expect(annotations?.band1Low).toBeUndefined();
+    expect(annotations?.band1High).toBeUndefined();
   });
 
   it('toggles legend display based on comparisonActive', () => {
@@ -377,10 +377,6 @@ describe('computeYMax', () => {
   });
 
   it('calculates based on raw swr values when transformer is inactive', () => {
-    // Max SWR in mockSweep is 1.8.
-    // anyBelow2 = true.
-    // scaled = Math.max(3, Math.ceil(1.8 * 1.5)) = Math.max(3, Math.ceil(2.7)) = 3.
-    // Returns Math.min(999, 3) = 3.
     expect(computeYMax(baseArgs)).toBe(3);
   });
 
@@ -389,8 +385,6 @@ describe('computeYMax', () => {
       ...mockSweep,
       { frequencyMHz: 7.2, R: 50, X: 0, swr: 4.0 }, // max
     ];
-    // max SWR = 4.0. anyBelow2 = true (from mockSweep).
-    // scaled = Math.max(3, Math.ceil(4.0 * 1.5)) = Math.max(3, 6) = 6.
     expect(computeYMax({ ...baseArgs, sweep })).toBe(6);
   });
 
@@ -399,9 +393,6 @@ describe('computeYMax', () => {
       ...mockSweep, // has values below 2
       { frequencyMHz: 7.2, R: 50, X: 0, swr: 20.0 }, // Huge spike
     ];
-    // max SWR = 20. anyBelow2 = true.
-    // scaled = Math.ceil(20 * 1.5) = 30.
-    // capped at 10.
     expect(computeYMax({ ...baseArgs, sweep })).toBe(10);
   });
 
@@ -410,17 +401,10 @@ describe('computeYMax', () => {
       { frequencyMHz: 7.0, R: 50, X: 0, swr: 5.0 },
       { frequencyMHz: 7.1, R: 50, X: 0, swr: 15.0 }, // max
     ];
-    // maxVal = 15. anyBelow2 = false.
-    // returns Math.max(10, Math.min(15 * 1.1, 999))
-    // 15 * 1.1 = 16.5
     expect(computeYMax({ ...baseArgs, sweep })).toBeCloseTo(16.5);
   });
 
   it('includes reference sweep max values when comparison is active', () => {
-    // mockSweep max is 1.8.
-    // mockReference max is 2.5.
-    // comparison is active, so combined max is 2.5. anyBelow2 is true.
-    // scaled = Math.max(3, Math.ceil(2.5 * 1.5)) = Math.max(3, 4) = 4.
     expect(computeYMax({
       ...baseArgs,
       comparisonActive: true,
@@ -430,18 +414,10 @@ describe('computeYMax', () => {
 
   it('uses post-balun values when transformerInDisplay is true', () => {
     const sweep: SweepPoint[] = [
-      // 200 Ohm vs 50. raw swr = 4.0
-      // with 4:1 balun, post-balun is 50 Ohm -> SWR 1.0
       { frequencyMHz: 7.0, R: 200, X: 0, swr: 4.0 },
-      // 400 Ohm vs 50. raw swr = 8.0
-      // with 4:1 balun, post-balun is 100 Ohm -> SWR 2.0
       { frequencyMHz: 7.1, R: 400, X: 0, swr: 8.0 },
     ];
 
-    // Max raw SWR is 8.0.
-    // If it used raw SWR, scaled would be ceil(8.0 * 1.5) = 12 -> capped at 10.
-    // Post balun SWRs: 1.0, 2.0. Max post-balun = 2.0. anyBelow2 = true.
-    // scaled = Math.max(3, ceil(2.0 * 1.5)) = Math.max(3, 3) = 3.
     expect(computeYMax({
       ...baseArgs,
       sweep,
@@ -465,11 +441,13 @@ describe('computeOptions callbacks', () => {
 
   it('x-axis callback formats tick to 2 decimal places', () => {
     const options = computeOptions(baseArgs);
-    const callback = options.scales?.x?.ticks?.callback as Function;
+    const callback = options.scales?.x?.ticks?.callback as (value: number | string) => string;
     expect(callback).toBeDefined();
 
     // Simulating chart.js tick callback
-    expect(callback(7.1234)).toBe('7.12');
-    expect(callback('7.5')).toBe('7.50');
+    if (callback) {
+      expect(callback(7.1234)).toBe('7.12');
+      expect(callback('7.5')).toBe('7.50');
+    }
   });
 });
