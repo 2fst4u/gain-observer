@@ -50,3 +50,6 @@
 ## 2024-06-17 - Extract PolarPlotPanel to Reduce Component Complexity
 **Learning:** Large React components rendering multiple instances of heavily configured sub-components (like Chart.js instances) can obscure their core structure. Extracting these configurations into a stateless sub-component locally within the same file dramatically improves readability while preserving scope and minimizing hook overhead.
 **Action:** Refactored the `PolarPlots` component by extracting the repetitive Chart.js `<Radar />` setup into a local `PolarPlotPanel` sub-component.
+## 2024-06-17 - [Extract SWRChart Stats Component]
+**Learning:** Extracting complex presentation sections of a component into smaller functional components improves overall code health and maintainability. In `SWRChart`, abstracting the statistics out into `SWRChartStats` with reusable UI patterns like `StatRow` significantly reduces the primary component size and isolates rendering responsibilities.
+**Action:** Created `StatRow` standard UI component and refactored `SWRChart` to utilize it within an extracted `SWRChartStats` component.
