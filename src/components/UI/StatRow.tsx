@@ -1,13 +1,13 @@
-import React from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 export interface StatRowProps {
-  label: React.ReactNode;
-  value: React.ReactNode;
+  label: ReactNode;
+  value: ReactNode;
   title?: string;
   valueClassName?: string;
-  style?: React.CSSProperties;
-  labelStyle?: React.CSSProperties;
-  valueStyle?: React.CSSProperties;
+  style?: CSSProperties;
+  labelStyle?: CSSProperties;
+  valueStyle?: CSSProperties;
 }
 
 export function StatRow({

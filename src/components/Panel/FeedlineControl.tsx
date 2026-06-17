@@ -78,8 +78,6 @@ export function FeedlineControl() {
     }
   }
 
-
-
   if (!SUPPORTED_ANTENNA_TYPES.has(antennaType)) return null;
 
   const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
