@@ -13,7 +13,7 @@ describe('ControlPanel', () => {
 
     // Act
     const heading = screen.getByRole('heading', { name: /HF GAIN VISUALIZER/i });
-    const footerLink = screen.getByRole('link', { name: /View source on GitHub/i });
+    const footerLink = screen.getByRole('link', { name: /Source code on GitHub/i });
 
     // Assert
     expect(heading).toBeTruthy();
@@ -24,7 +24,7 @@ describe('ControlPanel', () => {
   it('handles hover events on the footer link correctly', () => {
     // Arrange
     render(<ControlPanel />);
-    const footerLink = screen.getByRole('link', { name: /View source on GitHub/i });
+    const footerLink = screen.getByRole('link', { name: /Source code on GitHub/i });
 
     // Act - Hover
     fireEvent.mouseOver(footerLink);
