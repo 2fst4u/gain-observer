@@ -168,3 +168,7 @@
 **Learning:** High-frequency render blocks passing large arrays to Chart.js shouldn't use `.map()` which generates intermediate copies and garbage, but instead pre-allocate arrays and populate via `for` loops.
 **Action:** Replaced `.map()` with pre-allocated `for` loops in `src/components/Charts/swrChartUtils.ts` (computeChartData).
 ## 2026-05-30 - Avoid Map Filter Chaining Array Allocations\n**Learning:** Chaining `.map().filter()` calls inside high-frequency render functions like `useDipoleGeometry` generates unnecessary intermediate shallow array copies and incurs excessive garbage collection pressure, particularly when handling 3D scene re-renders.\n**Action:** Replace functional map/filter chaining with a single standard `for` loop and array `push()` with early `continue` statements to eliminate intermediate allocations.
+
+## 2026-05-31 - Avoid Array.prototype.map() in PolarPlots
+**Learning:** In high-frequency React component renders (like rendering polar charts based on varying parameters), using `.map()` on arrays to normalise data creates unnecessary callback execution overhead and unoptimized array allocations, leading to increased GC pressure.
+**Action:** Replaced `.map()` with a pre-allocated array (`new Array(len)`) and a standard `for` loop in `normaliseForPolar` within `src/components/Charts/PolarPlots.tsx` to measurably improve performance and reduce overhead.
