@@ -103,6 +103,14 @@ export interface SweepOptions {
    * fills the chart for both narrowband and broadband antennas.
    */
   spanFraction?: number;
+  /**
+   * Explicit absolute frequency window [startMHz, endMHz]. Takes precedence
+   * over `spanFraction` and the adaptive framing. Used by the interactive
+   * zoom/pan SWR view: the sweep samples exactly this window so zooming in
+   * resamples a narrower span at full point density (efficient recompute).
+   * Clamped to the engine's HF sweep limits.
+   */
+  window?: { startMHz: number; endMHz: number };
   /** Number of sample points across the (final) sweep. Default 15. */
   points?: number;
   /**
@@ -305,6 +313,16 @@ export class Nec2Engine implements Engine {
 
   async sweepImpedance(input: SimulationInput, opts: SweepOptions = {}): Promise<SweepPoint[]> {
     const points = Math.max(3, Math.round(opts.points ?? 15));
+    // Explicit window → fixed single-pass sweep over exactly that range. This
+    // is the interactive zoom/pan path: the caller owns the framing, so no
+    // auto-zoom is applied.
+    if (opts.window) {
+      const lo = Math.min(opts.window.startMHz, opts.window.endMHz);
+      const hi = Math.max(opts.window.startMHz, opts.window.endMHz);
+      const start = Math.max(Nec2Engine.F_MIN_MHZ, lo);
+      const end = Math.min(Nec2Engine.F_MAX_MHZ, hi);
+      return this.runScan(input, start, end, points);
+    }
     // Explicit spanFraction → fixed single-pass sweep (back-compat for tests
     // and callers that want a specific window).
     if (opts.spanFraction !== undefined) {

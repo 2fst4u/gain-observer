@@ -107,12 +107,14 @@ describe('computeYMax', () => {
     expect(yMax).toBe(10); // capped — inter-band 40:1 does not inflate the scale
   });
 
-  it('does not cap when there are no usable bands (SWR always > 2)', () => {
+  it('caps at 10 even when there are no usable bands (SWR always > 2)', () => {
+    // The y-axis never zooms vertically: an all-mismatched window is clipped at
+    // the cap rather than inflating the scale.
     const sweep = [
       { frequencyMHz: 7.0, R: 500, X: 0, swr: 10.0 },
       { frequencyMHz: 8.0, R: 400, X: 0, swr: 8.0 },
     ];
     const yMax = computeYMax({ ...base, sweep });
-    expect(yMax).toBeGreaterThanOrEqual(11); // no cap — no usable band found
+    expect(yMax).toBe(10);
   });
 });

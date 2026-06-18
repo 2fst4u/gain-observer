@@ -181,6 +181,66 @@ describe('usePhysicsEngine', () => {
     expect(useAntennaStore.getState().error).toBe('Init Error');
   });
 
+  it('sends a sweep-only message when only the SWR view window changes', () => {
+    renderHook(() => usePhysicsEngine({ debounceMs: 100 }));
+    const worker = workerInstances[0] as MockWorker;
+    const messageHandler = worker.addEventListener.mock.calls.find(
+      (call: unknown[]) => call[0] === 'message'
+    )![1];
+
+    // Initial full solve.
+    act(() => { vi.advanceTimersByTime(100); });
+    const initial = worker.postMessage.mock.calls[0][0];
+    expect(initial.type).toBe('simulate');
+    expect(initial.window).toEqual(expect.objectContaining({
+      startMHz: expect.any(Number),
+      endMHz: expect.any(Number),
+    }));
+
+    // Resolve it so no full solve is in flight.
+    act(() => {
+      messageHandler({ data: { id: initial.id, type: 'result', result: { test: true }, sweep: [] } });
+    });
+
+    // Pure zoom/pan → cheap sweep-only recompute (no pattern re-solve).
+    worker.postMessage.mockClear();
+    act(() => { useAntennaStore.getState().panSwrView(0.25); });
+    act(() => { vi.advanceTimersByTime(100); });
+
+    expect(worker.postMessage).toHaveBeenCalledTimes(1);
+    const msg = worker.postMessage.mock.calls[0][0];
+    expect(msg.type).toBe('sweep');
+    expect(msg.window).toEqual(expect.objectContaining({
+      startMHz: expect.any(Number),
+      endMHz: expect.any(Number),
+    }));
+
+    // A sweep result updates the sweep without touching the pattern result.
+    act(() => {
+      messageHandler({ data: { id: msg.id, type: 'sweep', sweep: [{ frequencyMHz: 7, R: 50, X: 0, swr: 1.1 }] } });
+    });
+    expect(useAntennaStore.getState().sweep).toHaveLength(1);
+    expect(useAntennaStore.getState().result).toEqual({ test: true });
+  });
+
+  it('upgrades a zoom to a full solve while a pattern solve is still in flight', () => {
+    renderHook(() => usePhysicsEngine({ debounceMs: 100 }));
+    const worker = workerInstances[0] as MockWorker;
+
+    // Initial full solve dispatched but NOT yet resolved (pattern still pending).
+    act(() => { vi.advanceTimersByTime(100); });
+    expect(worker.postMessage.mock.calls[0][0].type).toBe('simulate');
+
+    // Zoom before the pattern lands → must re-solve fully, else the in-flight
+    // pattern result would be discarded as stale.
+    worker.postMessage.mockClear();
+    act(() => { useAntennaStore.getState().zoomSwrView(0.5); });
+    act(() => { vi.advanceTimersByTime(100); });
+
+    expect(worker.postMessage).toHaveBeenCalledTimes(1);
+    expect(worker.postMessage.mock.calls[0][0].type).toBe('simulate');
+  });
+
   it('handles worker errors properly', () => {
     renderHook(() => usePhysicsEngine({ debounceMs: 100 }));
     const worker = workerInstances[0] as MockWorker;

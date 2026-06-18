@@ -56,6 +56,37 @@ describe('sweepImpedance with default store input', () => {
   }, 60_000);
 });
 
+describe('sweepImpedance with an explicit window (interactive zoom/pan)', () => {
+  it('samples exactly across the requested window and clamps to HF limits', async () => {
+    const engine = new Nec2Engine({ baseUrl: wasmUrl });
+    await engine.init();
+    const input = selectSimulationInput(useAntennaStore.getState());
+
+    const sweep = await engine.sweepImpedance(input, {
+      points: 9,
+      window: { startMHz: 6.8, endMHz: 7.4 },
+    });
+
+    expect(sweep).toHaveLength(9);
+    expect(sweep[0]!.frequencyMHz).toBeCloseTo(6.8, 6);
+    expect(sweep[sweep.length - 1]!.frequencyMHz).toBeCloseTo(7.4, 6);
+  }, 60_000);
+
+  it('resamples a narrower window at finer resolution (zoom in)', async () => {
+    const engine = new Nec2Engine({ baseUrl: wasmUrl });
+    await engine.init();
+    const input = selectSimulationInput(useAntennaStore.getState());
+
+    const wide = await engine.sweepImpedance(input, { points: 9, window: { startMHz: 6.0, endMHz: 8.0 } });
+    const zoomed = await engine.sweepImpedance(input, { points: 9, window: { startMHz: 7.0, endMHz: 7.2 } });
+
+    const wideSpacing = wide[1]!.frequencyMHz - wide[0]!.frequencyMHz;
+    const zoomedSpacing = zoomed[1]!.frequencyMHz - zoomed[0]!.frequencyMHz;
+    // Same point count over a 10× narrower span → ~10× finer sample spacing.
+    expect(zoomedSpacing).toBeLessThan(wideSpacing);
+  }, 60_000);
+});
+
 describe('adaptive sweep framing (no spanFraction)', () => {
   const FREQ = 7.1;
 

@@ -123,38 +123,6 @@ export function computeChartData({
   return { datasets };
 }
 
-export interface ComputeXBoundsArgs {
-  sweep: readonly SweepPoint[];
-  comparisonActive: boolean;
-  reference: ComparisonSnapshot | null;
-  frequency: number;
-}
-
-export function computeXBounds({ sweep, comparisonActive, reference, frequency }: ComputeXBoundsArgs) {
-  if (sweep.length === 0 && (!comparisonActive || !reference || reference.sweep.length === 0)) {
-    return { min: frequency * 0.95, max: frequency * 1.05 };
-  }
-
-  let min = Infinity;
-  let max = -Infinity;
-
-  for (let i = 0; i < sweep.length; i++) {
-    const freq = sweep[i].frequencyMHz;
-    if (freq < min) min = freq;
-    if (freq > max) max = freq;
-  }
-
-  if (comparisonActive && reference) {
-    for (let i = 0; i < reference.sweep.length; i++) {
-      const freq = reference.sweep[i].frequencyMHz;
-      if (freq < min) min = freq;
-      if (freq > max) max = freq;
-    }
-  }
-
-  return { min, max };
-}
-
 export interface SWRStats {
   minSWR: number;
   minFreq: number;
@@ -230,7 +198,6 @@ export function computeYMax({
   }
 
   let maxVal = -Infinity;
-  let anyBelow2 = false;
 
   for (let i = 0; i < sweep.length; i++) {
     // When the transformer is active we only render the post-balun curve,
@@ -240,11 +207,9 @@ export function computeYMax({
     if (transformerInDisplay) {
       const v2 = computeSwr({ R: sweep[i].R / transformerRatio, X: sweep[i].X / transformerRatio });
       if (v2 > maxVal) maxVal = v2;
-      if (v2 <= 2) anyBelow2 = true;
     } else {
       const v = sweep[i].swr;
       if (v > maxVal) maxVal = v;
-      if (v <= 2) anyBelow2 = true;
     }
   }
 
@@ -252,27 +217,26 @@ export function computeYMax({
     for (let i = 0; i < reference.sweep.length; i++) {
       const v = reference.sweep[i].swr;
       if (v > maxVal) maxVal = v;
-      if (v <= 2) anyBelow2 = true;
     }
   }
 
   if (maxVal === -Infinity) return 5;
 
-  if (!anyBelow2) {
-    return Math.max(10, Math.min(maxVal * 1.1, 999));
-  }
-
-  // Usable bands are present. Scale tightly around the actual data:
+  // The y-axis is a FIXED reference frame — it never zooms vertically. Only the
+  // lateral (frequency) axis is user-controllable, so the y-scale must stay
+  // stable as the user pans/zooms across the sweep. Very high SWR is clipped at
+  // SWR_CAP: its exact magnitude is irrelevant, all that matters is where the
+  // curve sits at the low (well-matched) values.
   //
-  //  • 1.2× multiplier leaves ~17 % headroom above the highest SWR point.
+  //  • 1.5× multiplier leaves headroom above the highest in-frame SWR point.
   //  • Floor of 3 keeps the 2:1 reference line visible (≥ 33 % of chart height)
   //    even when the antenna is extremely well-matched.
-  //  • Cap of 10 prevents inter-band spikes (20–50:1) from compressing
-  //    the in-band region to an invisible sliver; values above the cap
-  //    are clipped at the top — a clear "very high SWR here" signal.
+  //  • Cap of 10 prevents tall spikes (20–50:1, or an all-mismatched window)
+  //    from compressing the low-SWR region to an invisible sliver; values
+  //    above the cap are clipped at the top — a clear "very high SWR" signal.
   const SWR_CAP = 10;
   const scaled = Math.max(3, Math.ceil(maxVal * 1.5));
-  return Math.min(Math.min(999, scaled), SWR_CAP);
+  return Math.min(scaled, SWR_CAP);
 }
 
 export interface ComputeOptionsArgs {

@@ -11,12 +11,11 @@ import {
   Filler,
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
-import { useAntennaStore } from '../../store/antennaStore';
+import { useAntennaStore, selectSwrWindow } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   computeChartData,
-  computeXBounds,
   computeStats,
   computeYMax,
   computeOptions,
@@ -49,6 +48,8 @@ export function SWRChart() {
     transformerEnabled,
     transformerRatio,
     feedlineId,
+    swrViewCenterMHz,
+    swrViewSpanMHz,
   } = useAntennaStore(useShallow((s) => ({
     result: s.result,
     sweep: s.sweep,
@@ -59,6 +60,8 @@ export function SWRChart() {
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
     feedlineId: s.feedlineId,
+    swrViewCenterMHz: s.swrViewCenterMHz,
+    swrViewSpanMHz: s.swrViewSpanMHz,
   })));
 
   // Transformer location:
@@ -91,9 +94,15 @@ export function SWRChart() {
     [accent, comparisonActive, currentFill, reference, referenceFill, sweep, transformerInDisplay, transformerRatio]
   );
 
+  // X bounds come straight from the user-controlled view window — there is no
+  // auto-zoom. The sweep is sampled across exactly this range, so the curve
+  // always fills the plot at the current zoom/pan.
   const xBounds = useMemo(
-    () => computeXBounds({ sweep, comparisonActive, reference, frequency }),
-    [comparisonActive, frequency, reference, sweep]
+    () => {
+      const { startMHz, endMHz } = selectSwrWindow({ swrViewCenterMHz, swrViewSpanMHz });
+      return { min: startMHz, max: endMHz };
+    },
+    [swrViewCenterMHz, swrViewSpanMHz]
   );
 
   const stats = useMemo(
@@ -128,6 +137,8 @@ export function SWRChart() {
     [accent, chartGrid, chartText, comparisonActive, frequency, xBounds, yMax, stats]
   );
 
+  const { wrapperRef, chartRef, onPointerDown, dragging } = useSwrViewGestures();
+
   if (!result || sweep.length === 0) {
     return (
       <section className="panel-section" style={{ minHeight: 220 }}>
@@ -144,11 +155,110 @@ export function SWRChart() {
     <section className="panel-section" style={{ minHeight: 220 }}>
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>SWR sweep</h2>
-      <div style={{ height: 130 }}>
-        <Line data={data} options={options} />
+      <div
+        ref={wrapperRef}
+        onPointerDown={onPointerDown}
+        style={{ height: 130, touchAction: 'none', cursor: dragging ? 'grabbing' : 'grab' }}
+      >
+        <Line ref={chartRef} data={data} options={options} />
       </div>
+      <SWRZoomControls />
       {stats && <SWRChartStats stats={stats} />}
     </section>
+  );
+}
+
+/**
+ * Wheel-to-zoom (centred on the cursor frequency) and drag-to-pan for the SWR
+ * chart. Both update the store's view window, which re-samples the sweep over
+ * the new range — so zooming in reveals finer detail rather than upscaling a
+ * fixed dataset.
+ */
+function useSwrViewGestures() {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<ChartJS<'line'> | null>(null);
+  const dragRef = useRef<{ startX: number; mhzPerPixel: number; startCenter: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const zoomSwrView = useAntennaStore((s) => s.zoomSwrView);
+  const panSwrViewByMHz = useAntennaStore((s) => s.panSwrViewByMHz);
+
+  // Non-passive wheel listener so we can preventDefault and stop the panel
+  // scrolling while zooming the chart.
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      const chart = chartRef.current;
+      if (!chart) return;
+      e.preventDefault();
+      const rect = chart.canvas.getBoundingClientRect();
+      const xScale = chart.scales.x;
+      const pivot = xScale ? Number(xScale.getValueForPixel(e.clientX - rect.left)) : undefined;
+      // Wheel up (deltaY < 0) zooms in (narrower span).
+      const factor = e.deltaY < 0 ? 0.85 : 1 / 0.85;
+      zoomSwrView(factor, Number.isFinite(pivot) ? pivot : undefined);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [zoomSwrView]);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return; // primary button only
+    const chart = chartRef.current;
+    if (!chart || !chart.chartArea) return;
+    const span = useAntennaStore.getState().swrViewSpanMHz;
+    const width = chart.chartArea.right - chart.chartArea.left;
+    if (width <= 0) return;
+    // Capture a fixed reference frame at grab time so panning maps pixel travel
+    // to MHz against the pre-drag scale (avoids feedback as the axis shifts).
+    dragRef.current = {
+      startX: e.clientX,
+      mhzPerPixel: span / width,
+      startCenter: useAntennaStore.getState().swrViewCenterMHz,
+    };
+    setDragging(true);
+
+    const onMove = (ev: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const deltaMHz = -(ev.clientX - drag.startX) * drag.mhzPerPixel;
+      const targetCenter = drag.startCenter + deltaMHz;
+      panSwrViewByMHz(targetCenter - useAntennaStore.getState().swrViewCenterMHz);
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      setDragging(false);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
+  return { wrapperRef, chartRef, onPointerDown, dragging };
+}
+
+function SWRZoomControls() {
+  const { zoomSwrView, panSwrView, resetSwrView } = useAntennaStore(useShallow((s) => ({
+    zoomSwrView: s.zoomSwrView,
+    panSwrView: s.panSwrView,
+    resetSwrView: s.resetSwrView,
+  })));
+
+  return (
+    <div
+      className="button-group"
+      role="group"
+      aria-label="SWR chart zoom and pan"
+      style={{ marginTop: 8, justifyContent: 'center' }}
+    >
+      <button type="button" onClick={() => panSwrView(-0.3)} title="Pan left (lower frequency)" aria-label="Pan to lower frequency">◀</button>
+      <button type="button" onClick={() => zoomSwrView(1 / 0.6)} title="Zoom out (wider span)" aria-label="Zoom out">−</button>
+      <button type="button" onClick={resetSwrView} title="Reset zoom to default around the operating frequency" aria-label="Reset zoom">⟳</button>
+      <button type="button" onClick={() => zoomSwrView(0.6)} title="Zoom in (narrower span)" aria-label="Zoom in">+</button>
+      <button type="button" onClick={() => panSwrView(0.3)} title="Pan right (higher frequency)" aria-label="Pan to higher frequency">▶</button>
+    </div>
   );
 }
 
