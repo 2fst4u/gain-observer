@@ -3,6 +3,108 @@ import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { TRANSFORMER_INSERTION_LOSS_DB, findFeedlinePreset } from '../../physics/constants';
 import { suggestedTransformerRatio } from '../../physics/impedance';
+import type { SimulationResult } from '../../physics/types';
+
+interface TransformerRatioInputProps {
+  transformerRatio: number;
+  optimalRatio: number | null;
+  feedlineActive: boolean;
+  setTransformerRatio: (ratio: number) => void;
+}
+
+function TransformerRatioInput({
+  transformerRatio,
+  optimalRatio,
+  feedlineActive,
+  setTransformerRatio,
+}: TransformerRatioInputProps) {
+  // Local state to allow natural typing (including empty strings)
+  const [localRatio, setLocalRatio] = useState(transformerRatio.toString());
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Sync local state when the store value changes (e.g. from outside)
+  const [prevRatio, setPrevRatio] = useState(transformerRatio);
+  if (transformerRatio !== prevRatio) {
+    setPrevRatio(transformerRatio);
+    if (!isFocused) {
+      setLocalRatio(transformerRatio.toString());
+    }
+  }
+
+  return (
+    <>
+      <label htmlFor="transformer-ratio" style={{ marginTop: 10 }}>
+        Impedance ratio (n:1)
+      </label>
+      <div className="row" style={{ marginTop: 4 }}>
+        <input
+          id="transformer-ratio"
+          type="number"
+          min={1}
+          max={10000}
+          step={1}
+          value={localRatio}
+          aria-describedby="transformer-hint"
+          onFocus={() => setIsFocused(true)}
+          onChange={(e) => {
+            const s = e.target.value;
+            setLocalRatio(s);
+            const v = parseFloat(s);
+            if (Number.isFinite(v) && v >= 1) {
+              setTransformerRatio(v);
+            }
+          }}
+          onBlur={() => {
+            setIsFocused(false);
+            setLocalRatio(transformerRatio.toString());
+          }}
+        />
+        {optimalRatio !== null && optimalRatio !== transformerRatio && (
+          <button
+            onClick={() => setTransformerRatio(optimalRatio)}
+            title={`Set ratio to ${optimalRatio}:1 — the estimated best match for this antenna${feedlineActive ? ' and feedline' : ''}, from the simulated impedance. The ratio is never changed automatically; click to apply.`}
+            aria-label={`Match transformer ratio to ${optimalRatio}:1`}
+            style={{ flex: '0 0 auto' }}
+          >
+            Match {optimalRatio}:1
+          </button>
+        )}
+      </div>
+      <div id="transformer-hint" aria-live="polite" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.4 }}>
+        {transformerRatio === 1
+          ? 'Ratio 1:1 — a current ("choke") balun. Suppresses common-mode current on the feedline shield, leaves antenna impedance unchanged.'
+          : `Ratio ${transformerRatio}:1 — divides antenna feedpoint impedance by ${transformerRatio} and chokes common-mode current on the shield.`}
+        {' '}Insertion loss: {TRANSFORMER_INSERTION_LOSS_DB.toFixed(1)} dB.
+      </div>
+    </>
+  );
+}
+
+/**
+ * Calculates the optimal transformer ratio for the current antenna.
+ * Derived from the raw antenna feedpoint impedance, recovered from the NEC
+ * source reading by de-embedding the feedline when one is present.
+ * This is stable — it does not depend on the ratio currently applied —
+ * so clicking Match never oscillates.
+ */
+function calculateOptimalRatio(
+  result: SimulationResult | null,
+  feedlineActive: boolean,
+  feedlineId: string,
+  feedlineLength: number,
+  frequency: number,
+  transformerRatio: number
+): number | null {
+  if (!result) return null;
+  if (!feedlineActive) {
+    return suggestedTransformerRatio(result.impedance, transformerRatio);
+  }
+  const preset = findFeedlinePreset(feedlineId);
+  const electricalLengthM = feedlineLength / Math.max(0.05, preset.velocityFactor);
+  const lambdaVacuumM = 299.792458 / frequency;
+  const lengthLambdas = electricalLengthM / lambdaVacuumM;
+  return suggestedTransformerRatio(result.impedance, transformerRatio, preset.z0, lengthLambdas);
+}
 
 /**
  * Transformer / balun controls. Rendered as an in-line sub-block (no outer
@@ -36,36 +138,15 @@ export function TransformerControl() {
     setTransformerRatio: s.setTransformerRatio,
   })));
 
-  // Optimal transformer ratio for the current antenna. Derived from the raw
-  // antenna feedpoint impedance, recovered from the NEC source reading by
-  // de-embedding the feedline when one is present (see
-  // suggestedTransformerRatio). This is stable — it does not depend on the
-  // ratio currently applied — so clicking Match never oscillates.
   const feedlineActive = feedlineId !== 'none';
-  const optimalRatio = (() => {
-    if (!result) return null;
-    if (!feedlineActive) {
-      return suggestedTransformerRatio(result.impedance, transformerRatio);
-    }
-    const preset = findFeedlinePreset(feedlineId);
-    const electricalLengthM = feedlineLength / Math.max(0.05, preset.velocityFactor);
-    const lambdaVacuumM = 299.792458 / frequency;
-    const lengthLambdas = electricalLengthM / lambdaVacuumM;
-    return suggestedTransformerRatio(result.impedance, transformerRatio, preset.z0, lengthLambdas);
-  })();
-
-  // Local state to allow natural typing (including empty strings)
-  const [localRatio, setLocalRatio] = useState(transformerRatio.toString());
-  const [isFocused, setIsFocused] = useState(false);
-
-  // Sync local state when the store value changes (e.g. from outside)
-  const [prevRatio, setPrevRatio] = useState(transformerRatio);
-  if (transformerRatio !== prevRatio) {
-    setPrevRatio(transformerRatio);
-    if (!isFocused) {
-      setLocalRatio(transformerRatio.toString());
-    }
-  }
+  const optimalRatio = calculateOptimalRatio(
+    result,
+    feedlineActive,
+    feedlineId,
+    feedlineLength,
+    frequency,
+    transformerRatio
+  );
 
   return (
     <section aria-labelledby="transformer-heading" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
@@ -96,51 +177,12 @@ export function TransformerControl() {
       </label>
 
       {transformerEnabled && (
-        <>
-          <label htmlFor="transformer-ratio" style={{ marginTop: 10 }}>
-            Impedance ratio (n:1)
-          </label>
-          <div className="row" style={{ marginTop: 4 }}>
-            <input
-              id="transformer-ratio"
-              type="number"
-              min={1}
-              max={10000}
-              step={1}
-              value={localRatio}
-              aria-describedby="transformer-hint"
-              onFocus={() => setIsFocused(true)}
-              onChange={(e) => {
-                const s = e.target.value;
-                setLocalRatio(s);
-                const v = parseFloat(s);
-                if (Number.isFinite(v) && v >= 1) {
-                  setTransformerRatio(v);
-                }
-              }}
-              onBlur={() => {
-                setIsFocused(false);
-                setLocalRatio(transformerRatio.toString());
-              }}
-            />
-            {optimalRatio !== null && optimalRatio !== transformerRatio && (
-              <button
-                onClick={() => setTransformerRatio(optimalRatio)}
-                title={`Set ratio to ${optimalRatio}:1 — the estimated best match for this antenna${feedlineActive ? ' and feedline' : ''}, from the simulated impedance. The ratio is never changed automatically; click to apply.`}
-                aria-label={`Match transformer ratio to ${optimalRatio}:1`}
-                style={{ flex: '0 0 auto' }}
-              >
-                Match {optimalRatio}:1
-              </button>
-            )}
-          </div>
-          <div id="transformer-hint" aria-live="polite" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.4 }}>
-            {transformerRatio === 1
-              ? 'Ratio 1:1 — a current ("choke") balun. Suppresses common-mode current on the feedline shield, leaves antenna impedance unchanged.'
-              : `Ratio ${transformerRatio}:1 — divides antenna feedpoint impedance by ${transformerRatio} and chokes common-mode current on the shield.`}
-            {' '}Insertion loss: {TRANSFORMER_INSERTION_LOSS_DB.toFixed(1)} dB.
-          </div>
-        </>
+        <TransformerRatioInput
+          transformerRatio={transformerRatio}
+          optimalRatio={optimalRatio}
+          feedlineActive={feedlineActive}
+          setTransformerRatio={setTransformerRatio}
+        />
       )}
 
       {!transformerEnabled && (
