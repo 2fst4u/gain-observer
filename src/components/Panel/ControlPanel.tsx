@@ -67,7 +67,7 @@ export function ControlPanel() {
           onMouseOver={(e) => (e.currentTarget.style.textDecoration = 'underline')}
           onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
         >
-          View source on GitHub
+          Source code on GitHub
         </a>
         </footer>
       </aside>
