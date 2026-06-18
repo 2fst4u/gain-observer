@@ -19,6 +19,7 @@
 **Learning:** Removing an unused export for a constant that is still used internally within the same file requires leaving the import intact.
 **Action:** When un-exporting variables, do a local grep to see if they are still used in the file; if so, do not remove the import.
 ## 2025-02-13 - Un-exporting Internal Utilities and Constants
+## 2026-06-17 - Un-exporting Internal Utilities and Constants
 **Learning:** `knip` correctly flagged `reflectionCoefficientMag`, `INITIAL_HEIGHT`, and `FEED_BRIDGE_LENGTH_M` (re-export) as unused outside their declaring files. When a function or constant is only used internally, it should not be exported, improving module encapsulation.
 **Action:** When cleaning up unused exports, simply remove the `export` keyword if the symbol is used locally. If it was re-exported in a centralized `export { ... }` block but unused outside, remove it from that block while keeping its import intact if it's used within the aggregator file. Always verify with `npm run build` and `npm run test` afterward.
 ## 2024-05-18 - [False Positive on Unused Type Import]
@@ -53,3 +54,26 @@
 ## 2025-02-13 - Complex Component Refactoring (FeedlineControl)
 **Learning:** Large React components handling multiple inputs with complex state logic can be safely refactored by extracting focused UI fragments into local, stateless (or localized state) components within the same file. This keeps the file self-contained while dramatically reducing the cognitive load of the main exported component.
 **Action:** Extracted `SyncedLengthInput`, `DipoleOffsetControl`, and `AtuSection` as local sub-components within `FeedlineControl.tsx` to handle specific domains of state and UI, significantly flattening the main `FeedlineControl` component render function.
+## 2024-06-17 - [Extract SWRChart Stats Component]
+**Learning:** Extracting complex presentation sections of a component into smaller functional components improves overall code health and maintainability. In `SWRChart`, abstracting the statistics out into `SWRChartStats` with reusable UI patterns like `StatRow` significantly reduces the primary component size and isolates rendering responsibilities.
+**Action:** Created `StatRow` standard UI component and refactored `SWRChart` to utilize it within an extracted `SWRChartStats` component.
+## 2026-06-17 - Refactored complex GeometryControl component
+**Learning:** Refactoring a 500-line React component with complex, intertwined state requires isolating discrete functional blocks (like length, termination, and orientation controls) into separate local sub-components. By extracting these and using \`useShallow\` within each sub-component to select only the required global state, we not only improve readability and maintainability but also reduce unnecessary re-renders when unrelated state changes.
+**Action:** Identified distinct functional areas in \`GeometryControl.tsx\` and extracted them into \`LengthControl\`, \`TerminationControl\`, and \`OrientationControl\` components within the same file. Cleaned up unused variables and verified with test and lint passes.
+## 2026-06-17 - Component Refactoring Duplication
+**Learning:** When refactoring a large React component by extracting inline sections into separate functional components within the same file, be careful to look out for duplicated constant definitions (e.g., `resonateTitles`) and duplicated computations (e.g., `tfdZ0` calculation) that might have been copied directly into each new sub-component.
+**Action:** Always hoist shared constants and logic computations to the module scope (outside the component functions) to eliminate duplication. Also, use conditional properties inside `useShallow` when subscribing to Zustand stores to avoid unnecessary subscriptions that fire when the parent component isn't even active or using the data.
+
+## 2026-06-17 - Extracted Sub-hooks for Complex React Hooks
+**Learning:** Massive generic hooks covering multiple disparate responsibilities (like `useAntennaGeometry` which previously handled layout calculations, topology detection, and termination dimension logic simultaneously) are brittle and unreadable. Grouping the internal `useMemo` calls into explicit, specialized internal hooks allows the main exported hook to act purely as an orchestrator. This significantly boosts type safety and reasoning.
+**Action:** Refactored `src/components/Scene/useAntennaGeometry.ts` into three focused sub-hooks (`useRenderedWires`, `useFeedpointAndShield`, `useTerminatedDeltaSplit`) and added typed interfaces.
+## 2026-06-17 - Extracted safeSegs and Refactored buildFoldedAntennaWires
+**Learning:** `safeSegs` was defined locally inside `buildInvertedLWires` but is a globally applicable constraint for NEC-2 stability (segment length >= 4 * wire radius). Complex functions like `buildFoldedAntennaWires` returning arrays of similar objects can be greatly simplified with local factory helpers like `createWire`.
+**Action:** Extracted `safeSegs` to an exported top-level utility in `src/store/antennaGeometry.ts`, updated all call sites to pass `wireRadius`, and refactored `buildFoldedAntennaWires` to use `safeSegs` and a local `createWire` helper, drastically reducing verbosity.
+## 2024-06-17 - [Extract Reusable StatRow Component]
+**Learning:** For displaying statistical readouts, use the reusable `StatRow` component from `src/components/UI/StatRow.tsx` instead of hardcoding `<div className="stat">` blocks. Extracted complex ternary logic into isolated helper functions to dramatically reduce React component complexity.
+**Action:** Created `<StatRow>`, replaced all static div blocks in `StatsReadout.tsx`, and migrated tooltip logic into `getImpedanceTitle`, `getSwrTitle`, and `getRealizedGainTitle`.
+
+## 2024-05-18 - [TransformerControl Refactoring]
+**Learning:** Extracting complex inline logic, especially IIFEs and blocks containing multiple local `useState` declarations, into separate, pure sub-components (`TransformerRatioInput`) and pure helper functions (`calculateOptimalRatio`) dramatically improves readability, reduces line count in the parent component, and adheres closely to React's compositional nature without altering functionality.
+**Action:** Refactored `TransformerControl.tsx` to separate stateful input rendering and pure math logic from the main layout wrapper.

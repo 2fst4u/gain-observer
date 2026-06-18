@@ -22,6 +22,7 @@ import {
   computeOptions,
   formatBandwidth,
 } from './swrChartUtils';
+import { StatRow } from '../UI/StatRow';
 
 ChartJS.register(
   LinearScale,
@@ -146,32 +147,7 @@ export function SWRChart() {
       <div style={{ height: 130 }}>
         <Line data={data} options={options} />
       </div>
-      {stats && (
-        <div style={{ marginTop: 12 }}>
-          <div className="stat" style={{ marginBottom: 2 }}>
-            <span className="stat-label" style={{ textTransform: 'none' }}>Min SWR</span>
-            <span className="stat-value">{stats.minSWR.toFixed(2)}:1 at {stats.minFreq.toFixed(3)} MHz</span>
-          </div>
-          <div className="stat" style={{ alignItems: 'flex-start' }}>
-            <span className="stat-label" style={{ textTransform: 'none' }}>2:1 BW</span>
-            {stats.bands.length > 0 ? (
-              <span className="stat-value" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                {stats.bands.map((band, i) => (
-                  <span key={i}>
-                    {(band.lowClipped || band.highClipped) && '>'}
-                    {formatBandwidth(band.fHigh - band.fLow)}
-                    <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontWeight: 'normal' }}>
-                      ({band.fLow.toFixed(3)} - {band.fHigh.toFixed(3)} MHz)
-                    </span>
-                  </span>
-                ))}
-              </span>
-            ) : (
-              <span className="stat-value" style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>N/A</span>
-            )}
-          </div>
-        </div>
-      )}
+      {stats && <SWRChartStats stats={stats} />}
     </section>
   );
 }
@@ -179,4 +155,45 @@ export function SWRChart() {
 function getCssVar(name: string): string {
   if (typeof window === 'undefined') return '';
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+interface SWRChartStatsProps {
+  stats: ReturnType<typeof computeStats>;
+}
+
+function SWRChartStats({ stats }: SWRChartStatsProps) {
+  if (!stats) return null;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <StatRow
+        style={{ marginBottom: 2 }}
+        labelStyle={{ textTransform: 'none' }}
+        label="Min SWR"
+        value={`${stats.minSWR.toFixed(2)}:1 at ${stats.minFreq.toFixed(3)} MHz`}
+      />
+      <StatRow
+        style={{ alignItems: 'flex-start' }}
+        labelStyle={{ textTransform: 'none' }}
+        label="2:1 BW"
+        value={
+          stats.bands.length > 0 ? (
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+              {stats.bands.map((band, i) => (
+                <span key={i}>
+                  {(band.lowClipped || band.highClipped) && '>'}
+                  {formatBandwidth(band.fHigh - band.fLow)}
+                  <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontWeight: 'normal' }}>
+                    ({band.fLow.toFixed(3)} - {band.fHigh.toFixed(3)} MHz)
+                  </span>
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>N/A</span>
+          )
+        }
+      />
+    </div>
+  );
 }

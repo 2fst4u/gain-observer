@@ -30,27 +30,42 @@ export interface AntennaWireProps {
   readonly foldedDipoleAperture: number;
 }
 
+export interface RenderedWire {
+  readonly key: number;
+  readonly tag: number;
+  readonly position: [number, number, number];
+  readonly quaternion: THREE.Quaternion;
+  readonly length: number;
+  readonly radius: number;
+  readonly sceneStart: [number, number, number];
+  readonly sceneEnd: [number, number, number];
+  readonly isShield: boolean;
+  readonly isBridge: boolean;
+}
+
 function necToScene(p: readonly [number, number, number]): [number, number, number] {
   return [p[0], p[2], -p[1]];
 }
 
-export function useAntennaGeometry({
-  type,
-  length,
-  height,
-  orientation,
-  wireRadius,
-  segments,
-  feedlineId,
-  feedlineLength,
-  feedlineOffset,
-  whipCounterpoise,
-  vAngle,
-  legSlope,
-  frequency,
-  foldedDipoleAperture,
-}: AntennaWireProps) {
-  const rendered = useMemo(() => {
+function useRenderedWires(props: AntennaWireProps): RenderedWire[] {
+  const {
+    type,
+    length,
+    height,
+    orientation,
+    wireRadius,
+    segments,
+    feedlineId,
+    feedlineLength,
+    feedlineOffset,
+    vAngle,
+    legSlope,
+    frequency,
+    whipCounterpoise,
+    foldedDipoleAperture,
+  } = props;
+
+  return useMemo(() => {
     const wires = buildWires({
       antennaType: type,
       length,
@@ -68,7 +83,7 @@ export function useAntennaGeometry({
       foldedDipoleAperture,
     });
 
-    const out = [];
+    const out: RenderedWire[] = [];
     for (let idx = 0; idx < wires.length; idx++) {
       const w = wires[idx]!;
       const a = new THREE.Vector3(...necToScene(w.start));
@@ -89,34 +104,51 @@ export function useAntennaGeometry({
       out.push({
         key: idx,
         tag,
-        position: [mid.x, mid.y, mid.z] as [number, number, number],
+        position: [mid.x, mid.y, mid.z],
         quaternion: q,
         length: lengthScene,
         radius,
-        sceneStart: [a.x, a.y, a.z] as [number, number, number],
-        sceneEnd: [b.x, b.y, b.z] as [number, number, number],
+        sceneStart: [a.x, a.y, a.z],
+        sceneEnd: [b.x, b.y, b.z],
         isShield,
         isBridge,
       });
     }
     return out;
-  }, [type, length, height, orientation, wireRadius, segments, feedlineId, feedlineLength, feedlineOffset, vAngle, legSlope, frequency, whipCounterpoise, foldedDipoleAperture]);
+  }, [
+    type,
+    length,
+    height,
+    orientation,
+    wireRadius,
+    segments,
+    feedlineId,
+    feedlineLength,
+    feedlineOffset,
+    vAngle,
+    legSlope,
+    frequency,
+    whipCounterpoise,
+    foldedDipoleAperture,
+  ]);
+}
 
-  const { shield, feedpoint } = useMemo(() => {
+function useFeedpointAndShield(rendered: readonly RenderedWire[], type: AntennaType) {
+  return useMemo(() => {
     const isDelta = type === 'delta-loop' || type === 'terminated-delta';
     const isWhip = type === 'vertical-whip';
     const isInvertedL = type === 'inverted-l';
 
-    let bridge: typeof rendered[0] | undefined;
-    let mainWireSingle: typeof rendered[0] | undefined;
-    let shieldWire: typeof rendered[0] | undefined;
-    let apexFedLeft: typeof rendered[0] | undefined;
-    let verticalWhip: typeof rendered[0] | undefined;
-    let invertedLVertical: typeof rendered[0] | undefined;
+    let bridge: RenderedWire | undefined;
+    let mainWireSingle: RenderedWire | undefined;
+    let shieldWire: RenderedWire | undefined;
+    let apexFedLeft: RenderedWire | undefined;
+    let verticalWhip: RenderedWire | undefined;
+    let invertedLVertical: RenderedWire | undefined;
 
     // Single pass to locate all special elements.
     for (let i = 0; i < rendered.length; i++) {
-      const s = rendered[i];
+      const s = rendered[i]!;
       if (s.isBridge && !bridge) bridge = s;
       if (s.isShield && !shieldWire) shieldWire = s;
 
@@ -151,24 +183,40 @@ export function useAntennaGeometry({
 
     // Feedpoint: bridge midpoint (split-fed) > apex-fed left-leg end >
     // vertical-whip base > inverted-l base > dipole wire midpoint (single-wire legacy).
-    const feedpointObj = bridge?.position
-      ?? apexFedLeft?.sceneEnd
-      ?? verticalWhip?.sceneStart
-      ?? invertedLVertical?.sceneStart
-      ?? feedSingle?.position
-      ?? null;
+    const feedpointObj =
+      bridge?.position ??
+      apexFedLeft?.sceneEnd ??
+      verticalWhip?.sceneStart ??
+      invertedLVertical?.sceneStart ??
+      feedSingle?.position ??
+      null;
 
     return { shield: shieldWire, feedpoint: feedpointObj };
   }, [rendered, type]);
+}
 
-  const terminatedDeltaSplit = useMemo(() => {
+export interface TerminatedDeltaSplitResult {
+  leftInner: [number, number, number];
+  rightInner: [number, number, number];
+  bridgeMid: [number, number, number];
+  bridgeLen: number;
+  bridgeQuat: THREE.Quaternion;
+  resistorRadius: number;
+}
+
+function useTerminatedDeltaSplit(
+  rendered: readonly RenderedWire[],
+  type: AntennaType,
+  wireRadius: number
+): TerminatedDeltaSplitResult | null {
+  return useMemo(() => {
     if (type !== 'terminated-delta') return null;
-    let leftHalfBase: typeof rendered[0] | undefined;
-    let rightHalfBase: typeof rendered[0] | undefined;
+    let leftHalfBase: RenderedWire | undefined;
+    let rightHalfBase: RenderedWire | undefined;
 
     // Single pass to locate the two half-base wires.
     for (let i = 0; i < rendered.length; i++) {
-      const s = rendered[i];
+      const s = rendered[i]!;
       if (s.tag === TERMINATED_DELTA_LEFT_BASE_TAG && !leftHalfBase) leftHalfBase = s;
       if (s.tag === TERMINATED_DELTA_RIGHT_BASE_TAG && !rightHalfBase) rightHalfBase = s;
       if (leftHalfBase && rightHalfBase) break;
@@ -206,6 +254,12 @@ export function useAntennaGeometry({
       resistorRadius: Math.max(wireRadius * 8, 0.04),
     };
   }, [type, rendered, wireRadius]);
+}
+
+export function useAntennaGeometry(props: AntennaWireProps) {
+  const rendered = useRenderedWires(props);
+  const { shield, feedpoint } = useFeedpointAndShield(rendered, props.type);
+  const terminatedDeltaSplit = useTerminatedDeltaSplit(rendered, props.type, props.wireRadius);
 
   return { rendered, shield, feedpoint, terminatedDeltaSplit };
 }

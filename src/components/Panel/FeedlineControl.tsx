@@ -13,6 +13,7 @@ import {
   displayLengthUnit,
 } from '../../physics/units';
 import type { AntennaType } from '../../physics/types';
+import { StatRow } from '../UI/StatRow';
 
 // vertical-whip is intentionally excluded — this panel does not apply to it
 const SUPPORTED_ANTENNA_TYPES: ReadonlySet<AntennaType> = new Set([
@@ -296,14 +297,15 @@ export function FeedlineControl() {
             />
           )}
 
-          <div className="stat" style={{ marginTop: 10 }}>
-            <span className="stat-label">Z₀ / VF</span>
-            <span className="stat-value">{preset.z0.toFixed(0)} Ω · {preset.velocityFactor.toFixed(2)}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Cable loss @ {frequency.toFixed(2)} MHz</span>
-            <span className="stat-value">{lossDb.toFixed(2)} dB</span>
-          </div>
+          <StatRow
+            style={{ marginTop: 10 }}
+            label="Z₀ / VF"
+            value={`${preset.z0.toFixed(0)} Ω · ${preset.velocityFactor.toFixed(2)}`}
+          />
+          <StatRow
+            label={`Cable loss @ ${frequency.toFixed(2)} MHz`}
+            value={`${lossDb.toFixed(2)} dB`}
+          />
 
           <AtuSection
             units={units}
