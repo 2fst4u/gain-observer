@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeChartData, computeStats, formatBandwidth, computeXBounds, computeYMax, computeOptions } from '../src/components/Charts/swrChartUtils';
+import { computeChartData, computeStats, formatBandwidth, computeYMax, computeOptions } from '../src/components/Charts/swrChartUtils';
 import type { SweepPoint } from '../src/physics/types';
 import type { ComparisonSnapshot } from '../src/store/antennaStore';
 
@@ -136,77 +136,6 @@ describe('formatBandwidth', () => {
     expect(formatBandwidth(1.555)).toBe('1.55 MHz');
     expect(formatBandwidth(1.556)).toBe('1.56 MHz');
     expect(formatBandwidth(10)).toBe('10.00 MHz');
-  });
-});
-
-describe('computeXBounds', () => {
-  const mockSweep = [
-    { frequencyMHz: 7.0, R: 50, X: 0, swr: 1.0 },
-    { frequencyMHz: 7.2, R: 100, X: 0, swr: 2.0 },
-  ];
-
-  const mockReference = {
-    antennaType: 'dipole' as const,
-    height: 10,
-    sweep: [
-      { frequencyMHz: 6.9, R: 150, X: 0, swr: 3.0 },
-      { frequencyMHz: 7.3, R: 200, X: 0, swr: 4.0 },
-    ],
-  };
-
-  it('returns default bounds when sweeps are empty', () => {
-    const result = computeXBounds({
-      sweep: [],
-      comparisonActive: false,
-      reference: null,
-      frequency: 7.0,
-    });
-    expect(result.min).toBeCloseTo(7.0 * 0.95);
-    expect(result.max).toBeCloseTo(7.0 * 1.05);
-  });
-
-  it('returns default bounds when main sweep is empty and reference sweep is empty', () => {
-    const result = computeXBounds({
-      sweep: [],
-      comparisonActive: true,
-      reference: { ...mockReference, sweep: [] },
-      frequency: 7.0,
-    });
-    expect(result.min).toBeCloseTo(7.0 * 0.95);
-    expect(result.max).toBeCloseTo(7.0 * 1.05);
-  });
-
-  it('returns bounds based only on main sweep when comparison is inactive', () => {
-    const result = computeXBounds({
-      sweep: mockSweep,
-      comparisonActive: false,
-      reference: mockReference,
-      frequency: 7.0,
-    });
-    expect(result.min).toBe(7.0);
-    expect(result.max).toBe(7.2);
-  });
-
-  it('returns bounds across both sweeps when comparison is active', () => {
-    const result = computeXBounds({
-      sweep: mockSweep,
-      comparisonActive: true,
-      reference: mockReference,
-      frequency: 7.0,
-    });
-    expect(result.min).toBe(6.9);
-    expect(result.max).toBe(7.3);
-  });
-
-  it('returns bounds based on reference sweep when main sweep is empty but comparison is active', () => {
-    const result = computeXBounds({
-      sweep: [],
-      comparisonActive: true,
-      reference: mockReference,
-      frequency: 7.0,
-    });
-    expect(result.min).toBe(6.9);
-    expect(result.max).toBe(7.3);
   });
 });
 
@@ -396,12 +325,14 @@ describe('computeYMax', () => {
     expect(computeYMax({ ...baseArgs, sweep })).toBe(10);
   });
 
-  it('allows higher scales (no SWR_CAP) when no points are below 2', () => {
+  it('clips at SWR_CAP of 10 even when no points are below 2', () => {
+    // The y-axis is a fixed reference frame; an all-mismatched window must not
+    // balloon the vertical scale.
     const sweep: SweepPoint[] = [
       { frequencyMHz: 7.0, R: 50, X: 0, swr: 5.0 },
       { frequencyMHz: 7.1, R: 50, X: 0, swr: 15.0 }, // max
     ];
-    expect(computeYMax({ ...baseArgs, sweep })).toBeCloseTo(16.5);
+    expect(computeYMax({ ...baseArgs, sweep })).toBe(10);
   });
 
   it('includes reference sweep max values when comparison is active', () => {

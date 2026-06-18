@@ -213,6 +213,13 @@ export interface AntennaState {
   utcHourOverride: number | null;
   geolocationStatus: 'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported' | 'error';
 
+  // SWR sweep view window (user-controlled zoom/pan, MHz). The sweep is
+  // sampled across exactly [center - span/2, center + span/2] so zooming in
+  // resamples a narrower span at full point density rather than upscaling
+  // a fixed dataset.
+  swrViewCenterMHz: number;
+  swrViewSpanMHz: number;
+
   // Solver output
   result: SimulationResult | null;
   sweep: SweepPoint[];
@@ -259,6 +266,17 @@ export interface AntennaState {
   setShowPolarCuts(v: boolean): void;
   setTransformerEnabled(enabled: boolean): void;
   setTransformerRatio(ratio: number): void;
+
+  // SWR sweep zoom / pan (lateral only — the y-axis is intentionally fixed).
+  /** Multiply the view span by `factor` (<1 zooms in, >1 zooms out), keeping
+   *  `pivotMHz` (default: window centre) fixed on screen. */
+  zoomSwrView(factor: number, pivotMHz?: number): void;
+  /** Shift the view centre laterally by `fraction` of the current span. */
+  panSwrView(fraction: number): void;
+  /** Shift the view centre by an absolute number of MHz (for drag-to-pan). */
+  panSwrViewByMHz(deltaMHz: number): void;
+  /** Re-centre on the operating frequency at the default span. */
+  resetSwrView(): void;
   setAtuEnabled(enabled: boolean): void;
   setAtuMainFeedlineLength(meters: number): void;
   captureComparisonReference(): void;
@@ -274,6 +292,9 @@ export interface AntennaState {
 
   // Actions — internal (used by hooks/workers only, prefixed with _)
   _setSimulationData(r: SimulationResult, sweep: readonly SweepPoint[]): void;
+  /** Replace only the SWR sweep (efficient zoom/pan recompute — leaves the
+   *  radiation pattern result untouched). */
+  _setSweep(sweep: readonly SweepPoint[]): void;
   _setError(msg: string | null): void;
   _setLoading(v: boolean): void;
   _setEngineReady(v: boolean): void;
@@ -283,6 +304,39 @@ const INITIAL_FREQ = 7.1; // 40m band per user spec
 const INITIAL_HEIGHT = 8; // metres
 const INITIAL_TYPE: AntennaType = 'dipole';
 const INITIAL_LENGTH = referenceLength(INITIAL_TYPE, INITIAL_FREQ); // resonant reference length
+
+// SWR sweep view-window bounds (MHz). The window is always clamped inside this
+// range, which matches the engine's sweep limits (Nec2Engine.F_MIN/F_MAX_MHZ).
+export const SWR_VIEW_F_MIN_MHZ = 1.0;
+export const SWR_VIEW_F_MAX_MHZ = 30;
+// Tightest span the user can zoom to (kHz-scale detail) and the default span as
+// a fraction of the operating frequency (the "logical default zoom").
+const SWR_VIEW_MIN_SPAN_MHZ = 0.05;
+const DEFAULT_SWR_VIEW_SPAN_FRACTION = 0.2;
+
+/** Clamp a (centre, span) pair so the whole window stays within the HF limits. */
+function clampSwrView(centerMHz: number, spanMHz: number): { center: number; span: number } {
+  const fullSpan = SWR_VIEW_F_MAX_MHZ - SWR_VIEW_F_MIN_MHZ;
+  const span = Math.min(fullSpan, Math.max(SWR_VIEW_MIN_SPAN_MHZ, spanMHz));
+  const half = span / 2;
+  const center = Math.min(SWR_VIEW_F_MAX_MHZ - half, Math.max(SWR_VIEW_F_MIN_MHZ + half, centerMHz));
+  return { center, span };
+}
+
+/** Default view span (MHz) framed around the operating frequency. */
+function defaultSwrSpan(frequencyMHz: number): number {
+  return clampSwrView(frequencyMHz, frequencyMHz * DEFAULT_SWR_VIEW_SPAN_FRACTION).span;
+}
+
+const INITIAL_SWR_VIEW = clampSwrView(INITIAL_FREQ, defaultSwrSpan(INITIAL_FREQ));
+
+/** The absolute [start, end] frequency window the SWR sweep is sampled over. */
+export function selectSwrWindow(
+  state: Pick<AntennaState, 'swrViewCenterMHz' | 'swrViewSpanMHz'>,
+): { startMHz: number; endMHz: number } {
+  const { center, span } = clampSwrView(state.swrViewCenterMHz, state.swrViewSpanMHz);
+  return { startMHz: center - span / 2, endMHz: center + span / 2 };
+}
 
 export const useAntennaStore = create<AntennaState>()(
   subscribeWithSelector(
@@ -320,6 +374,9 @@ export const useAntennaStore = create<AntennaState>()(
       showPolarCuts: true,
       transformerEnabled: false,
       transformerRatio: 9,
+
+      swrViewCenterMHz: INITIAL_SWR_VIEW.center,
+      swrViewSpanMHz: INITIAL_SWR_VIEW.span,
 
       atuEnabled: false,
       atuMainFeedlineLength: DEFAULT_ATU_MAIN_FEEDLINE_LENGTH_M,
@@ -438,7 +495,14 @@ export const useAntennaStore = create<AntennaState>()(
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
         if (s.feedlineOffset < -limit) s.feedlineOffset = -limit;
       }),
-      setFrequency: (mhz) => set((s) => { s.frequency = clampFreq(mhz); }),
+      setFrequency: (mhz) => set((s) => {
+        s.frequency = clampFreq(mhz);
+        // Re-centre the SWR view on the new operating frequency (keeping the
+        // current span) so the marker stays in frame after a band change.
+        const { center, span } = clampSwrView(s.frequency, s.swrViewSpanMHz);
+        s.swrViewCenterMHz = center;
+        s.swrViewSpanMHz = span;
+      }),
       setLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
         s.length = Math.max(0.1, meters);
@@ -567,6 +631,34 @@ export const useAntennaStore = create<AntennaState>()(
         if (!Number.isFinite(ratio) || ratio <= 0) return;
         s.transformerRatio = Math.max(1, ratio);
       }),
+      zoomSwrView: (factor, pivotMHz) => set((s) => {
+        if (!Number.isFinite(factor) || factor <= 0) return;
+        const oldSpan = s.swrViewSpanMHz;
+        const pivot = pivotMHz !== undefined && Number.isFinite(pivotMHz) ? pivotMHz : s.swrViewCenterMHz;
+        const newSpanRaw = oldSpan * factor;
+        // Keep the pivot frequency anchored at the same screen position.
+        const newCenterRaw = pivot + (s.swrViewCenterMHz - pivot) * (newSpanRaw / oldSpan);
+        const { center, span } = clampSwrView(newCenterRaw, newSpanRaw);
+        s.swrViewCenterMHz = center;
+        s.swrViewSpanMHz = span;
+      }),
+      panSwrView: (fraction) => set((s) => {
+        if (!Number.isFinite(fraction)) return;
+        const { center, span } = clampSwrView(s.swrViewCenterMHz + fraction * s.swrViewSpanMHz, s.swrViewSpanMHz);
+        s.swrViewCenterMHz = center;
+        s.swrViewSpanMHz = span;
+      }),
+      panSwrViewByMHz: (deltaMHz) => set((s) => {
+        if (!Number.isFinite(deltaMHz)) return;
+        const { center, span } = clampSwrView(s.swrViewCenterMHz + deltaMHz, s.swrViewSpanMHz);
+        s.swrViewCenterMHz = center;
+        s.swrViewSpanMHz = span;
+      }),
+      resetSwrView: () => set((s) => {
+        const { center, span } = clampSwrView(s.frequency, defaultSwrSpan(s.frequency));
+        s.swrViewCenterMHz = center;
+        s.swrViewSpanMHz = span;
+      }),
       setAtuEnabled: (enabled) => set((s) => { s.atuEnabled = !!enabled; }),
       setAtuMainFeedlineLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
@@ -609,6 +701,11 @@ export const useAntennaStore = create<AntennaState>()(
 
       _setSimulationData: (r, sweep) => set((s) => {
         s.result = r;
+        s.sweep = [...sweep];
+        s.loading = false;
+        s.error = null;
+      }),
+      _setSweep: (sweep) => set((s) => {
         s.sweep = [...sweep];
         s.loading = false;
         s.error = null;

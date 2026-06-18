@@ -4,9 +4,12 @@ import {
   buildWires,
   selectSimulationInput,
   selectAtuConfig,
+  selectSwrWindow,
   computeEffectiveSlope,
   legMultipleFromLength,
   computeOptimalVAngleDeg,
+  SWR_VIEW_F_MIN_MHZ,
+  SWR_VIEW_F_MAX_MHZ,
   LEFT_LEG_TAG,
   RIGHT_LEG_TAG,
   DELTA_BASE_TAG,
@@ -1501,6 +1504,96 @@ describe("antennaStore actions", () => {
         lambda * 0.25 * 0.95,
         4,
       );
+    });
+  });
+
+  describe("SWR view window (zoom / pan)", () => {
+    const center = () => useAntennaStore.getState().swrViewCenterMHz;
+    const span = () => useAntennaStore.getState().swrViewSpanMHz;
+
+    it("starts framed around the operating frequency at the default span", () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(7.1);
+      store.resetSwrView();
+      expect(center()).toBeCloseTo(7.1, 6);
+      // Default span is 20% of the operating frequency.
+      expect(span()).toBeCloseTo(7.1 * 0.2, 6);
+      const win = selectSwrWindow(useAntennaStore.getState());
+      expect(win.startMHz).toBeCloseTo(7.1 - (7.1 * 0.2) / 2, 6);
+      expect(win.endMHz).toBeCloseTo(7.1 + (7.1 * 0.2) / 2, 6);
+    });
+
+    it("zooms in (factor < 1) and out (factor > 1) about the centre", () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(14.0);
+      store.resetSwrView();
+      const span0 = span();
+      store.zoomSwrView(0.5);
+      expect(span()).toBeCloseTo(span0 * 0.5, 6);
+      expect(center()).toBeCloseTo(14.0, 6); // centre unchanged with no pivot
+      store.zoomSwrView(2);
+      expect(span()).toBeCloseTo(span0, 6);
+    });
+
+    it("keeps the pivot frequency anchored when zooming about a cursor", () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(14.0);
+      store.resetSwrView();
+      const pivot = center() + span() / 4; // somewhere right of centre
+      const winBefore = selectSwrWindow(useAntennaStore.getState());
+      const fracBefore = (pivot - winBefore.startMHz) / (winBefore.endMHz - winBefore.startMHz);
+      store.zoomSwrView(0.5, pivot);
+      const winAfter = selectSwrWindow(useAntennaStore.getState());
+      const fracAfter = (pivot - winAfter.startMHz) / (winAfter.endMHz - winAfter.startMHz);
+      // The pivot stays at the same relative position within the window.
+      expect(fracAfter).toBeCloseTo(fracBefore, 6);
+    });
+
+    it("pans laterally by a fraction of the span", () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(14.0);
+      store.resetSwrView();
+      const c0 = center();
+      const s0 = span();
+      store.panSwrView(0.5);
+      expect(center()).toBeCloseTo(c0 + 0.5 * s0, 6);
+      expect(span()).toBeCloseTo(s0, 6); // pan never changes the span
+    });
+
+    it("pans by an absolute number of MHz (drag-to-pan)", () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(14.0);
+      store.resetSwrView();
+      const c0 = center();
+      store.panSwrViewByMHz(-0.3);
+      expect(center()).toBeCloseTo(c0 - 0.3, 6);
+    });
+
+    it("clamps the window inside the HF sweep limits", () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(2.0);
+      store.resetSwrView();
+      // Pan hard against the low edge.
+      store.panSwrView(-100);
+      const win = selectSwrWindow(useAntennaStore.getState());
+      expect(win.startMHz).toBeGreaterThanOrEqual(SWR_VIEW_F_MIN_MHZ - 1e-9);
+      // Zoom way out — the span saturates at the full HF range.
+      store.zoomSwrView(1000);
+      const full = selectSwrWindow(useAntennaStore.getState());
+      expect(full.startMHz).toBeCloseTo(SWR_VIEW_F_MIN_MHZ, 6);
+      expect(full.endMHz).toBeCloseTo(SWR_VIEW_F_MAX_MHZ, 6);
+    });
+
+    it("re-centres on the operating frequency when the band changes", () => {
+      const store = useAntennaStore.getState();
+      store.setFrequency(7.1);
+      store.resetSwrView();
+      store.zoomSwrView(0.3); // narrow the view
+      const narrowed = span();
+      store.setFrequency(21.0);
+      // Re-centred on the new band, keeping the (clamped) span.
+      expect(center()).toBeCloseTo(21.0, 6);
+      expect(span()).toBeCloseTo(narrowed, 6);
     });
   });
 });

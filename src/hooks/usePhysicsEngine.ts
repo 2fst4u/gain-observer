@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { WorkerRequest, WorkerResponse } from '../workers/physicsWorker';
-import { useAntennaStore, selectSimulationInput } from '../store/antennaStore';
+import { useAntennaStore, selectSimulationInput, selectSwrWindow } from '../store/antennaStore';
 import type { SimulationResult } from '../physics/types';
 import { detectLODLevel, LOD_TABLE } from './useAdaptiveLOD';
 
@@ -38,7 +38,14 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
   const workerRef = useRef<Worker | null>(null);
   const nextIdRef = useRef(0);
   const latestIdRef = useRef(0);
+  // True while a full simulate is in flight. Used to upgrade a sweep-only
+  // (zoom/pan) request to a full one when a pattern solve hasn't landed yet,
+  // so the in-flight pattern result isn't discarded as stale.
+  const fullPendingRef = useRef(false);
   const timerRef = useRef<number | null>(null);
+  // Highest-priority work requested during the current debounce window:
+  // 'full' (geometry/frequency changed) wins over 'sweep' (view window only).
+  const pendingKindRef = useRef<'full' | 'sweep' | null>(null);
 
   useEffect(() => {
     // Vite handles this URL pattern natively for workers.
@@ -54,12 +61,17 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
       // Discard stale results: only the latest request's response is accepted.
       if (msg.type === 'result') {
         if (msg.id !== latestIdRef.current) return;
+        fullPendingRef.current = false;
         useAntennaStore.getState()._setSimulationData(
           msg.result as SimulationResult,
           msg.sweep,
         );
+      } else if (msg.type === 'sweep') {
+        if (msg.id !== latestIdRef.current) return;
+        useAntennaStore.getState()._setSweep(msg.sweep);
       } else if (msg.type === 'error') {
         if (msg.id !== latestIdRef.current && msg.id !== -1) return;
+        fullPendingRef.current = false;
         useAntennaStore.getState()._setError(msg.message);
       }
     };
@@ -87,54 +99,87 @@ export function usePhysicsEngine(opts: UsePhysicsEngineOptions = {}): void {
 
   // Subscribe to input-relevant slices of state so we only trigger on real changes.
   useEffect(() => {
-    const schedule = () => {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-      timerRef.current = window.setTimeout(() => {
-        const worker = workerRef.current;
-        if (!worker) return;
-        const state = useAntennaStore.getState();
-        // Override the store's hardcoded pattern resolution with the
-        // LOD-appropriate one: coarser on slow devices → fewer NEC-2 RP
-        // evaluations → significantly faster solve on low-power hardware.
-        const input = {
-          ...selectSimulationInput(state),
-          patternResolution: LOD_CONFIG.patternResolution,
-        };
-        const id = ++nextIdRef.current;
-        latestIdRef.current = id;
-        state._setLoading(true);
+    const flush = () => {
+      const worker = workerRef.current;
+      if (!worker) return;
+      const requested = pendingKindRef.current ?? 'full';
+      pendingKindRef.current = null;
+      const state = useAntennaStore.getState();
+      // Override the store's hardcoded pattern resolution with the
+      // LOD-appropriate one: coarser on slow devices → fewer NEC-2 RP
+      // evaluations → significantly faster solve on low-power hardware.
+      const input = {
+        ...selectSimulationInput(state),
+        patternResolution: LOD_CONFIG.patternResolution,
+      };
+      const window = selectSwrWindow(state);
+      const displayRatio = displayTransformerRatio(state);
+      const id = ++nextIdRef.current;
+      latestIdRef.current = id;
+      state._setLoading(true);
+
+      // Only the view window changed → re-sweep alone, but upgrade to a full
+      // solve if a pattern result is still pending (otherwise it would be
+      // discarded as stale, leaving the radiation pattern out of date).
+      const kind = requested === 'sweep' && !fullPendingRef.current ? 'sweep' : 'full';
+      if (kind === 'sweep') {
         const msg: WorkerRequest = {
           id,
-          type: 'simulate',
+          type: 'sweep',
           input,
-          displayRatio: displayTransformerRatio(state),
+          displayRatio,
           sweepPoints: LOD_CONFIG.sweepPoints,
-          charPoints: LOD_CONFIG.charPoints,
-          maxAdaptiveIter: LOD_CONFIG.maxAdaptiveIter,
-          skipBroadScan: LOD_CONFIG.skipBroadScan,
+          window,
         };
         worker.postMessage(msg);
-      }, debounceMs);
+        return;
+      }
+
+      fullPendingRef.current = true;
+      const msg: WorkerRequest = {
+        id,
+        type: 'simulate',
+        input,
+        displayRatio,
+        sweepPoints: LOD_CONFIG.sweepPoints,
+        window,
+      };
+      worker.postMessage(msg);
     };
 
-    // Initial run.
-    schedule();
+    const schedule = (kind: 'full' | 'sweep') => {
+      // 'full' always wins over a pending 'sweep' in the same debounce window.
+      if (kind === 'full' || pendingKindRef.current === null) {
+        pendingKindRef.current = kind;
+      }
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(flush, debounceMs);
+    };
+
+    // Initial run (full solve).
+    schedule('full');
 
     const unsub = useAntennaStore.subscribe((state, prev) => {
-      // Re-run only when something affecting the simulation changed.
+      // Re-run a full solve when something affecting the NEC simulation changed.
       // JSON.stringify is intentional: selectSimulationInput returns freshly-allocated
       // arrays and object literals on every call, so shallow reference equality (Object.keys
       // + !==) would always fire. At ~3μs per call and ≤100 events/s this is negligible.
       const a = selectSimulationInput(state);
       const b = selectSimulationInput(prev);
-      // Also re-sweep when the display-only balun ratio changes: it doesn't
-      // alter the NEC input but it does change the SWR curve the adaptive
-      // sweep frames its window around.
+      // Also re-solve when the display-only balun ratio changes: it doesn't
+      // alter the NEC input but it does change the SWR curve the user sees.
       if (
         JSON.stringify(a) !== JSON.stringify(b) ||
         displayTransformerRatio(state) !== displayTransformerRatio(prev)
       ) {
-        schedule();
+        schedule('full');
+        return;
+      }
+      // Only the SWR view window changed (zoom/pan) → cheap sweep-only recompute.
+      const w = selectSwrWindow(state);
+      const pw = selectSwrWindow(prev);
+      if (w.startMHz !== pw.startMHz || w.endMHz !== pw.endMHz) {
+        schedule('sweep');
       }
     });
 

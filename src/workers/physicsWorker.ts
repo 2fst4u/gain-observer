@@ -12,6 +12,12 @@
 import { Nec2Engine } from '../physics/nec2Engine';
 import type { SimulationInput, SimulationResult, SweepPoint } from '../physics/types';
 
+/** Absolute frequency window the SWR sweep samples across. */
+export interface SweepWindow {
+  startMHz: number;
+  endMHz: number;
+}
+
 export type WorkerRequest =
   | {
       id: number;
@@ -19,14 +25,24 @@ export type WorkerRequest =
       input: SimulationInput;
       displayRatio?: number;
       sweepPoints?: number;
-      charPoints?: number;
-      maxAdaptiveIter?: number;
-      skipBroadScan?: boolean;
+      window?: SweepWindow;
+    }
+  // Sweep-only recompute: re-runs just the impedance sweep over a new window
+  // (zoom/pan) without recomputing the radiation pattern. Much cheaper than a
+  // full simulate when only the SWR view window changed.
+  | {
+      id: number;
+      type: 'sweep';
+      input: SimulationInput;
+      displayRatio?: number;
+      sweepPoints?: number;
+      window: SweepWindow;
     };
 
 export type WorkerResponse =
   | { type: 'ready' }
   | { id: number; type: 'result'; result: SimulationResult; sweep: readonly SweepPoint[] }
+  | { id: number; type: 'sweep'; sweep: readonly SweepPoint[] }
   | { id: number; type: 'error'; message: string };
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
@@ -68,13 +84,28 @@ ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
       engine.sweepImpedance(msg.input, {
         points: msg.sweepPoints,
         displayRatio: msg.displayRatio,
-        charPoints: msg.charPoints,
-        maxIter: msg.maxAdaptiveIter,
-        skipBroadScan: msg.skipBroadScan,
+        window: msg.window,
       }),
     ])
       .then(([result, sweep]) => {
         ctx.postMessage({ id: msg.id, type: 'result', result, sweep } satisfies WorkerResponse);
+      })
+      .catch((err: unknown) => {
+        ctx.postMessage({
+          id: msg.id,
+          type: 'error',
+          message: err instanceof Error ? err.message : String(err),
+        } satisfies WorkerResponse);
+      });
+  } else if (msg.type === 'sweep') {
+    engine
+      .sweepImpedance(msg.input, {
+        points: msg.sweepPoints,
+        displayRatio: msg.displayRatio,
+        window: msg.window,
+      })
+      .then((sweep) => {
+        ctx.postMessage({ id: msg.id, type: 'sweep', sweep } satisfies WorkerResponse);
       })
       .catch((err: unknown) => {
         ctx.postMessage({
