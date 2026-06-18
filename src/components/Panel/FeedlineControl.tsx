@@ -5,6 +5,7 @@ import {
   FEEDLINE_PRESETS,
   feedlineLossDb,
   findFeedlinePreset,
+  type FeedlinePreset,
 } from '../../physics/constants';
 import {
   toDisplayLength,
@@ -12,6 +13,7 @@ import {
   displayLengthUnit,
 } from '../../physics/units';
 import type { AntennaType } from '../../physics/types';
+import { StatRow } from '../UI/StatRow';
 
 // vertical-whip is intentionally excluded — this panel does not apply to it
 const SUPPORTED_ANTENNA_TYPES: ReadonlySet<AntennaType> = new Set([
@@ -22,6 +24,192 @@ const SUPPORTED_ANTENNA_TYPES: ReadonlySet<AntennaType> = new Set([
   'terminated-delta',
   'folded-dipole',
 ]);
+
+
+interface SyncedLengthInputProps {
+  id: string;
+  label: React.ReactNode;
+  value: number;
+  units: 'metric' | 'imperial';
+  maxMetric: number;
+  maxImperial: number;
+  onChange: (val: number) => void;
+  ariaDescribedBy?: string;
+}
+
+function SyncedLengthInput({
+  id,
+  label,
+  value,
+  units,
+  maxMetric,
+  maxImperial,
+  onChange,
+  ariaDescribedBy,
+}: SyncedLengthInputProps) {
+  const dispVal = toDisplayLength(value, units);
+  const [localVal, setLocalVal] = useState(dispVal.toFixed(2));
+  const [isFocused, setIsFocused] = useState(false);
+  const [prevDispVal, setPrevDispVal] = useState(dispVal);
+
+  if (dispVal !== prevDispVal) {
+    setPrevDispVal(dispVal);
+    if (!isFocused) {
+      setLocalVal(dispVal.toFixed(2));
+    }
+  }
+
+  return (
+    <>
+      <label htmlFor={id} style={{ marginTop: 10 }}>
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        min={0}
+        max={units === 'metric' ? maxMetric : maxImperial}
+        step={units === 'metric' ? 0.5 : 1}
+        value={localVal}
+        aria-describedby={ariaDescribedBy}
+        onFocus={() => setIsFocused(true)}
+        onChange={(e) => {
+          const s = e.target.value;
+          setLocalVal(s);
+          const val = parseFloat(s);
+          if (!isNaN(val)) {
+            onChange(fromDisplayLength(val, units));
+          }
+        }}
+        onBlur={() => {
+          setIsFocused(false);
+          setLocalVal(dispVal.toFixed(2));
+        }}
+      />
+    </>
+  );
+}
+
+interface DipoleOffsetControlProps {
+  units: 'metric' | 'imperial';
+  unit: string;
+  dipoleLength: number;
+  feedlineOffset: number;
+  setFeedlineOffset: (val: number) => void;
+}
+
+function DipoleOffsetControl({
+  units,
+  unit,
+  dipoleLength,
+  feedlineOffset,
+  setFeedlineOffset,
+}: DipoleOffsetControlProps) {
+  const dispOffset = toDisplayLength(feedlineOffset, units);
+  const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
+  const dispOffsetLimit = toDisplayLength(offsetLimit, units);
+
+  return (
+    <>
+      <label htmlFor="feedline-offset" style={{ marginTop: 10 }}>
+        Attachment offset from centre ({unit}) — {dispOffset.toFixed(2)}
+      </label>
+      <div className="row">
+        <input
+          id="feedline-offset"
+          type="range"
+          min={-dispOffsetLimit}
+          max={dispOffsetLimit}
+          step={units === 'metric' ? 0.05 : 0.25}
+          value={dispOffset}
+          aria-label="Feedline attachment offset"
+          aria-describedby="feedline-offset-hint"
+          onChange={(e) => {
+            const val = parseFloat(e.target.value);
+            if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
+          }}
+        />
+        <button
+          onClick={() => setFeedlineOffset(0)}
+          disabled={Math.abs(feedlineOffset) < 1e-6}
+          title={Math.abs(feedlineOffset) < 1e-6 ? 'Feedpoint is already centred' : 'Centre feedpoint'}
+          aria-label="Centre feedpoint offset"
+          style={{ flex: '0 0 auto' }}
+        >
+          Centre
+        </button>
+      </div>
+      <div id="feedline-offset-hint" aria-live="polite" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+        {Math.abs(feedlineOffset) < 1e-6
+          ? 'Centred (perfectly balanced — no common-mode current).'
+          : `Shifted ${Math.abs(dispOffset).toFixed(2)} ${unit} ${feedlineOffset > 0 ? '+ axis' : '− axis'}; common-mode current will flow on the shield.`}
+      </div>
+    </>
+  );
+}
+
+interface AtuSectionProps {
+  units: 'metric' | 'imperial';
+  unit: string;
+  frequency: number;
+  preset: FeedlinePreset;
+  atuEnabled: boolean;
+  atuMainFeedlineLength: number;
+  setAtuEnabled: (val: boolean) => void;
+  setAtuMainFeedlineLength: (val: number) => void;
+}
+
+function AtuSection({
+  units,
+  unit,
+  frequency,
+  preset,
+  atuEnabled,
+  atuMainFeedlineLength,
+  setAtuEnabled,
+  setAtuMainFeedlineLength,
+}: AtuSectionProps) {
+  const mainRunLossDb = preset.id !== 'none' ? feedlineLossDb(preset, frequency, atuMainFeedlineLength) : 0;
+
+  return (
+    <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+      <label
+        htmlFor="atu-enable"
+        style={{ display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, margin: 0, fontSize: 12 }}
+      >
+        <input
+          id="atu-enable"
+          type="checkbox"
+          checked={atuEnabled}
+          onChange={(e) => setAtuEnabled(e.target.checked)}
+        />
+        ATU at the base of the mast
+      </label>
+
+      {atuEnabled && (
+        <>
+          <SyncedLengthInput
+            id="atu-main-length"
+            label={`Main run, ATU → shack (${unit})`}
+            value={atuMainFeedlineLength}
+            units={units}
+            maxMetric={300}
+            maxImperial={984}
+            onChange={setAtuMainFeedlineLength}
+            ariaDescribedBy="atu-hint"
+          />
+          <div id="atu-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+            The feedline above becomes the short up-mast run (carries the antenna's native SWR);
+            the tuner conjugate-matches at the base, so this main run to the shack stays ~1:1
+            (matched loss {mainRunLossDb.toFixed(2)} dB). Realized gain keeps the up-mast loss
+            under SWR, this main-run loss, and a Q-based tuner loss — but a tuner cannot recover
+            ohmic/termination (efficiency) loss.
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function FeedlineControl() {
   // ⚡ Bolt: Performance Optimization
@@ -63,37 +251,10 @@ export function FeedlineControl() {
   const preset = findFeedlinePreset(feedlineId);
   const enabled = preset.id !== 'none';
   const unit = displayLengthUnit(units);
-  const dispLen = toDisplayLength(feedlineLength, units);
-  const dispOffset = toDisplayLength(feedlineOffset, units);
-
-  const [localLen, setLocalLen] = useState(dispLen.toFixed(2));
-  const [isFocused, setIsFocused] = useState(false);
-
-  const [prevDispLen, setPrevDispLen] = useState(dispLen);
-  if (dispLen !== prevDispLen) {
-    setPrevDispLen(dispLen);
-    if (!isFocused) {
-      setLocalLen(dispLen.toFixed(2));
-    }
-  }
-
-  const dispMainLen = toDisplayLength(atuMainFeedlineLength, units);
-  const [localMainLen, setLocalMainLen] = useState(dispMainLen.toFixed(2));
-  const [mainFocused, setMainFocused] = useState(false);
-  const [prevDispMainLen, setPrevDispMainLen] = useState(dispMainLen);
-  if (dispMainLen !== prevDispMainLen) {
-    setPrevDispMainLen(dispMainLen);
-    if (!mainFocused) {
-      setLocalMainLen(dispMainLen.toFixed(2));
-    }
-  }
 
   if (!SUPPORTED_ANTENNA_TYPES.has(antennaType)) return null;
 
-  const offsetLimit = Math.max(0, dipoleLength / 2 - 0.05);
-  const dispOffsetLimit = toDisplayLength(offsetLimit, units);
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
-  const mainRunLossDb = enabled ? feedlineLossDb(preset, frequency, atuMainFeedlineLength) : 0;
 
   return (
     <section className="panel-section">
@@ -116,127 +277,46 @@ export function FeedlineControl() {
 
       {enabled && (
         <>
-          <label htmlFor="feedline-length" style={{ marginTop: 10 }}>
-            Length ({unit})
-          </label>
-          <input
+          <SyncedLengthInput
             id="feedline-length"
-            type="number"
-            min={0}
-            max={units === 'metric' ? 200 : 656}
-            step={units === 'metric' ? 0.5 : 1}
-            value={localLen}
-            onFocus={() => setIsFocused(true)}
-            onChange={(e) => {
-              const s = e.target.value;
-              setLocalLen(s);
-              const val = parseFloat(s);
-              if (!isNaN(val)) {
-                setFeedlineLength(fromDisplayLength(val, units));
-              }
-            }}
-            onBlur={() => {
-              setIsFocused(false);
-              setLocalLen(dispLen.toFixed(2));
-            }}
+            label={`Length (${unit})`}
+            value={feedlineLength}
+            units={units}
+            maxMetric={200}
+            maxImperial={656}
+            onChange={setFeedlineLength}
           />
 
           {antennaType === 'dipole' && (
-            <>
-              <label htmlFor="feedline-offset" style={{ marginTop: 10 }}>
-                Attachment offset from centre ({unit}) — {dispOffset.toFixed(2)}
-              </label>
-              <div className="row">
-                <input
-                  id="feedline-offset"
-                  type="range"
-                  min={-dispOffsetLimit}
-                  max={dispOffsetLimit}
-                  step={units === 'metric' ? 0.05 : 0.25}
-                  value={dispOffset}
-                  aria-label="Feedline attachment offset"
-                  aria-describedby="feedline-offset-hint"
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
-                  }}
-                />
-                <button
-                  onClick={() => setFeedlineOffset(0)}
-                  disabled={Math.abs(feedlineOffset) < 1e-6}
-                  title={Math.abs(feedlineOffset) < 1e-6 ? 'Feedpoint is already centred' : 'Centre feedpoint'}
-                  aria-label="Centre feedpoint offset"
-                  style={{ flex: '0 0 auto' }}
-                >
-                  Centre
-                </button>
-              </div>
-              <div id="feedline-offset-hint" aria-live="polite" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-                {Math.abs(feedlineOffset) < 1e-6
-                  ? 'Centred (perfectly balanced — no common-mode current).'
-                  : `Shifted ${Math.abs(dispOffset).toFixed(2)} ${unit} ${feedlineOffset > 0 ? '+ axis' : '− axis'}; common-mode current will flow on the shield.`}
-              </div>
-            </>
+            <DipoleOffsetControl
+              units={units}
+              unit={unit}
+              dipoleLength={dipoleLength}
+              feedlineOffset={feedlineOffset}
+              setFeedlineOffset={setFeedlineOffset}
+            />
           )}
 
-          <div className="stat" style={{ marginTop: 10 }}>
-            <span className="stat-label">Z₀ / VF</span>
-            <span className="stat-value">{preset.z0.toFixed(0)} Ω · {preset.velocityFactor.toFixed(2)}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Cable loss @ {frequency.toFixed(2)} MHz</span>
-            <span className="stat-value">{lossDb.toFixed(2)} dB</span>
-          </div>
+          <StatRow
+            style={{ marginTop: 10 }}
+            label="Z₀ / VF"
+            value={`${preset.z0.toFixed(0)} Ω · ${preset.velocityFactor.toFixed(2)}`}
+          />
+          <StatRow
+            label={`Cable loss @ ${frequency.toFixed(2)} MHz`}
+            value={`${lossDb.toFixed(2)} dB`}
+          />
 
-          <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-            <label
-              htmlFor="atu-enable"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, margin: 0, fontSize: 12 }}
-            >
-              <input
-                id="atu-enable"
-                type="checkbox"
-                checked={atuEnabled}
-                onChange={(e) => setAtuEnabled(e.target.checked)}
-              />
-              ATU at the base of the mast
-            </label>
-
-            {atuEnabled && (
-              <>
-                <label htmlFor="atu-main-length" style={{ marginTop: 10 }}>
-                  Main run, ATU → shack ({unit})
-                </label>
-                <input
-                  id="atu-main-length"
-                  type="number"
-                  min={0}
-                  max={units === 'metric' ? 300 : 984}
-                  step={units === 'metric' ? 0.5 : 1}
-                  value={localMainLen}
-                  aria-describedby="atu-hint"
-                  onFocus={() => setMainFocused(true)}
-                  onChange={(e) => {
-                    const s = e.target.value;
-                    setLocalMainLen(s);
-                    const val = parseFloat(s);
-                    if (!isNaN(val)) setAtuMainFeedlineLength(fromDisplayLength(val, units));
-                  }}
-                  onBlur={() => {
-                    setMainFocused(false);
-                    setLocalMainLen(dispMainLen.toFixed(2));
-                  }}
-                />
-                <div id="atu-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                  The feedline above becomes the short up-mast run (carries the antenna's native SWR);
-                  the tuner conjugate-matches at the base, so this main run to the shack stays ~1:1
-                  (matched loss {mainRunLossDb.toFixed(2)} dB). Realized gain keeps the up-mast loss
-                  under SWR, this main-run loss, and a Q-based tuner loss — but a tuner cannot recover
-                  ohmic/termination (efficiency) loss.
-                </div>
-              </>
-            )}
-          </div>
+          <AtuSection
+            units={units}
+            unit={unit}
+            frequency={frequency}
+            preset={preset}
+            atuEnabled={atuEnabled}
+            atuMainFeedlineLength={atuMainFeedlineLength}
+            setAtuEnabled={setAtuEnabled}
+            setAtuMainFeedlineLength={setAtuMainFeedlineLength}
+          />
         </>
       )}
     </section>
