@@ -56,3 +56,17 @@
 ## 2026-06-17 - Component Refactoring Duplication
 **Learning:** When refactoring a large React component by extracting inline sections into separate functional components within the same file, be careful to look out for duplicated constant definitions (e.g., `resonateTitles`) and duplicated computations (e.g., `tfdZ0` calculation) that might have been copied directly into each new sub-component.
 **Action:** Always hoist shared constants and logic computations to the module scope (outside the component functions) to eliminate duplication. Also, use conditional properties inside `useShallow` when subscribing to Zustand stores to avoid unnecessary subscriptions that fire when the parent component isn't even active or using the data.
+
+## 2026-06-17 - Extracted Sub-hooks for Complex React Hooks
+**Learning:** Massive generic hooks covering multiple disparate responsibilities (like `useAntennaGeometry` which previously handled layout calculations, topology detection, and termination dimension logic simultaneously) are brittle and unreadable. Grouping the internal `useMemo` calls into explicit, specialized internal hooks allows the main exported hook to act purely as an orchestrator. This significantly boosts type safety and reasoning.
+**Action:** Refactored `src/components/Scene/useAntennaGeometry.ts` into three focused sub-hooks (`useRenderedWires`, `useFeedpointAndShield`, `useTerminatedDeltaSplit`) and added typed interfaces.
+## 2026-06-17 - Extracted safeSegs and Refactored buildFoldedAntennaWires
+**Learning:** `safeSegs` was defined locally inside `buildInvertedLWires` but is a globally applicable constraint for NEC-2 stability (segment length >= 4 * wire radius). Complex functions like `buildFoldedAntennaWires` returning arrays of similar objects can be greatly simplified with local factory helpers like `createWire`.
+**Action:** Extracted `safeSegs` to an exported top-level utility in `src/store/antennaGeometry.ts`, updated all call sites to pass `wireRadius`, and refactored `buildFoldedAntennaWires` to use `safeSegs` and a local `createWire` helper, drastically reducing verbosity.
+## 2024-06-17 - [Extract Reusable StatRow Component]
+**Learning:** For displaying statistical readouts, use the reusable `StatRow` component from `src/components/UI/StatRow.tsx` instead of hardcoding `<div className="stat">` blocks. Extracted complex ternary logic into isolated helper functions to dramatically reduce React component complexity.
+**Action:** Created `<StatRow>`, replaced all static div blocks in `StatsReadout.tsx`, and migrated tooltip logic into `getImpedanceTitle`, `getSwrTitle`, and `getRealizedGainTitle`.
+
+## 2024-05-18 - [TransformerControl Refactoring]
+**Learning:** Extracting complex inline logic, especially IIFEs and blocks containing multiple local `useState` declarations, into separate, pure sub-components (`TransformerRatioInput`) and pure helper functions (`calculateOptimalRatio`) dramatically improves readability, reduces line count in the parent component, and adheres closely to React's compositional nature without altering functionality.
+**Action:** Refactored `TransformerControl.tsx` to separate stateful input rendering and pure math logic from the main layout wrapper.
