@@ -116,8 +116,7 @@ describe('ColormapLegend', () => {
   it('handles zero dbRange gracefully', () => {
     useAntennaStore.setState({ colormap: 'viridis', dbRange: 0, colorMaxDb: 5 });
     render(<ColormapLegend result={mockResult} />);
-    expect(screen.getByText('5.0 dBi')).toBeDefined();
-    // minDb = 5 - 0 = 5
+    // minDb = 5 - 0 = 5, so both max and min labels show the same value
     expect(screen.getAllByText('5.0 dBi')).toHaveLength(2);
   });
 });
