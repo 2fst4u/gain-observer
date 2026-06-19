@@ -147,7 +147,7 @@ This document defines the physical and mathematical model for all antenna types 
 - **Apex Location:** Highest point at $(0, 0, \text{height})$.
 - **Leg Count & Length:** 3 wires forming a triangle, total perimeter $L$.
 - **Reference Length:** $1.02\lambda$ (Resonance).
-- **Angle/Slope:** Equilateral triangle in the vertical plane.
+- **Angle/Slope:** Equilateral triangle in the vertical plane (flattens to isosceles when the mast height is below the equilateral height; perimeter preserved).
 - **Tips:** Bottom corners.
 - **Min Height:** Bottom wire must be $\ge 0.1$ m above ground.
 
