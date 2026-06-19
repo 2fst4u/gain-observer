@@ -55,7 +55,7 @@ We use the standard NEC-2 Cartesian coordinate system:
 
 ### 2.4 Delta Loop
 
-- **Structure**: A triangular loop of wire.
+- **Structure**: An apex-up, isosceles triangular loop of wire.
 - **Length**: The total perimeter of the loop.
 - **Configuration**: Apex-up.
 - **Height**: Typically the height of the highest point (apex).
