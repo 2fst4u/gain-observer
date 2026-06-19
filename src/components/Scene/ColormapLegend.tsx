@@ -1,4 +1,5 @@
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getColormapCssGradient } from '../../utils/colormap';
 import type { SimulationResult } from '../../physics/types';
 
@@ -7,9 +8,17 @@ interface Props {
 }
 
 export function ColormapLegend({ result }: Props) {
-  const colormap = useAntennaStore((s) => s.colormap);
-  const dbRange = useAntennaStore((s) => s.dbRange);
-  const colorMaxDb = useAntennaStore((s) => s.colorMaxDb);
+  // ⚡ Bolt: Performance Optimization
+  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
+  // This reduces React hook allocation overhead and minimizes the number of store listeners,
+  // noticeably improving rendering performance when global state properties change rapidly.
+  const { colormap, dbRange, colorMaxDb } = useAntennaStore(
+    useShallow((s) => ({
+      colormap: s.colormap,
+      dbRange: s.dbRange,
+      colorMaxDb: s.colorMaxDb,
+    })),
+  );
 
   if (!result) return null;
 
