@@ -51,8 +51,8 @@ These definitions apply to every antenna type in Part II.
 
 A **terminated** antenna places a non-inductive resistive load somewhere on the radiating structure to absorb the wave that would otherwise reflect and form a standing wave. Two distinct families exist in this app, and they behave very differently:
 
-- **Asymmetric travelling-wave terminations** (Sloping V): the wave travels along a single asymmetric path, with the terminator at the far end. Result: cardioid pattern, broadband, unidirectional.
-- **Symmetric aperiodic loop terminations** (Terminated Delta, Terminated Folded Dipole, T2FD-style): the wave propagates around a closed loop from a symmetric feed point and is absorbed at a symmetric point opposite the feed via a single resistor _bridging the gap_ (not shunted to ground). Result: bidirectional/broadside-ish pattern, broadband flat impedance, **not** unidirectional. Trades efficiency for flat SWR across an octave.
+- **Open travelling-wave terminations** (Sloping V): each leg is an open long wire carrying a travelling wave from the apex feed out to a terminator at its far (ground-ward) tip. The termination absorbs the wave that would otherwise reflect, so each wire's radiation cone tilts toward its tip and the two cones reinforce off the open mouth of the V. The directionality comes from the travelling-wave _direction_ along each leg, **not** from any left/right geometric asymmetry. Result: a unidirectional, broadly cardioid pattern fired along the bisector of the V's opening, broadband.
+- **Closed aperiodic-loop terminations** (Terminated Delta, Terminated Folded Dipole, T2FD-style): the structure is a closed loop fed at a symmetric point; the current is absorbed at the symmetric point opposite the feed via a single resistor _bridging the gap_ (not shunted to ground). Because the geometry stays bilaterally symmetric and the loop is electrically compact, the pattern remains bidirectional/broadside — **not** unidirectional. The termination buys broadband flat impedance, trading efficiency for flat SWR across an octave.
 
 ### 3.2 Termination Implementation
 
@@ -186,7 +186,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Structure:** Two wires forming a V-shape, sloping from a high feedpoint toward the ground or lower supports.
 - **Apex Location:** Highest point at $(0, 0, \text{height})$. The `height` parameter refers to the feedpoint (apex).
 - **Leg Count & Length:** 2 legs, length $L$ **per leg** (Total radiating wire $2L$).
-- **Reference Length:** $2.0\lambda$ per leg (Traveling wave directivity).
+- **Reference Length:** $2.0\lambda$ **total** ($\approx 1.0\lambda$ per leg). The `length` parameter is the total radiating wire, split into two legs of $(L - \text{bridge})/2$ each. Traveling-wave structure, so no end-effect correction applies.
 - **Angle/Slope:** Included angle $\alpha$ (between legs) and slope angle $\theta$ (below horizontal).
 - **Tips:** Endpoints at ground-ward end of legs.
 - **Min Height:** Tip height must be $\ge 0.1$ m.
