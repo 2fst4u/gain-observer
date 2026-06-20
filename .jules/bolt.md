@@ -175,3 +175,6 @@
 ## 2026-06-19 - Group React hooks using Zustand's useShallow
 **Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within a single component (like in `ColormapLegend.tsx`) incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
 **Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block. This optimizes component re-rendering and mitigates lifecycle bottlenecks.
+## 2024-05-14 - Optimize Folded Dipole Terminator Search
+**Learning:** `Array.prototype.filter()` iterates through the entire array and allocates new memory even if the required elements have already been found.
+**Action:** Replaced `wires.filter` with a standard `for` loop that implements an early `break` when both target elements are found. This prevents unnecessary loop iterations and avoids the allocation of an intermediate array.
