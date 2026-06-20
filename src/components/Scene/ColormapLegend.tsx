@@ -8,10 +8,6 @@ interface Props {
 }
 
 export function ColormapLegend({ result }: Props) {
-  // ⚡ Bolt: Performance Optimization
-  // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
-  // This reduces React hook allocation overhead and minimizes the number of store listeners,
-  // noticeably improving rendering performance when global state properties change rapidly.
   const { colormap, dbRange, colorMaxDb } = useAntennaStore(
     useShallow((s) => ({
       colormap: s.colormap,
