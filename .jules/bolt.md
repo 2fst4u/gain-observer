@@ -175,13 +175,3 @@
 ## 2026-06-19 - Group React hooks using Zustand's useShallow
 **Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within a single component (like in `ColormapLegend.tsx`) incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
 **Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block. This optimizes component re-rendering and mitigates lifecycle bottlenecks.
-
-## 2024-12-16 - Prevent unnecessary array allocation and filtering in render cycle
-
-**What:** Wrapped the filtering of `diagnostics.currentRippleByTag` in a `useMemo` hook in `StatsReadout.tsx` to prevent it from recalculating on every render.
-
-**Why:** The code is executed in a high-frequency React render cycle. Calling `Array.prototype.filter` on every render not only incurs execution overhead but allocates a new array object, causing unnecessary garbage collection pressure and breaking referential equality for any downstream components or effects.
-
-**Impact:** Benchmarks on the useMemo equivalent logic indicated an execution time reduction from ~915ms to ~21ms for 5,000,000 simulated render cycles when dependencies have not changed (a ~97% improvement in execution time, eliminating array allocations).
-
-**Measurement:** Verified via Node.js `perf_hooks` micro-benchmark comparing filtering every call vs standard memoization.
