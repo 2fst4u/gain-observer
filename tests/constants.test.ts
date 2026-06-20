@@ -80,6 +80,10 @@ describe('ground presets', () => {
   it('findGroundPreset throws an error on unknown id', () => {
     expect(() => findGroundPreset('unknown-ground-type')).toThrowError('Unknown ground preset id: unknown-ground-type');
   });
+
+  it('findGroundPreset throws an error on empty string id', () => {
+    expect(() => findGroundPreset('')).toThrowError('Unknown ground preset id: ');
+  });
 });
 
 describe('feedline presets', () => {

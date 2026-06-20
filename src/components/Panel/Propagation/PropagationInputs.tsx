@@ -52,30 +52,14 @@ function geoStatusMessage(
   }
 }
 
-export function PropagationInputs() {
-  const {
-    tIndex,
-    setTIndex,
-    latitudeDeg,
-    setLatitude,
-    monthOverride,
-    utcHourOverride,
-    setMonthOverride,
-    setUtcHourOverride,
-  } = useAntennaStore(useShallow((s) => ({
-    tIndex: s.tIndex,
-    setTIndex: s.setTIndex,
-    latitudeDeg: s.latitudeDeg,
-    setLatitude: s.setLatitude,
-    monthOverride: s.monthOverride,
-    utcHourOverride: s.utcHourOverride,
-    setMonthOverride: s.setMonthOverride,
-    setUtcHourOverride: s.setUtcHourOverride,
-  })));
+function TIndexInput() {
+  const { tIndex, setTIndex } = useAntennaStore(
+    useShallow((s) => ({
+      tIndex: s.tIndex,
+      setTIndex: s.setTIndex,
+    }))
+  );
 
-  const { status: geoStatus, requestLocation } = useGeolocation();
-
-  // Local buffers for numeric inputs to allow natural typing.
   const [localTIndex, setLocalTIndex] = useState(tIndex.toString());
   const [isTIndexFocused, setIsTIndexFocused] = useState(false);
 
@@ -87,39 +71,8 @@ export function PropagationInputs() {
     }
   }
 
-  const [localLat, setLocalLat] = useState(latitudeDeg?.toString() ?? '');
-  const [isLatFocused, setIsLatFocused] = useState(false);
-
-  const [prevLat, setPrevLat] = useState(latitudeDeg);
-  if (latitudeDeg !== prevLat) {
-    setPrevLat(latitudeDeg);
-    if (!isLatFocused) {
-      setLocalLat(latitudeDeg?.toString() ?? '');
-    }
-  }
-
-  // Resolve "now" once per render.
-  const now = new Date();
-  const autoMonth = now.getUTCMonth() + 1;
-  const autoUtcHour = now.getUTCHours() + now.getUTCMinutes() / 60;
-
-  const utcHour = utcHourOverride ?? autoUtcHour;
-
-  // Local buffer for UTC hour input
-  const [localUtcHour, setLocalUtcHour] = useState(hourToHHmm(utcHour));
-  const [isUtcHourFocused, setIsUtcHourFocused] = useState(false);
-
-  const [prevUtcHour, setPrevUtcHour] = useState(utcHour);
-  if (utcHour !== prevUtcHour) {
-    setPrevUtcHour(utcHour);
-    if (!isUtcHourFocused) {
-      setLocalUtcHour(hourToHHmm(utcHour));
-    }
-  }
-
   return (
     <>
-      {/* T-index input */}
       <label htmlFor="t-index-input">T-index</label>
       <div className="row">
         <input
@@ -148,8 +101,32 @@ export function PropagationInputs() {
         Australian IPS T-index. ~30 = quiet, ~100 = active. Look up today&apos;s
         value from your usual space-weather source.
       </p>
+    </>
+  );
+}
 
-      {/* Latitude + geolocation */}
+function LatitudeInput() {
+  const { latitudeDeg, setLatitude } = useAntennaStore(
+    useShallow((s) => ({
+      latitudeDeg: s.latitudeDeg,
+      setLatitude: s.setLatitude,
+    }))
+  );
+  const { status: geoStatus, requestLocation } = useGeolocation();
+
+  const [localLat, setLocalLat] = useState(latitudeDeg?.toString() ?? '');
+  const [isLatFocused, setIsLatFocused] = useState(false);
+
+  const [prevLat, setPrevLat] = useState(latitudeDeg);
+  if (latitudeDeg !== prevLat) {
+    setPrevLat(latitudeDeg);
+    if (!isLatFocused) {
+      setLocalLat(latitudeDeg?.toString() ?? '');
+    }
+  }
+
+  return (
+    <>
       <label htmlFor="lat-input">Latitude</label>
       <div className="row" style={{ alignItems: 'center' }}>
         <input
@@ -189,8 +166,23 @@ export function PropagationInputs() {
       <p id="lat-hint" aria-live="polite" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
         {geoStatusMessage(geoStatus, latitudeDeg)}
       </p>
+    </>
+  );
+}
 
-      {/* Time & Month — always visible, auto-filled from browser clock unless overridden */}
+function MonthInput() {
+  const { monthOverride, setMonthOverride } = useAntennaStore(
+    useShallow((s) => ({
+      monthOverride: s.monthOverride,
+      setMonthOverride: s.setMonthOverride,
+    }))
+  );
+
+  const now = new Date();
+  const autoMonth = now.getUTCMonth() + 1;
+
+  return (
+    <>
       <label htmlFor="month-select" style={{ marginTop: 10 }}>Month</label>
       <div className="row">
         <select
@@ -212,7 +204,35 @@ export function PropagationInputs() {
       <div id="month-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         Month for ionospheric prediction. Leave as Auto to use current time.
       </div>
+    </>
+  );
+}
 
+function UtcHourInput() {
+  const { utcHourOverride, setUtcHourOverride } = useAntennaStore(
+    useShallow((s) => ({
+      utcHourOverride: s.utcHourOverride,
+      setUtcHourOverride: s.setUtcHourOverride,
+    }))
+  );
+
+  const now = new Date();
+  const autoUtcHour = now.getUTCHours() + now.getUTCMinutes() / 60;
+  const utcHour = utcHourOverride ?? autoUtcHour;
+
+  const [localUtcHour, setLocalUtcHour] = useState(hourToHHmm(utcHour));
+  const [isUtcHourFocused, setIsUtcHourFocused] = useState(false);
+
+  const [prevUtcHour, setPrevUtcHour] = useState(utcHour);
+  if (utcHour !== prevUtcHour) {
+    setPrevUtcHour(utcHour);
+    if (!isUtcHourFocused) {
+      setLocalUtcHour(hourToHHmm(utcHour));
+    }
+  }
+
+  return (
+    <>
       <label htmlFor="utc-hour-input" style={{ marginTop: 10 }}>
         UTC Hour
       </label>
@@ -248,6 +268,17 @@ export function PropagationInputs() {
           Auto
         </button>
       </div>
+    </>
+  );
+}
+
+export function PropagationInputs() {
+  return (
+    <>
+      <TIndexInput />
+      <LatitudeInput />
+      <MonthInput />
+      <UtcHourInput />
     </>
   );
 }

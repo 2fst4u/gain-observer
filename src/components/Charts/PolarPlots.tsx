@@ -136,6 +136,39 @@ const PolarPlotPanel = React.memo(function PolarPlotPanel({ title, labels, data,
   );
 });
 
+function usePolarChartOptions(theme: string, dbRange: number, result: { maxGainDbi: number } | null, peakDbi: number) {
+  const chartText = theme === 'dark' ? getCssVar('--chart-text') || '#c6cdd6' : getCssVar('--chart-text') || '#3a4250';
+  const chartGrid = theme === 'dark' ? getCssVar('--chart-grid') || 'rgba(255, 255, 255, 0.08)' : getCssVar('--chart-grid') || 'rgba(0, 0, 0, 0.08)';
+
+  return useMemo<ComponentProps<typeof Radar>['options']>(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+    scales: {
+      r: {
+        startAngle: 0, // 0 degrees at top
+        suggestedMin: 0,
+        suggestedMax: dbRange,
+        ticks: {
+          display: true,
+          color: chartText,
+          backdropColor: 'transparent',
+          font: { size: 9 },
+          z: 10,
+          count: 5,
+          callback: (val) => {
+            if (!result) return '';
+            return `${(Number(val) + (peakDbi - dbRange)).toFixed(0)} dBi`;
+          },
+        },
+        grid: { color: chartGrid, circular: true },
+        angleLines: { color: chartGrid },
+        pointLabels: { color: chartText, font: { size: 10 }, padding: 0 },
+      },
+    },
+  }), [dbRange, chartText, chartGrid, result, peakDbi]);
+}
+
 export function PolarPlots() {
   // ⚡ Bolt: Performance Optimization
   // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
@@ -229,36 +262,7 @@ export function PolarPlots() {
   const azLabels = useMemo(() => (result ? getAzimuthLabels(result.pattern) : []), [result]);
   const elLabels = useMemo(() => (result ? getElevationLabels(result.pattern) : []), [result]);
 
-  const chartText = theme === 'dark' ? getCssVar('--chart-text') || '#c6cdd6' : getCssVar('--chart-text') || '#3a4250';
-  const chartGrid = theme === 'dark' ? getCssVar('--chart-grid') || 'rgba(255, 255, 255, 0.08)' : getCssVar('--chart-grid') || 'rgba(0, 0, 0, 0.08)';
-
-  const options = useMemo<ComponentProps<typeof Radar>['options']>(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { enabled: true } },
-    scales: {
-      r: {
-        startAngle: 0, // 0 degrees at top
-        suggestedMin: 0,
-        suggestedMax: dbRange,
-        ticks: {
-          display: true,
-          color: chartText,
-          backdropColor: 'transparent',
-          font: { size: 9 },
-          z: 10,
-          count: 5,
-          callback: (val) => {
-            if (!result) return '';
-            return `${(Number(val) + (peakDbi - dbRange)).toFixed(0)} dBi`;
-          },
-        },
-        grid: { color: chartGrid, circular: true },
-        angleLines: { color: chartGrid },
-        pointLabels: { color: chartText, font: { size: 10 }, padding: 0 },
-      },
-    },
-  }), [dbRange, chartText, chartGrid, result, peakDbi]);
+  const options = usePolarChartOptions(theme, dbRange, result, peakDbi);
 
   if (!showPolarCuts || !result || !azData || !elDataBroadside || !elDataEndOn) return null;
 

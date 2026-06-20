@@ -120,6 +120,14 @@ describe('buildNecCards', () => {
       expect(output).toContain('FR 0 1 0 0 7.050000 0');
     });
 
+    it('formats FR card for frequency sweeps', () => {
+      const output = buildNecCards(
+        { ...defaultInput, frequencyMHz: 14.0 },
+        { sweepPoints: 10, sweepStep: 0.1 }
+      );
+      expect(output).toContain('FR 0 10 0 0 14.000000 0.100000');
+    });
+
     it('formats EX card with standard voltage', () => {
       const output = buildNecCards(defaultInput);
       expect(output).toContain('EX 0 1 6 0 1.0000 0.0000');
@@ -278,6 +286,16 @@ describe('buildNecCards', () => {
       });
       expect(out).toMatch(/^LD 0 1 5 5 100\./m);
     });
+
+    it('emits a series-RLC LD card with param3 defaulting to 0 when omitted', () => {
+      const out = buildNecCards({
+        ...defaultInput,
+        loads: [
+          { type: 0, wireTag: 1, segmentStart: 5, segmentEnd: 5, param1: 100, param2: 1e-6 },
+        ],
+      });
+      expect(out).toContain('LD 0 1 5 5 100.00000 0.00000100 0.000000000000');
+    });
   });
 
   describe('error handling', () => {
@@ -295,6 +313,20 @@ describe('buildNecCards', () => {
         frequencyMHz: Infinity,
       };
       expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: Infinity');
+    });
+
+    it('throws error for non-finite sweepStep', () => {
+      expect(() =>
+        buildNecCards(defaultInput, { sweepPoints: 10, sweepStep: NaN })
+      ).toThrow('Non-finite numeric value in NEC card: NaN');
+    });
+
+    it('throws error for -Infinity in numeric fields', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        frequencyMHz: -Infinity,
+      };
+      expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: -Infinity');
     });
   });
 });

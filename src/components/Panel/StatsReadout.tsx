@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useAntennaStore, selectAtuConfig, LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { displayedFeedMetrics } from '../../physics/impedance';
@@ -138,12 +139,16 @@ function legLabel(tagNo: number): string {
 function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnostics }) {
   const antennaType = useAntennaStore((s) => s.antennaType);
 
-  if (antennaType !== 'sloping-v') return null;
+  const legRipples = useMemo(() => {
+    if (!diagnostics || !diagnostics.currentRippleByTag) return [];
+    return diagnostics.currentRippleByTag.filter(
+      (r) => r.tagNo === LEFT_LEG_TAG || r.tagNo === RIGHT_LEG_TAG,
+    );
+  }, [diagnostics]);
 
-  const { currentRippleByTag, powerBudget, frontBackDb } = diagnostics;
-  const legRipples = currentRippleByTag.filter(
-    (r) => r.tagNo === LEFT_LEG_TAG || r.tagNo === RIGHT_LEG_TAG,
-  );
+  if (antennaType !== 'sloping-v' || !diagnostics) return null;
+
+  const { powerBudget, frontBackDb } = diagnostics;
 
   const hasContent =
     legRipples.length > 0 || powerBudget !== null || frontBackDb !== null;

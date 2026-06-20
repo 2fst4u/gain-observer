@@ -1338,9 +1338,21 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
     // split, the resistive bridge closes the gap, and wave energy is dissipated
     // rather than reflected. The gap is electrically small (≈ 0.1 m ≪ λ) so
     // it does not perturb the radiation pattern or the fundamental resonance.
-    const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
-    const topCenterLeft  = oppWires[0]!.end;   // inner end of left half
-    const topCenterRight = oppWires[1]!.start; // inner end of right half
+    let leftHalfOpp: Wire | undefined;
+    let rightHalfOpp: Wire | undefined;
+    for (let i = 0; i < wires.length; i++) {
+      const w = wires[i];
+      if (w.tag === FOLDED_DIPOLE_OPPOSITE_TAG) {
+        if (!leftHalfOpp) {
+          leftHalfOpp = w;
+        } else if (!rightHalfOpp) {
+          rightHalfOpp = w;
+        }
+      }
+      if (leftHalfOpp && rightHalfOpp) break;
+    }
+    const topCenterLeft  = leftHalfOpp!.end;   // inner end of left half
+    const topCenterRight = rightHalfOpp!.start; // inner end of right half
 
     extraWires.push({
       start: topCenterLeft,
