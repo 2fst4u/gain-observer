@@ -81,3 +81,7 @@
 ## 2026-06-20 - False Positive Bug Report Comment
 **Learning:** Found a comment `// The 1.5λ dipole from the bug report: high gain, severe mismatch.` in `tests/impedance.test.ts:25`. The comment refers to a "bug report" for context on a test case, it is not an active bug or TODO marker that needs fixing in the code.
 **Action:** Closed the task without making changes to the source codebase, strictly adhering to the Code Health Refactoring Pattern which dictates preserving valid code when confronted with false positives.
+
+## $(date +%Y-%m-%d) - Extract Chart.js configuration to custom hooks
+**Learning:** Inline Chart.js `options` objects (and their derived dependencies) can severely bloat React component bodies, especially when they include complex callbacks and deeply nested structures.
+**Action:** Extract complex configurations into localized custom hooks within the same file (e.g., `useRadarOptions`). This abstracts the noisy configuration away, improves the readability of the main component body, and enforces a clear separation of concerns without creating unnecessary new files for locally scoped configurations.
