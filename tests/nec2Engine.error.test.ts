@@ -41,4 +41,68 @@ describe('Nec2Engine error handling', () => {
       'nec2c exited with status 1. Fatal error: geometry invalid | Segmentation fault'
     );
   });
+
+  it('throws an error if NEC-2 output does not contain a radiation pattern', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // Mock the init promise to bypass actual wasm loading
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+
+    const mockInstance = {
+      FS: {
+        writeFile: vi.fn(),
+        readFile: vi.fn().mockReturnValue(new TextEncoder().encode('Dummy output with no pattern \nRUN TIME=0.001')),
+      },
+      callMain: vi.fn().mockReturnValue(0), // return success
+    };
+
+    // Inject a mock factory
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).factory = async () => mockInstance;
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    await expect(engine.simulate(dummyInput)).rejects.toThrow(
+      'NEC-2 did not produce a radiation pattern. Notices: Impedance block not found in NEC output.; Radiation pattern block not found in NEC output.'
+    );
+  });
+
+  it('throws an error if NEC-2 output does not contain an impedance result', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // Mock the init promise to bypass actual wasm loading
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+
+    const mockInstance = {
+      FS: {
+        writeFile: vi.fn(),
+        readFile: vi.fn().mockReturnValue(new TextEncoder().encode('Dummy output with pattern but no impedance \nRUN TIME=0.001\n                                 - - - RADIATION PATTERNS - - -\n  THETA    PHI    VERT    HORIZ    TOTAL\n    0.00    0.00   -1.00   -2.00   10.00')),
+      },
+      callMain: vi.fn().mockReturnValue(0), // return success
+    };
+
+    // Inject a mock factory
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).factory = async () => mockInstance;
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 2, phiSteps: 1 },
+    };
+
+    await expect(engine.simulate(dummyInput)).rejects.toThrow(
+      'NEC-2 did not produce an impedance result.'
+    );
+  });
 });
