@@ -175,3 +175,7 @@
 ## 2026-06-19 - Group React hooks using Zustand's useShallow
 **Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within a single component (like in `ColormapLegend.tsx`) incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
 **Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block. This optimizes component re-rendering and mitigates lifecycle bottlenecks.
+
+## 2025-06-20 - Replace higher-order array methods with loops in high-frequency computational paths
+**Learning:** In critical, high-frequency computational paths (e.g. React render loops, physics engine data normalizers, map/reduce operations), replacing JavaScript array higher-order functions like `Array.prototype.reduce()` or `Array.prototype.map()` with a standard `for` loop significantly improves raw execution speed by eliminating callback execution overhead and reducing intermediate array allocations.
+**Action:** Replaced `Array.prototype.reduce()` with an explicit `for` loop when determining `operatingBandWidth` by calculating the minimum distance in `src/physics/nec2Engine.ts`.
