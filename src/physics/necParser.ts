@@ -112,7 +112,7 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
   if (blockStart < 0) return null;
 
   // Row regex: leading whitespace, theta, phi, vert, horiz, total (we stop here).
-  const rowRe = /^\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)/;
+  const rowRe = /^[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)/gm;
 
   const expected = thetaSteps * phiSteps;
   const data = new Float32Array(expected).fill(-100);
@@ -120,10 +120,9 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
 
   // Track the order we see (theta, phi) so we can verify NEC emitted in the
   // expected "phi outer, theta inner" ordering (it does).
-  const lines = text.slice(blockStart).split('\n');
-  for (const line of lines) {
-    const m = rowRe.exec(line);
-    if (!m) continue;
+  rowRe.lastIndex = blockStart;
+  let m;
+  while ((m = rowRe.exec(text)) !== null) {
     const theta = parseFloat(m[1]!);
     const phi = parseFloat(m[2]!);
     const totalRaw = parseFloat(m[5]!);
@@ -169,12 +168,11 @@ export function parseNecCurrents(text: string): SegmentCurrent[] {
   const results: SegmentCurrent[] = [];
   // Match: seg tag x y z (length – discarded) real imag magn phase
   const rowRe =
-    /^\s+(\d+)\s+(\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+\d+\.\d+\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+)/;
+    /^[ \t]+(\d+)[ \t]+(\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+(-?\d+\.\d+)[ \t]+\d+\.\d+[ \t]+(-?\d+\.\d+E[+-]\d+)[ \t]+(-?\d+\.\d+E[+-]\d+)[ \t]+(-?\d+\.\d+E[+-]\d+)[ \t]+(-?\d+\.\d+)/gm;
 
-  const lines = text.slice(blockStart).split('\n');
-  for (const line of lines) {
-    const m = rowRe.exec(line);
-    if (!m) continue;
+  rowRe.lastIndex = blockStart;
+  let m;
+  while ((m = rowRe.exec(text)) !== null) {
     results.push({
       segNo: parseInt(m[1]!, 10),
       tagNo: parseInt(m[2]!, 10),
