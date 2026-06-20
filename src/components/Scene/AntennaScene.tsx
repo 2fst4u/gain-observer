@@ -20,7 +20,7 @@ interface AntennaSceneProps {
   readonly snapshot?: ComparisonSnapshot | null;
 }
 
-export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
+function SceneContents({ snapshot = null }: AntennaSceneProps) {
   const {
     liveType,
     liveLength,
@@ -119,16 +119,7 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
   }, [result, snapshot, liveTransformerEnabled, liveTransformerRatio, feedlineId, feedlineLength, liveAtuEnabled, frequency, liveAtuMainFeedlineLength]);
 
   return (
-    <Canvas
-      role="img"
-      aria-label="Interactive 3D visualization of the HF antenna radiation pattern"
-      camera={{ position: [18, 12, 22], fov: 45, near: 0.1, far: 1000 }}
-      dpr={[1, 2]}
-      gl={{ antialias: true, alpha: false }}
-      style={{ background: 'var(--bg-canvas)' }}
-    >
-      {/* SEO: R3F Canvas renders a WebGL node which is invisible to search engines.
-          Adding role="img" and an aria-label provides critical context. */}
+    <>
       <color attach="background" args={[THEME_COLORS[theme].background]} />
       <ambientLight intensity={0.35} />
       <directionalLight position={[15, 25, 10]} intensity={1.15} castShadow />
@@ -174,6 +165,23 @@ export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
       <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
         <GizmoViewport axisColors={['#ff4466', '#44cc66', '#4488ff']} labelColor="white" />
       </GizmoHelper>
+    </>
+  );
+}
+
+export function AntennaScene({ snapshot = null }: AntennaSceneProps) {
+  return (
+    <Canvas
+      role="img"
+      aria-label="Interactive 3D visualization of the HF antenna radiation pattern"
+      camera={{ position: [18, 12, 22], fov: 45, near: 0.1, far: 1000 }}
+      dpr={[1, 2]}
+      gl={{ antialias: true, alpha: false }}
+      style={{ background: 'var(--bg-canvas)' }}
+    >
+      {/* SEO: R3F Canvas renders a WebGL node which is invisible to search engines.
+          Adding role="img" and an aria-label provides critical context. */}
+      <SceneContents snapshot={snapshot} />
     </Canvas>
   );
 }
