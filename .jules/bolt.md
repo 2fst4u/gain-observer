@@ -175,6 +175,3 @@
 ## 2026-06-19 - Group React hooks using Zustand's useShallow
 **Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within a single component (like in `ColormapLegend.tsx`) incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
 **Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block. This optimizes component re-rendering and mitigates lifecycle bottlenecks.
-## 2025-02-12 - Remove Map Array Allocation in PropagationRadar
-**Learning:** `PropagationRadar` allocated an intermediate array via `.map` for rings on every render, just to calculate pixel bounds. Because SVG circles require a reverse z-index (rendered last is on top), it subsequently looped through that new array backwards. By evaluating pixel logic directly inside the reversed loop referencing the main `prediction.hops` store array, we bypass an intermediate array allocation inside a high-frequency component.
-**Action:** Removed intermediate `rings` array in `PropagationRadar.tsx` and moved `kmToPx` application directly into the loop body over `prediction.hops`.
