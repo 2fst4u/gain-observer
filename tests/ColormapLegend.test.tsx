@@ -86,4 +86,37 @@ describe('ColormapLegend', () => {
     expect(screen.getByText('10.0 dBi')).toBeDefined();
     expect(screen.getByText('-20.0 dBi')).toBeDefined();
   });
+
+  it('renders a figure element with correct aria-label', () => {
+    useAntennaStore.setState({ colormap: 'viridis', dbRange: 40, colorMaxDb: 10 });
+    render(<ColormapLegend result={mockResult} />);
+    const figure = document.querySelector('figure.colormap-legend');
+    expect(figure).not.toBeNull();
+    expect(figure!.getAttribute('aria-label')).toBe('Gain colormap legend');
+  });
+
+  it('renders a figcaption with both max and min labels', () => {
+    useAntennaStore.setState({ colormap: 'viridis', dbRange: 50, colorMaxDb: 20 });
+    render(<ColormapLegend result={mockResult} />);
+    const figcaption = document.querySelector('.colormap-legend-labels');
+    expect(figcaption).not.toBeNull();
+    // max = 20.0, min = 20 - 50 = -30.0
+    expect(screen.getByText('20.0 dBi')).toBeDefined();
+    expect(screen.getByText('-30.0 dBi')).toBeDefined();
+  });
+
+  it('renders correct gradient for jet colormap', () => {
+    useAntennaStore.setState({ colormap: 'jet', dbRange: 40, colorMaxDb: 0 });
+    render(<ColormapLegend result={mockResult} />);
+    const gradientEl = document.querySelector('.colormap-legend-gradient') as HTMLElement;
+    expect(gradientEl.style.background).toContain('linear-gradient');
+    expect(gradientEl.style.background).toContain('to top');
+  });
+
+  it('handles zero dbRange gracefully', () => {
+    useAntennaStore.setState({ colormap: 'viridis', dbRange: 0, colorMaxDb: 5 });
+    render(<ColormapLegend result={mockResult} />);
+    // minDb = 5 - 0 = 5
+    expect(screen.getAllByText('5.0 dBi')).toHaveLength(2);
+  });
 });

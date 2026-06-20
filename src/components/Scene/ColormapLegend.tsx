@@ -1,4 +1,5 @@
 import { useAntennaStore } from '../../store/antennaStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getColormapCssGradient } from '../../utils/colormap';
 import type { SimulationResult } from '../../physics/types';
 
@@ -7,9 +8,13 @@ interface Props {
 }
 
 export function ColormapLegend({ result }: Props) {
-  const colormap = useAntennaStore((s) => s.colormap);
-  const dbRange = useAntennaStore((s) => s.dbRange);
-  const colorMaxDb = useAntennaStore((s) => s.colorMaxDb);
+  const { colormap, dbRange, colorMaxDb } = useAntennaStore(
+    useShallow((s) => ({
+      colormap: s.colormap,
+      dbRange: s.dbRange,
+      colorMaxDb: s.colorMaxDb,
+    })),
+  );
 
   if (!result) return null;
 

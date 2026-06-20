@@ -172,3 +172,6 @@
 ## 2026-05-31 - Avoid Array.prototype.map() in PolarPlots
 **Learning:** In high-frequency React component renders (like rendering polar charts based on varying parameters), using `.map()` on arrays to normalise data creates unnecessary callback execution overhead and unoptimized array allocations, leading to increased GC pressure.
 **Action:** Replaced `.map()` with a pre-allocated array (`new Array(len)`) and a standard `for` loop in `normaliseForPolar` within `src/components/Charts/PolarPlots.tsx` to measurably improve performance and reduce overhead.
+## 2026-06-19 - Group React hooks using Zustand's useShallow
+**Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within a single component (like in `ColormapLegend.tsx`) incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
+**Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block. This optimizes component re-rendering and mitigates lifecycle bottlenecks.
