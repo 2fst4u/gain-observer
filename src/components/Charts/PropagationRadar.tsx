@@ -132,18 +132,9 @@ export function PropagationRadar({
     { label: 'W', x: margin - 8, y: cy + 4, anchor: 'end' as const },
   ];
 
-  // Convert hop ranges to pixel radii.
-  const rings = prediction.hops.map((h) => ({
-    n: h.n,
-    rangeKm: h.rangeKm,
-    rPx: h.rangeKm * kmToPx,
-    status: h.status,
-    linkQuality: h.linkQuality,
-  }));
-
   const hopRings = [];
-  for (let k = rings.length - 1; k >= 0; k--) {
-    const ring = rings[k];
+  for (let k = prediction.hops.length - 1; k >= 0; k--) {
+    const ring = prediction.hops[k]!;
     if (prediction.azimuthalHops && prediction.azimuthalHops.length > 1) {
       const wedges = buildAzimuthalWedges(prediction.azimuthalHops, ring.n, cx, cy, kmToPx);
       hopRings.push(<g key={ring.n}>{wedges}</g>);
@@ -153,7 +144,7 @@ export function PropagationRadar({
           key={ring.n}
           cx={cx}
           cy={cy}
-          r={ring.rPx}
+          r={ring.rangeKm * kmToPx}
           fill={statusFill(ring.status)}
           fillOpacity={qualityOpacity(ring.linkQuality)}
           stroke={statusFill(ring.status)}
@@ -223,11 +214,11 @@ export function PropagationRadar({
 
         {/* Range label on each hop ring (placed along the +y axis but offset
             to the right to avoid the 'N' cardinal and prevent overlap) */}
-        {rings.map((ring) => (
+        {prediction.hops.map((ring) => (
           <text
             key={ring.n}
             x={cx + 24}
-            y={cy - ring.rPx - 4}
+            y={cy - (ring.rangeKm * kmToPx) - 4}
             fontSize={10}
             fill="var(--text-dim)"
             fontFamily="system-ui, sans-serif"
