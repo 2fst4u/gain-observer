@@ -105,4 +105,26 @@ describe('Nec2Engine error handling', () => {
       'NEC-2 did not produce an impedance result.'
     );
   });
+  it('throws an error when sweep missing impedance result', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+
+    // intercept solveImpedanceSweep on the instance directly
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'solveImpedanceSweep').mockResolvedValue([{ impedance: null }]);
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    await expect(engine.sweepImpedance(dummyInput, { points: 1, window: { startMHz: 14, endMHz: 14 } })).rejects.toThrow(
+      'NEC-2 sweep missing impedance result for frequency 14 MHz'
+    );
+  });
 });
