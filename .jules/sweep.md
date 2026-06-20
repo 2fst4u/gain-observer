@@ -77,7 +77,3 @@
 ## 2024-05-18 - [TransformerControl Refactoring]
 **Learning:** Extracting complex inline logic, especially IIFEs and blocks containing multiple local `useState` declarations, into separate, pure sub-components (`TransformerRatioInput`) and pure helper functions (`calculateOptimalRatio`) dramatically improves readability, reduces line count in the parent component, and adheres closely to React's compositional nature without altering functionality.
 **Action:** Refactored `TransformerControl.tsx` to separate stateful input rendering and pure math logic from the main layout wrapper.
-
-## 2024-05-19 - [False Positive on NEC stability fix]
-**Learning:** A comment in `tests/antennaStore.test.ts` regarding a "NEC stability fix" describes an existing protection to prevent the shield from crossing the base wire. This was incorrectly interpreted as an actionable task/bug by standard analysis since it had the word "fix".
-**Action:** Identified the task as a false positive. Recorded the false positive in `.jules/sweep.md` and closed the task without making codebase changes, adhering to the Code Health Refactoring Pattern which dictates preserving valid code and documenting anomalies.

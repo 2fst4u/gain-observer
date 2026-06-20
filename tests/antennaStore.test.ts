@@ -1289,8 +1289,6 @@ describe("antennaStore actions", () => {
           expect(shield).toBeDefined();
 
           // Shield bottom must be at or above the base wire height.
-          // This is the NEC stability fix: a shield that crosses the base wire
-          // plane produces ill-conditioned MOM matrix entries.
           const baseZ = base.start[2];
           expect(shield.end[2]).toBeGreaterThanOrEqual(baseZ - 0.001);
 
