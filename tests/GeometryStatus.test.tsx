@@ -34,7 +34,7 @@ describe('GeometryStatus', () => {
 
     render(<GeometryStatus />);
     expect(screen.getByText(/Geometry Clamped/i)).toBeTruthy();
-    expect(screen.getByText(/Slope reduced to keep tips/i)).toBeTruthy();
+    expect(screen.getByText(/Opening angle widened to keep tips/i)).toBeTruthy();
   });
 
   it('renders normal message for inverted-v when not clamped', () => {

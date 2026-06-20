@@ -54,7 +54,11 @@ export function GeometryStatus() {
     );
   }
 
-  // Inverted V: slope is derived from vAngle and may be clamped by mast height.
+  // Inverted V: the per-leg slope is derived from the V opening angle and may
+  // be clamped by mast height. Surface everything in terms of the opening angle
+  // so it lines up with the "V opening angle" control the user adjusts.
+  // (slope = (180 − openingAngle) / 2, so a maximum slope maps to a minimum
+  // opening angle.)
   const half = length / 2;
   const maxSin = half > 0 ? (height - SLOPING_V_MIN_TIP_Z_M) / half : 0;
   const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
@@ -65,6 +69,11 @@ export function GeometryStatus() {
   const effectiveSlopeRad = (effectiveSlopeDeg * Math.PI) / 180;
   const tipZ = height - half * Math.sin(effectiveSlopeRad);
   const isClamped = requestedSlopeDeg > maxSlopeDeg + 0.1;
+
+  // The narrowest opening angle allowed before the tips would drop below the
+  // ground floor, and the opening angle actually used after clamping.
+  const minOpeningDeg = 180 - 2 * maxSlopeDeg;
+  const effectiveOpeningDeg = 180 - 2 * effectiveSlopeDeg;
 
   return (
     <section
@@ -84,12 +93,12 @@ export function GeometryStatus() {
         {isClamped ? '⚠️ Geometry Clamped' : 'Geometry Status'}
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
-        <span style={{ color: 'var(--text-muted)' }}>Max slope:</span>
-        <span>{maxSlopeDeg.toFixed(1)}°</span>
+        <span style={{ color: 'var(--text-muted)' }}>Min opening angle:</span>
+        <span>{minOpeningDeg.toFixed(1)}°</span>
 
-        <span style={{ color: 'var(--text-muted)' }}>Effective slope:</span>
+        <span style={{ color: 'var(--text-muted)' }}>Effective opening:</span>
         <span style={{ color: isClamped ? '#ff6b6b' : 'inherit', fontWeight: isClamped ? 600 : 400 }}>
-          {effectiveSlopeDeg.toFixed(1)}°
+          {effectiveOpeningDeg.toFixed(1)}°
         </span>
 
         <span style={{ color: 'var(--text-muted)' }}>Tip height:</span>
@@ -97,7 +106,7 @@ export function GeometryStatus() {
       </div>
       {isClamped && (
         <div style={{ marginTop: 6, fontSize: 11, fontStyle: 'italic', lineHeight: 1.3 }}>
-          Slope reduced to keep tips at least {toDisplayLength(SLOPING_V_MIN_TIP_Z_M, units).toFixed(2)} {unit} above ground.
+          Opening angle widened to keep tips at least {toDisplayLength(SLOPING_V_MIN_TIP_Z_M, units).toFixed(2)} {unit} above ground.
         </div>
       )}
     </section>
