@@ -8,15 +8,23 @@ export function useUnitsPersistence(): void {
   const setUnits = useAntennaStore((s) => s.setUnits);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === 'metric' || stored === 'imperial') {
-      setUnits(stored);
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored === 'metric' || stored === 'imperial') {
+        setUnits(stored);
+      }
+    } catch {
+      // Ignore localStorage access errors (e.g. strict privacy settings)
     }
   }, [setUnits]);
 
   useEffect(() => {
-    if (units === 'metric' || units === 'imperial') {
-      window.localStorage.setItem(STORAGE_KEY, units);
+    try {
+      if (units === 'metric' || units === 'imperial') {
+        window.localStorage.setItem(STORAGE_KEY, units);
+      }
+    } catch {
+      // Ignore localStorage access errors
     }
   }, [units]);
 }

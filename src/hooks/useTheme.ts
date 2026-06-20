@@ -12,17 +12,25 @@ export function useTheme(): void {
 
   // Restore on mount.
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === 'dark' || stored === 'light') {
-      setTheme(stored);
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored === 'dark' || stored === 'light') {
+        setTheme(stored);
+      }
+    } catch {
+      // Ignore localStorage access errors (e.g. strict privacy settings)
     }
   }, [setTheme]);
 
   // Apply + persist.
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    if (theme === 'dark' || theme === 'light') {
-      window.localStorage.setItem(STORAGE_KEY, theme);
+    try {
+      if (theme === 'dark' || theme === 'light') {
+        window.localStorage.setItem(STORAGE_KEY, theme);
+      }
+    } catch {
+      // Ignore localStorage access errors
     }
   }, [theme]);
 }
