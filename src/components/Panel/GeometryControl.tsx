@@ -331,66 +331,14 @@ function OrientationControl() {
   );
 }
 
-export function GeometryControl() {
-  const {
-    units,
-    antennaType,
-    height,
-    vAngle,
-    foldedDipoleAperture,
-    wireRadius,
-    whipCounterpoise,
-    setAntennaType,
-    setHeight,
-    setVAngle,
-    setFoldedDipoleAperture,
-    setWhipCounterpoise,
-  } = useAntennaStore(useShallow((s) => ({
-    units: s.units,
+function TypeControl() {
+  const { antennaType, setAntennaType } = useAntennaStore(useShallow((s) => ({
     antennaType: s.antennaType,
-    height: s.height,
-    vAngle: s.vAngle,
-    foldedDipoleAperture: s.foldedDipoleAperture,
-    wireRadius: s.wireRadius,
-    whipCounterpoise: s.whipCounterpoise,
     setAntennaType: s.setAntennaType,
-    setHeight: s.setHeight,
-    setVAngle: s.setVAngle,
-    setFoldedDipoleAperture: s.setFoldedDipoleAperture,
-    setWhipCounterpoise: s.setWhipCounterpoise,
   })));
 
-  const unit = displayLengthUnit(units);
-  const dispHeight = toDisplayLength(height, units);
-
-  const maxHeight = units === 'metric' ? 40 : 131;
-
-  const isVerticalWhip = antennaType === 'vertical-whip';
-  const isInvertedL = antennaType === 'inverted-l';
-
-  const isFoldedDipole = antennaType === 'folded-dipole';
-  const isGroundMountedVertical = isVerticalWhip || isInvertedL;
-
-  const heightLabel = isVerticalWhip
-    ? `Base height above ground (${unit}) — ${dispHeight.toFixed(1)}`
-    : isInvertedL
-      ? `Mast / bend-point height (${unit}) — ${dispHeight.toFixed(1)}`
-      : isFoldedDipole
-        ? `Bottom conductor height / feedpoint (${unit}) — ${dispHeight.toFixed(1)}`
-        : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
-
-  const dispAperture = toDisplayLength(foldedDipoleAperture, units);
-  const minApertureDisp = toDisplayLength(0.02, units);
-  const maxApertureDisp = toDisplayLength(FOLDED_DIPOLE_MAX_APERTURE_M, units);
-
-  // Characteristic impedance of the two-wire line formed by the folded-dipole conductors.
-  const tfdZ0 = isFoldedDipole ? calculateTfdZ0(foldedDipoleAperture, wireRadius) : 0;
-
   return (
-    <section className="panel-section">
-      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2>Antenna</h2>
-
+    <>
       <label htmlFor="antenna-type">Type</label>
       <select
         id="antenna-type"
@@ -411,9 +359,36 @@ export function GeometryControl() {
       <div id="antenna-type-hint" aria-live="polite" style={{ marginBottom: 12, fontSize: 11, color: 'var(--text-muted)' }}>
         {resonateTitles[antennaType]}
       </div>
+    </>
+  );
+}
 
-      <LengthControl />
+function HeightControl() {
+  const { units, antennaType, height, setHeight } = useAntennaStore(useShallow((s) => ({
+    units: s.units,
+    antennaType: s.antennaType,
+    height: s.height,
+    setHeight: s.setHeight,
+  })));
 
+  const unit = displayLengthUnit(units);
+  const dispHeight = toDisplayLength(height, units);
+  const maxHeight = units === 'metric' ? 40 : 131;
+
+  const isVerticalWhip = antennaType === 'vertical-whip';
+  const isInvertedL = antennaType === 'inverted-l';
+  const isFoldedDipole = antennaType === 'folded-dipole';
+
+  const heightLabel = isVerticalWhip
+    ? `Base height above ground (${unit}) — ${dispHeight.toFixed(1)}`
+    : isInvertedL
+      ? `Mast / bend-point height (${unit}) — ${dispHeight.toFixed(1)}`
+      : isFoldedDipole
+        ? `Bottom conductor height / feedpoint (${unit}) — ${dispHeight.toFixed(1)}`
+        : `Height above ground (${unit}) — ${dispHeight.toFixed(1)}`;
+
+  return (
+    <>
       <label htmlFor="dipole-height" style={{ marginTop: 10 }}>{heightLabel}</label>
       <input
         id="dipole-height"
@@ -428,78 +403,143 @@ export function GeometryControl() {
           if (!isNaN(val)) setHeight(fromDisplayLength(val, units));
         }}
       />
+    </>
+  );
+}
 
-      {(antennaType === 'sloping-v' || antennaType === 'inverted-v') && (
-        <>
-          <label htmlFor="sloping-v-angle" style={{ marginTop: 10 }}>V opening angle (°) — {vAngle}°</label>
-          <input
-            id="sloping-v-angle"
-            type="range"
-            min={10}
-            max={180}
-            step={1}
-            value={vAngle}
-            aria-label="V opening angle in degrees"
-            onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val)) setVAngle(val);
-            }}
-          />
-        </>
-      )}
+function VAngleControl() {
+  const { antennaType, vAngle, setVAngle } = useAntennaStore(useShallow((s) => ({
+    antennaType: s.antennaType,
+    vAngle: s.vAngle,
+    setVAngle: s.setVAngle,
+  })));
 
-      {isFoldedDipole && (
-        <>
-          <label htmlFor="folded-dipole-aperture" style={{ marginTop: 10 }}>
-            Conductor spacing / aperture ({unit}) — {dispAperture.toFixed(2)}
-          </label>
-          <input
-            id="folded-dipole-aperture"
-            type="range"
-            min={minApertureDisp}
-            max={maxApertureDisp}
-            step={units === 'metric' ? 0.01 : 0.05}
-            value={dispAperture}
-            aria-label="Folded dipole conductor spacing"
-            aria-describedby="folded-dipole-aperture-hint"
-            onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val)) setFoldedDipoleAperture(fromDisplayLength(val, units));
-            }}
-          />
-          <div id="folded-dipole-aperture-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-            Vertical spacing between the bottom (fed) and top (un-fed) conductors. The fed conductor is at the antenna height; the top conductor is aperture above it. For equal-diameter wires the feedpoint stays ~4× a plain dipole (~300 Ω) regardless of spacing; wider spacing raises Z₀ of the two-wire line (currently Z₀ ≈ {tfdZ0} Ω), requiring a higher terminating resistor for a broadband T2FD match. Capped at {maxApertureDisp.toFixed(2)} {unit} — beyond a realistic folded-dipole spacing the structure morphs toward a loop and no longer solves reliably as two close parallel wires.
-          </div>
-        </>
-      )}
+  if (antennaType !== 'sloping-v' && antennaType !== 'inverted-v') {
+    return null;
+  }
 
+  return (
+    <>
+      <label htmlFor="sloping-v-angle" style={{ marginTop: 10 }}>V opening angle (°) — {vAngle}°</label>
+      <input
+        id="sloping-v-angle"
+        type="range"
+        min={10}
+        max={180}
+        step={1}
+        value={vAngle}
+        aria-label="V opening angle in degrees"
+        onChange={(e) => {
+          const val = parseFloat(e.target.value);
+          if (!isNaN(val)) setVAngle(val);
+        }}
+      />
+    </>
+  );
+}
+
+function ApertureControl() {
+  const { units, antennaType, foldedDipoleAperture, wireRadius, setFoldedDipoleAperture } = useAntennaStore(useShallow((s) => ({
+    units: s.units,
+    antennaType: s.antennaType,
+    foldedDipoleAperture: s.foldedDipoleAperture,
+    wireRadius: s.wireRadius,
+    setFoldedDipoleAperture: s.setFoldedDipoleAperture,
+  })));
+
+  if (antennaType !== 'folded-dipole') {
+    return null;
+  }
+
+  const unit = displayLengthUnit(units);
+  const dispAperture = toDisplayLength(foldedDipoleAperture, units);
+  const minApertureDisp = toDisplayLength(0.02, units);
+  const maxApertureDisp = toDisplayLength(FOLDED_DIPOLE_MAX_APERTURE_M, units);
+  const tfdZ0 = calculateTfdZ0(foldedDipoleAperture, wireRadius);
+
+  return (
+    <>
+      <label htmlFor="folded-dipole-aperture" style={{ marginTop: 10 }}>
+        Conductor spacing / aperture ({unit}) — {dispAperture.toFixed(2)}
+      </label>
+      <input
+        id="folded-dipole-aperture"
+        type="range"
+        min={minApertureDisp}
+        max={maxApertureDisp}
+        step={units === 'metric' ? 0.01 : 0.05}
+        value={dispAperture}
+        aria-label="Folded dipole conductor spacing"
+        aria-describedby="folded-dipole-aperture-hint"
+        onChange={(e) => {
+          const val = parseFloat(e.target.value);
+          if (!isNaN(val)) setFoldedDipoleAperture(fromDisplayLength(val, units));
+        }}
+      />
+      <div id="folded-dipole-aperture-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+        Vertical spacing between the bottom (fed) and top (un-fed) conductors. The fed conductor is at the antenna height; the top conductor is aperture above it. For equal-diameter wires the feedpoint stays ~4× a plain dipole (~300 Ω) regardless of spacing; wider spacing raises Z₀ of the two-wire line (currently Z₀ ≈ {tfdZ0} Ω), requiring a higher terminating resistor for a broadband T2FD match. Capped at {maxApertureDisp.toFixed(2)} {unit} — beyond a realistic folded-dipole spacing the structure morphs toward a loop and no longer solves reliably as two close parallel wires.
+      </div>
+    </>
+  );
+}
+
+function CounterpoiseControl() {
+  const { antennaType, whipCounterpoise, setWhipCounterpoise } = useAntennaStore(useShallow((s) => ({
+    antennaType: s.antennaType,
+    whipCounterpoise: s.whipCounterpoise,
+    setWhipCounterpoise: s.setWhipCounterpoise,
+  })));
+
+  const isGroundMountedVertical = antennaType === 'vertical-whip' || antennaType === 'inverted-l';
+
+  if (!isGroundMountedVertical) {
+    return null;
+  }
+
+  return (
+    <>
+      <label
+        htmlFor="whip-counterpoise"
+        style={{ display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, margin: '10px 0 0 0', fontSize: 12 }}
+      >
+        <input
+          id="whip-counterpoise"
+          type="checkbox"
+          checked={whipCounterpoise}
+          onChange={(e) => setWhipCounterpoise(e.target.checked)}
+          aria-describedby="whip-counterpoise-hint"
+        />
+        Add ¼λ counterpoise radials
+      </label>
+      <div id="whip-counterpoise-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+        {whipCounterpoise
+          ? '4 horizontal ¼λ radials fan out from the base, giving the source a proper low-loss return path (canonical ground-plane vertical).'
+          : 'No counterpoise. NEC will report the high reactance and poor SWR that a radial-less base-fed antenna actually exhibits — switch the toggle on to model a proper ground-plane antenna.'}
+      </div>
+    </>
+  );
+}
+
+export function GeometryControl() {
+  const { antennaType } = useAntennaStore(useShallow((s) => ({
+    antennaType: s.antennaType,
+  })));
+
+  const isGroundMountedVertical = antennaType === 'vertical-whip' || antennaType === 'inverted-l';
+
+  return (
+    <section className="panel-section">
+      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
+      <h2>Antenna</h2>
+
+      <TypeControl />
+      <LengthControl />
+      <HeightControl />
+      <VAngleControl />
+      <ApertureControl />
       <TerminationControl />
-
-      {isGroundMountedVertical && (
-        <>
-          <label
-            htmlFor="whip-counterpoise"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, margin: '10px 0 0 0', fontSize: 12 }}
-          >
-            <input
-              id="whip-counterpoise"
-              type="checkbox"
-              checked={whipCounterpoise}
-              onChange={(e) => setWhipCounterpoise(e.target.checked)}
-              aria-describedby="whip-counterpoise-hint"
-            />
-            Add ¼λ counterpoise radials
-          </label>
-          <div id="whip-counterpoise-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-            {whipCounterpoise
-              ? '4 horizontal ¼λ radials fan out from the base, giving the source a proper low-loss return path (canonical ground-plane vertical).'
-              : 'No counterpoise. NEC will report the high reactance and poor SWR that a radial-less base-fed antenna actually exhibits — switch the toggle on to model a proper ground-plane antenna.'}
-          </div>
-        </>
-      )}
-
+      <CounterpoiseControl />
       <GeometryStatus />
-
       <OrientationControl />
 
       {/* Transformer / balun: hidden for base-fed monopole-style antennas —
