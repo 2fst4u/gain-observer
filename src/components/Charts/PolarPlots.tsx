@@ -13,7 +13,7 @@ import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import React, { useMemo, type ComponentProps } from 'react';
 import { displayedFeedMetrics } from '../../physics/impedance';
-import type { GainPattern } from '../../physics/types';
+import type { GainPattern, SimulationResult } from '../../physics/types';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip);
 
@@ -137,7 +137,7 @@ const PolarPlotPanel = React.memo(function PolarPlotPanel({ title, labels, data,
 });
 
 
-function useRadarOptions(theme: string | undefined, dbRange: number, result: ReturnType<typeof useAntennaStore>["result"], peakDbi: number): ComponentProps<typeof Radar>['options'] {
+function useRadarOptions(theme: string | undefined, dbRange: number, result: SimulationResult | null, peakDbi: number): ComponentProps<typeof Radar>['options'] {
   const chartText = theme === 'dark' ? getCssVar('--chart-text') || '#c6cdd6' : getCssVar('--chart-text') || '#3a4250';
   const chartGrid = theme === 'dark' ? getCssVar('--chart-grid') || 'rgba(255, 255, 255, 0.08)' : getCssVar('--chart-grid') || 'rgba(0, 0, 0, 0.08)';
 
