@@ -398,6 +398,7 @@ function HeightControl() {
         step={units === 'metric' ? 0.5 : 1}
         value={dispHeight}
         aria-label={isVerticalWhip ? 'Base height above ground' : isInvertedL ? 'Mast / bend-point height' : isFoldedDipole ? 'Bottom conductor height / feedpoint' : 'Height above ground'}
+        aria-valuetext={`${dispHeight.toFixed(1)} ${unit}`}
         onChange={(e) => {
           const val = parseFloat(e.target.value);
           if (!isNaN(val)) setHeight(fromDisplayLength(val, units));
@@ -429,6 +430,7 @@ function VAngleControl() {
         step={1}
         value={vAngle}
         aria-label="V opening angle in degrees"
+        aria-valuetext={`${vAngle}°`}
         onChange={(e) => {
           const val = parseFloat(e.target.value);
           if (!isNaN(val)) setVAngle(val);
@@ -470,6 +472,7 @@ function ApertureControl() {
         step={units === 'metric' ? 0.01 : 0.05}
         value={dispAperture}
         aria-label="Folded dipole conductor spacing"
+        aria-valuetext={`${dispAperture.toFixed(2)} ${unit}`}
         aria-describedby="folded-dipole-aperture-hint"
         onChange={(e) => {
           const val = parseFloat(e.target.value);

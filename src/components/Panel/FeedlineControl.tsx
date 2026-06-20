@@ -123,6 +123,7 @@ function DipoleOffsetControl({
           step={units === 'metric' ? 0.05 : 0.25}
           value={dispOffset}
           aria-label="Feedline attachment offset"
+          aria-valuetext={`${dispOffset.toFixed(2)} ${unit}`}
           aria-describedby="feedline-offset-hint"
           onChange={(e) => {
             const val = parseFloat(e.target.value);
