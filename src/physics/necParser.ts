@@ -31,63 +31,71 @@ const NO_HORIZ_SENTINEL = -999.99;
  * Columns:
  *   TAG SEG  V_REAL V_IMAG   I_REAL I_IMAG   Z_REAL Z_IMAG   Y_REAL Y_IMAG   POWER
  */
+const impedanceRowRe = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/gm;
+
 export function parseNecImpedance(text: string): { impedance: ImpedanceResult | null; power: number | null } {
   const blockStart = text.indexOf('ANTENNA INPUT PARAMETERS');
   if (blockStart < 0) return { impedance: null, power: null };
-  const lines = text.slice(blockStart).split('\n').slice(0, 12);
 
-  // First data row: starts with whitespace + integer tag.
-  const rowRe = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/;
-  for (const line of lines) {
-    const m = rowRe.exec(line);
-    if (!m) continue;
+  let blockEnd = blockStart;
+  for (let i = 0; i < 12; i++) {
+    const p = text.indexOf('\n', blockEnd);
+    if (p < 0) {
+      blockEnd = text.length;
+      break;
+    }
+    blockEnd = p + 1;
+  }
+
+  const blockText = text.substring(blockStart, blockEnd);
+  impedanceRowRe.lastIndex = 0;
+  const m = impedanceRowRe.exec(blockText);
+
+  if (m) {
     const zR = parseFloat(m[5]!);
     const zX = parseFloat(m[6]!);
     const power = parseFloat(m[9]!);
     return { impedance: { R: zR, X: zX }, power };
   }
+
   return { impedance: null, power: null };
 }
 
 /**
  * Extracts all ANTENNA INPUT PARAMETERS blocks for frequency sweeps.
  */
+const impedanceRowReSweep = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/gm;
+
 export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResult | null; power: number | null }[] {
   const results: { impedance: ImpedanceResult | null; power: number | null }[] = [];
   let pos = 0;
-  const rowRe = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/;
 
   while (true) {
     const blockStart = text.indexOf('ANTENNA INPUT PARAMETERS', pos);
     if (blockStart < 0) break;
 
-    let lineStart = blockStart;
-    const newlinePositions = [];
+    let blockEnd = blockStart;
     for (let i = 0; i < 12; i++) {
-      const p = text.indexOf('\n', lineStart);
-      if (p < 0) break;
-      newlinePositions.push(p);
-      lineStart = p + 1;
-    }
-
-    if (newlinePositions.length === 0) break;
-
-    const blockText = text.slice(blockStart, newlinePositions[newlinePositions.length - 1]);
-    const lines = blockText.split('\n');
-    let found = false;
-    for (const line of lines) {
-      const m = rowRe.exec(line);
-      if (m) {
-        const zR = parseFloat(m[5]!);
-        const zX = parseFloat(m[6]!);
-        const power = parseFloat(m[9]!);
-        results.push({ impedance: { R: zR, X: zX }, power });
-        found = true;
+      const p = text.indexOf('\n', blockEnd);
+      if (p < 0) {
+        blockEnd = text.length;
         break;
       }
+      blockEnd = p + 1;
     }
 
-    if (!found) {
+    if (blockEnd === blockStart) break;
+
+    const blockText = text.substring(blockStart, blockEnd);
+    impedanceRowReSweep.lastIndex = 0;
+    const m = impedanceRowReSweep.exec(blockText);
+
+    if (m) {
+      const zR = parseFloat(m[5]!);
+      const zX = parseFloat(m[6]!);
+      const power = parseFloat(m[9]!);
+      results.push({ impedance: { R: zR, X: zX }, power });
+    } else {
       results.push({ impedance: null, power: null });
     }
 
@@ -107,38 +115,36 @@ export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResu
  * The caller supplies expected theta/phi step counts; we verify and lay out
  * the flat array [ti * phiSteps + pi].
  */
+// Row regex: leading whitespace, theta, phi, vert, horiz, total (we stop here).
+const patternRowRe = /^\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)/gm;
+
 function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainPattern | null {
   const blockStart = text.indexOf('RADIATION PATTERNS');
   if (blockStart < 0) return null;
-
-  // Row regex: leading whitespace, theta, phi, vert, horiz, total (we stop here).
-  const rowRe = /^\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)/;
 
   const expected = thetaSteps * phiSteps;
   const data = new Float32Array(expected).fill(-100);
   let count = 0;
 
-  // Track the order we see (theta, phi) so we can verify NEC emitted in the
-  // expected "phi outer, theta inner" ordering (it does).
-  const lines = text.slice(blockStart).split('\n');
-  for (const line of lines) {
-    const m = rowRe.exec(line);
-    if (!m) continue;
+  const dTheta = 180 / (thetaSteps - 1);
+  const dPhi = 360 / phiSteps;
+
+  patternRowRe.lastIndex = blockStart;
+  let m: RegExpExecArray | null;
+  while ((m = patternRowRe.exec(text)) !== null) {
     const theta = parseFloat(m[1]!);
     const phi = parseFloat(m[2]!);
     const totalRaw = parseFloat(m[5]!);
     const total = totalRaw <= NO_HORIZ_SENTINEL + 1 ? -100 : totalRaw;
 
     // Compute row index from theta and phi (both quantised by NEC's step).
-    const dTheta = 180 / (thetaSteps - 1);
-    const dPhi = 360 / phiSteps;
     const ti = Math.round(theta / dTheta);
     const pi = Math.round(phi / dPhi) % phiSteps;
-    if (ti < 0 || ti >= thetaSteps) continue;
-
-    data[ti * phiSteps + pi] = total;
-    count++;
-    if (count >= expected) break;
+    if (ti >= 0 && ti < thetaSteps) {
+      data[ti * phiSteps + pi] = total;
+      count++;
+      if (count >= expected) break;
+    }
   }
 
   if (count === 0) return null;
@@ -147,8 +153,8 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
     data,
     thetaSteps,
     phiSteps,
-    dTheta: 180 / (thetaSteps - 1),
-    dPhi: 360 / phiSteps,
+    dTheta,
+    dPhi,
   };
 }
 
@@ -162,19 +168,21 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
  * Coordinates are in wavelengths (NEC normalises them).
  * We extract seg, tag, x, y, z, magnitude, and phase.
  */
+// Match: seg tag x y z (length – discarded) real imag magn phase
+const currentsRowRe = /^\s+(\d+)\s+(\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+\d+\.\d+\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+)/gm;
+
 export function parseNecCurrents(text: string): SegmentCurrent[] {
   const blockStart = text.indexOf('CURRENTS AND LOCATION');
   if (blockStart < 0) return [];
 
   const results: SegmentCurrent[] = [];
-  // Match: seg tag x y z (length – discarded) real imag magn phase
-  const rowRe =
-    /^\s+(\d+)\s+(\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+\d+\.\d+\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+E[+-]\d+)\s+(-?\d+\.\d+)/;
+  let blockEnd = text.indexOf('POWER BUDGET', blockStart);
+  if (blockEnd < 0) blockEnd = text.length;
 
-  const lines = text.slice(blockStart).split('\n');
-  for (const line of lines) {
-    const m = rowRe.exec(line);
-    if (!m) continue;
+  currentsRowRe.lastIndex = blockStart;
+  let m: RegExpExecArray | null;
+  while ((m = currentsRowRe.exec(text)) !== null) {
+    if (m.index > blockEnd) break;
     results.push({
       segNo: parseInt(m[1]!, 10),
       tagNo: parseInt(m[2]!, 10),
