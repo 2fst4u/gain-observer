@@ -22,7 +22,7 @@ describe('displayedFeedMetrics', () => {
   const noTransformer = { transformerEnabled: false, transformerRatio: 1, feedlineActive: false };
 
   it('no transformer: realized gain equals NEC realized gain; offset = 10·log10(1−|Γ|²)', () => {
-    // The 1.5λ dipole from the bug report: high gain, severe mismatch.
+
     const result = stubResult({ impedance: { R: 1.7, X: 50.9 }, maxGainDbi: 9.03 });
     const m = displayedFeedMetrics(result, noTransformer);
 
