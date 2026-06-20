@@ -81,7 +81,3 @@
 ## 2026-06-20 - False Positive Bug Report Comment
 **Learning:** Found a comment `// The 1.5λ dipole from the bug report: high gain, severe mismatch.` in `tests/impedance.test.ts:25`. The comment refers to a "bug report" for context on a test case, it is not an active bug or TODO marker that needs fixing in the code.
 **Action:** Closed the task without making changes to the source codebase, strictly adhering to the Code Health Refactoring Pattern which dictates preserving valid code when confronted with false positives.
-
-## 2024-05-30 - Fix exhaustive-deps warning for ref inside cleanup function
-**Learning:** When using a ref's value (e.g., `timerRef.current`) inside a `useEffect` cleanup function, the `react-hooks/exhaustive-deps` rule will issue a warning because the ref's value might change before the cleanup runs.
-**Action:** While developing, wait, actually I should just ignore the lint warning via `// eslint-disable-next-line react-hooks/exhaustive-deps` when I'm certain the ref's purpose is to point to a timer ID that should be cleared, but actually copying the ref's current value to a local variable inside the effect body and using that local variable within the cleanup function is the correct React way as per the warning's text.
