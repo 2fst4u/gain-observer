@@ -482,9 +482,19 @@ export class Nec2Engine implements Engine {
       const containing = primaryBands.find((b) => f >= b.fLow && f <= b.fHigh);
       const distance = (b: SwrBand): number =>
         Math.min(Math.abs(b.fLow - f), Math.abs(b.fHigh - f));
-      const band =
-        containing ??
-        primaryBands.reduce((best, b) => (distance(b) < distance(best) ? b : best));
+      let band = containing;
+      if (!band) {
+        band = primaryBands[0];
+        let bestDistance = distance(band);
+        for (let i = 1; i < primaryBands.length; i++) {
+          const b = primaryBands[i];
+          const d = distance(b);
+          if (d < bestDistance) {
+            bestDistance = d;
+            band = b;
+          }
+        }
+      }
       return Math.max(band.fHigh - band.fLow, f * 0.001);
     })();
 
