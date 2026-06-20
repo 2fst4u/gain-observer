@@ -4,6 +4,7 @@ import { displayedFeedMetrics } from '../../physics/impedance';
 import type { AtuMatchConfig } from '../../physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 import type { TerminationDiagnostics } from '../../physics/types';
+import { useMemo } from 'react';
 import { StatRow } from '../UI/StatRow';
 
 export function StatsReadout() {
@@ -138,12 +139,17 @@ function legLabel(tagNo: number): string {
 function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnostics }) {
   const antennaType = useAntennaStore((s) => s.antennaType);
 
-  if (antennaType !== 'sloping-v') return null;
+  const currentRippleByTag = diagnostics?.currentRippleByTag || [];
 
-  const { currentRippleByTag, powerBudget, frontBackDb } = diagnostics;
-  const legRipples = currentRippleByTag.filter(
-    (r) => r.tagNo === LEFT_LEG_TAG || r.tagNo === RIGHT_LEG_TAG,
-  );
+  const legRipples = useMemo(() => {
+    return currentRippleByTag.filter(
+      (r) => r.tagNo === LEFT_LEG_TAG || r.tagNo === RIGHT_LEG_TAG,
+    );
+  }, [currentRippleByTag]);
+
+  if (antennaType !== 'sloping-v' || !diagnostics) return null;
+
+  const { powerBudget, frontBackDb } = diagnostics;
 
   const hasContent =
     legRipples.length > 0 || powerBudget !== null || frontBackDb !== null;

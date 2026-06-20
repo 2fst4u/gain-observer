@@ -175,3 +175,7 @@
 ## 2026-06-19 - Group React hooks using Zustand's useShallow
 **Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within a single component (like in `ColormapLegend.tsx`) incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
 **Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block. This optimizes component re-rendering and mitigates lifecycle bottlenecks.
+
+## 2024-05-18 - Optimize array filtering in React render cycle
+**Learning:** Avoid array filtering directly inside a React component's render cycle, as it allocates a new array on every render. Instead, wrap the filtering logic in a `useMemo` block with appropriate dependencies to cache the result and prevent unnecessary reallocations when dependencies are stable.
+**Action:** Updated `TerminationSection` in `src/components/Panel/StatsReadout.tsx` to use `useMemo` for filtering `legRipples`. Fixed early return statement to comply with React Hooks rules.
