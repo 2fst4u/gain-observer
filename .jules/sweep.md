@@ -81,3 +81,7 @@
 ## 2026-06-20 - False Positive Bug Report Comment
 **Learning:** Found a comment `// The 1.5λ dipole from the bug report: high gain, severe mismatch.` in `tests/impedance.test.ts:25`. The comment refers to a "bug report" for context on a test case, it is not an active bug or TODO marker that needs fixing in the code.
 **Action:** Closed the task without making changes to the source codebase, strictly adhering to the Code Health Refactoring Pattern which dictates preserving valid code when confronted with false positives.
+
+## $(date +%Y-%m-%d) - Refactored Long React Component with Custom Hook
+**Learning:** Extracting large inline configuration blocks (like Chart.js options) into localized custom hooks within the same file is an effective way to simplify component structure, improve readability, and encapsulate configuration logic without creating unnecessary external dependencies.
+**Action:** Created `usePolarChartOptions` inside `src/components/Charts/PolarPlots.tsx` to handle Chart.js option creation, replacing bulky inline configuration in the main `PolarPlots` component.
