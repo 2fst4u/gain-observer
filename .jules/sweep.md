@@ -81,3 +81,9 @@
 ## 2026-06-20 - False Positive Bug Report Comment
 **Learning:** Found a comment `// The 1.5λ dipole from the bug report: high gain, severe mismatch.` in `tests/impedance.test.ts:25`. The comment refers to a "bug report" for context on a test case, it is not an active bug or TODO marker that needs fixing in the code.
 **Action:** Closed the task without making changes to the source codebase, strictly adhering to the Code Health Refactoring Pattern which dictates preserving valid code when confronted with false positives.
+
+## 2024-05-18 - Extract Subcomponents in React Functional Components
+**What:** The `PropagationInputs` function in `src/components/Panel/Propagation/PropagationInputs.tsx` was long and handled multiple state buffers.
+**Why:** Refactoring by extracting specific inputs (`TIndexInput`, `LatitudeInput`, `MonthInput`, and `UtcHourInput`) into focused subcomponents within the same file dramatically improves maintainability, readability, and isolates state updates to the relevant subcomponents, thus reducing unnecessary parent re-renders.
+**Verification:** The code was updated successfully and the full test suite ran and passed, confirming no regressions.
+**Result:** The maintainability and modularity of the `PropagationInputs` component were greatly improved.
