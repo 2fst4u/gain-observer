@@ -21,8 +21,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    // Surface the stack so it shows up clearly in the console.
-    console.error('[ErrorBoundary] caught', error, info);
+    // Surface the stack so it shows up clearly in the console during development only.
+    if (import.meta.env.DEV) {
+      console.error('[ErrorBoundary] caught', error, info);
+    }
   }
 
   reset = (): void => this.setState({ error: null });
