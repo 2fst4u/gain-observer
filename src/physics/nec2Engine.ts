@@ -311,6 +311,22 @@ export class Nec2Engine implements Engine {
     }
   }
 
+  /**
+   * Single-frequency feedpoint impedance with no radiation pattern — far
+   * cheaper than a full simulate(). Used to obtain a *transformer-independent*
+   * antenna feedpoint (caller passes the bare antenna, no feedline/transformer)
+   * for the Match suggestion, so the suggested ratio is one stable value
+   * regardless of which transformer is currently fitted.
+   */
+  async feedpointImpedance(input: SimulationInput): Promise<ImpedanceResult> {
+    const results = await this.solveImpedanceSweep(input, 1, input.frequencyMHz, 0);
+    const z = results[0]?.impedance;
+    if (!z) {
+      throw new Error('NEC-2 did not produce a feedpoint impedance result.');
+    }
+    return z;
+  }
+
   async sweepImpedance(input: SimulationInput, opts: SweepOptions = {}): Promise<SweepPoint[]> {
     const points = Math.max(3, Math.round(opts.points ?? 15));
     // Explicit window → fixed single-pass sweep over exactly that range. This

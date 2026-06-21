@@ -377,10 +377,14 @@ export function deembedThroughLine(
  *     optimal ratio matches that to the line's own characteristic impedance,
  *     flattening the line: round(R / z0Line).
  *
- * Because the recovered feedpoint R does not depend on the current ratio
- * (the de-embed inverts the line exactly and the ×ratio undoes the NT card),
- * the suggestion is stable: applying it and re-simulating yields the same
- * value rather than chasing its own tail.
+ * NOTE: with a feedline present this is only *approximately* stable — it has to
+ * back the antenna feedpoint out of the rig-end reading, which (because the
+ * source sits on the radiating shield) is contaminated by common-mode current
+ * that does not divide by the ratio, so applying the suggestion and re-solving
+ * can drift the value. Prefer `matchRatioForFeedpoint` against a bare-antenna
+ * feedpoint (solved with the transformer/feedline stripped) when one is
+ * available; this de-embed form is retained for the no-feedline case and as a
+ * fallback.
  *
  * Returns an integer ≥ 1.
  */
@@ -400,6 +404,19 @@ export function suggestedTransformerRatio(
     antennaR = currentRatio > 1 ? zLoad.R * currentRatio : zLoad.R;
     target = z0Line;
   }
+  return matchRatioForFeedpoint(antennaR, target);
+}
+
+/**
+ * Integer impedance-transformer ratio that best matches a real feedpoint
+ * resistance to a target impedance: round(R / target), clamped to ≥ 1.
+ *
+ * Fed a *transformer-independent* antenna feedpoint R (and the target = the
+ * feedline's characteristic impedance, or 50 Ω with no feedline), this yields a
+ * single stable suggestion that does not move when the suggestion is applied —
+ * because the bare feedpoint does not depend on the fitted transformer at all.
+ */
+export function matchRatioForFeedpoint(antennaR: number, target: number): number {
   if (!Number.isFinite(antennaR) || antennaR <= 0 || target <= 0) return 1;
   return Math.max(1, Math.round(antennaR / target));
 }

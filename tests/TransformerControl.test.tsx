@@ -12,6 +12,7 @@ describe('TransformerControl', () => {
       transformerEnabled: false,
       transformerRatio: 9,
       result: null,
+      feedpointImpedance: null,
     });
   });
 
@@ -116,17 +117,34 @@ describe('TransformerControl', () => {
     expect(useAntennaStore.getState().transformerRatio).toBe(2);
   });
 
-  it('suggests optimal ratio considering feedline if active', () => {
+  it('suggests optimal ratio from the bare feedpoint when a feedline is active', () => {
     useAntennaStore.setState({
       transformerEnabled: true,
       transformerRatio: 1,
       feedlineId: 'rg58',
       feedlineLength: 0,
       frequency: 14.1,
-      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
+      // Rig-end reading (ratio-dependent, common-mode polluted) — must NOT be used.
+      result: { impedance: { R: 999, X: 0 } } as unknown as SimulationResult,
+      // Bare antenna feedpoint (transformer-independent) → round(200/50) = 4:1.
+      feedpointImpedance: { R: 200, X: 0 },
     });
     const { getByRole } = render(<TransformerControl />);
-    expect(getByRole('button', { name: /Match/i })).not.toBeNull();
+    const button = getByRole('button', { name: /Match transformer ratio to 4:1/i });
+    expect(button).not.toBeNull();
+    expect(button.textContent).toContain('Match 4:1');
+  });
+
+  it('offers no feedline match until the bare feedpoint reference has arrived', () => {
+    useAntennaStore.setState({
+      transformerEnabled: true,
+      transformerRatio: 1,
+      feedlineId: 'rg58',
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult,
+      feedpointImpedance: null,
+    });
+    const { queryByRole } = render(<TransformerControl />);
+    expect(queryByRole('button', { name: /Match/i })).toBeNull();
   });
 
   it('updates localRatio from store when not focused', async () => {

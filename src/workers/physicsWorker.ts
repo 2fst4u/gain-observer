@@ -10,7 +10,7 @@
 /// <reference lib="webworker" />
 
 import { Nec2Engine } from '../physics/nec2Engine';
-import type { SimulationInput, SimulationResult, SweepPoint } from '../physics/types';
+import type { SimulationInput, SimulationResult, SweepPoint, ImpedanceResult } from '../physics/types';
 
 /** Absolute frequency window the SWR sweep samples across. */
 export interface SweepWindow {
@@ -23,6 +23,13 @@ export type WorkerRequest =
       id: number;
       type: 'simulate';
       input: SimulationInput;
+      /**
+       * Optional bare-antenna input (no feedline/transformer) whose feedpoint
+       * impedance is solved alongside the main result. It gives the Match
+       * suggestion a transformer-independent reference so the suggested ratio
+       * doesn't drift each time it is applied.
+       */
+      feedpointInput?: SimulationInput;
       displayRatio?: number;
       sweepPoints?: number;
       window?: SweepWindow;
@@ -41,7 +48,14 @@ export type WorkerRequest =
 
 export type WorkerResponse =
   | { type: 'ready' }
-  | { id: number; type: 'result'; result: SimulationResult; sweep: readonly SweepPoint[] }
+  | {
+      id: number;
+      type: 'result';
+      result: SimulationResult;
+      sweep: readonly SweepPoint[];
+      /** Bare-antenna feedpoint impedance, present when `feedpointInput` was sent. */
+      feedpointImpedance?: ImpedanceResult;
+    }
   | { id: number; type: 'sweep'; sweep: readonly SweepPoint[] }
   | { id: number; type: 'error'; message: string };
 
@@ -79,6 +93,7 @@ engine
 ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
   const msg = ev.data;
   if (msg.type === 'simulate') {
+    const feedpointInput = msg.feedpointInput;
     Promise.all([
       engine.simulate(msg.input),
       engine.sweepImpedance(msg.input, {
@@ -86,9 +101,18 @@ ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
         displayRatio: msg.displayRatio,
         window: msg.window,
       }),
+      feedpointInput
+        ? engine.feedpointImpedance(feedpointInput)
+        : Promise.resolve(undefined),
     ])
-      .then(([result, sweep]) => {
-        ctx.postMessage({ id: msg.id, type: 'result', result, sweep } satisfies WorkerResponse);
+      .then(([result, sweep, feedpointImpedance]) => {
+        ctx.postMessage({
+          id: msg.id,
+          type: 'result',
+          result,
+          sweep,
+          feedpointImpedance,
+        } satisfies WorkerResponse);
       })
       .catch((err: unknown) => {
         ctx.postMessage({

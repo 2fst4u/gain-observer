@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { TRANSFORMER_INSERTION_LOSS_DB, findFeedlinePreset } from '../../physics/constants';
-import { suggestedTransformerRatio } from '../../physics/impedance';
-import type { SimulationResult } from '../../physics/types';
+import { TRANSFORMER_INSERTION_LOSS_DB, Z0_SYSTEM, findFeedlinePreset } from '../../physics/constants';
+import { matchRatioForFeedpoint, suggestedTransformerRatio } from '../../physics/impedance';
+import type { ImpedanceResult, SimulationResult } from '../../physics/types';
 
 interface TransformerRatioInputProps {
   transformerRatio: number;
@@ -82,28 +82,38 @@ function TransformerRatioInput({
 
 /**
  * Calculates the optimal transformer ratio for the current antenna.
- * Derived from the raw antenna feedpoint impedance, recovered from the NEC
- * source reading by de-embedding the feedline when one is present.
- * This is stable — it does not depend on the ratio currently applied —
- * so clicking Match never oscillates.
+ *
+ * The suggestion must be ONE value regardless of which transformer is currently
+ * fitted. How the antenna feedpoint is obtained differs by configuration:
+ *
+ *   • No feedline → the transformer is display-only (NEC never sees it), so
+ *     `result.impedance` already is the bare antenna feedpoint. Match it to the
+ *     50 Ω system impedance.
+ *   • Feedline present → the transformer is baked into the NEC model, so the
+ *     rig-end `result.impedance` depends on the fitted ratio *and* is polluted
+ *     by shield common-mode current — back-solving it makes the suggestion drift
+ *     every time it is applied. Instead match the separately-solved bare antenna
+ *     feedpoint (`feedpointImpedance`, transformer/feedline stripped) to the
+ *     feedline's characteristic impedance. That reference doesn't move when the
+ *     ratio changes, so the suggestion is stable.
  */
 function calculateOptimalRatio(
   result: SimulationResult | null,
+  feedpointImpedance: ImpedanceResult | null,
   feedlineActive: boolean,
   feedlineId: string,
-  feedlineLength: number,
-  frequency: number,
   transformerRatio: number
 ): number | null {
   if (!result) return null;
   if (!feedlineActive) {
     return suggestedTransformerRatio(result.impedance, transformerRatio);
   }
+  // Need the transformer-independent reference; until it arrives, offer nothing
+  // rather than a value derived from the ratio-dependent rig-end reading.
+  if (!feedpointImpedance) return null;
   const preset = findFeedlinePreset(feedlineId);
-  const electricalLengthM = feedlineLength / Math.max(0.05, preset.velocityFactor);
-  const lambdaVacuumM = 299.792458 / frequency;
-  const lengthLambdas = electricalLengthM / lambdaVacuumM;
-  return suggestedTransformerRatio(result.impedance, transformerRatio, preset.z0, lengthLambdas);
+  const target = preset.z0 > 0 ? preset.z0 : Z0_SYSTEM;
+  return matchRatioForFeedpoint(feedpointImpedance.R, target);
 }
 
 /**
@@ -122,18 +132,16 @@ export function TransformerControl() {
     transformerEnabled,
     transformerRatio,
     feedlineId,
-    feedlineLength,
-    frequency,
     result,
+    feedpointImpedance,
     setTransformerEnabled,
     setTransformerRatio,
   } = useAntennaStore(useShallow((s) => ({
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
     feedlineId: s.feedlineId,
-    feedlineLength: s.feedlineLength,
-    frequency: s.frequency,
     result: s.result,
+    feedpointImpedance: s.feedpointImpedance,
     setTransformerEnabled: s.setTransformerEnabled,
     setTransformerRatio: s.setTransformerRatio,
   })));
@@ -141,10 +149,9 @@ export function TransformerControl() {
   const feedlineActive = feedlineId !== 'none';
   const optimalRatio = calculateOptimalRatio(
     result,
+    feedpointImpedance,
     feedlineActive,
     feedlineId,
-    feedlineLength,
-    frequency,
     transformerRatio
   );
 

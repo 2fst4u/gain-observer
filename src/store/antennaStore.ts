@@ -13,6 +13,7 @@ import { immer } from 'zustand/middleware/immer';
 import type {
   SimulationInput,
   SimulationResult,
+  ImpedanceResult,
   GroundParams,
   SweepPoint,
   Wire,
@@ -222,6 +223,14 @@ export interface AntennaState {
 
   // Solver output
   result: SimulationResult | null;
+  /**
+   * Bare antenna feedpoint impedance (no feedline, no transformer), solved
+   * alongside `result` only when a transformer is fitted over a feedline. It is
+   * the transformer-independent reference the Match suggestion matches to the
+   * feedline impedance, so the suggested ratio is stable no matter which
+   * transformer is currently fitted. Null when not applicable / not yet solved.
+   */
+  feedpointImpedance: ImpedanceResult | null;
   sweep: SweepPoint[];
   error: string | null;
   loading: boolean;
@@ -291,7 +300,11 @@ export interface AntennaState {
   setGeolocationStatus(s: AntennaState['geolocationStatus']): void;
 
   // Actions — internal (used by hooks/workers only, prefixed with _)
-  _setSimulationData(r: SimulationResult, sweep: readonly SweepPoint[]): void;
+  _setSimulationData(
+    r: SimulationResult,
+    sweep: readonly SweepPoint[],
+    feedpointImpedance?: ImpedanceResult | null,
+  ): void;
   /** Replace only the SWR sweep (efficient zoom/pan recompute — leaves the
    *  radiation pattern result untouched). */
   _setSweep(sweep: readonly SweepPoint[]): void;
@@ -389,6 +402,7 @@ export const useAntennaStore = create<AntennaState>()(
       geolocationStatus: 'idle',
 
       result: null,
+      feedpointImpedance: null,
       sweep: [],
       error: null,
       loading: false,
@@ -699,9 +713,10 @@ export const useAntennaStore = create<AntennaState>()(
       }),
       setGeolocationStatus: (st) => set((s) => { s.geolocationStatus = st; }),
 
-      _setSimulationData: (r, sweep) => set((s) => {
+      _setSimulationData: (r, sweep, feedpointImpedance) => set((s) => {
         s.result = r;
         s.sweep = [...sweep];
+        s.feedpointImpedance = feedpointImpedance ?? null;
         s.loading = false;
         s.error = null;
       }),
