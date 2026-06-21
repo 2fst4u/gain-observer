@@ -49,6 +49,7 @@ function handleWorkerMessage(
     useAntennaStore.getState()._setSimulationData(
       msg.result as SimulationResult,
       msg.sweep,
+      msg.feedpointImpedance ?? null,
     );
   } else if (msg.type === 'sweep') {
     if (msg.id !== latestId) return;
@@ -73,6 +74,16 @@ function buildWorkerRequest(
   const window = selectSwrWindow(state);
   const displayRatio = displayTransformerRatio(state);
 
+  // When a transformer is fitted over a feedline, the main solve bakes the
+  // transformer into the NEC model, so its rig-end impedance depends on the
+  // applied ratio and can't be back-solved into a stable Match suggestion.
+  // Solve the bare antenna feedpoint (feedline + transformer stripped) so the
+  // suggestion has a transformer-independent reference to match to the line.
+  const feedpointInput =
+    state.transformerEnabled && state.feedlineId !== 'none'
+      ? selectSimulationInput({ ...state, feedlineId: 'none', transformerEnabled: false })
+      : undefined;
+
   // Only the view window changed → re-sweep alone, but upgrade to a full
   // solve if a pattern result is still pending (otherwise it would be
   // discarded as stale, leaving the radiation pattern out of date).
@@ -93,6 +104,7 @@ function buildWorkerRequest(
     id,
     type: 'simulate',
     input,
+    feedpointInput,
     displayRatio,
     sweepPoints: LOD_CONFIG.sweepPoints,
     window,

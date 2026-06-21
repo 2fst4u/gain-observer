@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer, suggestedTransformerRatio, displayedFeedMetrics, atuLossDb, feedlineLossUnderSwrDb } from '../src/physics/impedance';
+import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer, suggestedTransformerRatio, matchRatioForFeedpoint, displayedFeedMetrics, atuLossDb, feedlineLossUnderSwrDb } from '../src/physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB, ATU_COMPONENT_Q, feedlineLossDb, findFeedlinePreset } from '../src/physics/constants';
 import type { SimulationResult } from '../src/physics/types';
 
@@ -482,22 +482,32 @@ describe('suggestedTransformerRatio', () => {
     expect(suggestedTransformerRatio({ R: -5, X: 0 }, 1)).toBe(1);
   });
 
-  it('hysteresis: holds the applied ratio when the ideal is within one step (no ±1 flap)', () => {
-    // Ideal = 330/50 = 6.6 → would naively round to 7. But while the user is
-    // already at 6:1, a small solve-to-solve wobble must not bump the suggestion
-    // to 7 (and then back to 6 on the next solve) — the reported flapping.
-    expect(suggestedTransformerRatio({ R: 330, X: 0 }, 6)).toBe(6);
-    expect(suggestedTransformerRatio({ R: 320, X: 0 }, 6)).toBe(6); // ideal 6.4
-    // From a ratio more than a full step away it still proposes the real optimum.
-    expect(suggestedTransformerRatio({ R: 330, X: 0 }, 1)).toBe(7);
+});
+
+describe('matchRatioForFeedpoint', () => {
+  it('rounds R/target to the nearest integer ratio', () => {
+    expect(matchRatioForFeedpoint(73, 50)).toBe(1);   // dipole → 50 Ω
+    expect(matchRatioForFeedpoint(300, 50)).toBe(6);  // folded dipole → 50 Ω
+    expect(matchRatioForFeedpoint(450, 50)).toBe(9);
+    expect(matchRatioForFeedpoint(300, 450)).toBe(1); // 300 Ω feedpoint → 450 Ω line
   });
 
-  it('hysteresis: applying the rounded suggestion makes it a stable fixed point', () => {
-    // Start far from optimal: ideal 6.0, current 1 → suggests 6.
-    const first = suggestedTransformerRatio({ R: 300, X: 0 }, 1);
-    expect(first).toBe(6);
-    // Now at 6:1, even a wobble that drifts the ideal up to ~6.9 holds at 6.
-    expect(suggestedTransformerRatio({ R: 345, X: 0 }, first)).toBe(6);
+  it('is independent of any fitted transformer (the value never moves once applied)', () => {
+    // The bare feedpoint R is the same no matter which ratio is currently fitted,
+    // so re-evaluating after applying the suggestion yields the same number —
+    // this is what stops the 6 → 9 → 13 runaway.
+    const ra = 300; // bare antenna feedpoint, transformer-independent
+    const r1 = matchRatioForFeedpoint(ra, 50);
+    const r2 = matchRatioForFeedpoint(ra, 50); // "after applying r1 and re-solving"
+    expect(r1).toBe(6);
+    expect(r2).toBe(6);
+  });
+
+  it('clamps to ≥ 1 and guards degenerate inputs', () => {
+    expect(matchRatioForFeedpoint(10, 50)).toBe(1);  // round(0.2) → 1
+    expect(matchRatioForFeedpoint(0, 50)).toBe(1);
+    expect(matchRatioForFeedpoint(-5, 50)).toBe(1);
+    expect(matchRatioForFeedpoint(300, 0)).toBe(1);
   });
 });
 
