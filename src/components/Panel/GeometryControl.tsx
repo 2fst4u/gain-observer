@@ -1,6 +1,6 @@
 import { GeometryStatus } from './GeometryStatus';
 import { useState } from 'react';
-import { useAntennaStore, legMultipleFromLength } from '../../store/antennaStore';
+import { useAntennaStore, legMultipleFromLength, recommendedTerminatingResistor } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
   toDisplayLength,
@@ -189,6 +189,11 @@ function TerminationControl() {
   // Terminating at R ≈ Z₀ gives a travelling-wave (T2FD) — broadband flat SWR.
   const tfdZ0 = antennaType === 'folded-dipole' ? calculateTfdZ0(foldedDipoleAperture, wireRadius) : 0;
 
+  // Recommended ("auto") terminating resistance for this antenna. Every type that
+  // supports a terminating resistor gets the auto-resistance button.
+  const isFolded = antennaType === 'folded-dipole';
+  const recommended = recommendedTerminatingResistor(antennaType, foldedDipoleAperture, wireRadius);
+
   return (
     <>
       <label htmlFor="terminating-resistor" style={{ marginTop: 10 }}>
@@ -214,15 +219,19 @@ function TerminationControl() {
             setLocalResistor(terminatingResistor.toString());
           }}
         />
-        {antennaType === 'folded-dipole' && (
+        {recommended > 0 && (
           <button
-            onClick={() => setTerminatingResistor(tfdZ0)}
-            disabled={terminatingResistor === tfdZ0}
-            title={`Set terminating resistor to Z₀ ≈ ${tfdZ0} Ω — the characteristic impedance of the two-wire line for this conductor spacing and wire diameter. Terminating at R = Z₀ gives a true travelling-wave (T2FD): flat broadband SWR at the cost of ~3 dB efficiency.`}
-            aria-label={`Set terminating resistor to Z₀ (${tfdZ0} Ω)`}
+            onClick={() => setTerminatingResistor(recommended)}
+            disabled={terminatingResistor === recommended}
+            title={isFolded
+              ? `Set terminating resistor to Z₀ ≈ ${recommended} Ω — the characteristic impedance of the two-wire line for this conductor spacing and wire diameter. Terminating at R = Z₀ gives a true travelling-wave (T2FD): flat broadband SWR at the cost of ~3 dB efficiency.`
+              : `Set terminating resistor to the recommended ${recommended} Ω for this antenna — approximately the structure's characteristic impedance over real ground, giving a flat broadband match.`}
+            aria-label={isFolded
+              ? `Set terminating resistor to Z₀ (${recommended} Ω)`
+              : `Set terminating resistor to recommended (${recommended} Ω)`}
             style={{ flex: '0 0 auto' }}
           >
-            Z₀
+            {isFolded ? 'Z₀' : `${recommended} Ω`}
           </button>
         )}
         <button

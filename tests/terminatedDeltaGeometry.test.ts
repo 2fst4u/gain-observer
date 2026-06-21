@@ -265,6 +265,7 @@ describe('Terminated Delta — base geometry', () => {
   it('triangle is equilateral when the mast is tall enough', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('terminated-delta');
+    store.setFeedline('none');
     store.setFrequency(7.1);
     store.setLength(42);
     store.setHeight(30); // tall enough for equilateral height ~12.12 m
@@ -281,6 +282,7 @@ describe('Terminated Delta — base geometry', () => {
   it('triangle flattens when mast is too short: corners clamped above ground, perimeter preserved', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('terminated-delta');
+    store.setFeedline('none');
     store.setFrequency(7.1);
     store.setLength(42);
     store.setHeight(5); // less than equilateral height (~12.12 m)

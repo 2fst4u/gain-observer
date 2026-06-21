@@ -96,6 +96,66 @@ export type { Orientation };
 
 const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta', 'folded-dipole']);
 
+// Recommended ("auto") terminating-resistor values, in ohms. These double as the
+// default value applied when an antenna type that supports a terminating resistor
+// is selected, and as the value set by the auto-resistance button in the UI.
+export const SLOPING_V_DEFAULT_TERMINATION_OHMS = 300;
+export const TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS = 600;
+
+/**
+ * The recommended terminating resistance for an antenna type, in ohms, or 0 for
+ * types that do not support a terminating resistor. This is the single source of
+ * truth behind both the per-type default and the auto-resistance button:
+ *
+ *   • sloping-V / terminated-delta — a fixed design value (≈ the structure's
+ *     characteristic impedance over real ground).
+ *   • folded-dipole — the characteristic impedance Z₀ of the two-wire line,
+ *     which depends on the conductor spacing (aperture) and wire radius:
+ *     Z₀ = 120 · acosh(D / 2r). Terminating at R = Z₀ gives a travelling-wave
+ *     (T2FD) broadband match.
+ */
+export function recommendedTerminatingResistor(
+  antennaType: AntennaType,
+  foldedDipoleAperture: number,
+  wireRadius: number,
+): number {
+  switch (antennaType) {
+    case 'sloping-v':
+      return SLOPING_V_DEFAULT_TERMINATION_OHMS;
+    case 'terminated-delta':
+      return TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS;
+    case 'folded-dipole':
+      return Math.round(120 * Math.acosh(foldedDipoleAperture / (2 * wireRadius)));
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Consolidated per-type transformer/balun defaults. Every antenna that supports a
+ * balun (i.e. every type except the base-fed monopole-style verticals, whose
+ * feedpoint is unbalanced) gets the transformer enabled by default so the
+ * "Match n:1" auto-matching button is always available. The ratio is just a
+ * sensible starting point — a 1:1 current ("choke") balun where no impedance
+ * transformation is needed, or the established step-down ratio for the
+ * high-impedance folded-dipole and terminated-delta designs.
+ */
+interface TransformerDefaults {
+  readonly enabled: boolean;
+  readonly ratio: number;
+}
+const TRANSFORMER_DEFAULTS: Record<AntennaType, TransformerDefaults> = {
+  'dipole': { enabled: true, ratio: 1 },
+  'inverted-v': { enabled: true, ratio: 1 },
+  'sloping-v': { enabled: true, ratio: 1 },
+  'delta-loop': { enabled: true, ratio: 1 },
+  'terminated-delta': { enabled: true, ratio: 9 },
+  'folded-dipole': { enabled: true, ratio: 6 },
+  // Base-fed monopole-style verticals: unbalanced feedpoint, no balun.
+  'vertical-whip': { enabled: false, ratio: 1 },
+  'inverted-l': { enabled: false, ratio: 1 },
+};
+
 export type Mode = 'normal' | 'comparison';
 export type Colormap = 'viridis' | 'turbo' | 'jet';
 
@@ -385,8 +445,8 @@ export const useAntennaStore = create<AntennaState>()(
       showGrid: true,
       showAxes: true,
       showPolarCuts: true,
-      transformerEnabled: false,
-      transformerRatio: 9,
+      transformerEnabled: TRANSFORMER_DEFAULTS[INITIAL_TYPE].enabled,
+      transformerRatio: TRANSFORMER_DEFAULTS[INITIAL_TYPE].ratio,
 
       swrViewCenterMHz: INITIAL_SWR_VIEW.center,
       swrViewSpanMHz: INITIAL_SWR_VIEW.span,
@@ -423,9 +483,18 @@ export const useAntennaStore = create<AntennaState>()(
           s.feedlineId = 'none';
           s.feedlineLength = 0;
           s.feedlineOffset = 0;
-        } else if (type !== 'dipole') {
-          // Apex-fed antennas don't support an offset; reset it so UI is consistent.
-          s.feedlineOffset = 0;
+        } else {
+          // Every feedline-capable antenna defaults to an RG-58 coax run. Restore
+          // it when returning from a non-feedline type (which clears it to 'none'),
+          // while preserving any explicit cable the user has chosen.
+          if (s.feedlineId === 'none') {
+            s.feedlineId = DEFAULT_FEEDLINE_ID;
+            s.feedlineLength = DEFAULT_FEEDLINE_LENGTH_M;
+          }
+          if (type !== 'dipole') {
+            // Apex-fed antennas don't support an offset; reset it so UI is consistent.
+            s.feedlineOffset = 0;
+          }
         }
         s.length = calculateDefaultLength(type, s.frequency);
 
@@ -443,10 +512,6 @@ export const useAntennaStore = create<AntennaState>()(
           s.legSlope = 0;
           s.terminatingResistor = 0;
           s.whipCounterpoise = true;
-          // Force the transformer off — its UI is hidden for verticals and
-          // the StatsReadout's realized-gain math would otherwise apply a
-          // stale ratio/insertion-loss to the monopole result.
-          s.transformerEnabled = false;
         } else if (type === 'inverted-l') {
           // Base-fed L-antenna. `height` is the bend-point height (= vertical
           // section length). If coming from a vertical whip with height=0,
@@ -456,7 +521,6 @@ export const useAntennaStore = create<AntennaState>()(
           s.legSlope = 0;
           s.terminatingResistor = 0;
           s.whipCounterpoise = true;
-          s.transformerEnabled = false;
         } else if (type === 'folded-dipole') {
           // Two parallel half-wave conductors separated vertically by the
           // aperture. Plain (unterminated) by default — ~300 Ω feedpoint,
@@ -470,8 +534,6 @@ export const useAntennaStore = create<AntennaState>()(
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;
-          s.transformerEnabled = true;
-          s.transformerRatio = 6;
         } else if (type === 'sloping-v') {
           // Slope is auto-computed from height and leg length (tips at ground).
           // V-angle snaps to the value giving maximum forward gain; the user
@@ -479,7 +541,7 @@ export const useAntennaStore = create<AntennaState>()(
           s.vAngle = computeOptimalVAngleDeg(s.length, s.frequency, s.height);
           s.legSlope = 0;
           // Default ~300 Ω per leg matches the reference design (antenna.be/sv.html).
-          if (s.terminatingResistor === 0) s.terminatingResistor = 300;
+          if (s.terminatingResistor === 0) s.terminatingResistor = SLOPING_V_DEFAULT_TERMINATION_OHMS;
         } else if (type === 'inverted-v') {
           s.vAngle = 120;
           s.legSlope = 0;
@@ -495,15 +557,16 @@ export const useAntennaStore = create<AntennaState>()(
           // HF wire loop over real ground (Z0 ≈ 60·ln(2h/a) ≈ 500–700 Ω at
           // common HF heights). Sitting near loop-Z0 is what gives the
           // bridge-terminated design its flat broadband impedance.
-          if (s.terminatingResistor === 0) s.terminatingResistor = 600;
-          // T2FD-style loops have a ~600 Ω feedpoint. Feeding that into
-          // 50 Ω coax is unusable without an impedance-transforming unun
-          // at the antenna terminals. Default the transformer on so the
-          // out-of-the-box result reflects a sensibly-built antenna; the
-          // user can still disable it to see what happens without.
-          s.transformerEnabled = true;
-          s.transformerRatio = 9;
+          if (s.terminatingResistor === 0) s.terminatingResistor = TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS;
         }
+
+        // Consolidated transformer/balun defaults. Every balun-capable antenna
+        // gets the transformer enabled (so the auto-matching button is present);
+        // verticals stay unbalanced with no balun. Done here, after the per-type
+        // geometry branches, so there is a single source of truth.
+        const transformerDefaults = TRANSFORMER_DEFAULTS[type];
+        s.transformerEnabled = transformerDefaults.enabled;
+        s.transformerRatio = transformerDefaults.ratio;
 
         const limit = Math.max(0, s.length / 2 - FEED_BRIDGE_LENGTH_M);
         if (s.feedlineOffset > limit) s.feedlineOffset = limit;
