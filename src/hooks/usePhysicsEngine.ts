@@ -33,7 +33,7 @@ function displayTransformerRatio(s: TransformerState): number {
   return inDisplay ? s.transformerRatio : 1;
 }
 
-export function handleWorkerMessage(
+function handleWorkerMessage(
   msg: WorkerResponse,
   latestId: number,
   setFullPending: (val: boolean) => void
@@ -60,7 +60,7 @@ export function handleWorkerMessage(
   }
 }
 
-export function buildWorkerRequest(
+function buildWorkerRequest(
   requestedKind: 'full' | 'sweep',
   fullPending: boolean,
   state: ReturnType<typeof useAntennaStore.getState>,
@@ -99,7 +99,7 @@ export function buildWorkerRequest(
   };
 }
 
-export function useWorkerLifecycle(
+function useWorkerLifecycle(
   workerRef: React.MutableRefObject<Worker | null>,
   latestIdRef: React.MutableRefObject<number>,
   fullPendingRef: React.MutableRefObject<boolean>,
@@ -139,7 +139,7 @@ export function useWorkerLifecycle(
   }, [latestIdRef, fullPendingRef, workerRef, timerRef]);
 }
 
-export function usePhysicsScheduler(
+function usePhysicsScheduler(
   workerRef: React.MutableRefObject<Worker | null>,
   nextIdRef: React.MutableRefObject<number>,
   latestIdRef: React.MutableRefObject<number>,
