@@ -56,6 +56,7 @@ describe('Delta Loop termination (removed)', () => {
   it('dipole: terminatingResistor has no effect on LD cards', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('dipole');
+    store.setFeedline('none');
     store.setTerminatingResistor(600);
     const input = selectSimulationInput(useAntennaStore.getState());
     expect(getNecLines(buildNecCards(input), 'LD')).toHaveLength(0);
