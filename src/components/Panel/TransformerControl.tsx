@@ -84,8 +84,10 @@ function TransformerRatioInput({
  * Calculates the optimal transformer ratio for the current antenna.
  * Derived from the raw antenna feedpoint impedance, recovered from the NEC
  * source reading by de-embedding the feedline when one is present.
- * This is stable — it does not depend on the ratio currently applied —
- * so clicking Match never oscillates.
+ * With a feedline the NEC reading itself bakes in the applied ratio, so the
+ * recovered impedance only settles to a stable value once it is matched;
+ * `suggestedTransformerRatio` applies a hysteresis dead-band so clicking Match
+ * converges to a single value instead of oscillating by ±1 each re-solve.
  */
 function calculateOptimalRatio(
   result: SimulationResult | null,

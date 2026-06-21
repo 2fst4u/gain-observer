@@ -481,6 +481,24 @@ describe('suggestedTransformerRatio', () => {
     expect(suggestedTransformerRatio({ R: 0, X: 0 }, 1)).toBe(1);
     expect(suggestedTransformerRatio({ R: -5, X: 0 }, 1)).toBe(1);
   });
+
+  it('hysteresis: holds the applied ratio when the ideal is within one step (no ±1 flap)', () => {
+    // Ideal = 330/50 = 6.6 → would naively round to 7. But while the user is
+    // already at 6:1, a small solve-to-solve wobble must not bump the suggestion
+    // to 7 (and then back to 6 on the next solve) — the reported flapping.
+    expect(suggestedTransformerRatio({ R: 330, X: 0 }, 6)).toBe(6);
+    expect(suggestedTransformerRatio({ R: 320, X: 0 }, 6)).toBe(6); // ideal 6.4
+    // From a ratio more than a full step away it still proposes the real optimum.
+    expect(suggestedTransformerRatio({ R: 330, X: 0 }, 1)).toBe(7);
+  });
+
+  it('hysteresis: applying the rounded suggestion makes it a stable fixed point', () => {
+    // Start far from optimal: ideal 6.0, current 1 → suggests 6.
+    const first = suggestedTransformerRatio({ R: 300, X: 0 }, 1);
+    expect(first).toBe(6);
+    // Now at 6:1, even a wobble that drifts the ideal up to ~6.9 holds at 6.
+    expect(suggestedTransformerRatio({ R: 345, X: 0 }, first)).toBe(6);
+  });
 });
 
 describe('transformThroughLine edge cases', () => {

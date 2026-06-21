@@ -377,12 +377,20 @@ export function deembedThroughLine(
  *     optimal ratio matches that to the line's own characteristic impedance,
  *     flattening the line: round(R / z0Line).
  *
- * Because the recovered feedpoint R does not depend on the current ratio
- * (the de-embed inverts the line exactly and the ×ratio undoes the NT card),
- * the suggestion is stable: applying it and re-simulating yields the same
- * value rather than chasing its own tail.
+ * In exact algebra the recovered feedpoint R does not depend on the current
+ * ratio (the de-embed inverts the line exactly and the ×ratio undoes the NT
+ * card). In the live solver it is only *approximately* invariant: the line
+ * de-embed is very sensitive near quarter-wave line lengths and the shield
+ * choke never perfectly zeroes residual common-mode current, so each re-solve
+ * recovers a slightly different R. Rounding that to an integer would otherwise
+ * flip the suggestion by ±1 every time it is applied — the "Match n:1" button
+ * visibly flapping. A hysteresis dead-band fixes this: whenever the continuous
+ * ideal ratio sits within a full step of the currently applied ratio, the
+ * applied ratio is kept. Once `round(ideal)` is applied, re-solving reproduces
+ * ~the same ideal, so the suggestion settles to a single stable value instead
+ * of chasing its own tail.
  *
- * Returns an integer ≥ 1.
+ * Returns an integer ≥ 1 (or the applied ratio when held within the dead-band).
  */
 export function suggestedTransformerRatio(
   zSrcReportedByNec: ImpedanceResult,
@@ -401,5 +409,16 @@ export function suggestedTransformerRatio(
     target = z0Line;
   }
   if (!Number.isFinite(antennaR) || antennaR <= 0 || target <= 0) return 1;
-  return Math.max(1, Math.round(antennaR / target));
+  const ideal = antennaR / target;
+  // Hysteresis: hold the applied ratio while the ideal is less than one integer
+  // step away, so a small solve-to-solve wobble in the recovered R doesn't keep
+  // re-rounding to a neighbouring integer (the source of the flapping).
+  if (
+    Number.isFinite(currentRatio) &&
+    currentRatio >= 1 &&
+    Math.abs(ideal - currentRatio) < 1
+  ) {
+    return currentRatio;
+  }
+  return Math.max(1, Math.round(ideal));
 }
