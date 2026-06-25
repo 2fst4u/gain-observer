@@ -111,13 +111,16 @@ export function sampleColormapFast(table: readonly RGB[], t: number, out: Float3
  */
 export function getColormapCssGradient(name: ColormapName): string {
   const table = pickTable(name);
-  const stops = table.map((rgb, index) => {
-    const percentage = (index / (table.length - 1)) * 100;
+  const len = table.length;
+  const stops = new Array(len);
+  for (let index = 0; index < len; index++) {
+    const rgb = table[index];
+    const percentage = (index / (len - 1)) * 100;
     const r = Math.round(rgb[0] * 255);
     const g = Math.round(rgb[1] * 255);
     const b = Math.round(rgb[2] * 255);
-    return `rgb(${r}, ${g}, ${b}) ${percentage.toFixed(2)}%`;
-  });
+    stops[index] = `rgb(${r}, ${g}, ${b}) ${percentage.toFixed(2)}%`;
+  }
   // Draw the gradient from bottom (0%) to top (100%) so that
   // the highest value is at the top of the element.
   return `linear-gradient(to top, ${stops.join(', ')})`;

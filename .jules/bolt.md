@@ -175,3 +175,7 @@
 ## 2026-06-19 - Group React hooks using Zustand's useShallow
 **Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within a single component (like in `ColormapLegend.tsx`) incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
 **Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block. This optimizes component re-rendering and mitigates lifecycle bottlenecks.
+
+## 2026-06-24 - Avoid Array.prototype.map() in Colormap Legend
+**Learning:** In React UI components that render frequently (e.g. dynamic visualization colormaps based on varying settings), mapping over large colormap tables using `Array.prototype.map()` creates unnecessary GC pressure and functional allocation overhead.
+**Action:** Replaced `.map()` with a pre-allocated array (`new Array(len)`) and a standard `for` loop in `getColormapCssGradient` within `src/utils/colormap.ts` to measurably improve performance and reduce callback overhead.
