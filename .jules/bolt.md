@@ -179,3 +179,6 @@
 ## 2026-06-24 - Avoid Array.prototype.map() in Colormap Legend
 **Learning:** In React UI components that render frequently (e.g. dynamic visualization colormaps based on varying settings), mapping over large colormap tables using `Array.prototype.map()` creates unnecessary GC pressure and functional allocation overhead.
 **Action:** Replaced `.map()` with a pre-allocated array (`new Array(len)`) and a standard `for` loop in `getColormapCssGradient` within `src/utils/colormap.ts` to measurably improve performance and reduce callback overhead.
+## 2026-06-25 - Avoid Array.prototype.filter() in useMemo for small element extraction
+**Learning:** Replacing native `Array.prototype.filter()` with manual `for` loops on small arrays (e.g., extracting antenna wires by tag in `antennaStore.ts` or `StatsReadout.tsx`) is considered a forbidden micro-optimization that sacrifices code readability for zero measurable performance benefit.
+**Action:** Do not replace clean, concise functional methods with verbose `for` loops for small arrays, unless proven by profiling to be an actual bottleneck in a high-frequency path.
