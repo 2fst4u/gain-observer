@@ -94,3 +94,7 @@
 ## 2026-06-22 - Vertical Whip Base Height Calculation Drift
 **Learning:** The documentation for the Vertical Whip antenna stated that the base starts at `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) "above `height`" (implying `height + 0.01`). However, the actual logic in `src/store/antennaGeometry.ts` uses `Math.max(VERTICAL_WHIP_BASE_GAP_M, height)`, meaning it starts at whichever value is greater, rather than adding them together.
 **Action:** Updated `docs/antenna-spec.md` to clarify that the base starts at the maximum of `VERTICAL_WHIP_BASE_GAP_M` and `height` to properly reflect the implementation.
+## 2026-06-27 - Inverted-L Base Height Accuracy
+
+**Learning:** The documentation for the Inverted-L antenna stated that its base starts at `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above ground, while earlier lines incorrectly implied the vertical whip base started at `height`. Additionally, `buildInvertedLWires` actually hardcodes the base start to exactly `VERTICAL_WHIP_BASE_GAP_M` regardless of `height`. The `docs/antenna-spec.md` needs to reflect this behavior properly across all monopole antennas.
+**Action:** Updated the vertical whip documentation to clarify that its base starts at the maximum of `height` and `VERTICAL_WHIP_BASE_GAP_M`, accurately reflecting how the gap ensures electrical isolation and making the comparison for the Inverted-L accurate.
