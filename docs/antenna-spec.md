@@ -317,7 +317,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **`height` parameter:** The height of the base above ground (metres). Usually 0 or very small.
 - **`length` parameter:** The length of the vertical wire (metres).
 - **Orientation:** Not applicable (omnidirectional).
-- **Base:** The vertical wire starts at `height` (constrained to a minimum of `VERTICAL_WHIP_BASE_GAP_M` / 0.01 m to ensure electrical isolation from the ground).
+- **Base:** The vertical wire starts at the maximum of `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) and `height` to ensure electrical isolation from the ground.
 - **Reference length:** ¼λ (quarter-wave monopole).
 
 ### 11.2 Feedpoint Definition
