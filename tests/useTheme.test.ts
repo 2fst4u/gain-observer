@@ -52,4 +52,35 @@ describe('useTheme hook', () => {
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(window.localStorage.getItem('gv.theme')).toBe('light');
   });
+
+  it('handles localStorage.getItem errors gracefully', () => {
+    const getItemSpy = vi.spyOn(window.localStorage.__proto__, 'getItem').mockImplementation(() => {
+      throw new Error('Access denied');
+    });
+
+    renderHook(() => useTheme());
+
+    expect(useAntennaStore.getState().theme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+
+    getItemSpy.mockRestore();
+  });
+
+  it('handles localStorage.setItem errors gracefully', () => {
+    const setItemSpy = vi.spyOn(window.localStorage.__proto__, 'setItem').mockImplementation(() => {
+      throw new Error('Quota exceeded');
+    });
+
+    renderHook(() => useTheme());
+
+    act(() => {
+      useAntennaStore.getState().setTheme('light');
+    });
+
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(useAntennaStore.getState().theme).toBe('light');
+
+    setItemSpy.mockRestore();
+  });
+
 });
