@@ -141,15 +141,9 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
 
   const legRipples = useMemo(() => {
     if (!diagnostics || !diagnostics.currentRippleByTag) return [];
-    const out = [];
-    for (let i = 0; i < diagnostics.currentRippleByTag.length; i++) {
-      const r = diagnostics.currentRippleByTag[i]!;
-      if (r.tagNo === LEFT_LEG_TAG || r.tagNo === RIGHT_LEG_TAG) {
-        out.push(r);
-        if (out.length === 2) break; // Early exit once both legs are found
-      }
-    }
-    return out;
+    return diagnostics.currentRippleByTag.filter(
+      (r) => r.tagNo === LEFT_LEG_TAG || r.tagNo === RIGHT_LEG_TAG,
+    );
   }, [diagnostics]);
 
   if (antennaType !== 'sloping-v' || !diagnostics) return null;
