@@ -67,6 +67,33 @@ describe('useUnitsPersistence', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBe('imperial');
   });
 
+
+
+  it('handles localStorage.getItem throwing an error gracefully', () => {
+    const originalGetItem = window.localStorage.getItem;
+    window.localStorage.getItem = () => { throw new Error('Access denied'); };
+
+    // Initializing hook while mock is active should not crash
+    expect(() => {
+      renderHook(() => useUnitsPersistence());
+    }).not.toThrow();
+
+    window.localStorage.getItem = originalGetItem;
+  });
+
+  it('handles localStorage.setItem throwing an error gracefully', () => {
+    useAntennaStore.setState({ units: 'imperial' });
+    const originalSetItem = window.localStorage.setItem;
+    window.localStorage.setItem = () => { throw new Error('Quota exceeded'); };
+
+    // Changing state while mock is active should not crash
+    expect(() => {
+      renderHook(() => useUnitsPersistence());
+    }).not.toThrow();
+
+    window.localStorage.setItem = originalSetItem;
+  });
+
   it('updates localStorage when units change in the store', () => {
     useAntennaStore.setState({ units: 'metric' });
 
