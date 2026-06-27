@@ -52,4 +52,51 @@ describe('useTheme hook', () => {
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(window.localStorage.getItem('gv.theme')).toBe('light');
   });
+
+  it('ignores errors when localStorage.getItem throws on mount', () => {
+    const getItemSpy = vi.spyOn(window.localStorage, 'getItem').mockImplementation(() => {
+      throw new Error('Access denied');
+    });
+
+    expect(() => {
+      renderHook(() => useTheme());
+    }).not.toThrow();
+
+    expect(useAntennaStore.getState().theme).toBe('dark');
+
+    getItemSpy.mockRestore();
+  });
+
+  it('ignores errors when localStorage.setItem throws', () => {
+    renderHook(() => useTheme());
+
+    const setItemSpy = vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Access denied');
+    });
+
+    expect(() => {
+      act(() => {
+        useAntennaStore.getState().setTheme('light');
+      });
+    }).not.toThrow();
+
+    expect(document.documentElement.dataset.theme).toBe('light');
+
+    setItemSpy.mockRestore();
+  });
+
+  it('does not save to localStorage if theme is invalid', () => {
+    renderHook(() => useTheme());
+
+    const setItemSpy = vi.spyOn(window.localStorage, 'setItem');
+
+    act(() => {
+      useAntennaStore.setState({ theme: 'invalid-theme' as any });
+    });
+
+    expect(document.documentElement.dataset.theme).toBe('invalid-theme');
+    expect(setItemSpy).not.toHaveBeenCalledWith('gv.theme', 'invalid-theme');
+
+    setItemSpy.mockRestore();
+  });
 });
