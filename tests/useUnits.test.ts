@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, cleanup, act } from '@testing-library/react';
 import { useUnitsPersistence } from '../src/hooks/useUnits';
 import { useAntennaStore } from '../src/store/antennaStore';
@@ -67,6 +67,20 @@ describe('useUnitsPersistence', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBe('imperial');
   });
 
+  it('handles localStorage.getItem throwing an error gracefully', () => {
+    vi.spyOn(window.localStorage, 'getItem').mockImplementationOnce(() => {
+      throw new Error('Access denied');
+    });
+
+    useAntennaStore.setState({ units: 'metric' });
+
+    expect(() => {
+      renderHook(() => useUnitsPersistence());
+    }).not.toThrow();
+
+    expect(useAntennaStore.getState().units).toBe('metric');
+  });
+
   it('updates localStorage when units change in the store', () => {
     useAntennaStore.setState({ units: 'metric' });
 
@@ -78,5 +92,21 @@ describe('useUnitsPersistence', () => {
     });
 
     expect(localStorage.getItem(STORAGE_KEY)).toBe('imperial');
+  });
+  it('handles localStorage.setItem throwing an error gracefully', () => {
+    vi.spyOn(window.localStorage, 'setItem').mockImplementationOnce(() => {
+      throw new Error('Storage quota exceeded');
+    });
+
+    useAntennaStore.setState({ units: 'metric' });
+
+    expect(() => {
+      renderHook(() => useUnitsPersistence());
+      act(() => {
+        useAntennaStore.getState().setUnits('imperial');
+      });
+    }).not.toThrow();
+
+    expect(useAntennaStore.getState().units).toBe('imperial');
   });
 });
