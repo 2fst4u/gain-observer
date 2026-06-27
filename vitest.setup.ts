@@ -1,4 +1,3 @@
-
 // Mock ResizeObserver
 class ResizeObserver {
   observe() {}
