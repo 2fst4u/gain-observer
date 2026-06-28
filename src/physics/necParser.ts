@@ -251,7 +251,11 @@ export function parseNecOutput(
   }
   // Look for NEC-2 warning banners.
   const warnMatch = text.match(/\*\*\*\*\*[^*\r\n]*WARNING[^*\r\n]*\*\*\*\*\*/g);
-  if (warnMatch) notices.push(...warnMatch.map((s) => s.trim()));
+  if (warnMatch) {
+    for (let i = 0; i < warnMatch.length; i++) {
+      notices.push(warnMatch[i]!.trim());
+    }
+  }
 
   return {
     impedance,
