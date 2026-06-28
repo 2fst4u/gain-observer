@@ -151,7 +151,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Reference Length:** $0.485\lambda$ (Resonance).
 - **Angle/Slope:** Included angle $\alpha$ between legs (Default 120°). Mapping: $\alpha$ is the angle in the vertical plane.
 - **Tips:** Symmetric endpoints at $z = \text{height} - (L/2) \cdot \cos(\alpha/2)$.
-- **Min Height:** Tip height must be $\ge 0.1$ m.
+- **Min Height:** Tip height must be $\ge 0.5$ m.
 
 ### 7.2 Feedpoint Definition
 
@@ -189,7 +189,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Reference Length:** $2.0\lambda$ **total** ($\approx 1.0\lambda$ per leg). The `length` parameter is the total radiating wire, split into two legs of $(L - \text{bridge})/2$ each. Traveling-wave structure, so no end-effect correction applies.
 - **Angle/Slope:** Included angle $\alpha$ (between legs) and slope angle $\theta$ (below horizontal).
 - **Tips:** Endpoints at ground-ward end of legs.
-- **Min Height:** Tip height must be $\ge 0.1$ m.
+- **Min Height:** Tip height must be $\ge 0.5$ m.
 
 ### 8.2 Feedpoint Definition
 
@@ -241,7 +241,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Reference Length:** $1.02\lambda$ (Resonance).
 - **Angle/Slope:** Equilateral triangle in the vertical plane (flattens to isosceles when the mast height is below the equilateral height; perimeter preserved).
 - **Tips:** Bottom corners.
-- **Min Height:** Bottom wire must be $\ge 0.1$ m above ground.
+- **Min Height:** Bottom wire must be $\ge 0.5$ m above ground.
 
 ### 9.2 Feedpoint Definition
 
@@ -279,7 +279,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Reference Length:** $1.02\lambda$ canonical, but resonance is not the design goal: a properly bridged termination flattens impedance across an octave or more, so the antenna is used multi-band rather than at a single design frequency.
 - **Angle/Slope:** Equilateral triangle in the vertical plane (flattens to isosceles when the mast height is below the equilateral height; perimeter preserved).
 - **Tips:** Bottom corners. The bottom wire is split at the centre with a gap (`TERMINATED_DELTA_CENTRE_GAP_M`).
-- **Min Height:** Bottom wire must be $\ge 0.1$ m above ground.
+- **Min Height:** Bottom wire must be $\ge 0.5$ m above ground.
 
 ### 10.2 Feedpoint Definition
 
