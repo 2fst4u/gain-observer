@@ -182,3 +182,7 @@
 ## 2026-06-25 - Avoid Array.prototype.filter() in useMemo for small element extraction
 **Learning:** Replacing native `Array.prototype.filter()` with manual `for` loops on small arrays (e.g., extracting antenna wires by tag in `antennaStore.ts` or `StatsReadout.tsx`) is considered a forbidden micro-optimization that sacrifices code readability for zero measurable performance benefit.
 **Action:** Do not replace clean, concise functional methods with verbose `for` loops for small arrays, unless proven by profiling to be an actual bottleneck in a high-frequency path.
+
+## 2025-02-18 - Extract Duplicated Array Search Calls
+**Learning:** Having duplicated `Array.prototype.find()` calls inside individual conditional branches of a complex component or store structure results in redundant array traversals and unnecessary callback overhead during frequent updates.
+**Action:** Extract duplicated logic and array search calls into a shared execution block at the end of the function. Store the result in a variable to apply common post-processing once, reducing overall algorithmic overhead.

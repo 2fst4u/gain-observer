@@ -930,13 +930,33 @@ export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
 ): Wire[] {
+  const wires = buildWiresInternal(state);
+  const layout = computeFeedlineLayout(state);
+  if (layout?.shield && state.antennaType !== 'delta-loop' && state.antennaType !== 'terminated-delta') {
+    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
+    if (bridge) {
+      wires.push({
+        start: bridge.end,
+        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
+        radius: layout.shield.radius,
+        segments: FEEDLINE_SHIELD_SEGMENTS,
+        tag: FEEDLINE_SHIELD_TAG,
+      });
+    }
+  }
+  return wires;
+}
+
+function buildWiresInternal(
+  state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
+): Wire[] {
   const antennaType = state.antennaType;
   const half = state.length / 2;
   const h = state.height;
 
   if (antennaType === 'inverted-v') {
-    const layout = computeFeedlineLayout(state);
-    const wires = buildInvertedVWires({
+    return buildInvertedVWires({
       length: state.length,
       height: h,
       orientation: state.orientation,
@@ -945,33 +965,10 @@ export function buildWires(
       frequency: state.frequency,
       vAngle: state.vAngle,
     });
-    if (layout?.shield) {
-      const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
-      wires.push({
-        start: bridge.end,
-        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
-        radius: layout.shield.radius,
-        segments: FEEDLINE_SHIELD_SEGMENTS,
-        tag: FEEDLINE_SHIELD_TAG,
-      });
-    }
-    return wires;
   }
 
   if (antennaType === 'sloping-v') {
-    const layout = computeFeedlineLayout(state);
-    const wires = buildSlopingVWires(state);
-    if (layout?.shield) {
-      const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
-      wires.push({
-        start: bridge.end,
-        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
-        radius: layout.shield.radius,
-        segments: FEEDLINE_SHIELD_SEGMENTS,
-        tag: FEEDLINE_SHIELD_TAG,
-      });
-    }
-    return wires;
+    return buildSlopingVWires(state);
   }
 
   if (antennaType === 'delta-loop') {
@@ -1030,8 +1027,7 @@ export function buildWires(
   }
 
   if (antennaType === 'folded-dipole') {
-    const layout = computeFeedlineLayout(state);
-    const wires = buildFoldedAntennaWires({
+    return buildFoldedAntennaWires({
       length: state.length,
       height: h,
       aperture: state.foldedDipoleAperture ?? FOLDED_DIPOLE_DEFAULT_APERTURE_M,
@@ -1041,18 +1037,6 @@ export function buildWires(
       frequency: state.frequency,
       terminatingResistor: state.terminatingResistor ?? 0,
     });
-    if (layout?.shield) {
-      // Coax shield drops vertically from the bottom-conductor feedpoint.
-      const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
-      wires.push({
-        start: bridge.end,
-        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
-        radius: layout.shield.radius,
-        segments: FEEDLINE_SHIELD_SEGMENTS,
-        tag: FEEDLINE_SHIELD_TAG,
-      });
-    }
-    return wires;
   }
 
   const [dx, dy] = orientationVector(state.orientation);
@@ -1098,7 +1082,7 @@ export function buildWires(
   const leftSeg = Math.max(3, oddRound(leftLen * segDensity));
   const rightSeg = Math.max(3, oddRound(rightLen * segDensity));
 
-  const wires: Wire[] = [
+  return [
     {
       start: leftTip, end: bridgeStart,
       radius: state.wireRadius,
@@ -1118,18 +1102,6 @@ export function buildWires(
       tag: FEED_BRIDGE_TAG,
     },
   ];
-
-  if (layout.shield) {
-    wires.push({
-      start: bridgeEnd,
-      end: [bridgeEnd[0], bridgeEnd[1], layout.shield.bottomZ],
-      radius: layout.shield.radius,
-      segments: FEEDLINE_SHIELD_SEGMENTS,
-      tag: FEEDLINE_SHIELD_TAG,
-    });
-  }
-
-  return wires;
 }
 
 interface FeedlineLayout {
