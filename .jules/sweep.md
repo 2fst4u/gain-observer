@@ -84,3 +84,7 @@
 ## 2025-02-13 - Removed unused exports from usePhysicsEngine
 **Learning:** Functions that are only used internally within their module should not be exported, as it bloats the public API and triggers unused export warnings in static analysis tools (like Knip).
 **Action:** Removed the `export` keyword from `handleWorkerMessage`, `buildWorkerRequest`, `useWorkerLifecycle`, and `usePhysicsScheduler` in `src/hooks/usePhysicsEngine.ts` to keep them local to the module.
+>> ## 2025-02-28 - Extract Antenna Termination Logic
+>> **What:** The `buildTerminationElements` function in `src/store/antennaStore.ts` exceeded 100 lines and combined three separate logic branches (`sloping-v`, `terminated-delta`, and `folded-dipole`).
+>> **Why:** Splitting this high-complexity function into three smaller, focused helper functions and delegating logic via a `switch` statement makes the codebase significantly easier to read, maintain, and unit test in isolation.
+>> **Verification:** Fully verified via unit tests (`npm run test -- --run`) and static analysis (`npm run lint`), ensuring all behavior perfectly matches the original implementation.
