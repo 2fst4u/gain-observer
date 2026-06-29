@@ -11,9 +11,9 @@
 //   - SVG is easy to make theme-responsive (CSS variables work directly);
 //   - it keeps the bundle small.
 
-import type { JSX } from 'react';
-import type { PropagationPrediction } from '../../physics/propagation';
-import type { UnitSystem } from '../../physics/units';
+import type { JSX } from "react";
+import type { PropagationPrediction } from "../../physics/propagation";
+import type { UnitSystem } from "../../physics/units";
 
 interface PropagationRadarProps {
   readonly prediction: PropagationPrediction;
@@ -25,33 +25,39 @@ interface PropagationRadarProps {
 const KM_PER_MILE = 1.609344;
 
 function formatDistance(km: number, units: UnitSystem): string {
-  if (units === 'imperial') {
+  if (units === "imperial") {
     const mi = km / KM_PER_MILE;
     return `${mi.toFixed(0)} mi`;
   }
   return `${km.toFixed(0)} km`;
 }
 
-function statusFill(status: 'open' | 'marginal' | 'closed'): string {
+function statusFill(status: "open" | "marginal" | "closed"): string {
   // Use semantic CSS variables already defined in theme.css so the rings
   // pick up theme overrides without hard-coding hex values here.
-  if (status === 'open') return 'var(--success)';
-  if (status === 'marginal') return 'var(--warning)';
-  return 'var(--danger)';
+  if (status === "open") return "var(--success)";
+  if (status === "marginal") return "var(--warning)";
+  return "var(--danger)";
 }
 
-function qualityOpacity(quality: 'useful' | 'weak' | 'unusable'): number {
-  if (quality === 'useful') return 0.16;
-  if (quality === 'weak') return 0.08;
+function qualityOpacity(quality: "useful" | "weak" | "unusable"): number {
+  if (quality === "useful") return 0.16;
+  if (quality === "weak") return 0.08;
   return 0.035;
 }
 
-function worseStatus(a: 'open' | 'marginal' | 'closed', b: 'open' | 'marginal' | 'closed'): 'open' | 'marginal' | 'closed' {
+function worseStatus(
+  a: "open" | "marginal" | "closed",
+  b: "open" | "marginal" | "closed",
+): "open" | "marginal" | "closed" {
   const rank = { open: 2, marginal: 1, closed: 0 } as const;
   return rank[a] <= rank[b] ? a : b;
 }
 
-function worseQuality(a: 'useful' | 'weak' | 'unusable', b: 'useful' | 'weak' | 'unusable'): 'useful' | 'weak' | 'unusable' {
+function worseQuality(
+  a: "useful" | "weak" | "unusable",
+  b: "useful" | "weak" | "unusable",
+): "useful" | "weak" | "unusable" {
   const rank = { useful: 2, weak: 1, unusable: 0 } as const;
   return rank[a] <= rank[b] ? a : b;
 }
@@ -70,11 +76,11 @@ function calculateMaxRangeKm(prediction: PropagationPrediction): number {
 }
 
 function buildAzimuthalWedges(
-  az: NonNullable<PropagationPrediction['azimuthalHops']>,
+  az: NonNullable<PropagationPrediction["azimuthalHops"]>,
   ringN: number,
   cx: number,
   cy: number,
-  kmToPx: number
+  kmToPx: number,
 ): JSX.Element[] {
   const wedges = [];
   for (let i = 0; i < az.length; i++) {
@@ -101,13 +107,194 @@ function buildAzimuthalWedges(
         fill={statusFill(status)}
         fillOpacity={qualityOpacity(linkQuality)}
         stroke={statusFill(status)}
-        strokeOpacity={linkQuality === 'unusable' ? 0.25 : 0.6}
+        strokeOpacity={linkQuality === "unusable" ? 0.25 : 0.6}
         strokeWidth={1}
-        strokeDasharray={linkQuality === 'unusable' ? '4 3' : undefined}
-      />
+        strokeDasharray={linkQuality === "unusable" ? "4 3" : undefined}
+      />,
     );
   }
   return wedges;
+}
+
+function RadarGrid({
+  cx,
+  cy,
+  size,
+  maxRadiusPx,
+  margin,
+}: {
+  cx: number;
+  cy: number;
+  size: number;
+  maxRadiusPx: number;
+  margin: number;
+}) {
+  return (
+    <>
+      {/* Background disc */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={maxRadiusPx}
+        fill="var(--bg-raised)"
+        stroke="var(--border)"
+      />
+
+      {/* Faint inner gridlines at 25/50/75% of max range */}
+      {[0.25, 0.5, 0.75].map((f) => (
+        <circle
+          key={f}
+          cx={cx}
+          cy={cy}
+          r={maxRadiusPx * f}
+          fill="none"
+          stroke="var(--border)"
+          strokeDasharray="2 3"
+          opacity={0.5}
+        />
+      ))}
+
+      {/* Cross-hair axes */}
+      <line
+        x1={cx}
+        y1={margin}
+        x2={cx}
+        y2={size - margin}
+        stroke="var(--border)"
+        opacity={0.5}
+      />
+      <line
+        x1={margin}
+        y1={cy}
+        x2={size - margin}
+        y2={cy}
+        stroke="var(--border)"
+        opacity={0.5}
+      />
+    </>
+  );
+}
+
+function RadarLabels({
+  cx,
+  cy,
+  size,
+  margin,
+  prediction,
+  kmToPx,
+  units,
+}: {
+  cx: number;
+  cy: number;
+  size: number;
+  margin: number;
+  prediction: PropagationPrediction;
+  kmToPx: number;
+  units: UnitSystem;
+}) {
+  // Compass cardinal label positions.
+  const cardinals = [
+    { label: "N", x: cx, y: margin - 6, anchor: "middle" as const },
+    { label: "S", x: cx, y: size - margin + 14, anchor: "middle" as const },
+    { label: "E", x: size - margin + 8, y: cy + 4, anchor: "start" as const },
+    { label: "W", x: margin - 8, y: cy + 4, anchor: "end" as const },
+  ];
+
+  return (
+    <>
+      {/* Cardinal direction labels */}
+      {cardinals.map((c) => (
+        <text
+          key={c.label}
+          x={c.x}
+          y={c.y}
+          textAnchor={c.anchor}
+          fontSize={11}
+          fill="var(--text-muted)"
+          fontFamily="system-ui, sans-serif"
+        >
+          {c.label}
+        </text>
+      ))}
+
+      {/* Range label on each hop ring (placed along the +y axis but offset
+          to the right to avoid the 'N' cardinal and prevent overlap) */}
+      {prediction.hops.map((ring) => (
+        <text
+          key={ring.n}
+          x={cx + 24}
+          y={cy - ring.rangeKm * kmToPx - 4}
+          fontSize={10}
+          fill="var(--text-dim)"
+          fontFamily="system-ui, sans-serif"
+          textAnchor="start"
+        >
+          {`${ring.n}× ${formatDistance(ring.rangeKm, units)}`}
+        </text>
+      ))}
+    </>
+  );
+}
+
+function RadarHopRings({
+  prediction,
+  cx,
+  cy,
+  kmToPx,
+}: {
+  prediction: PropagationPrediction;
+  cx: number;
+  cy: number;
+  kmToPx: number;
+}) {
+  const hopRings = [];
+  for (let k = prediction.hops.length - 1; k >= 0; k--) {
+    const ring = prediction.hops[k]!;
+    if (prediction.azimuthalHops && prediction.azimuthalHops.length > 1) {
+      const wedges = buildAzimuthalWedges(
+        prediction.azimuthalHops,
+        ring.n,
+        cx,
+        cy,
+        kmToPx,
+      );
+      hopRings.push(<g key={ring.n}>{wedges}</g>);
+    } else {
+      hopRings.push(
+        <circle
+          key={ring.n}
+          cx={cx}
+          cy={cy}
+          r={ring.rangeKm * kmToPx}
+          fill={statusFill(ring.status)}
+          fillOpacity={qualityOpacity(ring.linkQuality)}
+          stroke={statusFill(ring.status)}
+          strokeOpacity={ring.linkQuality === "unusable" ? 0.35 : 0.85}
+          strokeWidth={2}
+          strokeDasharray={ring.linkQuality === "unusable" ? "4 3" : undefined}
+        />,
+      );
+    }
+  }
+  return <>{hopRings}</>;
+}
+
+function RadarLegend() {
+  return (
+    <figcaption
+      style={{
+        display: "flex",
+        gap: 12,
+        fontSize: 11,
+        color: "var(--text-muted)",
+      }}
+    >
+      <LegendSwatch color="var(--success)" label="Open" />
+      <LegendSwatch color="var(--warning)" label="Marginal" />
+      <LegendSwatch color="var(--danger)" label="Closed" />
+      <span>Faint/dashed = weak signal</span>
+    </figcaption>
+  );
 }
 
 export function PropagationRadar({
@@ -121,135 +308,76 @@ export function PropagationRadar({
   const margin = 24;
 
   const maxRangeKm = calculateMaxRangeKm(prediction);
-  const maxRadiusPx = (size / 2) - margin;
+  const maxRadiusPx = size / 2 - margin;
   const kmToPx = maxRadiusPx / Math.max(1, maxRangeKm);
-
-  // Compass cardinal label positions.
-  const cardinals = [
-    { label: 'N', x: cx, y: margin - 6, anchor: 'middle' as const },
-    { label: 'S', x: cx, y: size - margin + 14, anchor: 'middle' as const },
-    { label: 'E', x: size - margin + 8, y: cy + 4, anchor: 'start' as const },
-    { label: 'W', x: margin - 8, y: cy + 4, anchor: 'end' as const },
-  ];
-
-  const hopRings = [];
-  for (let k = prediction.hops.length - 1; k >= 0; k--) {
-    const ring = prediction.hops[k]!;
-    if (prediction.azimuthalHops && prediction.azimuthalHops.length > 1) {
-      const wedges = buildAzimuthalWedges(prediction.azimuthalHops, ring.n, cx, cy, kmToPx);
-      hopRings.push(<g key={ring.n}>{wedges}</g>);
-    } else {
-      hopRings.push(
-        <circle
-          key={ring.n}
-          cx={cx}
-          cy={cy}
-          r={ring.rangeKm * kmToPx}
-          fill={statusFill(ring.status)}
-          fillOpacity={qualityOpacity(ring.linkQuality)}
-          stroke={statusFill(ring.status)}
-          strokeOpacity={ring.linkQuality === 'unusable' ? 0.35 : 0.85}
-          strokeWidth={2}
-          strokeDasharray={ring.linkQuality === 'unusable' ? '4 3' : undefined}
-        />
-      );
-    }
-  }
 
   return (
     /* SEO: Upgrading generic <div> to a semantic <figure> tag groups the radar plot and its legend logically for crawlers and assistive technologies. margin: 0 prevents visual changes. */
-    <figure style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, margin: 0 }}>
+    <figure
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 8,
+        margin: 0,
+      }}
+    >
       <svg
         width={size}
         height={size}
         role="img"
         aria-label="Propagation range radar plot"
-        style={{ display: 'block', maxWidth: '100%' }}
+        style={{ display: "block", maxWidth: "100%" }}
       >
-        {/* Background disc */}
-        <circle cx={cx} cy={cy} r={maxRadiusPx} fill="var(--bg-raised)" stroke="var(--border)" />
-
-        {/* Faint inner gridlines at 25/50/75% of max range */}
-        {[0.25, 0.5, 0.75].map((f) => (
-          <circle
-            key={f}
-            cx={cx}
-            cy={cy}
-            r={maxRadiusPx * f}
-            fill="none"
-            stroke="var(--border)"
-            strokeDasharray="2 3"
-            opacity={0.5}
-          />
-        ))}
-
-        {/* Cross-hair axes */}
-        <line x1={cx} y1={margin} x2={cx} y2={size - margin} stroke="var(--border)" opacity={0.5} />
-        <line x1={margin} y1={cy} x2={size - margin} y2={cy} stroke="var(--border)" opacity={0.5} />
+        <RadarGrid
+          cx={cx}
+          cy={cy}
+          size={size}
+          maxRadiusPx={maxRadiusPx}
+          margin={margin}
+        />
 
         {/* Hop rings: rendered from outermost to innermost so labels stay readable.
             If azimuthalHops are available, the ring is a sequence of per-azimuth
             wedges so the colour reflects each bearing's own status / link
             quality, not a single global "best-bearing" colour. */}
-        {hopRings}
-
+        <RadarHopRings
+          prediction={prediction}
+          cx={cx}
+          cy={cy}
+          kmToPx={kmToPx}
+        />
 
         {/* Centre dot = antenna location */}
         <circle cx={cx} cy={cy} r={4} fill="var(--accent)" />
 
-        {/* Cardinal direction labels */}
-        {cardinals.map((c) => (
-          <text
-            key={c.label}
-            x={c.x}
-            y={c.y}
-            textAnchor={c.anchor}
-            fontSize={11}
-            fill="var(--text-muted)"
-            fontFamily="system-ui, sans-serif"
-          >
-            {c.label}
-          </text>
-        ))}
-
-        {/* Range label on each hop ring (placed along the +y axis but offset
-            to the right to avoid the 'N' cardinal and prevent overlap) */}
-        {prediction.hops.map((ring) => (
-          <text
-            key={ring.n}
-            x={cx + 24}
-            y={cy - (ring.rangeKm * kmToPx) - 4}
-            fontSize={10}
-            fill="var(--text-dim)"
-            fontFamily="system-ui, sans-serif"
-            textAnchor="start"
-          >
-            {`${ring.n}× ${formatDistance(ring.rangeKm, units)}`}
-          </text>
-        ))}
+        <RadarLabels
+          cx={cx}
+          cy={cy}
+          size={size}
+          margin={margin}
+          prediction={prediction}
+          kmToPx={kmToPx}
+          units={units}
+        />
       </svg>
 
       {/* SEO: Using <figcaption> instead of a generic <div> clearly associates this legend with the preceding <svg> graphic. */}
-      <figcaption style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-muted)' }}>
-        <LegendSwatch color="var(--success)" label="Open" />
-        <LegendSwatch color="var(--warning)" label="Marginal" />
-        <LegendSwatch color="var(--danger)" label="Closed" />
-        <span>Faint/dashed = weak signal</span>
-      </figcaption>
+      <RadarLegend />
     </figure>
   );
 }
 
 function LegendSwatch({ color, label }: { color: string; label: string }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
       <span
         aria-hidden="true"
         style={{
-          display: 'inline-block',
+          display: "inline-block",
           width: 10,
           height: 10,
-          borderRadius: '50%',
+          borderRadius: "50%",
           background: color,
           opacity: 0.85,
         }}
