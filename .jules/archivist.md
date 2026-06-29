@@ -98,3 +98,7 @@
 
 **Learning:** The documentation for the Inverted-L antenna stated that its base starts at `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above ground, while earlier lines incorrectly implied the vertical whip base started at `height`. Additionally, `buildInvertedLWires` actually hardcodes the base start to exactly `VERTICAL_WHIP_BASE_GAP_M` regardless of `height`. The `docs/antenna-spec.md` needs to reflect this behavior properly across all monopole antennas.
 **Action:** Updated the vertical whip documentation to clarify that its base starts at the maximum of `height` and `VERTICAL_WHIP_BASE_GAP_M`, accurately reflecting how the gap ensures electrical isolation and making the comparison for the Inverted-L accurate.
+
+## 2026-06-28 - Minimum Tip Height Documentation Drift
+**Learning:** The documentation for Inverted-V, Sloping V, Delta Loop, and Terminated Delta antennas claimed the minimum tip/bottom wire height was `0.1` m. However, the codebase (`src/store/antennaGeometry.ts` and `src/physics/constants.ts`) enforces a minimum height of `SLOPING_V_MIN_TIP_Z_M` (`0.5` m) for these topologies to prevent unphysical results or NEC wire-touching-ground warnings.
+**Action:** Updated `docs/antenna-spec.md` to accurately reflect the `0.5` m minimum tip/bottom wire height limit enforced by the geometry builders for these antenna types.
