@@ -18,7 +18,16 @@ export function hourToHHmm(h: number): string {
 
 /** Converts HH:mm or HHmm string format back to fractional UTC hour, or null if invalid. */
 export function HHmmToHour(s: string): number | null {
-  const digits = s.replace(/[^0-9]/g, '');
+  if (s.length > 20) return null; // Prevent long inputs
+
+  let digits = '';
+  for (let i = 0; i < s.length; i++) {
+    const charCode = s.charCodeAt(i);
+    if (charCode >= 48 && charCode <= 57) { // '0' is 48, '9' is 57
+      digits += s[i];
+    }
+  }
+
   if (digits.length !== 4) return null;
   const h = parseInt(digits.substring(0, 2), 10);
   const m = parseInt(digits.substring(2, 4), 10);
