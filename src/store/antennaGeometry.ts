@@ -232,16 +232,11 @@ export interface SlopingVWiresParams {
  *   RIGHT leg is emitted apex → tip (last Wire returned for the tag is the
  *             tail-end at the tip; its `.end` is the tip).
  */
-export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
+
+
+function createSlopingVLegPointCalculator(params: SlopingVWiresParams, effectiveSlopeRad: number) {
   const h = params.height;
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
-
-  // Tips always at the ground floor: slope = arcsin((h − tipMinZ) / legLen).
-  // Total radiating length is params.length. Each leg is (params.length - bridge) / 2.
-  const legLen = Math.max(0.1, (params.length - FEED_BRIDGE_LENGTH_M) / 2);
-  const sinSlope = legLen > 0 ? Math.max(0, h - SLOPING_V_MIN_TIP_Z_M) / legLen : 0;
-  const effectiveSlopeRad = Math.asin(Math.min(1, sinSlope));
-
   const [dx, dy] = orientationVector(params.orientation);
   const [px, py] = [-dy, dx];
 
@@ -251,19 +246,13 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   const cosV = Math.cos(halfV);
   const sinV = Math.sin(halfV);
 
-
-
-  function legPointAt(axis: number, side: number): [number, number, number] {
-    // axis is distance along the sloping leg starting from the apex.
-    // At axis=0, we are at the apex connection point.
+  return function legPointAt(axis: number, side: number): [number, number, number] {
     const horizontalDistFromApex = axis * cosS;
     const lz = -axis * sinS;
 
     const la = horizontalDistFromApex * cosV;
     const lp = horizontalDistFromApex * sinV * side;
 
-    // Offset the entire leg by the bridge half-width.
-    // We assume the bridge is aligned with the orientation vector (dx, dy).
     const bridgeOffsetX = side * bridgeHalf * dx;
     const bridgeOffsetY = side * bridgeHalf * dy;
 
@@ -272,15 +261,10 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
     const wz = h + lz;
 
     return [cleanZero(wx), cleanZero(wy), cleanZero(wz)];
-  }
+  };
+}
 
-  const lambda = wavelengthMeters(params.frequency);
-  const maxSegLen = lambda / SEGS_PER_WAVELENGTH;
-  const plan = gradedSegmentPlan(legLen, FEED_BRIDGE_LENGTH_M, maxSegLen);
-
-  // Axis positions (distance from apex) at every segment boundary along a leg.
-  // `breakpoints[0] = 0` (apex), `breakpoints[K] = prefix end`, then a final
-  // `legLen` (tip) at the end of the tail wire.
+function resolveGradedSegmentBreakpoints(plan: GradedSegmentPlan, legLen: number) {
   const breakpoints: number[] = [0];
   let pos = 0;
   for (const pl of plan.prefixLens) {
@@ -289,15 +273,88 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   }
   const prefixEnd = pos;
 
-  // Enforce a floor on total segments for very short legs (NEC needs enough
-  // basis functions to represent currents). When the natural graded plan
-  // gives too few segments, pad the tail count — NEC distributes them evenly
-  // along the tail wire's length.
   let tailCount = plan.tailCount;
   const naturalTotal = plan.prefixLens.length + tailCount;
   if (naturalTotal < MIN_SEGS_PER_LEG && legLen > prefixEnd + 1e-9) {
     tailCount = Math.max(1, MIN_SEGS_PER_LEG - plan.prefixLens.length);
   }
+
+  return { breakpoints, prefixEnd, tailCount };
+}
+
+function buildGradedLegWires(
+  legLen: number,
+  prefixEnd: number,
+  breakpoints: number[],
+  prefixLens: number[],
+  tailCount: number,
+  wireRadius: number,
+  tag: number,
+  side: number,
+  legPointAt: (axis: number, side: number) => [number, number, number],
+  reverse: boolean
+): Wire[] {
+  const wires: Wire[] = [];
+
+  if (reverse) {
+    if (tailCount > 0) {
+      wires.push({
+        start: legPointAt(legLen, side),
+        end: legPointAt(prefixEnd, side),
+        radius: wireRadius,
+        segments: tailCount,
+        tag,
+      });
+    }
+    for (let i = prefixLens.length - 1; i >= 0; i--) {
+      wires.push({
+        start: legPointAt(breakpoints[i + 1]!, side),
+        end: legPointAt(breakpoints[i]!, side),
+        radius: wireRadius,
+        segments: 1,
+        tag,
+      });
+    }
+  } else {
+    for (let i = 0; i < prefixLens.length; i++) {
+      wires.push({
+        start: legPointAt(breakpoints[i]!, side),
+        end: legPointAt(breakpoints[i + 1]!, side),
+        radius: wireRadius,
+        segments: 1,
+        tag,
+      });
+    }
+    if (tailCount > 0) {
+      wires.push({
+        start: legPointAt(prefixEnd, side),
+        end: legPointAt(legLen, side),
+        radius: wireRadius,
+        segments: tailCount,
+        tag,
+      });
+    }
+  }
+
+  return wires;
+}
+
+export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
+  const h = params.height;
+
+  // Tips always at the ground floor: slope = arcsin((h − tipMinZ) / legLen).
+  // Total radiating length is params.length. Each leg is (params.length - bridge) / 2.
+  const legLen = Math.max(0.1, (params.length - FEED_BRIDGE_LENGTH_M) / 2);
+  const sinSlope = legLen > 0 ? Math.max(0, h - SLOPING_V_MIN_TIP_Z_M) / legLen : 0;
+  const effectiveSlopeRad = Math.asin(Math.min(1, sinSlope));
+
+  const legPointAt = createSlopingVLegPointCalculator(params, effectiveSlopeRad);
+
+  const lambda = wavelengthMeters(params.frequency);
+  const maxSegLen = lambda / SEGS_PER_WAVELENGTH;
+  const plan = gradedSegmentPlan(legLen, FEED_BRIDGE_LENGTH_M, maxSegLen);
+
+  const { breakpoints, prefixEnd, tailCount } = resolveGradedSegmentBreakpoints(plan, legLen);
 
   const apexLeft = legPointAt(0, -1);
   const apexRight = legPointAt(0, 1);
@@ -305,48 +362,14 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   const wires: Wire[] = [];
 
   // LEFT leg: emit tip → apex.
-  // (1) Uniform tail wire from tip back to the end of the prefix.
-  if (tailCount > 0) {
-    wires.push({
-      start: legPointAt(legLen, -1),
-      end: legPointAt(prefixEnd, -1),
-      radius: params.wireRadius,
-      segments: tailCount,
-      tag: LEFT_LEG_TAG,
-    });
-  }
-  // (2) Graded prefix wires in reverse (largest to smallest, toward apex).
-  for (let i = plan.prefixLens.length - 1; i >= 0; i--) {
-    wires.push({
-      start: legPointAt(breakpoints[i + 1]!, -1),
-      end: legPointAt(breakpoints[i]!, -1),
-      radius: params.wireRadius,
-      segments: 1,
-      tag: LEFT_LEG_TAG,
-    });
-  }
+  wires.push(...buildGradedLegWires(
+    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount, params.wireRadius, LEFT_LEG_TAG, -1, legPointAt, true
+  ));
 
   // RIGHT leg: emit apex → tip.
-  // (1) Graded prefix wires in natural order (smallest to largest, away from apex).
-  for (let i = 0; i < plan.prefixLens.length; i++) {
-    wires.push({
-      start: legPointAt(breakpoints[i]!, 1),
-      end: legPointAt(breakpoints[i + 1]!, 1),
-      radius: params.wireRadius,
-      segments: 1,
-      tag: RIGHT_LEG_TAG,
-    });
-  }
-  // (2) Uniform tail wire from end of prefix out to tip.
-  if (tailCount > 0) {
-    wires.push({
-      start: legPointAt(prefixEnd, 1),
-      end: legPointAt(legLen, 1),
-      radius: params.wireRadius,
-      segments: tailCount,
-      tag: RIGHT_LEG_TAG,
-    });
-  }
+  wires.push(...buildGradedLegWires(
+    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount, params.wireRadius, RIGHT_LEG_TAG, 1, legPointAt, false
+  ));
 
   // Apex feed bridge.
   wires.push({
