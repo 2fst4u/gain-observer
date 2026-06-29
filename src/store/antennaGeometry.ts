@@ -376,6 +376,64 @@ export interface DeltaLoopWiresParams {
   feedlineShield?: FeedlineShield | null;
 }
 
+
+function calcSegs(length: number, lambda: number, userSegments: number, overrideMinSegs?: number): number {
+  const minLegSegs = Math.ceil((SEGS_PER_WAVELENGTH * length) / lambda);
+  return Math.min(
+    MAX_SEGS_PER_LEG,
+    Math.max(MIN_SEGS_PER_LEG, minLegSegs, overrideMinSegs ?? Math.round(userSegments)),
+  );
+}
+
+function calcApexSplit(
+  feedlineShield: FeedlineShield | null | undefined,
+  bridgeHalf: number,
+  dx: number,
+  dy: number,
+  h: number
+): { apexLeft: [number, number, number]; apexRight: [number, number, number] } {
+  const apex: [number, number, number] = [0, 0, h];
+  const apexLeft: [number, number, number] = feedlineShield
+    ? [-bridgeHalf * dx, -bridgeHalf * dy, h]
+    : apex;
+  const apexRight: [number, number, number] = feedlineShield
+    ? [bridgeHalf * dx, bridgeHalf * dy, h]
+    : apex;
+  return { apexLeft, apexRight };
+}
+
+function appendFeedlineShieldWires(
+  wires: Wire[],
+  feedlineShield: FeedlineShield | null | undefined,
+  apexLeft: [number, number, number],
+  apexRight: [number, number, number],
+  wireRadius: number,
+  bottomZ: number
+) {
+  if (feedlineShield) {
+    wires.push({
+      start: apexLeft,
+      end: apexRight,
+      radius: wireRadius,
+      segments: 1,
+      tag: FEED_BRIDGE_TAG,
+    });
+    // Clamp the shield bottom to be at or above the base wire (z = bottomZ) so
+    // the shield never crosses the base wire plane. When it does cross, the NEC
+    // impedance matrix becomes ill-conditioned: the excitation segment midpoint
+    // ends up on the opposite side of the nearby base wire, corrupting mutual-
+    // coupling integrals and producing -999.99 sentinel gains / negative R.
+    const shieldEndZ = Math.max(feedlineShield.bottomZ, bottomZ);
+    wires.push({
+      start: apexRight,
+      end: [apexRight[0], apexRight[1], shieldEndZ],
+      radius: feedlineShield.radius,
+      segments: feedlineShield.segments,
+      tag: FEEDLINE_SHIELD_TAG,
+    });
+  }
+}
+
 function calcDeltaLoopGeometry(perimeter: number, h: number) {
   // Maximum available triangle height given the mast height.
   // Identical to the delta loop's geometry math so that the two
@@ -418,34 +476,20 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   const { bottomZ, legLength, halfBase } = calcDeltaLoopGeometry(perimeter, h);
 
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
-  const apex: [number, number, number] = [0, 0, h];
 
   // When a feedline is active we split the apex with a source bridge so the
   // TL card can connect to it, just like the dipole topology.
-  const apexLeft: [number, number, number] = params.feedlineShield
-    ? [-bridgeHalf * dx, -bridgeHalf * dy, h]
-    : apex;
-  const apexRight: [number, number, number] = params.feedlineShield
-    ? [bridgeHalf * dx, bridgeHalf * dy, h]
-    : apex;
+  const { apexLeft, apexRight } = calcApexSplit(params.feedlineShield, bridgeHalf, dx, dy, h);
 
   const leftCorner: [number, number, number] = [-halfBase * dx, -halfBase * dy, bottomZ];
   const rightCorner: [number, number, number] = [halfBase * dx, halfBase * dy, bottomZ];
 
   const lambda = wavelengthMeters(params.frequency);
 
-  const minLegSegs = Math.ceil((SEGS_PER_WAVELENGTH * legLength) / lambda);
-  const segmentsPerLeg = Math.min(
-    MAX_SEGS_PER_LEG,
-    Math.max(MIN_SEGS_PER_LEG, minLegSegs, Math.round(params.segments / 3)),
-  );
+  const segmentsPerLeg = calcSegs(legLength, lambda, params.segments / 3);
 
   const baseLength = halfBase * 2;
-  const minBaseSegs = Math.ceil((SEGS_PER_WAVELENGTH * baseLength) / lambda);
-  const rawBaseSegs = Math.min(
-    MAX_SEGS_PER_LEG,
-    Math.max(MIN_SEGS_PER_LEG, minBaseSegs, Math.round(params.segments / 3)),
-  );
+  const rawBaseSegs = calcSegs(baseLength, lambda, params.segments / 3);
   const baseSegments = rawBaseSegs % 2 === 0 ? rawBaseSegs + 1 : rawBaseSegs;
 
   const wires: Wire[] = [
@@ -472,28 +516,7 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
     },
   ];
 
-  if (params.feedlineShield) {
-    wires.push({
-      start: apexLeft,
-      end: apexRight,
-      radius: params.wireRadius,
-      segments: 1,
-      tag: FEED_BRIDGE_TAG,
-    });
-    // Clamp the shield bottom to be at or above the base wire (z = bottomZ) so
-    // the shield never crosses the base wire plane. When it does cross, the NEC
-    // impedance matrix becomes ill-conditioned: the excitation segment midpoint
-    // ends up on the opposite side of the nearby base wire, corrupting mutual-
-    // coupling integrals and producing -999.99 sentinel gains / negative R.
-    const shieldEndZ = Math.max(params.feedlineShield.bottomZ, bottomZ);
-    wires.push({
-      start: apexRight,
-      end: [apexRight[0], apexRight[1], shieldEndZ],
-      radius: params.feedlineShield.radius,
-      segments: params.feedlineShield.segments,
-      tag: FEEDLINE_SHIELD_TAG,
-    });
-  }
+  appendFeedlineShieldWires(wires, params.feedlineShield, apexLeft, apexRight, params.wireRadius, bottomZ);
 
   return wires;
 }
@@ -539,16 +562,10 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
   const { bottomZ, legLength, halfBase } = calcDeltaLoopGeometry(perimeter, h);
 
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
-  const apex: [number, number, number] = [0, 0, h];
 
   // When a feedline is active we split the apex with a source bridge so
   // the TL card can connect to it, just like the delta loop topology.
-  const apexLeft: [number, number, number] = params.feedlineShield
-    ? [-bridgeHalf * dx, -bridgeHalf * dy, h]
-    : apex;
-  const apexRight: [number, number, number] = params.feedlineShield
-    ? [bridgeHalf * dx, bridgeHalf * dy, h]
-    : apex;
+  const { apexLeft, apexRight } = calcApexSplit(params.feedlineShield, bridgeHalf, dx, dy, h);
 
   const leftCorner: [number, number, number] = [-halfBase * dx, -halfBase * dy, bottomZ];
   const rightCorner: [number, number, number] = [halfBase * dx, halfBase * dy, bottomZ];
@@ -564,17 +581,8 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
 
   const lambda = wavelengthMeters(params.frequency);
 
-  const minLegSegs = Math.ceil((SEGS_PER_WAVELENGTH * legLength) / lambda);
-  const segmentsPerLeg = Math.min(
-    MAX_SEGS_PER_LEG,
-    Math.max(MIN_SEGS_PER_LEG, minLegSegs, Math.round(params.segments / 3)),
-  );
-
-  const minHalfBaseSegs = Math.ceil((SEGS_PER_WAVELENGTH * innerHalfBase) / lambda);
-  const halfBaseSegments = Math.min(
-    MAX_SEGS_PER_LEG,
-    Math.max(MIN_SEGS_PER_LEG, minHalfBaseSegs, Math.round(params.segments / 6)),
-  );
+  const segmentsPerLeg = calcSegs(legLength, lambda, params.segments / 3);
+  const halfBaseSegments = calcSegs(innerHalfBase, lambda, params.segments / 6);
 
   // Half-base wires are oriented so that the segment adjacent to the
   // termination is the LAST segment of the wire — analogous to the way
@@ -616,25 +624,7 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
     },
   ];
 
-  if (params.feedlineShield) {
-    wires.push({
-      start: apexLeft,
-      end: apexRight,
-      radius: params.wireRadius,
-      segments: 1,
-      tag: FEED_BRIDGE_TAG,
-    });
-    // Same base-wire crossing guard as buildDeltaLoopWires: clamp shield end
-    // to bottomZ so the shield never crosses the base wire plane.
-    const shieldEndZ = Math.max(params.feedlineShield.bottomZ, bottomZ);
-    wires.push({
-      start: apexRight,
-      end: [apexRight[0], apexRight[1], shieldEndZ],
-      radius: params.feedlineShield.radius,
-      segments: params.feedlineShield.segments,
-      tag: FEEDLINE_SHIELD_TAG,
-    });
-  }
+  appendFeedlineShieldWires(wires, params.feedlineShield, apexLeft, apexRight, params.wireRadius, bottomZ);
 
   return wires;
 }
