@@ -540,11 +540,22 @@ export class Nec2Engine implements Engine {
       );
       // Accept bands from the broad scan that lie clearly outside the primary
       // scan window (0.5 MHz guard band avoids duplicating the primary band).
-      const extraBands = broadBands.filter(
-        (b) => b.fHigh < loEdge - 0.5 || b.fLow > hiEdge + 0.5,
-      );
-      if (extraBands.length > 0) {
-        const merged = [...extraBands, ...primaryBands].sort((a, b) => a.fLow - b.fLow);
+      let merged: typeof primaryBands | null = null;
+      for (let i = 0; i < broadBands.length; i++) {
+        const b = broadBands[i];
+        if (b.fHigh < loEdge - 0.5 || b.fLow > hiEdge + 0.5) {
+          if (merged === null) {
+            merged = [];
+            for (let j = 0; j < primaryBands.length; j++) {
+              merged.push(primaryBands[j]);
+            }
+          }
+          merged.push(b);
+        }
+      }
+
+      if (merged !== null) {
+        merged.sort((a, b) => a.fLow - b.fLow);
         if (primaryBands.length === 0) {
           // No operating-frequency band to protect — show whatever band exists.
           allBands = merged;

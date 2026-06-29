@@ -186,3 +186,6 @@
 ## 2025-02-18 - Extract Duplicated Array Search Calls
 **Learning:** Having duplicated `Array.prototype.find()` calls inside individual conditional branches of a complex component or store structure results in redundant array traversals and unnecessary callback overhead during frequent updates.
 **Action:** Extract duplicated logic and array search calls into a shared execution block at the end of the function. Store the result in a variable to apply common post-processing once, reducing overall algorithmic overhead.
+## 2024-05-24 - Avoid intermediate array allocation and sort overhead for SWR bands
+**Learning:** Combining `.filter` and spread operators `[...extraBands, ...primaryBands]` results in multiple intermediate array allocations which increases garbage collection pressure, particularly in hot paths like the frequency band solver. Replacing these higher-order functional patterns with a simple `for` loop that lazily initializes an array only when extra elements are found avoids the initial copy completely and avoids allocating discarding arrays.
+**Action:** Replaced `.filter` and spread operator merging with a lazy-initialization `for` loop in `src/physics/nec2Engine.ts`.
