@@ -250,16 +250,11 @@ export interface ComputeOptionsArgs {
   comparisonActive: boolean;
 }
 
-export function computeOptions({
-  frequency,
-  accent,
-  stats,
-  yMax,
-  xBounds,
-  chartText,
-  chartGrid,
-  comparisonActive,
-}: ComputeOptionsArgs): ChartOptions<'line'> {
+export function buildAnnotations(
+  frequency: number,
+  accent: string,
+  stats: SWRStats | null
+): Record<string, AnnotationOptions> {
   const annotations: Record<string, AnnotationOptions> = {
     swr2: {
       type: 'line',
@@ -314,43 +309,77 @@ export function computeOptions({
     });
   }
 
+  return annotations;
+}
+
+export function buildScales(
+  yMax: number,
+  xBounds: { min: number; max: number },
+  chartText: string,
+  chartGrid: string
+): ChartOptions<'line'>['scales'] {
+  return {
+    y: {
+      min: 1,
+      max: yMax,
+      ticks: { color: chartText },
+      grid: { color: chartGrid },
+      title: { display: true, text: 'SWR (vs 50 Ω)', color: chartText },
+    },
+    x: {
+      type: 'linear',
+      min: xBounds.min,
+      max: xBounds.max,
+      ticks: {
+        color: chartText,
+        callback: (value) => Number(value).toFixed(2),
+      },
+      grid: { color: chartGrid },
+      title: { display: true, text: 'MHz', color: chartText },
+    },
+  };
+}
+
+export function buildPlugins(
+  comparisonActive: boolean,
+  chartText: string,
+  annotations: Record<string, AnnotationOptions>
+): ChartOptions<'line'>['plugins'] {
+  return {
+    legend: {
+      // Show the legend only when multiple curves coexist: comparison mode
+      // has two curves (reference + current). When the transformer is active
+      // outside comparison mode there is only one curve (post-balun), so the
+      // legend would just repeat the axis title and is suppressed.
+      display: comparisonActive,
+      labels: { color: chartText },
+    },
+    annotation: {
+      annotations,
+    },
+  };
+}
+
+export function computeOptions({
+  frequency,
+  accent,
+  stats,
+  yMax,
+  xBounds,
+  chartText,
+  chartGrid,
+  comparisonActive,
+}: ComputeOptionsArgs): ChartOptions<'line'> {
+  const annotations = buildAnnotations(frequency, accent, stats);
+  const scales = buildScales(yMax, xBounds, chartText, chartGrid);
+  const plugins = buildPlugins(comparisonActive, chartText, annotations);
+
   return {
     responsive: true,
     maintainAspectRatio: false,
     animation: { duration: 200 },
     parsing: false,
-    scales: {
-      y: {
-        min: 1,
-        max: yMax,
-        ticks: { color: chartText },
-        grid: { color: chartGrid },
-        title: { display: true, text: 'SWR (vs 50 Ω)', color: chartText },
-      },
-      x: {
-        type: 'linear',
-        min: xBounds.min,
-        max: xBounds.max,
-        ticks: {
-          color: chartText,
-          callback: (value) => Number(value).toFixed(2),
-        },
-        grid: { color: chartGrid },
-        title: { display: true, text: 'MHz', color: chartText },
-      },
-    },
-    plugins: {
-      legend: {
-        // Show the legend only when multiple curves coexist: comparison mode
-        // has two curves (reference + current). When the transformer is active
-        // outside comparison mode there is only one curve (post-balun), so the
-        // legend would just repeat the axis title and is suppressed.
-        display: comparisonActive,
-        labels: { color: chartText },
-      },
-      annotation: {
-        annotations,
-      },
-    },
+    scales,
+    plugins,
   };
 }
