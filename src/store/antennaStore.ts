@@ -1280,145 +1280,177 @@ function buildFeedlineElements(state: AntennaState, feedlineActive: boolean, has
   return { transmissionLines, loads, networks };
 }
 
+function buildSlopingVTermination(R: number, radius: number, wires: Wire[]) {
+  const extraWires: Wire[] = [];
+  const loads: SegmentLoad[] = [];
+  // Model the physical tip-to-earth terminating resistor correctly:
+  // add a short vertical stub wire from each tip down to near-ground
+  // (SLOPING_V_STUB_BOTTOM_Z_M), then place the resistance in that stub.
+  //
+  // This creates an explicit NEC current path from the wire tip toward
+  // the ground plane, matching the real antenna where the resistor
+  // connects the wire end to a driven ground rod. A series LD on the
+  // leg end alone does not create this shunt-to-earth current path.
+  //
+  // With graded segmentation each leg may be emitted as multiple sub-wires
+  // sharing the leg's tag. By convention `buildSlopingVWires` emits the
+  // LEFT leg tip→apex (so the first sub-wire's `.start` is the tip) and
+  // the RIGHT leg apex→tip (so the last sub-wire's `.end` is the tip).
+  let firstLeft: Wire | undefined;
+  let lastRight: Wire | undefined;
+  for (let i = 0; i < wires.length; i++) {
+    const w = wires[i];
+    if (w.tag === LEFT_LEG_TAG && !firstLeft) firstLeft = w;
+    if (w.tag === RIGHT_LEG_TAG) lastRight = w;
+  }
+  const leftTip  = firstLeft!.start;
+  const rightTip = lastRight!.end;
+
+  extraWires.push(
+    {
+      start: leftTip,
+      end: [leftTip[0], leftTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
+      radius: radius,
+      segments: 1,
+      tag: SLOPING_V_LEFT_STUB_TAG,
+    },
+    {
+      start: rightTip,
+      end: [rightTip[0], rightTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
+      radius: radius,
+      segments: 1,
+      tag: SLOPING_V_RIGHT_STUB_TAG,
+    },
+  );
+  loads.push(
+    { type: 4, wireTag: SLOPING_V_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+    { type: 4, wireTag: SLOPING_V_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+  );
+
+  return { extraWires, loads };
+}
+
+function buildTerminatedDeltaTermination(R: number, radius: number, wires: Wire[]) {
+  const extraWires: Wire[] = [];
+  const loads: SegmentLoad[] = [];
+  // T2FD / aperiodic-loop termination: a single horizontal bridge wire
+  // spans the gap between the two half-base inner ends, and one LD-4
+  // card places R Ω on its single segment. The wave that propagates
+  // around the loop from the apex feed arrives at the bridge with
+  // ~equal-and-opposite drive from each side; matching R to the loop's
+  // characteristic impedance (~500–700 Ω over HF heights) flattens
+  // the feedpoint impedance across an octave or more, at the cost of
+  // efficiency on the fundamental.
+  //
+  // The LEFT half-base is emitted leftCorner → centreLeft so the
+  // inner end is the wire's `.end`. The RIGHT half-base is emitted
+  // centreRight → rightCorner so the inner end is the wire's `.start`.
+  // The bridge runs leftInner → rightInner, joining the two halves
+  // electrically through the resistor.
+  let leftHalfBase: Wire | undefined;
+  let rightHalfBase: Wire | undefined;
+  for (let i = 0; i < wires.length; i++) {
+    const w = wires[i];
+    if (w.tag === TERMINATED_DELTA_LEFT_BASE_TAG && !leftHalfBase) leftHalfBase = w;
+    else if (w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG && !rightHalfBase) rightHalfBase = w;
+    if (leftHalfBase && rightHalfBase) break;
+  }
+  const leftInner  = leftHalfBase!.end;
+  const rightInner = rightHalfBase!.start;
+
+  extraWires.push({
+    start: leftInner,
+    end: rightInner,
+    radius: radius,
+    segments: 1,
+    tag: TERMINATED_DELTA_BRIDGE_TAG,
+  });
+  loads.push(
+    { type: 4, wireTag: TERMINATED_DELTA_BRIDGE_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+  );
+
+  return { extraWires, loads };
+}
+
+function buildFoldedDipoleTermination(R: number, radius: number, wires: Wire[]) {
+  const extraWires: Wire[] = [];
+  const loads: SegmentLoad[] = [];
+  // Terminated Folded Dipole (TFD) — correct travelling-wave gap-bridge topology.
+  //
+  // buildFoldedAntennaWires splits the top (un-fed) conductor into two halves
+  // with a gap of TERMINATED_DELTA_CENTRE_GAP_M at the centre when a
+  // terminating resistor is non-zero. The gap inner ends are:
+  //   left-half  .end = topCenterLeft
+  //   right-half .start = topCenterRight
+  // We add a short horizontal bridge wire spanning that gap and place the
+  // LD-4 load on its single segment. Current flowing in the top conductor
+  // MUST pass through R to cross from one half to the other — exactly the
+  // series-in-the-top-wire termination of a T2FD.
+  //
+  // This is identical in pattern to the terminated-delta bridge: the base is
+  // split, the resistive bridge closes the gap, and wave energy is dissipated
+  // rather than reflected. The gap is electrically small (≈ 0.1 m ≪ λ) so
+  // it does not perturb the radiation pattern or the fundamental resonance.
+  let leftHalfOpp: Wire | undefined;
+  let rightHalfOpp: Wire | undefined;
+  for (let i = 0; i < wires.length; i++) {
+    const w = wires[i];
+    if (w.tag === FOLDED_DIPOLE_OPPOSITE_TAG) {
+      if (!leftHalfOpp) {
+        leftHalfOpp = w;
+      } else if (!rightHalfOpp) {
+        rightHalfOpp = w;
+      }
+    }
+    if (leftHalfOpp && rightHalfOpp) break;
+  }
+  const topCenterLeft  = leftHalfOpp!.end;   // inner end of left half
+  const topCenterRight = rightHalfOpp!.start; // inner end of right half
+
+  extraWires.push({
+    start: topCenterLeft,
+    end: topCenterRight,
+    radius: radius,
+    segments: 1,
+    tag: FOLDED_DIPOLE_TERM_BRIDGE_TAG,
+  });
+  loads.push({
+    type: 4,
+    wireTag: FOLDED_DIPOLE_TERM_BRIDGE_TAG,
+    segmentStart: 1,
+    segmentEnd: 1,
+    param1: R,
+    param2: 0,
+  });
+
+  return { extraWires, loads };
+}
+
 function buildTerminationElements(state: AntennaState, wires: Wire[]) {
   const extraWires: Wire[] = [];
   const loads: SegmentLoad[] = [];
 
-  if (state.antennaType === 'sloping-v' && state.terminatingResistor > 0) {
-    const R = state.terminatingResistor;
-    // Model the physical tip-to-earth terminating resistor correctly:
-    // add a short vertical stub wire from each tip down to near-ground
-    // (SLOPING_V_STUB_BOTTOM_Z_M), then place the resistance in that stub.
-    //
-    // This creates an explicit NEC current path from the wire tip toward
-    // the ground plane, matching the real antenna where the resistor
-    // connects the wire end to a driven ground rod. A series LD on the
-    // leg end alone does not create this shunt-to-earth current path.
-    //
-    // With graded segmentation each leg may be emitted as multiple sub-wires
-    // sharing the leg's tag. By convention `buildSlopingVWires` emits the
-    // LEFT leg tip→apex (so the first sub-wire's `.start` is the tip) and
-    // the RIGHT leg apex→tip (so the last sub-wire's `.end` is the tip).
-    let firstLeft: Wire | undefined;
-    let lastRight: Wire | undefined;
-    for (let i = 0; i < wires.length; i++) {
-      const w = wires[i];
-      if (w.tag === LEFT_LEG_TAG && !firstLeft) firstLeft = w;
-      if (w.tag === RIGHT_LEG_TAG) lastRight = w;
-    }
-    const leftTip  = firstLeft!.start;
-    const rightTip = lastRight!.end;
-
-    extraWires.push(
-      {
-        start: leftTip,
-        end: [leftTip[0], leftTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
-        radius: state.wireRadius,
-        segments: 1,
-        tag: SLOPING_V_LEFT_STUB_TAG,
-      },
-      {
-        start: rightTip,
-        end: [rightTip[0], rightTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
-        radius: state.wireRadius,
-        segments: 1,
-        tag: SLOPING_V_RIGHT_STUB_TAG,
-      },
-    );
-    loads.push(
-      { type: 4, wireTag: SLOPING_V_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
-      { type: 4, wireTag: SLOPING_V_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
-    );
-  }
-
-  if (state.antennaType === 'terminated-delta' && state.terminatingResistor > 0) {
-    const R = state.terminatingResistor;
-    // T2FD / aperiodic-loop termination: a single horizontal bridge wire
-    // spans the gap between the two half-base inner ends, and one LD-4
-    // card places R Ω on its single segment. The wave that propagates
-    // around the loop from the apex feed arrives at the bridge with
-    // ~equal-and-opposite drive from each side; matching R to the loop's
-    // characteristic impedance (~500–700 Ω over HF heights) flattens
-    // the feedpoint impedance across an octave or more, at the cost of
-    // efficiency on the fundamental.
-    //
-    // The LEFT half-base is emitted leftCorner → centreLeft so the
-    // inner end is the wire's `.end`. The RIGHT half-base is emitted
-    // centreRight → rightCorner so the inner end is the wire's `.start`.
-    // The bridge runs leftInner → rightInner, joining the two halves
-    // electrically through the resistor.
-    let leftHalfBase: Wire | undefined;
-    let rightHalfBase: Wire | undefined;
-    for (let i = 0; i < wires.length; i++) {
-      const w = wires[i];
-      if (w.tag === TERMINATED_DELTA_LEFT_BASE_TAG && !leftHalfBase) leftHalfBase = w;
-      else if (w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG && !rightHalfBase) rightHalfBase = w;
-      if (leftHalfBase && rightHalfBase) break;
-    }
-    const leftInner  = leftHalfBase!.end;
-    const rightInner = rightHalfBase!.start;
-
-    extraWires.push({
-      start: leftInner,
-      end: rightInner,
-      radius: state.wireRadius,
-      segments: 1,
-      tag: TERMINATED_DELTA_BRIDGE_TAG,
-    });
-    loads.push(
-      { type: 4, wireTag: TERMINATED_DELTA_BRIDGE_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
-    );
-  }
-
-  if (state.antennaType === 'folded-dipole' && state.terminatingResistor > 0) {
-    const R = state.terminatingResistor;
-    // Terminated Folded Dipole (TFD) — correct travelling-wave gap-bridge topology.
-    //
-    // buildFoldedAntennaWires splits the top (un-fed) conductor into two halves
-    // with a gap of TERMINATED_DELTA_CENTRE_GAP_M at the centre when a
-    // terminating resistor is non-zero. The gap inner ends are:
-    //   left-half  .end = topCenterLeft
-    //   right-half .start = topCenterRight
-    // We add a short horizontal bridge wire spanning that gap and place the
-    // LD-4 load on its single segment. Current flowing in the top conductor
-    // MUST pass through R to cross from one half to the other — exactly the
-    // series-in-the-top-wire termination of a T2FD.
-    //
-    // This is identical in pattern to the terminated-delta bridge: the base is
-    // split, the resistive bridge closes the gap, and wave energy is dissipated
-    // rather than reflected. The gap is electrically small (≈ 0.1 m ≪ λ) so
-    // it does not perturb the radiation pattern or the fundamental resonance.
-    let leftHalfOpp: Wire | undefined;
-    let rightHalfOpp: Wire | undefined;
-    for (let i = 0; i < wires.length; i++) {
-      const w = wires[i];
-      if (w.tag === FOLDED_DIPOLE_OPPOSITE_TAG) {
-        if (!leftHalfOpp) {
-          leftHalfOpp = w;
-        } else if (!rightHalfOpp) {
-          rightHalfOpp = w;
-        }
+  if (state.terminatingResistor > 0) {
+    switch (state.antennaType) {
+      case 'sloping-v': {
+        const { extraWires: ew, loads: l } = buildSlopingVTermination(state.terminatingResistor, state.wireRadius, wires);
+        extraWires.push(...ew);
+        loads.push(...l);
+        break;
       }
-      if (leftHalfOpp && rightHalfOpp) break;
+      case 'terminated-delta': {
+        const { extraWires: ew, loads: l } = buildTerminatedDeltaTermination(state.terminatingResistor, state.wireRadius, wires);
+        extraWires.push(...ew);
+        loads.push(...l);
+        break;
+      }
+      case 'folded-dipole': {
+        const { extraWires: ew, loads: l } = buildFoldedDipoleTermination(state.terminatingResistor, state.wireRadius, wires);
+        extraWires.push(...ew);
+        loads.push(...l);
+        break;
+      }
     }
-    const topCenterLeft  = leftHalfOpp!.end;   // inner end of left half
-    const topCenterRight = rightHalfOpp!.start; // inner end of right half
-
-    extraWires.push({
-      start: topCenterLeft,
-      end: topCenterRight,
-      radius: state.wireRadius,
-      segments: 1,
-      tag: FOLDED_DIPOLE_TERM_BRIDGE_TAG,
-    });
-    loads.push({
-      type: 4,
-      wireTag: FOLDED_DIPOLE_TERM_BRIDGE_TAG,
-      segmentStart: 1,
-      segmentEnd: 1,
-      param1: R,
-      param2: 0,
-    });
   }
 
   return { extraWires, loads };
