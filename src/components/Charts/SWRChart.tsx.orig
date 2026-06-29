@@ -33,7 +33,7 @@ ChartJS.register(
   annotationPlugin,
 );
 
-function useSWRChartConfig() {
+export function SWRChart() {
   // ⚡ Bolt: Performance Optimization
   // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
   // This reduces React hook allocation overhead and minimizes the number of store listeners,
@@ -137,11 +137,6 @@ function useSWRChartConfig() {
     [accent, chartGrid, chartText, comparisonActive, frequency, xBounds, yMax, stats]
   );
 
-  return { result, sweep, data, options, stats };
-}
-
-export function SWRChart() {
-  const { result, sweep, data, options, stats } = useSWRChartConfig();
   const { wrapperRef, chartRef, onPointerDown, dragging } = useSwrViewGestures();
 
   if (!result || sweep.length === 0) {
