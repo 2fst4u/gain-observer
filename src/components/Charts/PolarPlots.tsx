@@ -169,7 +169,8 @@ function usePolarChartOptions(theme: string, dbRange: number, result: { maxGainD
   }), [dbRange, chartText, chartGrid, result, peakDbi]);
 }
 
-export function PolarPlots() {
+
+function usePolarData() {
   // ⚡ Bolt: Performance Optimization
   // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
   // This reduces React hook allocation overhead and minimizes the number of store listeners,
@@ -263,6 +264,31 @@ export function PolarPlots() {
   const elLabels = useMemo(() => (result ? getElevationLabels(result.pattern) : []), [result]);
 
   const options = usePolarChartOptions(theme, dbRange, result, peakDbi);
+
+  return {
+    showPolarCuts,
+    result,
+    azData,
+    elDataBroadside,
+    elDataEndOn,
+    azLabels,
+    elLabels,
+    options,
+  };
+}
+
+export function PolarPlots() {
+
+  const {
+    showPolarCuts,
+    result,
+    azData,
+    elDataBroadside,
+    elDataEndOn,
+    azLabels,
+    elLabels,
+    options,
+  } = usePolarData();
 
   if (!showPolarCuts || !result || !azData || !elDataBroadside || !elDataEndOn) return null;
 
