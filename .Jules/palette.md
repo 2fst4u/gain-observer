@@ -17,3 +17,6 @@
 ## 2024-08-01 - Missing advertised keyboard shortcuts
 **Learning:** Keyboard shortcuts advertised visually in the UI (like "Compare (C)") may not actually be implemented in the central event listener, leading to a broken and confusing user experience.
 **Action:** When adding or verifying keyboard shortcuts, ensure both the UI hint (e.g., `aria-keyshortcuts`) and the actual keydown event handler (e.g., `useKeyboardShortcuts` hook) are kept in sync.
+## 2024-08-01 - Avoid bare letter C for shortcuts
+**Learning:** Using the bare letter `C` (or `c`) as a global keyboard shortcut can interfere with standard operating system and browser commands, such as `Ctrl+C` or `Cmd+C` for copying text.
+**Action:** Always verify that proposed keyboard shortcuts do not conflict with common user expectations or essential browser functionality. If a shortcut conflicts, it must be removed or modified to include modifier keys (like Alt or Shift), and the UI documentation must reflect this.
