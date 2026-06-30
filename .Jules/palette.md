@@ -14,3 +14,6 @@
 ## 2024-06-10 - Static vs Dynamic aria-live
 **Learning:** `aria-live="polite"` should only be used for DOM nodes whose text updates dynamically after the initial render. Adding it to static hint text containers is unnecessary, as `aria-describedby` will reliably handle the reading of the description when the linked input is focused.
 **Action:** Do not apply `aria-live="polite"` to purely static helper text elements.
+## 2024-08-01 - Missing advertised keyboard shortcuts
+**Learning:** Keyboard shortcuts advertised visually in the UI (like "Compare (C)") may not actually be implemented in the central event listener, leading to a broken and confusing user experience.
+**Action:** When adding or verifying keyboard shortcuts, ensure both the UI hint (e.g., `aria-keyshortcuts`) and the actual keydown event handler (e.g., `useKeyboardShortcuts` hook) are kept in sync.

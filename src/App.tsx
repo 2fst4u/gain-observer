@@ -162,6 +162,7 @@ function useKeyboardShortcuts(): void {
       if (e.key === 't' || e.key === 'T') toggleTheme();
       else if (e.key === 'u' || e.key === 'U') toggleUnits();
       else if (e.key === 'm' || e.key === 'M') setMode('normal');
+      else if (e.key === 'c' || e.key === 'C') setMode('comparison');
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
