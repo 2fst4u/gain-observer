@@ -84,6 +84,9 @@
 ## 2025-02-13 - Removed unused exports from usePhysicsEngine
 **Learning:** Functions that are only used internally within their module should not be exported, as it bloats the public API and triggers unused export warnings in static analysis tools (like Knip).
 **Action:** Removed the `export` keyword from `handleWorkerMessage`, `buildWorkerRequest`, `useWorkerLifecycle`, and `usePhysicsScheduler` in `src/hooks/usePhysicsEngine.ts` to keep them local to the module.
+## 2024-06-11 - Extract Helpers from Large Functions
+**Learning:** Extracting coordinate point calculations and segment logic from massive configuration functions (like `buildFoldedAntennaWires`) into localized, pure helper functions vastly reduces cyclomatic complexity, shortens function length to reasonable levels, and makes the core logic much more readable while preserving all complex math constraints.
+**Action:** Created `calcFoldedAntennaPoints` and `calcFoldedAntennaSegments` to decompose `buildFoldedAntennaWires`.
 ## 2024-06-29 - React Refactoring Pattern
 **Learning:** Functions over 100 lines inside a complex React component (like `SceneContents`) can be heavily refactored and cleaned up without introducing new files. By extracting massive, multi-variable block assignments and store reads into localized custom hooks (like `useSceneConfiguration`) living in the same file, the core view component becomes much more declarative and simpler to manage.
 **Action:** Created `useSceneConfiguration` in `src/components/Scene/AntennaScene.tsx` and moved all store state pulling and computed property logic inside it.
