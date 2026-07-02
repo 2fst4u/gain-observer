@@ -102,3 +102,6 @@
 ## 2026-06-28 - Minimum Tip Height Documentation Drift
 **Learning:** The documentation for Inverted-V, Sloping V, Delta Loop, and Terminated Delta antennas claimed the minimum tip/bottom wire height was `0.1` m. However, the codebase (`src/store/antennaGeometry.ts` and `src/physics/constants.ts`) enforces a minimum height of `SLOPING_V_MIN_TIP_Z_M` (`0.5` m) for these topologies to prevent unphysical results or NEC wire-touching-ground warnings.
 **Action:** Updated `docs/antenna-spec.md` to accurately reflect the `0.5` m minimum tip/bottom wire height limit enforced by the geometry builders for these antenna types.
+## 2026-06-29 - Terminated Delta and T2FD Terminology Drift
+**Learning:** `docs/antenna-spec.md` incorrectly referred to the Terminated Delta as a T2FD (Terminated Tilted Folded Dipole). A Terminated Delta is an aperiodic loop, but the T2FD designation specifically applies to a Terminated Folded Dipole.
+**Action:** Removed references to T2FD in the Terminated Delta documentation and properly attributed T2FD to the Terminated Folded Dipole section, referring to the Terminated Delta as its "triangular cousin".
