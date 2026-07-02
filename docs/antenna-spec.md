@@ -52,13 +52,13 @@ These definitions apply to every antenna type in Part II.
 A **terminated** antenna places a non-inductive resistive load somewhere on the radiating structure to absorb the wave that would otherwise reflect and form a standing wave. Two distinct families exist in this app, and they behave very differently:
 
 - **Open travelling-wave terminations** (Sloping V): each leg is an open long wire carrying a travelling wave from the apex feed out to a terminator at its far (ground-ward) tip. The termination absorbs the wave that would otherwise reflect, so each wire's radiation cone tilts toward its tip and the two cones reinforce off the open mouth of the V. The directionality comes from the travelling-wave _direction_ along each leg, **not** from any left/right geometric asymmetry. Result: a unidirectional, broadly cardioid pattern fired along the bisector of the V's opening, broadband.
-- **Closed aperiodic-loop terminations** (Terminated Delta, Terminated Folded Dipole, T2FD-style): the structure is a closed loop fed at a symmetric point; the current is absorbed at the symmetric point opposite the feed via a single resistor _bridging the gap_ (not shunted to ground). Because the geometry stays bilaterally symmetric and the loop is electrically compact, the pattern remains bidirectional/broadside — **not** unidirectional. The termination buys broadband flat impedance, trading efficiency for flat SWR across an octave.
+- **Closed aperiodic-loop terminations** (Terminated Delta, Terminated Folded Dipole [T2FD]): the structure is a closed loop fed at a symmetric point; the current is absorbed at the symmetric point opposite the feed via a single resistor _bridging the gap_ (not shunted to ground). Because the geometry stays bilaterally symmetric and the loop is electrically compact, the pattern remains bidirectional/broadside — **not** unidirectional. The termination buys broadband flat impedance, trading efficiency for flat SWR across an octave.
 
 ### 3.2 Termination Implementation
 
 - **Sloping V**: Termination consists of a resistor connected from the end of each leg to ground via a short stub wire. Typical value $300\text{--}600\,\Omega$ (matches the leg's characteristic impedance against ground).
 - **Terminated Delta**: Termination is a single resistor on a short horizontal _bridge wire_ spanning the gap at the centre of the base. Typical value $\sim 600\,\Omega$ (close to the loop wire's characteristic impedance over typical HF heights, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$). **Not** two resistors to ground — that topology is symmetric but fails to terminate the loop, leaving large reactive feedpoint impedance and high leg current ripple.
-- **Terminated Folded Dipole**: Termination is a single resistor on a short horizontal _bridge wire_ spanning the gap at the centre of the top (un-fed) conductor. Typical value $\sim 390\text{--}600\,\Omega$. Like the terminated delta, this implements a proper TFD/traveling-wave topology by forcing current through the resistor across the gap.
+- **Terminated Folded Dipole**: Termination is a single resistor on a short horizontal _bridge wire_ spanning the gap at the centre of the top (un-fed) conductor. Typical value $\sim 390\text{--}600\,\Omega$. Like the terminated delta, this implements a proper TFD (T2FD) aperiodic-loop topology by forcing current through the resistor across the gap.
 - **Effect (sloping V)**: converts a resonant bi-directional radiator into a broadband uni-directional travelling-wave radiator.
 - **Effect (terminated delta)**: converts a resonant narrowband loop into a broadband aperiodic loop. Pattern stays roughly delta-loop-shaped (broadside max, end-fire minimum). Multi-band usable with a 9:1 unun.
 - **Effect (terminated folded dipole)**: flattens SWR across a wide frequency range compared to a standard folded dipole, at the cost of radiation efficiency due to power dissipated in the termination.
@@ -267,7 +267,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 ---
 
-## 10. Terminated Delta (T2FD / aperiodic loop)
+## 10. Terminated Delta (aperiodic loop)
 
 - **Termination Support:** A single resistor across the base-centre gap (not two resistors to ground). Designed for broadband flat impedance, not directionality — the antenna remains roughly broadside-bidirectional, like a delta loop but aperiodic (see Part I §3).
 
@@ -289,7 +289,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 ### 10.3 Termination Definition
 
-- **Topology:** A single horizontal _bridge wire_ spans the gap between the two half-base inner ends. The terminating resistor sits on that bridge. This is the canonical T2FD / aperiodic-loop topology.
+- **Topology:** A single horizontal _bridge wire_ spans the gap between the two half-base inner ends. The terminating resistor sits on that bridge. This is an aperiodic-loop topology (the triangular cousin to the T2FD).
 - **NEC Model:** One `LD 4` load on the single segment of `TERMINATED_DELTA_BRIDGE_TAG`. No vertical stubs, no ground shunts.
 - **Value:** `terminatingResistor` should be close to the loop wire's characteristic impedance over real ground, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$. Default is 600 Ω.
 - **What this is NOT:** Not a unidirectional travelling-wave antenna. The geometry is bilaterally symmetric, so by symmetry the pattern is bidirectional/broadside (delta-loop-like). The termination buys broadband flat impedance, not directionality. For a unidirectional cardioid you need an asymmetric topology (e.g. corner-fed/corner-terminated K9AY-style), which this app does not currently model.
@@ -406,7 +406,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 - **Topology:** Optional. The opposite conductor is split into two halves at the centre. When terminated, a single `LD 4` resistor sits on a short horizontal bridge wire (`FOLDED_DIPOLE_TERM_BRIDGE_TAG`) that spans the gap between the two inner ends of the un-fed (top) conductor.
 - **Unterminated (`terminatingResistor = 0`):** A classic folded dipole — ~300 Ω, narrowband, dipole gain and pattern.
-- **Terminated (`terminatingResistor > 0`):** A terminated folded dipole (TFD). The resistor flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated). Typical value ~390–600 Ω. This is the straight-conductor cousin of the T2FD modelled under §10 as a terminated delta.
+- **Terminated (`terminatingResistor > 0`):** A terminated folded dipole (TFD or T2FD). The resistor flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated). Typical value ~390–600 Ω. This is the straight-conductor cousin of the aperiodic loop modelled under §10 as a terminated delta.
 
 ### 13.4 SWR Convention
 
