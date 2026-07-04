@@ -31,25 +31,11 @@ const NO_HORIZ_SENTINEL = -999.99;
  * Columns:
  *   TAG SEG  V_REAL V_IMAG   I_REAL I_IMAG   Z_REAL Z_IMAG   Y_REAL Y_IMAG   POWER
  */
-const impedanceRowRe = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/gm;
+const impedanceBlockRe = /ANTENNA INPUT PARAMETERS(?:(?!(?:ANTENNA INPUT PARAMETERS)).*?\n){1,12}?(?:^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+))/gm;
 
 export function parseNecImpedance(text: string): { impedance: ImpedanceResult | null; power: number | null } {
-  const blockStart = text.indexOf('ANTENNA INPUT PARAMETERS');
-  if (blockStart < 0) return { impedance: null, power: null };
-
-  let blockEnd = blockStart;
-  for (let i = 0; i < 12; i++) {
-    const p = text.indexOf('\n', blockEnd);
-    if (p < 0) {
-      blockEnd = text.length;
-      break;
-    }
-    blockEnd = p + 1;
-  }
-
-  const blockText = text.substring(blockStart, blockEnd);
-  impedanceRowRe.lastIndex = 0;
-  const m = impedanceRowRe.exec(blockText);
+  impedanceBlockRe.lastIndex = 0;
+  const m = impedanceBlockRe.exec(text);
 
   if (m) {
     const zR = parseFloat(m[5]!);
@@ -64,8 +50,6 @@ export function parseNecImpedance(text: string): { impedance: ImpedanceResult | 
 /**
  * Extracts all ANTENNA INPUT PARAMETERS blocks for frequency sweeps.
  */
-const impedanceRowReSweep = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/gm;
-
 export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResult | null; power: number | null }[] {
   const results: { impedance: ImpedanceResult | null; power: number | null }[] = [];
   let pos = 0;
@@ -74,23 +58,10 @@ export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResu
     const blockStart = text.indexOf('ANTENNA INPUT PARAMETERS', pos);
     if (blockStart < 0) break;
 
-    let blockEnd = blockStart;
-    for (let i = 0; i < 12; i++) {
-      const p = text.indexOf('\n', blockEnd);
-      if (p < 0) {
-        blockEnd = text.length;
-        break;
-      }
-      blockEnd = p + 1;
-    }
+    impedanceBlockRe.lastIndex = blockStart;
+    const m = impedanceBlockRe.exec(text);
 
-    if (blockEnd === blockStart) break;
-
-    const blockText = text.substring(blockStart, blockEnd);
-    impedanceRowReSweep.lastIndex = 0;
-    const m = impedanceRowReSweep.exec(blockText);
-
-    if (m) {
+    if (m && m.index === blockStart) {
       const zR = parseFloat(m[5]!);
       const zX = parseFloat(m[6]!);
       const power = parseFloat(m[9]!);
