@@ -5,12 +5,34 @@ import {
   findFeedlinePreset,
   findGroundPreset,
   halfWaveLength,
+  wavelengthMeters,
   referenceLength,
   HF_BAND_PRESETS,
 } from '../src/physics/constants';
 import { type AntennaType } from '../src/physics/types';
 
 describe('physics constants and helpers', () => {
+  describe('wavelengthMeters', () => {
+    it('calculates the correct wavelength for standard HF frequencies', () => {
+      // 10 MHz
+      expect(wavelengthMeters(10)).toBeCloseTo(29.9792, 4);
+      // 14.150 MHz (20m band)
+      expect(wavelengthMeters(14.150)).toBeCloseTo(21.1867, 4);
+      // 7.1 MHz (40m band)
+      expect(wavelengthMeters(7.1)).toBeCloseTo(42.2243, 4);
+      // 28.5 MHz (10m band)
+      expect(wavelengthMeters(28.5)).toBeCloseTo(10.5190, 4);
+    });
+
+    it('returns Infinity for a frequency of 0', () => {
+      expect(wavelengthMeters(0)).toBe(Infinity);
+    });
+
+    it('handles negative frequencies by returning a negative wavelength', () => {
+      expect(wavelengthMeters(-10)).toBeCloseTo(-29.9792, 4);
+    });
+  });
+
   it('halfWaveLength accounts for end effect', () => {
     // 40m band dipole
     // wavelength at 7.1 MHz = 299.792458 / 7.1 = 42.2242898...
