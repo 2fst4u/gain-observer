@@ -17,6 +17,12 @@ export const Z0_SYSTEM = 50;
 /** Default wire radius for HF antennas, metres (≈ 14 AWG copper ~ 2 mm). */
 export const DEFAULT_WIRE_RADIUS_M = 0.001;
 
+/** Lower bound for the SWR-sweep display window (MHz). */
+export const SWEEP_F_MIN_MHZ = 1.0;
+
+/** Upper bound for the SWR-sweep display window (MHz). */
+export const SWEEP_F_MAX_MHZ = 30;
+
 /**
  * Convenience: wavelength in metres for a given frequency in MHz.
  */
