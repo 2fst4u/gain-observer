@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useAdaptiveLOD } from '../src/hooks/useAdaptiveLOD';
+import { useAdaptiveLOD, detectLODLevel } from '../src/hooks/useAdaptiveLOD';
 
 describe('useAdaptiveLOD', () => {
   afterEach(() => {
@@ -116,6 +116,76 @@ describe('useAdaptiveLOD', () => {
 
       const { result } = renderHook(() => useAdaptiveLOD());
       expect(result.current.level).toBe('medium');
+    });
+  });
+
+  describe('detectLODLevel', () => {
+    it('returns medium level when navigator is undefined', () => {
+      const originalNavigator = global.navigator;
+      Object.defineProperty(global, 'navigator', {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      expect(detectLODLevel()).toBe('medium');
+
+      Object.defineProperty(global, 'navigator', {
+        value: originalNavigator,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('returns low level on desktop when deviceMemory <= 2 even with >= 8 cores', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        hardwareConcurrency: 8,
+        deviceMemory: 2,
+      });
+      expect(detectLODLevel()).toBe('low');
+    });
+
+    it('returns ultra-low on mobile when deviceMemory <= 1', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Android',
+        hardwareConcurrency: 8,
+        deviceMemory: 1,
+      });
+      expect(detectLODLevel()).toBe('ultra-low');
+    });
+
+    it('returns low on mobile when deviceMemory > 1 and cores < 6', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Android',
+        hardwareConcurrency: 4,
+        deviceMemory: 2,
+      });
+      expect(detectLODLevel()).toBe('low');
+    });
+
+    it('returns medium on mobile when deviceMemory is absent and cores >= 6', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Android',
+        hardwareConcurrency: 6,
+      });
+      expect(detectLODLevel()).toBe('medium');
+    });
+
+    it('returns high on desktop when memory is undefined and cores >= 8', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Windows',
+        hardwareConcurrency: 8,
+      });
+      expect(detectLODLevel()).toBe('high');
+    });
+
+    it('returns medium on desktop when memory is undefined and cores < 8', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Windows',
+        hardwareConcurrency: 4,
+      });
+      expect(detectLODLevel()).toBe('medium');
     });
   });
 
