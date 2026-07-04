@@ -554,6 +554,23 @@ export interface TerminatedDeltaWiresParams {
   feedlineShield?: FeedlineShield | null;
 }
 
+
+function calcTerminatedDeltaPoints(halfBase: number, dx: number, dy: number, bottomZ: number) {
+  const leftCorner: [number, number, number] = [-halfBase * dx, -halfBase * dy, bottomZ];
+  const rightCorner: [number, number, number] = [halfBase * dx, halfBase * dy, bottomZ];
+
+  // Inner ends of the two half-base wires. They sit slightly to the left
+  // and right of the geometric centre with a gap of TERMINATED_DELTA_CENTRE_GAP_M
+  // between them — the gap is electrically open in the unterminated case
+  // and is bridged by the stub+resistor pair to ground when terminated.
+  const innerOffset = Math.max(0, TERMINATED_DELTA_CENTRE_GAP_M / 2);
+  const innerHalfBase = Math.max(0.01, halfBase - innerOffset);
+  const centreLeft: [number, number, number] = [-innerOffset * dx, -innerOffset * dy, bottomZ];
+  const centreRight: [number, number, number] = [innerOffset * dx, innerOffset * dy, bottomZ];
+
+  return { leftCorner, rightCorner, centreLeft, centreRight, innerHalfBase };
+}
+
 /**
  * Builds the wires for a Terminated Delta antenna (apex-up, apex-fed).
  *
@@ -577,6 +594,7 @@ export interface TerminatedDeltaWiresParams {
  * end), or on the feed bridge / shield when a feedline is active —
  * exactly as for the delta loop.
  */
+
 export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): Wire[] {
   const perimeter = params.length;
   const h = params.height;
@@ -590,17 +608,9 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
   // the TL card can connect to it, just like the delta loop topology.
   const { apexLeft, apexRight } = calcApexSplit(params.feedlineShield, bridgeHalf, dx, dy, h);
 
-  const leftCorner: [number, number, number] = [-halfBase * dx, -halfBase * dy, bottomZ];
-  const rightCorner: [number, number, number] = [halfBase * dx, halfBase * dy, bottomZ];
-
-  // Inner ends of the two half-base wires. They sit slightly to the left
-  // and right of the geometric centre with a gap of TERMINATED_DELTA_CENTRE_GAP_M
-  // between them — the gap is electrically open in the unterminated case
-  // and is bridged by the stub+resistor pair to ground when terminated.
-  const innerOffset = Math.max(0, TERMINATED_DELTA_CENTRE_GAP_M / 2);
-  const innerHalfBase = Math.max(0.01, halfBase - innerOffset);
-  const centreLeft: [number, number, number] = [-innerOffset * dx, -innerOffset * dy, bottomZ];
-  const centreRight: [number, number, number] = [innerOffset * dx, innerOffset * dy, bottomZ];
+  const { leftCorner, rightCorner, centreLeft, centreRight, innerHalfBase } = calcTerminatedDeltaPoints(
+    halfBase, dx, dy, bottomZ
+  );
 
   const lambda = wavelengthMeters(params.frequency);
 
