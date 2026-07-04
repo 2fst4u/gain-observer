@@ -37,15 +37,20 @@ export function parseNecImpedance(text: string): { impedance: ImpedanceResult | 
   const blockStart = text.indexOf('ANTENNA INPUT PARAMETERS');
   if (blockStart < 0) return { impedance: null, power: null };
 
-  let blockEnd = blockStart;
-  for (let i = 0; i < 12; i++) {
-    const p = text.indexOf('\n', blockEnd);
-    if (p < 0) {
-      blockEnd = text.length;
-      break;
-    }
-    blockEnd = p + 1;
-  }
+  let p = text.indexOf('\n', blockStart);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+    if (p !== -1) p = text.indexOf('\n', p + 1);
+
+    const blockEnd = p === -1 ? text.length : p + 1;
 
   const blockText = text.substring(blockStart, blockEnd);
   impedanceRowRe.lastIndex = 0;
@@ -74,15 +79,20 @@ export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResu
     const blockStart = text.indexOf('ANTENNA INPUT PARAMETERS', pos);
     if (blockStart < 0) break;
 
-    let blockEnd = blockStart;
-    for (let i = 0; i < 12; i++) {
-      const p = text.indexOf('\n', blockEnd);
-      if (p < 0) {
-        blockEnd = text.length;
-        break;
-      }
-      blockEnd = p + 1;
-    }
+        let p = text.indexOf('\n', blockStart);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+        if (p !== -1) p = text.indexOf('\n', p + 1);
+
+        const blockEnd = p === -1 ? text.length : p + 1;
 
     if (blockEnd === blockStart) break;
 
