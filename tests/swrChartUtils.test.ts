@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeChartData, computeStats, formatBandwidth, computeYMax, computeOptions } from '../src/components/Charts/swrChartUtils';
+import { computeChartData, computeStats, formatBandwidth, computeYMax, computeOptions, buildAnnotations } from '../src/components/Charts/swrChartUtils';
 import type { SweepPoint } from '../src/physics/types';
 import type { ComparisonSnapshot } from '../src/store/antennaStore';
 
@@ -380,5 +380,90 @@ describe('computeOptions callbacks', () => {
       expect(callback(7.1234)).toBe('7.12');
       expect(callback('7.5')).toBe('7.50');
     }
+  });
+});
+
+
+describe('buildAnnotations', () => {
+  const baseArgs = {
+    frequency: 7.1,
+    accent: '#ff0000',
+    stats: null,
+  };
+
+  it('generates basic annotations without stats', () => {
+    const annotations = buildAnnotations(baseArgs.frequency, baseArgs.accent, baseArgs.stats);
+
+    expect(annotations).toBeDefined();
+
+    // swr2 line
+    expect(annotations.swr2).toEqual({
+      type: 'line',
+      yMin: 2,
+      yMax: 2,
+      borderColor: '#ff6b6b',
+      borderWidth: 1,
+      borderDash: [6, 4],
+    });
+
+    // currentFrequency line
+    expect(annotations.currentFrequency).toEqual({
+      type: 'line',
+      xMin: 7.1,
+      xMax: 7.1,
+      borderColor: '#ff0000',
+      borderWidth: 1,
+      borderDash: [4, 4],
+    });
+
+    // No stats annotations
+    expect(annotations.minFreq).toBeUndefined();
+    expect(annotations.band0Low).toBeUndefined();
+  });
+
+  it('adds stats annotations when stats are provided and handles clipped bands', () => {
+    const stats = {
+      minSWR: 1.2,
+      minFreq: 7.15,
+      bands: [
+        { fLow: 7.05, fHigh: 7.25, lowClipped: false, highClipped: false },
+        { fLow: 7.28, fHigh: 7.29, lowClipped: true, highClipped: true }
+      ]
+    };
+
+    const annotations = buildAnnotations(baseArgs.frequency, baseArgs.accent, stats);
+
+    // Min freq line
+    expect(annotations.minFreq).toEqual({
+      type: 'line',
+      xMin: 7.15,
+      xMax: 7.15,
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+      borderWidth: 1,
+      borderDash: [2, 2],
+    });
+
+    // Unclipped band should have both edge markers
+    expect(annotations.band0Low).toEqual({
+      type: 'line',
+      xMin: 7.05,
+      xMax: 7.05,
+      borderColor: 'rgba(255, 107, 107, 0.4)',
+      borderWidth: 1,
+      borderDash: [4, 4],
+    });
+
+    expect(annotations.band0High).toEqual({
+      type: 'line',
+      xMin: 7.25,
+      xMax: 7.25,
+      borderColor: 'rgba(255, 107, 107, 0.4)',
+      borderWidth: 1,
+      borderDash: [4, 4],
+    });
+
+    // Clipped band should not have edge markers
+    expect(annotations.band1Low).toBeUndefined();
+    expect(annotations.band1High).toBeUndefined();
   });
 });
