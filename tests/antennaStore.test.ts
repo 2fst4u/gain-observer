@@ -8,6 +8,9 @@ import {
   computeEffectiveSlope,
   legMultipleFromLength,
   computeOptimalVAngleDeg,
+  recommendedTerminatingResistor,
+  SLOPING_V_DEFAULT_TERMINATION_OHMS,
+  TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS,
   SWR_VIEW_F_MIN_MHZ,
   SWR_VIEW_F_MAX_MHZ,
   LEFT_LEG_TAG,
@@ -494,6 +497,26 @@ describe("antennaStore selectors", () => {
       // Top stays at the feedpoint height.
       expect(shield.start[2]).toBe(5);
     });
+  });
+});
+
+
+describe("recommendedTerminatingResistor", () => {
+  it("returns SLOPING_V_DEFAULT_TERMINATION_OHMS for sloping-v", () => {
+    expect(recommendedTerminatingResistor("sloping-v", 0.5, 0.001)).toBe(SLOPING_V_DEFAULT_TERMINATION_OHMS);
+  });
+
+  it("returns TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS for terminated-delta", () => {
+    expect(recommendedTerminatingResistor("terminated-delta", 0.5, 0.001)).toBe(TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS);
+  });
+
+  it("calculates correct rounded impedance for folded-dipole", () => {
+    // 120 * acosh(0.5 / (2 * 0.001)) = 120 * acosh(250) ≈ 120 * 6.2146 ≈ 746
+    expect(recommendedTerminatingResistor("folded-dipole", 0.5, 0.001)).toBe(746);
+  });
+
+  it("returns 0 for unsupported antenna types like dipole", () => {
+    expect(recommendedTerminatingResistor("dipole", 0.5, 0.001)).toBe(0);
   });
 });
 
