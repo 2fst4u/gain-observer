@@ -42,7 +42,9 @@ export function StatsReadout() {
       <section className="panel-section">
         {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
         <h2>Results</h2>
-        <div role="status" aria-live="polite" style={{ color: 'var(--text-muted)', fontSize: 12 }}>Computing…</div>
+        <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: 12 }}>
+          <div className="spinner" aria-hidden="true" /> Computing…
+        </div>
       </section>
     );
   }
