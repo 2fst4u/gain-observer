@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
+import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG , buildInvertedVWires } from '../src/store/antennaGeometry';
 import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
@@ -519,5 +519,73 @@ describe('buildVerticalWhipWires', () => {
 
     const vertical = wires[0];
     expect(vertical.segments).toBeGreaterThan(5); // Forced up by minSegs
+  });
+});
+
+
+describe('buildInvertedVWires', () => {
+  const baseParams = {
+    length: 20, // total length
+    height: 10,
+    orientation: 'N' as const,
+    wireRadius: 0.001,
+    segments: 51,
+    frequency: 14.15,
+    vAngle: 90,
+  };
+
+  it('constructs basic inverted V geometry correctly', () => {
+    const wires = buildInvertedVWires(baseParams);
+    expect(wires).toHaveLength(3); // left leg, right leg, bridge
+
+    const left = wires.find(w => w.tag === LEFT_LEG_TAG);
+    const right = wires.find(w => w.tag === RIGHT_LEG_TAG);
+    const bridge = wires.find(w => w.tag === FEED_BRIDGE_TAG);
+
+    expect(left).toBeDefined();
+    expect(right).toBeDefined();
+    expect(bridge).toBeDefined();
+
+    // Check apex height
+    expect(bridge!.start[2]).toBe(10);
+    expect(bridge!.end[2]).toBe(10);
+
+    // Check legs slope downwards
+    expect(left!.start[2]).toBeLessThan(10);
+    expect(right!.end[2]).toBeLessThan(10);
+  });
+
+  it('clamps the leg slope if it would hit the ground', () => {
+    const params = {
+      ...baseParams,
+      length: 40, // longer legs
+      vAngle: 60, // steeper slope
+    };
+
+    // With length=40 (leg length ~20m) and vAngle=60 (slope 60deg),
+    // z drop would be 20 * sin(60) = 17.3m.
+    // Starting from 10m height, it would go underground (-7.3m).
+    // The physics engine should clamp the tips to SLOPING_V_MIN_TIP_Z_M (0.5m).
+
+    const wires = buildInvertedVWires(params);
+    const left = wires.find(w => w.tag === LEFT_LEG_TAG);
+    const right = wires.find(w => w.tag === RIGHT_LEG_TAG);
+
+    expect(left!.start[2]).toBeCloseTo(0.5, 2);
+    expect(right!.end[2]).toBeCloseTo(0.5, 2);
+  });
+
+  it('distributes segments appropriately based on frequency', () => {
+    const paramsLowFreq = { ...baseParams, frequency: 3.5, segments: 11 };
+    const paramsHighFreq = { ...baseParams, frequency: 28.5, segments: 11 };
+
+    const wiresLow = buildInvertedVWires(paramsLowFreq);
+    const wiresHigh = buildInvertedVWires(paramsHighFreq);
+
+    const lowSegs = wiresLow.find(w => w.tag === LEFT_LEG_TAG)!.segments;
+    const highSegs = wiresHigh.find(w => w.tag === LEFT_LEG_TAG)!.segments;
+
+    // Higher frequency -> smaller lambda -> more segments needed for same length
+    expect(highSegs).toBeGreaterThan(lowSegs);
   });
 });
