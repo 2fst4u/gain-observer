@@ -192,3 +192,4 @@
 ## 2024-05-24 - Avoid intermediate array allocation and sort overhead for SWR bands
 **Learning:** Combining `.filter` and spread operators `[...extraBands, ...primaryBands]` results in multiple intermediate array allocations which increases garbage collection pressure, particularly in hot paths like the frequency band solver. Replacing these higher-order functional patterns with a simple `for` loop that lazily initializes an array only when extra elements are found avoids the initial copy completely and avoids allocating discarding arrays.
 **Action:** Replaced `.filter` and spread operator merging with a lazy-initialization `for` loop in `src/physics/nec2Engine.ts`.
+## 2026-07-04 - Optimize operatingBandWidth calculation loop\n**Learning:** Combined `Array.find` and fallback looping into a single for-loop pass to avoid unnecessary O(N) operations and closures.\n**Action:** Refactored `src/physics/nec2Engine.ts`.

@@ -495,20 +495,18 @@ export class Nec2Engine implements Engine {
     // resolution when deciding whether to widen the window for distant bands.
     const operatingBandWidth = ((): number => {
       if (primaryBands.length === 0) return f * 0.02;
-      const containing = primaryBands.find((b) => f >= b.fLow && f <= b.fHigh);
-      const distance = (b: SwrBand): number =>
-        Math.min(Math.abs(b.fLow - f), Math.abs(b.fHigh - f));
-      let band = containing;
-      if (!band) {
-        band = primaryBands[0];
-        let bestDistance = distance(band);
-        for (let i = 1; i < primaryBands.length; i++) {
-          const b = primaryBands[i];
-          const d = distance(b);
-          if (d < bestDistance) {
-            bestDistance = d;
-            band = b;
-          }
+      let band = primaryBands[0];
+      let bestDistance = Infinity;
+      for (let i = 0; i < primaryBands.length; i++) {
+        const b = primaryBands[i];
+        if (f >= b.fLow && f <= b.fHigh) {
+          band = b;
+          break;
+        }
+        const d = Math.min(Math.abs(b.fLow - f), Math.abs(b.fHigh - f));
+        if (d < bestDistance) {
+          bestDistance = d;
+          band = b;
         }
       }
       return Math.max(band.fHigh - band.fLow, f * 0.001);
