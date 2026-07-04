@@ -909,6 +909,38 @@ function calcFoldedAntennaPoints(
   };
 }
 
+// Target segment length. NEC's thin-wire kernel loses accuracy for closely
+// spaced parallel wires once the segment length grows much larger than the
+// wire separation, so the folded dipole must segment finely enough that each
+// segment is no longer than ~half the aperture (empirically the point where
+// the free-space gain converges to the dipole value). We take the smaller of
+// the usual density target (λ / SEGS_PER_WAVELENGTH) and half the aperture,
+// then derive all segment counts from that single target length. This also
+// keeps the corner junction segments (conductor vs. connector) close in
+// length. The aperture is capped (see the store) so this stays within
+// MAX_SEGS_PER_LEG across the HF range.
+function calcFoldedTargetSegLen(frequency: number, aperture: number): number {
+  const lambda = wavelengthMeters(frequency);
+  return Math.max(1e-3, Math.min(lambda / SEGS_PER_WAVELENGTH, aperture / 2));
+}
+
+function calcFoldedLegSegs(
+  len: number,
+  targetSegLen: number,
+  minAllowed: number,
+  userFloor: number,
+  wireRadius: number
+): number {
+  return safeSegs(
+    len,
+    Math.min(
+      MAX_SEGS_PER_LEG,
+      Math.max(minAllowed, Math.ceil(len / targetSegLen), userFloor)
+    ),
+    wireRadius
+  );
+}
+
 function calcFoldedAntennaSegments(
   frequency: number,
   aperture: number,
@@ -918,49 +950,24 @@ function calcFoldedAntennaSegments(
   bridgeHalf: number,
   gapHalf: number
 ) {
-  const lambda = wavelengthMeters(frequency);
-
-  // Target segment length. NEC's thin-wire kernel loses accuracy for closely
-  // spaced parallel wires once the segment length grows much larger than the
-  // wire separation, so the folded dipole must segment finely enough that each
-  // segment is no longer than ~half the aperture (empirically the point where
-  // the free-space gain converges to the dipole value). We take the smaller of
-  // the usual density target (λ / SEGS_PER_WAVELENGTH) and half the aperture,
-  // then derive all segment counts from that single target length. This also
-  // keeps the corner junction segments (conductor vs. connector) close in
-  // length. The aperture is capped (see the store) so this stays within
-  // MAX_SEGS_PER_LEG across the HF range.
-  const targetSegLen = Math.max(1e-3, Math.min(lambda / SEGS_PER_WAVELENGTH, aperture / 2));
-
-  const segsForLen = (len: number, userFloor: number): number =>
-    safeSegs(
-      len,
-      Math.min(
-        MAX_SEGS_PER_LEG,
-        Math.max(MIN_SEGS_PER_LEG, Math.ceil(len / targetSegLen), userFloor),
-      ),
-      wireRadius,
-    );
+  const targetSegLen = calcFoldedTargetSegLen(frequency, aperture);
+  const userFloor = Math.round(segments / 2);
 
   // Each half of the fed conductor (corner → feed bridge edge).
   const halfCondLen = Math.max(0.01, half - bridgeHalf);
-  const halfSegs = segsForLen(halfCondLen, Math.round(segments / 2));
+  const halfSegs = calcFoldedLegSegs(halfCondLen, targetSegLen, MIN_SEGS_PER_LEG, userFloor, wireRadius);
 
   // Each half of the top conductor runs from its outer end to the gap edge.
   // When gapHalf = 0 both halves terminate at the same point (topCenter),
   // making a continuous wire electrically.
   // Both halves are symmetric: same length and same segment count.
   const halfOppLen = Math.max(0.01, half - gapHalf);
-  const leftOppSegs = segsForLen(halfOppLen, Math.round(segments / 2));
+  const leftOppSegs = calcFoldedLegSegs(halfOppLen, targetSegLen, MIN_SEGS_PER_LEG, userFloor, wireRadius);
   const rightOppSegs = leftOppSegs;
 
   // End connectors span the aperture vertically, segmented at the same target
   // length so their segments match the adjacent conductor segments at the corners.
-  const connSegs = safeSegs(
-    aperture,
-    Math.max(1, Math.min(MAX_SEGS_PER_LEG, Math.ceil(aperture / targetSegLen))),
-    wireRadius
-  );
+  const connSegs = calcFoldedLegSegs(aperture, targetSegLen, 1, 1, wireRadius);
 
   return { halfSegs, leftOppSegs, rightOppSegs, connSegs };
 }
