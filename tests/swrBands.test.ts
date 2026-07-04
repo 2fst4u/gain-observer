@@ -59,6 +59,43 @@ describe('findSwrBands', () => {
   it('handles an empty sweep', () => {
     expect(findBandsHelper([], [], 2)).toHaveLength(0);
   });
+
+  it('handles division by zero mathematically identical cases in findSwrBands logic (entering band without zero division)', () => {
+    // Prev > threshold, Curr <= threshold. Prev=2.1, Curr=1.9, threshold=2.0
+    // Tests the path without the ternary.
+    const bands = findBandsHelper([7.0, 7.5], [2.1, 1.9], 2.0);
+    expect(bands).toHaveLength(1);
+  });
+
+  it('flags a band clipped at the high edge only', () => {
+    // It enters the band but the sweep ends before it leaves.
+    const bands = findBandsHelper([7.0, 7.1, 7.2], [2.5, 1.2, 1.5], 2);
+    expect(bands).toHaveLength(1);
+    expect(bands[0]!.lowClipped).toBe(false);
+    expect(bands[0]!.highClipped).toBe(true);
+    expect(bands[0]!.fLow).toBeCloseTo(7.0 + 0.1 * (0.5 / 1.3), 6);
+    expect(bands[0]!.fHigh).toBe(7.2);
+  });
+
+  it('leaves a band precisely handling interpolation on exit', () => {
+    const bands = findBandsHelper([7.0, 7.1, 7.2], [1.5, 1.2, 2.5], 2);
+    expect(bands).toHaveLength(1);
+    expect(bands[0]!.lowClipped).toBe(true);
+    expect(bands[0]!.highClipped).toBe(false);
+    expect(bands[0]!.fLow).toBe(7.0);
+    // Crosses threshold on exit between 7.1 and 7.2
+    expect(bands[0]!.fHigh).toBeCloseTo(7.1 + 0.1 * (0.8 / 1.3), 6);
+  });
+
+  it('handles division by zero mathematically identical cases in findSwrBands logic (leaving band without zero division)', () => {
+    // Prev <= threshold, Curr > threshold. Prev=1.9, Curr=2.1, threshold=2.0
+    // Tests the path without the ternary.
+    const bands = findBandsHelper([7.0, 7.5], [1.9, 2.1], 2.0);
+    expect(bands).toHaveLength(1);
+    expect(bands[0]!.lowClipped).toBe(true);
+    expect(bands[0]!.highClipped).toBe(false);
+    expect(bands[0]!.fHigh).toBeCloseTo(7.0 + 0.5 * (0.1 / 0.2), 6);
+  });
 });
 
 describe('formatBandwidth', () => {

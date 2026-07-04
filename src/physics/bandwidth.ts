@@ -48,12 +48,12 @@ export function findSwrBands<T>(
 
     if (prevS > threshold && currS <= threshold) {
       // Entering a band.
-      const t = currS === prevS ? 0 : (threshold - prevS) / (currS - prevS);
+      const t = (threshold - prevS) / (currS - prevS);
       curLow = prevF + t * (currF - prevF);
       curLowClipped = false;
     } else if (prevS <= threshold && currS > threshold && curLow !== null) {
       // Leaving a band.
-      const t = currS === prevS ? 0 : (threshold - prevS) / (currS - prevS);
+      const t = (threshold - prevS) / (currS - prevS);
       const highEdge = prevF + t * (currF - prevF);
       bands.push({ fLow: curLow, fHigh: highEdge, lowClipped: curLowClipped, highClipped: false });
       curLow = null;
