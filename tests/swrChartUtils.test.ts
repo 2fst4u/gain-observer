@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeChartData, computeStats, formatBandwidth, computeYMax, computeOptions, buildAnnotations } from '../src/components/Charts/swrChartUtils';
+import { computeChartData, computeStats, formatBandwidth, computeYMax, computeOptions, buildAnnotations, buildScales } from '../src/components/Charts/swrChartUtils';
 import type { SweepPoint } from '../src/physics/types';
 import type { ComparisonSnapshot } from '../src/store/antennaStore';
 
@@ -383,7 +383,6 @@ describe('computeOptions callbacks', () => {
   });
 });
 
-
 describe('buildAnnotations', () => {
   const baseArgs = {
     frequency: 7.1,
@@ -465,5 +464,40 @@ describe('buildAnnotations', () => {
     // Clipped band should not have edge markers
     expect(annotations.band1Low).toBeUndefined();
     expect(annotations.band1High).toBeUndefined();
+  });
+});
+
+describe('buildScales', () => {
+  const yMax = 5;
+  const xBounds = { min: 6.9, max: 7.3 };
+  const chartText = '#ffffff';
+  const chartGrid = '#333333';
+
+  it('constructs correct chart scales objects', () => {
+    const scales = buildScales(yMax, xBounds, chartText, chartGrid);
+
+    // y-axis checks
+    expect(scales?.y?.min).toBe(1);
+    expect(scales?.y?.max).toBe(5);
+    expect(scales?.y?.ticks?.color).toBe('#ffffff');
+    expect(scales?.y?.grid?.color).toBe('#333333');
+    expect(scales?.y?.title?.display).toBe(true);
+    expect(scales?.y?.title?.text).toBe('SWR (vs 50 Ω)');
+    expect(scales?.y?.title?.color).toBe('#ffffff');
+
+    // x-axis checks
+    expect(scales?.x?.type).toBe('linear');
+    expect(scales?.x?.min).toBe(6.9);
+    expect(scales?.x?.max).toBe(7.3);
+    expect(scales?.x?.ticks?.color).toBe('#ffffff');
+    expect(scales?.x?.grid?.color).toBe('#333333');
+    expect(scales?.x?.title?.display).toBe(true);
+    expect(scales?.x?.title?.text).toBe('MHz');
+    expect(scales?.x?.title?.color).toBe('#ffffff');
+
+    // x-axis callback formats to 2 decimal places
+    const callback = scales?.x?.ticks?.callback as (value: number | string) => string;
+    expect(callback(7.1234)).toBe('7.12');
+    expect(callback('7.5')).toBe('7.50');
   });
 });
