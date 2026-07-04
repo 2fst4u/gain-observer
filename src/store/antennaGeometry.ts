@@ -126,19 +126,18 @@ export interface InvertedVWiresParams {
   vAngle: number;
 }
 
-/**
- * Builds the wires for an Inverted V antenna.
- */
-export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
+function calcInvertedVPoints(
+  orientation: Orientation,
+  h: number,
+  vAngle: number,
+  length: number,
+) {
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
-  const h = params.height;
-  const [dx, dy] = orientationVector(params.orientation);
+  const [dx, dy] = orientationVector(orientation);
+  const slopeDeg = (180 - vAngle) / 2;
 
-
-  const slopeDeg = (180 - params.vAngle) / 2;
-
-  // Total radiating length is params.length. Each leg is (params.length - bridge) / 2.
-  const legLen = Math.max(0.1, (params.length - FEED_BRIDGE_LENGTH_M) / 2);
+  // Total radiating length is length. Each leg is (length - bridge) / 2.
+  const legLen = Math.max(0.1, (length - FEED_BRIDGE_LENGTH_M) / 2);
 
   const maxSin = legLen > 0 ? (h - SLOPING_V_MIN_TIP_Z_M) / legLen : 0;
   const maxSlopeRad = Math.asin(Math.max(0, Math.min(1, maxSin)));
@@ -160,6 +159,26 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
     return [cleanZero(wx), cleanZero(wy), cleanZero(wz)];
   }
 
+  return {
+    legLen,
+    apexLeft: legPointAt(0, -1),
+    apexRight: legPointAt(0, 1),
+    tipLeft: legPointAt(legLen, -1),
+    tipRight: legPointAt(legLen, 1),
+  };
+}
+
+/**
+ * Builds the wires for an Inverted V antenna.
+ */
+export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
+  const { legLen, apexLeft, apexRight, tipLeft, tipRight } = calcInvertedVPoints(
+    params.orientation,
+    params.height,
+    params.vAngle,
+    params.length
+  );
+
   const lambda = wavelengthMeters(params.frequency);
   const minSegPerLeg = Math.ceil((SEGS_PER_WAVELENGTH * legLen) / lambda);
   const segmentsPerLeg = Math.min(
@@ -167,12 +186,9 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
     Math.max(MIN_SEGS_PER_LEG, minSegPerLeg, Math.round(params.segments / 2)),
   );
 
-  const apexLeft = legPointAt(0, -1);
-  const apexRight = legPointAt(0, 1);
-
   return [
     {
-      start: legPointAt(legLen, -1),
+      start: tipLeft,
       end: apexLeft,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
@@ -180,7 +196,7 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
     },
     {
       start: apexRight,
-      end: legPointAt(legLen, 1),
+      end: tipRight,
       radius: params.wireRadius,
       segments: segmentsPerLeg,
       tag: RIGHT_LEG_TAG,
