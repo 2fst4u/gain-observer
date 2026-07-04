@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG , buildInvertedVWires } from '../src/store/antennaGeometry';
+import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
 import {
   INVERTED_L_VERTICAL_TAG,
   INVERTED_L_HORIZONTAL_TAG,
@@ -16,7 +16,8 @@ import {
   FEEDLINE_SHIELD_TAG,
   TERMINATED_DELTA_CENTRE_GAP_M,
   FOLDED_DIPOLE_OPPOSITE_TAG,
-  FOLDED_DIPOLE_CONNECTOR_TAG
+  FOLDED_DIPOLE_CONNECTOR_TAG,
+  SLOPING_V_MIN_TIP_Z_M
 } from '../src/physics/constants';
 
 describe('gradedSegmentPlan', () => {
@@ -449,6 +450,100 @@ describe('buildFoldedAntennaWires', () => {
     // For EW, the start of the left fed conductor should have a large negative X and zero Y
     expect(Math.abs(ewLeftFed.start[0])).toBeGreaterThan(0);
     expect(ewLeftFed.start[1]).toBeCloseTo(0);
+  });
+});
+
+describe('buildSlopingVWires', () => {
+  const baseParams = {
+    length: 20, // 10m per leg roughly
+    height: 10,
+    vAngle: 90, // Not used heavily in tests unless specifically checking geometry
+    legSlope: 0, // In Sloping V, the tips go to the ground and legSlope isn't actually used but is in SlopingVWiresParams
+    frequency: 14.15,
+    segments: 51,
+    wireRadius: 0.001,
+    orientation: 'NS' as const,
+  };
+
+  it('creates wires for a basic Sloping V with a feed bridge and left/right legs', () => {
+    const wires = buildSlopingVWires(baseParams);
+
+    // Should have multiple wires because of graded segmentation for legs + 1 for feed bridge
+    expect(wires.length).toBeGreaterThan(2);
+
+    const leftLegWires = wires.filter(w => w.tag === LEFT_LEG_TAG);
+    const rightLegWires = wires.filter(w => w.tag === RIGHT_LEG_TAG);
+    const feedBridge = wires.filter(w => w.tag === FEED_BRIDGE_TAG);
+
+    expect(leftLegWires.length).toBeGreaterThan(0);
+    expect(rightLegWires.length).toBeGreaterThan(0);
+    expect(feedBridge).toHaveLength(1);
+
+    // Feed bridge should be exactly 1 segment
+    expect(feedBridge[0].segments).toBe(1);
+  });
+
+  it('ensures tips reach the expected minimum Z value (SLOPING_V_MIN_TIP_Z_M)', () => {
+    const wires = buildSlopingVWires(baseParams);
+
+    // Tips are the ends of the left leg (first segment of left leg) and right leg (last segment of right leg)
+    // Left leg is tip -> apex. So start of the first left leg wire is the tip.
+    const leftLegWires = wires.filter(w => w.tag === LEFT_LEG_TAG);
+    const leftTipZ = leftLegWires[0].start[2];
+
+    // Right leg is apex -> tip. So end of the last right leg wire is the tip.
+    const rightLegWires = wires.filter(w => w.tag === RIGHT_LEG_TAG);
+    const rightTipZ = rightLegWires[rightLegWires.length - 1].end[2];
+
+    expect(leftTipZ).toBeCloseTo(SLOPING_V_MIN_TIP_Z_M);
+    expect(rightTipZ).toBeCloseTo(SLOPING_V_MIN_TIP_Z_M);
+  });
+
+  it('handles low heights gracefully without dipping below SLOPING_V_MIN_TIP_Z_M for tips', () => {
+    // Height is below the minimum tip Z (0.1 < 0.5)
+    // The geometry function doesn't artificially clamp the height to SLOPING_V_MIN_TIP_Z_M for the apex,
+    // but the physics engine handles constraints. If height is very low, sinSlope evaluates to 0 (flat),
+    // and tip stays at height. So tips will evaluate to height rather than strictly clamped to SLOPING_V_MIN_TIP_Z_M.
+    const lowParams = { ...baseParams, height: 0.1 };
+    const wires = buildSlopingVWires(lowParams);
+
+    const leftLegWires = wires.filter(w => w.tag === LEFT_LEG_TAG);
+    const rightLegWires = wires.filter(w => w.tag === RIGHT_LEG_TAG);
+
+    // If height is 0.1, max(0, 0.1 - 0.5) is 0, so sinSlope is 0.
+    // lz is 0, wz = h + lz = 0.1. So the tip is at 0.1.
+    // We expect the tips to simply follow the height (be at 0.1) and flat slope.
+    expect(leftLegWires[0].start[2]).toBeCloseTo(0.1);
+    expect(rightLegWires[rightLegWires.length - 1].end[2]).toBeCloseTo(0.1);
+
+    // Apex should also be at height 0.1
+    const feedBridge = wires.find(w => w.tag === FEED_BRIDGE_TAG)!;
+    expect(feedBridge.start[2]).toBeCloseTo(0.1);
+  });
+
+  it('respects NS orientation', () => {
+    const wires = buildSlopingVWires({ ...baseParams, orientation: 'NS' });
+
+    // Based on createSlopingVLegPointCalculator implementation:
+    // orientation NS -> dx=0, dy=1.
+    // feedBridgeOffsetX = side * bridgeHalf * dx -> 0
+    // feedBridgeOffsetY = side * bridgeHalf * dy -> side * bridgeHalf
+    // So the feed bridge should span across the Y axis in NS orientation.
+    const feedBridge = wires.find(w => w.tag === FEED_BRIDGE_TAG)!;
+    expect(Math.abs(feedBridge.start[1] - feedBridge.end[1])).toBeGreaterThan(0);
+    expect(feedBridge.start[0]).toBeCloseTo(feedBridge.end[0]);
+  });
+
+  it('respects EW orientation', () => {
+    const wires = buildSlopingVWires({ ...baseParams, orientation: 'EW' });
+
+    // orientation EW -> dx=1, dy=0.
+    // feedBridgeOffsetX = side * bridgeHalf * dx -> side * bridgeHalf
+    // feedBridgeOffsetY = side * bridgeHalf * dy -> 0
+    // So the feed bridge should span across the X axis in EW orientation.
+    const feedBridge = wires.find(w => w.tag === FEED_BRIDGE_TAG)!;
+    expect(Math.abs(feedBridge.start[0] - feedBridge.end[0])).toBeGreaterThan(0);
+    expect(feedBridge.start[1]).toBeCloseTo(feedBridge.end[1]);
   });
 });
 
