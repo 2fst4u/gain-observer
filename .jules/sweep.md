@@ -94,3 +94,5 @@
 >> **What:** The `buildTerminationElements` function in `src/store/antennaStore.ts` exceeded 100 lines and combined three separate logic branches (`sloping-v`, `terminated-delta`, and `folded-dipole`).
 >> **Why:** Splitting this high-complexity function into three smaller, focused helper functions and delegating logic via a `switch` statement makes the codebase significantly easier to read, maintain, and unit test in isolation.
 >> **Verification:** Fully verified via unit tests (`npm run test -- --run`) and static analysis (`npm run lint`), ensuring all behavior perfectly matches the original implementation.
+## 2024-05-18 - Refactored calcFoldedAntennaSegments
+**Action:** Extracted `calcFoldedTargetSegLen` and `calcFoldedLegSegs` from `calcFoldedAntennaSegments` to reduce complexity and improve modularity. Preserved the explanatory block comment above the extracted length calculation function.
