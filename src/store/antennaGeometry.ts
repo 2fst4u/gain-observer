@@ -126,14 +126,11 @@ export interface InvertedVWiresParams {
   vAngle: number;
 }
 
-/**
- * Builds the wires for an Inverted V antenna.
- */
-export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
+
+function calcInvertedVGeometry(params: InvertedVWiresParams) {
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
   const h = params.height;
   const [dx, dy] = orientationVector(params.orientation);
-
 
   const slopeDeg = (180 - params.vAngle) / 2;
 
@@ -159,6 +156,15 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
 
     return [cleanZero(wx), cleanZero(wy), cleanZero(wz)];
   }
+
+  return { legLen, legPointAt };
+}
+
+/**
+ * Builds the wires for an Inverted V antenna.
+ */
+export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
+  const { legLen, legPointAt } = calcInvertedVGeometry(params);
 
   const lambda = wavelengthMeters(params.frequency);
   const minSegPerLeg = Math.ceil((SEGS_PER_WAVELENGTH * legLen) / lambda);
