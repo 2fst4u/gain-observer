@@ -48,9 +48,9 @@ export function GroundControl() {
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>
-        Ground
+        <label htmlFor="ground-preset" style={{ display: 'inline-block' }}>Ground</label>
         <button
-          style={{ padding: '2px 8px', fontSize: 11 }}
+          style={{ padding: '2px 8px', fontSize: 11, marginLeft: 8 }}
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
           aria-label={expanded ? 'Simple: Hide custom ground settings' : 'Custom: Show custom ground settings'}
@@ -59,7 +59,7 @@ export function GroundControl() {
           {expanded ? 'Simple' : 'Custom'}
         </button>
       </h2>
-      <select aria-label="Ground preset" value={groundId} onChange={(e) => setGround(e.target.value)} aria-describedby="ground-hint">
+      <select id="ground-preset" aria-label="Ground preset" value={groundId} onChange={(e) => setGround(e.target.value)} aria-describedby="ground-hint">
         {GROUND_PRESETS.map((g) => (
           <option key={g.id} value={g.id}>{g.label}</option>
         ))}

@@ -36,9 +36,14 @@ export function FrequencyControl() {
   return (
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2>Frequency <span className="badge">{frequency.toFixed(3)} MHz</span></h2>
+      <h2>
+        <label htmlFor="frequency-input">
+          Frequency <span className="badge">{frequency.toFixed(3)} MHz</span>
+        </label>
+      </h2>
       <div className="row">
         <input
+          id="frequency-input"
           type="number"
           min={1.8}
           max={30}
