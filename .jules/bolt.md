@@ -160,14 +160,18 @@
 ## 2024-05-29 - Array method optimization in high frequency path
 **Learning:** In the `nec2Engine.ts` file, inside the `findSwrBands` calls, using `.map()` on the `scan` and `broadScan` arrays generates unnecessary intermediate arrays before passing them into the function. This allocates more memory and requires more GC time, especially when dealing with potentially large sweep arrays on every global state update during simulations.
 **Action:** Replace chains of array mapping methods like `scan.map(x).map(y)` with single, explicit `for` loops inside the function block to directly construct arrays and avoid intermediate allocation overhead.
-## 2026-05-30 - Optimize SWR Chart dataset mapping\n**Learning:** High-frequency chart renders map over large arrays creating GC pressure. Pre-allocating arrays and using for loops instead of Array.prototype.map() provides a measurable speedup and avoids callback allocation.\n**Action:** Replaced .map() calls in `computeChartData` with IIFEs wrapping a standard for loop.
+## 2026-05-30 - Optimize SWR Chart dataset mapping
+**Learning:** High-frequency chart renders map over large arrays creating GC pressure. Pre-allocating arrays and using for loops instead of Array.prototype.map() provides a measurable speedup and avoids callback allocation.
+**Action:** Replaced .map() calls in `computeChartData` with IIFEs wrapping a standard for loop.
 ## 2026-05-30 - Avoid Intermediate Array Allocations in High-Frequency Paths
 **Learning:** In high-frequency computational paths, mapping data into parallel intermediate arrays (even with pre-allocated `new Array(length)` and manual `for` loops) incurs noticeable memory allocation overhead and GC pressure. Refactoring utility functions (like `findSwrBands`) to accept a generic array (`T[]`) along with inline accessor functions (`(item: T) => number`) allows processing complex data in place, significantly reducing execution time.
 **Action:** Refactored `findSwrBands` in `src/physics/bandwidth.ts` to use generic items with accessor functions, updating calls in `nec2Engine.ts` and `swrChartUtils.ts` to avoid creating intermediate arrays for frequency and SWR values.
 ## 2025-02-18 - Optimize SWR Chart Data Processing
 **Learning:** High-frequency render blocks passing large arrays to Chart.js shouldn't use `.map()` which generates intermediate copies and garbage, but instead pre-allocate arrays and populate via `for` loops.
 **Action:** Replaced `.map()` with pre-allocated `for` loops in `src/components/Charts/swrChartUtils.ts` (computeChartData).
-## 2026-05-30 - Avoid Map Filter Chaining Array Allocations\n**Learning:** Chaining `.map().filter()` calls inside high-frequency render functions like `useDipoleGeometry` generates unnecessary intermediate shallow array copies and incurs excessive garbage collection pressure, particularly when handling 3D scene re-renders.\n**Action:** Replace functional map/filter chaining with a single standard `for` loop and array `push()` with early `continue` statements to eliminate intermediate allocations.
+## 2026-05-30 - Avoid Map Filter Chaining Array Allocations
+**Learning:** Chaining `.map().filter()` calls inside high-frequency render functions like `useDipoleGeometry` generates unnecessary intermediate shallow array copies and incurs excessive garbage collection pressure, particularly when handling 3D scene re-renders.
+**Action:** Replace functional map/filter chaining with a single standard `for` loop and array `push()` with early `continue` statements to eliminate intermediate allocations.
 
 ## 2026-05-31 - Avoid Array.prototype.map() in PolarPlots
 **Learning:** In high-frequency React component renders (like rendering polar charts based on varying parameters), using `.map()` on arrays to normalise data creates unnecessary callback execution overhead and unoptimized array allocations, leading to increased GC pressure.
@@ -192,9 +196,14 @@
 ## 2024-05-24 - Avoid intermediate array allocation and sort overhead for SWR bands
 **Learning:** Combining `.filter` and spread operators `[...extraBands, ...primaryBands]` results in multiple intermediate array allocations which increases garbage collection pressure, particularly in hot paths like the frequency band solver. Replacing these higher-order functional patterns with a simple `for` loop that lazily initializes an array only when extra elements are found avoids the initial copy completely and avoids allocating discarding arrays.
 **Action:** Replaced `.filter` and spread operator merging with a lazy-initialization `for` loop in `src/physics/nec2Engine.ts`.
-## 2026-07-04 - Optimize operatingBandWidth calculation loop\n**Learning:** Combined `Array.find` and fallback looping into a single for-loop pass to avoid unnecessary O(N) operations and closures.\n**Action:** Refactored `src/physics/nec2Engine.ts`.
+## 2026-07-04 - Optimize operatingBandWidth calculation loop
+**Learning:** Combined `Array.find` and fallback looping into a single for-loop pass to avoid unnecessary O(N) operations and closures.
+**Action:** Refactored `src/physics/nec2Engine.ts`.
 
 ## 2024-05-18 - Optimize Azimuthal Wedges
 
 **Learning:** When helper functions called repeatedly within tight loops (like `worseStatus` and `worseQuality` during radar wedge rendering) dynamically allocate objects on each iteration (`const rank = { ... }`), refactoring them to use static inline conditional logic eliminates redundant memory allocations and vastly improves execution speed. Additionally, when building connected geometries across a loop where iterations share vertices, caching and carrying over the calculated coordinates from the current iteration to the next (e.g., `aPoint = bPoint`) halves the number of expensive array accesses and trigonometric math operations (`Math.sin`/`Math.cos`).
 **Action:** Refactored `worseStatus` and `worseQuality` to use inline conditions instead of object allocations, and optimized the `buildAzimuthalWedges` loop to carry over shared coordinates, cutting rendering time by ~30%.
+## 2026-07-05 - Optimize Bilinear Interpolation Math
+**Learning:** In hot rendering loops (like computing 3D radiation pattern geometries), optimizing the standard linear interpolation formula from `v0 * (1 - t) + v1 * t` to `v0 + (v1 - v0) * t` saves one multiplication per interpolation per vertex, providing a small but compounding performance improvement.
+**Action:** Refactored `RadiationPattern.tsx` to use the optimized LERP equation without sacrificing the necessary boundary constraints (modulo/clamping) for the array lookups.

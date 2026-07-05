@@ -111,9 +111,12 @@ function buildRenderGeometry(
     const v10 = data[row1 + pi0]!;
     const v11 = data[row1 + pi1]!;
 
-    const v0 = v00 * (1 - fp) + v01 * fp;
-    const v1 = v10 * (1 - fp) + v11 * fp;
-    const gainDb = v0 * (1 - ft) + v1 * ft + realizedGainOffsetDb;
+    // ⚡ Bolt: Performance Optimization
+    // Inline bilinear interpolation math optimized: changed v0 * (1 - t) + v1 * t to
+    // v0 + (v1 - v0) * t. This saves one multiplication operation per interpolation per vertex.
+    const v0 = v00 + (v01 - v00) * fp;
+    const v1 = v10 + (v11 - v10) * fp;
+    const gainDb = v0 + (v1 - v0) * ft + realizedGainOffsetDb;
 
     // Position
     const radius = Math.exp(Math.max(gainDb, RADIUS_GAIN_FLOOR_DBI) * scaleFactor) * linearRangeFactor;
