@@ -105,3 +105,7 @@
 ## 2026-06-29 - Terminated Delta and T2FD Terminology Drift
 **Learning:** `docs/antenna-spec.md` incorrectly referred to the Terminated Delta as a T2FD (Terminated Tilted Folded Dipole). A Terminated Delta is an aperiodic loop, but the T2FD designation specifically applies to a Terminated Folded Dipole.
 **Action:** Removed references to T2FD in the Terminated Delta documentation and properly attributed T2FD to the Terminated Folded Dipole section, referring to the Terminated Delta as its "triangular cousin".
+
+## 2026-06-30 - Horizontal Antenna Min Height Constraint Drift
+**Learning:** The `docs/antenna-spec.md` falsely claimed that horizontal antennas like the Center-Fed Dipole and Terminated Folded Dipole have a strict minimum height constraint of `z >= 0.1 m` to avoid NEC-2 `GE 1` instability. In reality, the engine (`src/store/antennaStore.ts`) fully supports modeling these antennas at `height = 0` (or `height <= 0`) by seamlessly switching to a free space environment without ground. The documentation drifted from the implemented physics model, unnecessarily restricting perceived capabilities.
+**Action:** The documentation in `docs/antenna-spec.md` was updated for the Dipole and Folded Dipole to remove the false `0.1 m` constraint and explicitly clarify that they support `height <= 0` by switching to free space.
