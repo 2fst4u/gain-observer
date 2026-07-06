@@ -64,14 +64,13 @@ describe('App', () => {
       expect(useAntennaStore.getState().units).toBe('metric');
     });
 
-    it('changes mode to normal on "m" or "M"', () => {
-      useAntennaStore.setState({ mode: 'comparison' });
+    it('toggles mode on "m" or "M"', () => {
+      useAntennaStore.setState({ mode: 'normal' });
       render(<App />);
 
       fireEvent.keyDown(window, { key: 'm' });
-      expect(useAntennaStore.getState().mode).toBe('normal');
+      expect(useAntennaStore.getState().mode).toBe('comparison');
 
-      useAntennaStore.setState({ mode: 'comparison' });
       fireEvent.keyDown(window, { key: 'M' });
       expect(useAntennaStore.getState().mode).toBe('normal');
     });

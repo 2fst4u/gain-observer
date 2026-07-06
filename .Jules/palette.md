@@ -20,3 +20,7 @@
 ## 2024-08-01 - Avoid bare letter C for shortcuts
 **Learning:** Using the bare letter `C` (or `c`) as a global keyboard shortcut can interfere with standard operating system and browser commands, such as `Ctrl+C` or `Cmd+C` for copying text.
 **Action:** Always verify that proposed keyboard shortcuts do not conflict with common user expectations or essential browser functionality. If a shortcut conflicts, it must be removed or modified to include modifier keys (like Alt or Shift), and the UI documentation must reflect this.
+
+## 2024-08-01 - Toggling Keyboard Shortcuts
+**Learning:** Keyboard shortcuts that navigate between two primary modes (like Normal and Compare) are more intuitive when implemented as a toggle, rather than a one-way jump.
+**Action:** Always implement mode-switching shortcuts as toggles when navigating between two exclusive states, and ensure UI hints (like `aria-keyshortcuts`) reflect this behavior on both states.
