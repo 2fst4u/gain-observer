@@ -340,7 +340,7 @@ export function buildScales(
   };
 }
 
-export function buildPlugins(
+function buildPlugins(
   comparisonActive: boolean,
   chartText: string,
   annotations: Record<string, AnnotationOptions>

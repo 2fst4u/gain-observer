@@ -96,3 +96,6 @@
 >> **Verification:** Fully verified via unit tests (`npm run test -- --run`) and static analysis (`npm run lint`), ensuring all behavior perfectly matches the original implementation.
 ## 2024-05-18 - Refactored calcFoldedAntennaSegments
 **Action:** Extracted `calcFoldedTargetSegLen` and `calcFoldedLegSegs` from `calcFoldedAntennaSegments` to reduce complexity and improve modularity. Preserved the explanatory block comment above the extracted length calculation function.
+## 2024-07-07 - [Unused Exports Cleanup]
+**Learning:** Tools like `knip` often flag internal utility functions (like `safeSegs` or `buildPlugins`) as unused exports when they are only consumed locally within the same module.
+**Action:** Always check if a flagged unused export is being used internally before completely deleting the function. If it is used locally, merely strip the `export` keyword to restrict its scope rather than removing the code entirely, then recalculate and enforce Vitest coverage thresholds to prevent CI regressions.
