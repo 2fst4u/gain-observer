@@ -326,6 +326,7 @@ export interface AntennaState {
   setUnits(u: UnitSystem): void;
   toggleUnits(): void;
   setMode(m: Mode): void;
+  toggleMode(): void;
   setColormap(c: Colormap): void;
   setPatternScale(s: number): void;
   setDbRange(db: number): void;
@@ -693,6 +694,13 @@ export const useAntennaStore = create<AntennaState>()(
       setMode: (m) => set((s) => {
         s.mode = m;
         if (m === 'comparison' && !s.comparisonReference) {
+          s.comparisonReference = createComparisonSnapshot(s);
+        }
+      }),
+      toggleMode: () => set((s) => {
+        const newMode = s.mode === 'normal' ? 'comparison' : 'normal';
+        s.mode = newMode;
+        if (newMode === 'comparison' && !s.comparisonReference) {
           s.comparisonReference = createComparisonSnapshot(s);
         }
       }),

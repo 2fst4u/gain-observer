@@ -3,7 +3,7 @@ import type { Mode } from '../../store/antennaStore';
 
 const MODES: Array<{ id: Mode; label: string; hint: string; shortcut?: string }> = [
   { id: 'normal', label: 'Normal', hint: 'Standard DX pattern view', shortcut: 'm' },
-  { id: 'comparison', label: 'Compare', hint: 'Side-by-side two configs' },
+  { id: 'comparison', label: 'Compare', hint: 'Side-by-side two configs', shortcut: 'm' },
 ];
 
 export function ModeSelector() {

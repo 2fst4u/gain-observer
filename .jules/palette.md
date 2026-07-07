@@ -4,3 +4,6 @@
 ## 2024-05-16 - aria-valuetext on Range Inputs
 **Learning:** Range inputs (`<input type="range">`) announce only their raw numeric value to screen readers by default. In a highly technical app with mixed units (meters, feet, degrees, dB), this lacks context.
 **Action:** Always provide an `aria-valuetext` attribute on range sliders that includes both the formatted value and its specific unit (e.g., `aria-valuetext="10.0 m"`).
+## 2024-07-05 - Keyboard Toggles and Form Labels
+**Learning:** Keyboard shortcuts for toggling app modes (like 'm' for Mode) should genuinely toggle between available states rather than just resetting to the default state, as users expect a toggle behavior. Additionally, primary control headings (like "Frequency" and "Ground") should act as `<label>`s linked to their respective inputs via `htmlFor` to provide a larger click target and improve screen reader context.
+**Action:** Always implement shortcuts as true toggles when alternating between two distinct states, and explicitly bind section headings to primary inputs when the heading acts as the de facto visual label.
