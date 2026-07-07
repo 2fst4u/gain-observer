@@ -793,7 +793,7 @@ export interface InvertedLWiresParams {
 /**
  * Ensures segment length is at least ~4x the wire radius for NEC-2 stability.
  */
-export const safeSegs = (len: number, requested: number, wireRadius: number): number => {
+const safeSegs = (len: number, requested: number, wireRadius: number): number => {
   const maxSafe = Math.max(1, Math.floor(len / (4 * wireRadius)));
   return Math.min(requested, maxSafe);
 };
