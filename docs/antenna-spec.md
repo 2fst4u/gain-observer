@@ -238,7 +238,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Structure:** An apex-up, isosceles triangular loop of wire.
 - **Apex Location:** Highest point at $(0, 0, \text{height})$.
 - **Leg Count & Length:** 3 wires forming a triangle, total perimeter $L$.
-- **Reference Length:** $1.02\lambda$ (Resonance).
+- **Reference Length:** $1.0\lambda$ (Resonance).
 - **Angle/Slope:** Equilateral triangle in the vertical plane (flattens to isosceles when the mast height is below the equilateral height; perimeter preserved).
 - **Tips:** Bottom corners.
 - **Min Height:** Bottom wire must be $\ge 0.5$ m above ground.
@@ -276,7 +276,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Structure:** A triangular loop of wire, split at the centre of the base, with a single horizontal _bridge wire_ spanning the gap.
 - **Apex Location:** Highest point at $(0, 0, \text{height})$.
 - **Leg Count & Length:** 3 wires forming a triangle, total perimeter $L$. The bottom wire is split at the centre, so the structure is emitted as two top legs + two half-base wires + one bridge wire across the gap (when terminated).
-- **Reference Length:** $1.02\lambda$ canonical, but resonance is not the design goal: a properly bridged termination flattens impedance across an octave or more, so the antenna is used multi-band rather than at a single design frequency.
+- **Reference Length:** $1.0\lambda$ canonical, but resonance is not the design goal: a properly bridged termination flattens impedance across an octave or more, so the antenna is used multi-band rather than at a single design frequency.
 - **Angle/Slope:** Equilateral triangle in the vertical plane (flattens to isosceles when the mast height is below the equilateral height; perimeter preserved).
 - **Tips:** Bottom corners. The bottom wire is split at the centre with a gap (`TERMINATED_DELTA_CENTRE_GAP_M`).
 - **Min Height:** Bottom wire must be $\ge 0.5$ m above ground.

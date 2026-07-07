@@ -109,3 +109,6 @@
 ## 2026-06-30 - Horizontal Antenna Min Height Constraint Drift
 **Learning:** The `docs/antenna-spec.md` falsely claimed that horizontal antennas like the Center-Fed Dipole and Terminated Folded Dipole have a strict minimum height constraint of `z >= 0.1 m` to avoid NEC-2 `GE 1` instability. In reality, the engine (`src/store/antennaStore.ts`) fully supports modeling these antennas at `height = 0` (or `height <= 0`) by seamlessly switching to a free space environment without ground. The documentation drifted from the implemented physics model, unnecessarily restricting perceived capabilities.
 **Action:** The documentation in `docs/antenna-spec.md` was updated for the Dipole and Folded Dipole to remove the false `0.1 m` constraint and explicitly clarify that they support `height <= 0` by switching to free space.
+## 2026-07-01 - Delta Loop Reference Length Documentation Drift
+**Learning:** The documentation listed the delta loop and terminated delta reference lengths as 1.02λ, likely assuming the use of the ARRL formula. However, the `calculateDefaultLength` function in `src/store/antennaStore.ts` explicitly overrides this and returns exactly 1.0λ for these antenna types as the default starting point.
+**Action:** `docs/antenna-spec.md` was updated to accurately reflect 1.0λ to match the implemented default length logic.
