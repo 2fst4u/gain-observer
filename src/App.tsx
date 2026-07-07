@@ -151,19 +151,19 @@ function sceneFallback(err: Error, reset: () => void) {
 }
 
 function useKeyboardShortcuts(): void {
-  const { toggleTheme, toggleUnits, setMode } = useAntennaStore(useShallow((s) => ({
+  const { toggleTheme, toggleUnits, toggleMode } = useAntennaStore(useShallow((s) => ({
     toggleTheme: s.toggleTheme,
     toggleUnits: s.toggleUnits,
-    setMode: s.setMode,
+    toggleMode: s.toggleMode,
   })));
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
       if (e.key === 't' || e.key === 'T') toggleTheme();
       else if (e.key === 'u' || e.key === 'U') toggleUnits();
-      else if (e.key === 'm' || e.key === 'M') setMode('normal');
+      else if (e.key === 'm' || e.key === 'M') toggleMode();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [toggleTheme, toggleUnits, setMode]);
+  }, [toggleTheme, toggleUnits, toggleMode]);
 }
