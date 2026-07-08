@@ -348,7 +348,6 @@ function TypeControl() {
 
   return (
     <>
-      <label htmlFor="antenna-type">Type</label>
       <select
         id="antenna-type"
         value={antennaType}
@@ -542,7 +541,7 @@ export function GeometryControl() {
   return (
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2>Antenna</h2>
+      <h2><label htmlFor="antenna-type">Antenna</label></h2>
 
       <TypeControl />
       <LengthControl />

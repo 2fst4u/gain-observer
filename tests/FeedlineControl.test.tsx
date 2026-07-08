@@ -80,7 +80,9 @@ describe('FeedlineControl', () => {
 
   it('changes the cable preset when the select changes', () => {
     render(<FeedlineControl />);
-    const select = screen.getByLabelText(/Cable/) as HTMLSelectElement;
+    // Select the label specifically for the Cable select menu,
+    // which we just updated to "Feedline" in FeedlineControl.tsx
+    const select = screen.getByRole('combobox', { name: 'Feedline' });
 
     fireEvent.change(select, { target: { value: 'none' } });
 
