@@ -207,3 +207,6 @@
 ## 2026-07-05 - Optimize Bilinear Interpolation Math
 **Learning:** In hot rendering loops (like computing 3D radiation pattern geometries), optimizing the standard linear interpolation formula from `v0 * (1 - t) + v1 * t` to `v0 + (v1 - v0) * t` saves one multiplication per interpolation per vertex, providing a small but compounding performance improvement.
 **Action:** Refactored `RadiationPattern.tsx` to use the optimized LERP equation without sacrificing the necessary boundary constraints (modulo/clamping) for the array lookups.
+## 2026-07-07 - Avoid Array.prototype.map() in CSS Gradient Generation
+**Learning:** In utility functions like `getColormapCssGradient` that are frequently invoked during UI updates, using `Array.prototype.map()` creates intermediate array allocations and incurs callback execution overhead.
+**Action:** Replace `.map()` with a pre-allocated array (e.g., `new Array(len)`) and a standard `for` loop to reduce garbage collection pressure and improve execution speed, ensuring to add comments explaining the optimization.
