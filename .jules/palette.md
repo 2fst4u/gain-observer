@@ -7,3 +7,6 @@
 ## 2024-07-05 - Keyboard Toggles and Form Labels
 **Learning:** Keyboard shortcuts for toggling app modes (like 'm' for Mode) should genuinely toggle between available states rather than just resetting to the default state, as users expect a toggle behavior. Additionally, primary control headings (like "Frequency" and "Ground") should act as `<label>`s linked to their respective inputs via `htmlFor` to provide a larger click target and improve screen reader context.
 **Action:** Always implement shortcuts as true toggles when alternating between two distinct states, and explicitly bind section headings to primary inputs when the heading acts as the de facto visual label.
+## 2026-07-08 - Bind Headings to Inputs
+**Learning:** Headings that conceptually label a section's primary input (like "Antenna" or "Feedline") should act as explicit `<label>` elements bound to the input via `htmlFor`. This prevents screen readers from encountering redundant, unhelpful labels (like "Type" under "Antenna") and increases the click target size.
+**Action:** Always wrap the section heading text in a `<label htmlFor="...">` when it naturally acts as the visual label for a primary control, and remove the visually redundant inner label.

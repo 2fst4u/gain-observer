@@ -188,7 +188,7 @@ describe('GeometryControl', () => {
 
     render(<GeometryControl />);
 
-    const typeSelect = screen.getByRole('combobox', { name: /Type/i });
+    const typeSelect = screen.getByRole('combobox', { name: /Antenna/i });
     fireEvent.change(typeSelect, { target: { value: 'inverted-v' } });
 
     expect(setAntennaType).toHaveBeenCalledWith('inverted-v');
