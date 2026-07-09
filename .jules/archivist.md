@@ -112,3 +112,7 @@
 ## 2026-07-01 - Delta Loop Reference Length Documentation Drift
 **Learning:** The documentation listed the delta loop and terminated delta reference lengths as 1.02λ, likely assuming the use of the ARRL formula. However, the `calculateDefaultLength` function in `src/store/antennaStore.ts` explicitly overrides this and returns exactly 1.0λ for these antenna types as the default starting point.
 **Action:** `docs/antenna-spec.md` was updated to accurately reflect 1.0λ to match the implemented default length logic.
+
+## 2026-07-09 - Vertical Whip Default Length Drift
+**Learning:** The documentation for the Vertical Whip antenna failed to mention its default length. In the codebase (`src/store/antennaStore.ts`), it defaults to `DEFAULT_WHIP_LENGTH_M` (32 ft / 9.75 m) rather than calculating a resonant length by default, unlike other antennas. This omitted detail obscures the initial application state from the user.
+**Action:** Appended the 32 ft (9.75 m) default behavior to the `length` parameter description in `docs/antenna-spec.md`.
