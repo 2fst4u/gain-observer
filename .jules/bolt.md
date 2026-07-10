@@ -210,3 +210,6 @@
 ## 2026-07-07 - Avoid Array.prototype.map() in CSS Gradient Generation
 **Learning:** In utility functions like `getColormapCssGradient` that are frequently invoked during UI updates, using `Array.prototype.map()` creates intermediate array allocations and incurs callback execution overhead.
 **Action:** Replace `.map()` with a pre-allocated array (e.g., `new Array(len)`) and a standard `for` loop to reduce garbage collection pressure and improve execution speed, ensuring to add comments explaining the optimization.
+## 2025-03-09 - React Hooks Optimization Pattern
+**Learning:** When adding memoization (e.g., `useMemo`) to an existing component to optimize performance, you must ensure the new hook is placed at the top level of the component and *before* any early return statements (e.g., `if (!data) return null;`) to comply with React's Rules of Hooks. Placing a hook after an early return will cause a linter error (`react-hooks/rules-of-hooks`) because React requires hooks to be called in the exact same order on every render.
+**Action:** Always scan the component body for early returns before inserting a new hook. Insert the hook above the earliest conditional return.
