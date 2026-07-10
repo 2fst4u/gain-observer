@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getColormapCssGradient } from '../../utils/colormap';
@@ -16,11 +17,15 @@ export function ColormapLegend({ result }: Props) {
     })),
   );
 
+  // ⚡ Bolt: Performance Optimization
+  // Memoize the CSS gradient string generation. This prevents unnecessary string allocations
+  // and array processing when the component re-renders due to unrelated state changes
+  // (like `colorMaxDb` or `dbRange`), reducing GC overhead and CPU usage.
+  const gradient = useMemo(() => getColormapCssGradient(colormap), [colormap]);
+
   if (!result) return null;
 
   const minDb = colorMaxDb - dbRange;
-
-  const gradient = getColormapCssGradient(colormap);
 
   return (
     /* SEO: Upgrade generic div wrapper to a semantic figure tag, with figcaption for clear labeling */
