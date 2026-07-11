@@ -328,5 +328,45 @@ describe('buildNecCards', () => {
       };
       expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: -Infinity');
     });
+
+    it('throws error for NaN in ground properties', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        ground: { type: 'real', epsilon: NaN },
+      };
+      expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: NaN');
+    });
+
+    it('throws error for NaN in excitation properties', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        excitation: { ...defaultInput.excitation, real: NaN },
+      };
+      expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: NaN');
+    });
+
+    it('throws error for NaN in load properties', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        loads: [{ type: 4, wireTag: 1, segmentStart: 1, segmentEnd: 1, param1: NaN, param2: 0 }],
+      };
+      expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: NaN');
+    });
+
+    it('throws error for NaN in network properties', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        networks: [{ fromTag: 1, fromSegment: 1, toTag: 1, toSegment: 2, y11Real: NaN, y12Real: 0, y22Real: 0 }],
+      };
+      expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: NaN');
+    });
+
+    it('throws error for NaN in transmission line properties', () => {
+      const input: SimulationInput = {
+        ...defaultInput,
+        transmissionLines: [{ fromTag: 1, fromSegment: 1, toTag: 2, toSegment: 1, z0: NaN, lengthM: 10 }],
+      };
+      expect(() => buildNecCards(input)).toThrow('Non-finite numeric value in NEC card: NaN');
+    });
   });
 });
