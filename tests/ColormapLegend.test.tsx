@@ -32,7 +32,7 @@ describe('ColormapLegend', () => {
     efficiency: 1.0,
   };
 
-  it('renders nothing when result is null', () => {
+  it('handles null result', () => {
     const { container } = render(<ColormapLegend result={null} />);
     expect(container.firstChild).toBeNull();
   });
