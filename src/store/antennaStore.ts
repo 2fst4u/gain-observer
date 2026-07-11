@@ -941,7 +941,13 @@ export function buildWires(
   const wires = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
   if (layout?.shield && state.antennaType !== 'delta-loop' && state.antennaType !== 'terminated-delta') {
-    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
+    let bridge: Wire | undefined = undefined;
+    for (let i = 0; i < wires.length; i++) {
+      if (wires[i].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[i];
+        break;
+      }
+    }
     if (bridge) {
       wires.push({
         start: bridge.end,
@@ -1192,8 +1198,14 @@ function buildExcitation(
   } else if (state.antennaType === 'delta-loop' || state.antennaType === 'terminated-delta') {
     // Apex-fed: excitation lives on the last segment of the left leg
     // (whose .end is the apex by convention in build*Wires).
-    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
-    return { wireTag: LEFT_LEG_TAG, segment: leftLeg.segments };
+    let leftLeg: Wire | undefined = undefined;
+    for (let i = 0; i < wires.length; i++) {
+      if (wires[i].tag === LEFT_LEG_TAG) {
+        leftLeg = wires[i];
+        break;
+      }
+    }
+    return { wireTag: LEFT_LEG_TAG, segment: leftLeg!.segments };
   } else if (state.antennaType === 'vertical-whip') {
     // Base-fed monopole: excitation on the first (lowest) segment.
     return { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
@@ -1491,8 +1503,13 @@ export function selectAtuConfig(args: {
 
 export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
-  const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
-  const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
+  let hasShield = false;
+  let hasBridge = false;
+  for (let i = 0; i < wires.length; i++) {
+    const tag = wires[i].tag;
+    if (tag === FEEDLINE_SHIELD_TAG) hasShield = true;
+    else if (tag === FEED_BRIDGE_TAG) hasBridge = true;
+  }
   const feedlineSupport = FEEDLINE_SUPPORTED_TYPES.has(state.antennaType);
   const feedlineActive = hasBridge && feedlineSupport;
 
