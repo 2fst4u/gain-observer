@@ -78,7 +78,7 @@ async function loadNec2Factory(baseUrl: string): Promise<EmscriptenFactory> {
   if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
     throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
   }
-  const mod = (await import(/* @vite-ignore */ url)) as { default: EmscriptenFactory };
+  const mod = (await import(/* @vite-ignore */ parsedUrl.href)) as { default: EmscriptenFactory };
   return mod.default;
 }
 
@@ -182,7 +182,7 @@ export class Nec2Engine implements Engine {
     if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
       throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
     }
-    return url;
+    return parsedUrl.href;
   }
 
   private async doInit(): Promise<void> {
