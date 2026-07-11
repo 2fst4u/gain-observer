@@ -14,3 +14,7 @@
 **Vulnerability:** The `HHmmToHour` function previously used an unsafe regular expression (`/[^0-9]/g`) to strip non-numeric characters from a time string. While currently constrained by UI length limits, a maliciously long input could cause catastrophic backtracking or excessive CPU consumption, leading to a Denial of Service (ReDoS).
 **Learning:** Avoid using global regex replacements on unbounded or large input strings, especially when simple character code checks can achieve the same result more safely and deterministically.
 **Prevention:** Replace global regex replacements with explicit `for` loop iterations that validate character codes (e.g., `charCode >= 48 && charCode <= 57`), and always enforce a maximum input string length at the start of the function.
+## 2026-07-11 - Fix URL parser differential vulnerability
+**Vulnerability:** The code validated a URL's protocol using `new URL()`, but subsequently passed the original, unvalidated string into a dynamic `import()`. A parser differential (e.g., how leading spaces or malformed file/data prefixes are handled between `new URL` and `import`) could allow a malicious URL (like a `data:` URI with payload) to bypass the protocol allowlist.
+**Learning:** Always use the `href` property of the *validated* URL object (`parsedUrl.href`) instead of the original raw string when passing it to the final execution sink. This eliminates Time-of-Check to Time-of-Use (TOCTOU) issues caused by parser discrepancies.
+**Action:** Changed `import(url)` to `import(parsedUrl.href)` in `nec2Engine.ts`.
