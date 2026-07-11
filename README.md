@@ -10,7 +10,7 @@ While this repository is fully open source and developers are welcome to fork or
 
 - **`t`**: Toggle dark/light theme
 - **`u`**: Toggle metric/imperial units
-- **`m`**: Return to normal mode
+- **`m`**: Toggle between normal and comparison mode
 
 ## Stack
 

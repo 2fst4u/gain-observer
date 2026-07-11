@@ -116,3 +116,6 @@
 ## 2026-07-09 - Vertical Whip Default Length Drift
 **Learning:** The documentation for the Vertical Whip antenna failed to mention its default length. In the codebase (`src/store/antennaStore.ts`), it defaults to `DEFAULT_WHIP_LENGTH_M` (32 ft / 9.75 m) rather than calculating a resonant length by default, unlike other antennas. This omitted detail obscures the initial application state from the user.
 **Action:** Appended the 32 ft (9.75 m) default behavior to the `length` parameter description in `docs/antenna-spec.md`.
+## 2026-07-11 - Toggle Mode Shortcut Documentation Drift
+**Learning:** The documentation for the 'm' keyboard shortcut in README.md incorrectly stated that it "Return to normal mode", while the application logic (in src/App.tsx and src/store/antennaStore.ts) implements it as a toggle between 'normal' and 'comparison' modes. The documentation drifted and failed to reflect the toggle functionality.
+**Action:** Edited README.md to clarify that the 'm' shortcut toggles between normal and comparison modes.
