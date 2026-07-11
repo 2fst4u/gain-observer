@@ -569,16 +569,6 @@ function classifyLinkQuality(effectiveGainDbi?: number): LinkQuality {
   return 'unusable';
 }
 
-function compareRays(a: RayPrediction, b: RayPrediction): number {
-  const statusDelta = statusRank(a.status) - statusRank(b.status);
-  if (statusDelta !== 0) return statusDelta;
-
-  const qualityDelta = qualityRank(a.linkQuality) - qualityRank(b.linkQuality);
-  if (qualityDelta !== 0) return qualityDelta;
-
-  return a.rangeKm - b.rangeKm;
-}
-
 function statusRank(status: HopStatus): number {
   if (status === 'open') return 2;
   if (status === 'marginal') return 1;
@@ -593,25 +583,31 @@ function qualityRank(quality: LinkQuality): number {
 
 function selectBestAzimuthalRay(azimuthal: NonNullable<PropagationPrediction['azimuthalHops']>): RayPrediction {
   let best = azimuthal[0]!;
+  let bestStatusRankValue = statusRank(best.status);
+  let bestQualityRankValue = qualityRank(best.linkQuality);
+  let bestRangeKmValue = best.rangeKm[0] ?? 0;
+
   for (let i = 1; i < azimuthal.length; i++) {
     const ray = azimuthal[i]!;
-    const candidate: RayPrediction = {
-      takeoffElevationDeg: ray.takeoffElevationDeg,
-      rangeKm: ray.rangeKm[0] ?? 0,
-      status: ray.status,
-      reason: ray.reason,
-      linkQuality: ray.linkQuality,
-      effectiveGainDbi: ray.effectiveGainDbi,
-    };
-    const current: RayPrediction = {
-      takeoffElevationDeg: best.takeoffElevationDeg,
-      rangeKm: best.rangeKm[0] ?? 0,
-      status: best.status,
-      reason: best.reason,
-      linkQuality: best.linkQuality,
-      effectiveGainDbi: best.effectiveGainDbi,
-    };
-    if (compareRays(candidate, current) > 0) best = ray;
+    const candidateStatusRank = statusRank(ray.status);
+    const candidateQualityRank = qualityRank(ray.linkQuality);
+    const candidateRangeKm = ray.rangeKm[0] ?? 0;
+
+    if (
+      isBetterRay(
+        candidateStatusRank,
+        bestStatusRankValue,
+        candidateQualityRank,
+        bestQualityRankValue,
+        candidateRangeKm,
+        bestRangeKmValue
+      )
+    ) {
+      best = ray;
+      bestStatusRankValue = candidateStatusRank;
+      bestQualityRankValue = candidateQualityRank;
+      bestRangeKmValue = candidateRangeKm;
+    }
   }
   return {
     takeoffElevationDeg: best.takeoffElevationDeg,
