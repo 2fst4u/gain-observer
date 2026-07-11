@@ -76,4 +76,41 @@ describe('GeometryStatus', () => {
     render(<GeometryStatus />);
     expect(screen.getByText(/Geometry Clamped/i)).toBeTruthy();
   });
+
+  it('does not clamp when requested slope is just below threshold (+0.1 deg limit)', () => {
+    // For height=10.5, min tip=0.5 -> delta=10
+    // length=40 -> half=20. maxSin = 10/20 = 0.5 -> maxSlopeDeg = 30
+    // Threshold is 30.1
+    useAntennaStore.setState({
+      antennaType: 'inverted-v',
+      length: 40,
+      height: 10.5,
+      // requestedSlope = (180 - 119.9) / 2 = 30.05
+      // 30.05 < 30.1 so it should NOT clamp
+      vAngle: 119.9,
+      units: 'metric',
+    });
+
+    render(<GeometryStatus />);
+    expect(screen.getByText(/Geometry Status/i)).toBeTruthy();
+    expect(screen.queryByText(/Geometry Clamped/i)).toBeNull();
+  });
+
+  it('clamps when requested slope is just above threshold (+0.1 deg limit)', () => {
+    // For height=10.5, min tip=0.5 -> delta=10
+    // length=40 -> half=20. maxSin = 10/20 = 0.5 -> maxSlopeDeg = 30
+    // Threshold is 30.1
+    useAntennaStore.setState({
+      antennaType: 'inverted-v',
+      length: 40,
+      height: 10.5,
+      // requestedSlope = (180 - 119.7) / 2 = 30.15
+      // 30.15 > 30.1 so it SHOULD clamp
+      vAngle: 119.7,
+      units: 'metric',
+    });
+
+    render(<GeometryStatus />);
+    expect(screen.getByText(/Geometry Clamped/i)).toBeTruthy();
+  });
 });
