@@ -5,7 +5,6 @@
 //     the component edge via useUnits() / toDisplayLength().
 //   - `result` is read-only for UI code; it is written only by the physics
 //     worker bridge via the underscored _setResult action.
-import { cleanZero } from "../utils/math";
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -86,7 +85,7 @@ import {
   buildVerticalWhipWires,
   buildInvertedLWires,
   buildFoldedAntennaWires,
-  orientationVector,
+  buildDipoleWires,
   type Orientation,
 } from './antennaGeometry';
 
@@ -960,7 +959,6 @@ function buildWiresInternal(
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
 ): Wire[] {
   const antennaType = state.antennaType;
-  const half = state.length / 2;
   const h = state.height;
 
   if (antennaType === 'inverted-v') {
@@ -1047,69 +1045,16 @@ function buildWiresInternal(
     });
   }
 
-  const [dx, dy] = orientationVector(state.orientation);
-
-
   const layout = computeFeedlineLayout(state);
 
-  if (!layout) {
-    return [{
-      start: [cleanZero(-half * dx), cleanZero(-half * dy), h],
-      end: [cleanZero(half * dx), cleanZero(half * dy), h],
-      radius: state.wireRadius,
-      segments: state.segments,
-      tag: MAIN_WIRE_TAG,
-    }];
-  }
-
-  const offset = layout.offset;
-  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
-
-  const bridgeStart: [number, number, number] = [
-    cleanZero((offset - bridgeHalf) * dx),
-    cleanZero((offset - bridgeHalf) * dy),
-    h,
-  ];
-  const bridgeEnd: [number, number, number] = [
-    cleanZero((offset + bridgeHalf) * dx),
-    cleanZero((offset + bridgeHalf) * dy),
-    h,
-  ];
-
-  const leftTip: [number, number, number] = [cleanZero(-half * dx), cleanZero(-half * dy), h];
-  const rightTip: [number, number, number] = [cleanZero(half * dx), cleanZero(half * dy), h];
-
-  const dist = (p1: [number, number, number], p2: [number, number, number]) =>
-    Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2);
-
-  const leftLen = dist(leftTip, bridgeStart);
-  const rightLen = dist(rightTip, bridgeEnd);
-
-  const totalSeg = state.segments;
-  const segDensity = totalSeg / state.length;
-  const leftSeg = Math.max(3, oddRound(leftLen * segDensity));
-  const rightSeg = Math.max(3, oddRound(rightLen * segDensity));
-
-  return [
-    {
-      start: leftTip, end: bridgeStart,
-      radius: state.wireRadius,
-      segments: leftSeg,
-      tag: LEFT_LEG_TAG,
-    },
-    {
-      start: bridgeEnd, end: rightTip,
-      radius: state.wireRadius,
-      segments: rightSeg,
-      tag: RIGHT_LEG_TAG,
-    },
-    {
-      start: bridgeStart, end: bridgeEnd,
-      radius: state.wireRadius,
-      segments: 1,
-      tag: FEED_BRIDGE_TAG,
-    },
-  ];
+  return buildDipoleWires({
+    length: state.length,
+    height: h,
+    orientation: state.orientation,
+    wireRadius: state.wireRadius,
+    segments: state.segments,
+    layout,
+  });
 }
 
 interface FeedlineLayout {
@@ -1156,10 +1101,6 @@ function computeFeedlineLayout(
   };
 }
 
-function oddRound(v: number): number {
-  const n = Math.max(1, Math.round(v));
-  return n % 2 === 0 ? n + 1 : n;
-}
 
 function buildGroundParams(state: AntennaState): GroundParams {
   // The height<=0 short-circuit makes the model "free space" when the user
