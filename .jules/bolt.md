@@ -213,3 +213,6 @@
 ## 2025-03-09 - React Hooks Optimization Pattern
 **Learning:** When adding memoization (e.g., `useMemo`) to an existing component to optimize performance, you must ensure the new hook is placed at the top level of the component and *before* any early return statements (e.g., `if (!data) return null;`) to comply with React's Rules of Hooks. Placing a hook after an early return will cause a linter error (`react-hooks/rules-of-hooks`) because React requires hooks to be called in the exact same order on every render.
 **Action:** Always scan the component body for early returns before inserting a new hook. Insert the hook above the earliest conditional return.
+## 2026-07-12 - Optimize Array Traversals with Single-Pass For Loops
+**Learning:** In performance-sensitive codebases, combining multiple array lookups via higher-order functions like `.some()` over the same collection causes redundant traversals and closure allocation overhead. The `selectSimulationInput` function demonstrated this pattern by iterating through the same wire collection twice.
+**Action:** Replace multiple `.some()` calls on the same array with a single-pass `for` loop and early break conditions when all target state variables are resolved. This ensures optimal lookup time, particularly when arrays scale.
