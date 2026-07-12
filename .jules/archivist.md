@@ -119,3 +119,7 @@
 ## 2026-07-11 - Toggle Mode Shortcut Documentation Drift
 **Learning:** The documentation for the 'm' keyboard shortcut in README.md incorrectly stated that it "Return to normal mode", while the application logic (in src/App.tsx and src/store/antennaStore.ts) implements it as a toggle between 'normal' and 'comparison' modes. The documentation drifted and failed to reflect the toggle functionality.
 **Action:** Edited README.md to clarify that the 'm' shortcut toggles between normal and comparison modes.
+
+## 2026-07-12 - Monopole Reference Length End-Effect Drift
+**Learning:** The documentation listed the reference length for the Vertical Whip and Inverted-L simply as "¼λ", omitting the 0.95 end-effect multiplier that is explicitly applied in `calculateDefaultLength` (`lambda * 0.25 * 0.95`). This was inconsistent with the Dipole documentation, which correctly noted its end-effect (0.475λ).
+**Action:** Updated `docs/antenna-spec.md` to explicitly state the reference length as 0.2375λ (¼λ with 0.95 end-effect) for both monopole antennas to match the implemented physics logic.
