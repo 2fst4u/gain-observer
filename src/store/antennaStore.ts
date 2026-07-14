@@ -1432,8 +1432,17 @@ export function selectAtuConfig(args: {
 
 export function selectSimulationInput(state: AntennaState): SimulationInput {
   const wires = buildWires(state);
-  const hasShield = wires.some((w) => w.tag === FEEDLINE_SHIELD_TAG);
-  const hasBridge = wires.some((w) => w.tag === FEED_BRIDGE_TAG);
+
+  // ⚡ Bolt: Single pass for loop to replace multiple .some() array traversals
+  let hasShield = false;
+  let hasBridge = false;
+  for (let i = 0; i < wires.length; i++) {
+    const tag = wires[i].tag;
+    if (tag === FEEDLINE_SHIELD_TAG) hasShield = true;
+    else if (tag === FEED_BRIDGE_TAG) hasBridge = true;
+    if (hasShield && hasBridge) break;
+  }
+
   const feedlineSupport = FEEDLINE_SUPPORTED_TYPES.has(state.antennaType);
   const feedlineActive = hasBridge && feedlineSupport;
 
