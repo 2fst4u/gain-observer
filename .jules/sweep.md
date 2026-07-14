@@ -99,3 +99,6 @@
 ## 2024-07-07 - [Unused Exports Cleanup]
 **Learning:** Tools like `knip` often flag internal utility functions (like `safeSegs` or `buildPlugins`) as unused exports when they are only consumed locally within the same module.
 **Action:** Always check if a flagged unused export is being used internally before completely deleting the function. If it is used locally, merely strip the `export` keyword to restrict its scope rather than removing the code entirely, then recalculate and enforce Vitest coverage thresholds to prevent CI regressions.
+## 2025-03-02 - Removed unused oddRound export
+**Learning:** `knip` will correctly flag functions that are exported but only used within the file they are defined in. In `src/store/antennaGeometry.ts`, `oddRound` was exported despite only being consumed locally.
+**Action:** Un-export functions that are strictly internal helpers. This reduces the public API surface area and eliminates false-positive static analysis warnings without deleting necessary code.
