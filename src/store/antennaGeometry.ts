@@ -1178,7 +1178,7 @@ export function buildDipoleWires(params: DipoleWiresParams): Wire[] {
   ];
 }
 
-export function oddRound(v: number): number {
+function oddRound(v: number): number {
   const n = Math.max(1, Math.round(v));
   return n % 2 === 0 ? n + 1 : n;
 }
