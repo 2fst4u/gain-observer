@@ -57,8 +57,8 @@ describe('ComparisonControl', () => {
     const captureButton = screen.getByRole('button', { name: 'Use current as reference' });
     const clearButton = screen.getByRole('button', { name: 'Clear reference' });
 
-    expect(captureButton.hasAttribute('disabled')).toBe(true);
-    expect(clearButton.hasAttribute('disabled')).toBe(true);
+    expect(captureButton.getAttribute('aria-disabled')).toBe('true');
+    expect(clearButton.getAttribute('aria-disabled')).toBe('true');
 
     expect(screen.getByText('Capture a solved configuration to enable side-by-side comparison.')).toBeTruthy();
   });
@@ -81,7 +81,7 @@ describe('ComparisonControl', () => {
     render(<ComparisonControl />);
 
     const captureButton = screen.getByRole('button', { name: 'Use current as reference' });
-    expect(captureButton.hasAttribute('disabled')).toBe(false);
+    expect(captureButton.getAttribute('aria-disabled')).toBe('false');
 
     fireEvent.click(captureButton);
     expect(captureComparisonReference).toHaveBeenCalledOnce();
@@ -113,7 +113,7 @@ describe('ComparisonControl', () => {
     render(<ComparisonControl />);
 
     const clearButton = screen.getByRole('button', { name: 'Clear reference' });
-    expect(clearButton.hasAttribute('disabled')).toBe(false);
+    expect(clearButton.getAttribute('aria-disabled')).toBe('false');
 
     // Check some rendered reference data
     expect(screen.getByText('14.100 MHz')).toBeTruthy();

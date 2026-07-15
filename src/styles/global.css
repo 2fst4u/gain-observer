@@ -116,7 +116,7 @@ button {
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-button:hover:not(:disabled) {
+button:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--panel-hover);
   border-color: var(--border-strong);
 }
@@ -135,7 +135,8 @@ button.primary {
   border-color: var(--accent);
 }
 
-button:disabled {
+button:disabled,
+button[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
 }

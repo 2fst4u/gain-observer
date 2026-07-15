@@ -137,11 +137,11 @@ describe('PropagationInputs UI component', () => {
     render(<PropagationInputs />);
 
     const button = screen.getByRole('button', { name: 'Auto' }) as HTMLButtonElement;
-    expect(button.disabled).toBe(false);
+    expect(button.getAttribute('aria-disabled')).toBe('false');
 
     fireEvent.click(button);
     expect(useAntennaStore.getState().utcHourOverride).toBe(null);
-    expect(button.disabled).toBe(true);
+    expect(button.getAttribute('aria-disabled')).toBe('true');
   });
 
   it('renders geoStatus messages correctly', () => {

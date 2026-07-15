@@ -152,7 +152,7 @@ describe('PropagationControl - time override visibility', () => {
     render(<PropagationControl />);
 
     const autoButton = screen.getByRole('button', { name: 'Auto' }) as HTMLButtonElement;
-    expect(autoButton.disabled).toBe(true);
+    expect(autoButton.getAttribute('aria-disabled')).toBe('true');
   });
 });
 
