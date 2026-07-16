@@ -131,7 +131,7 @@ describe('FeedlineControl', () => {
 
     expect(screen.getByText(/no common-mode current/i)).toBeDefined();
     const centre = screen.getByRole('button', { name: 'Centre feedpoint offset' }) as HTMLButtonElement;
-    expect(centre.disabled).toBe(true);
+    expect(centre.getAttribute('aria-disabled')).toBe('true');
   });
 
   it('does not render the offset slider for non-dipole antennas', () => {

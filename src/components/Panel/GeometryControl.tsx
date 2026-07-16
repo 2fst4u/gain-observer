@@ -221,8 +221,8 @@ function TerminationControl() {
         />
         {recommended > 0 && (
           <button
-            onClick={() => setTerminatingResistor(recommended)}
-            disabled={terminatingResistor === recommended}
+            onClick={() => { if (terminatingResistor !== recommended) setTerminatingResistor(recommended); }}
+            aria-disabled={terminatingResistor === recommended}
             title={isFolded
               ? `Set terminating resistor to Z₀ ≈ ${recommended} Ω — the characteristic impedance of the two-wire line for this conductor spacing and wire diameter. Terminating at R = Z₀ gives a true travelling-wave (T2FD): flat broadband SWR at the cost of ~3 dB efficiency.`
               : `Set terminating resistor to the recommended ${recommended} Ω for this antenna — approximately the structure's characteristic impedance over real ground, giving a flat broadband match.`}
@@ -235,8 +235,8 @@ function TerminationControl() {
           </button>
         )}
         <button
-          onClick={() => setTerminatingResistor(0)}
-          disabled={terminatingResistor === 0}
+          onClick={() => { if (terminatingResistor !== 0) setTerminatingResistor(0); }}
+          aria-disabled={terminatingResistor === 0}
           title={terminatingResistor === 0 ? 'Termination is already off' : 'Remove termination (unterminated antenna)'}
           aria-label="Turn off termination resistor"
           style={{ flex: '0 0 auto' }}

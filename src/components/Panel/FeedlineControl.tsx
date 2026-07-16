@@ -131,8 +131,8 @@ function DipoleOffsetControl({
           }}
         />
         <button
-          onClick={() => setFeedlineOffset(0)}
-          disabled={Math.abs(feedlineOffset) < 1e-6}
+          onClick={() => { if (Math.abs(feedlineOffset) >= 1e-6) setFeedlineOffset(0); }}
+          aria-disabled={Math.abs(feedlineOffset) < 1e-6}
           title={Math.abs(feedlineOffset) < 1e-6 ? 'Feedpoint is already centred' : 'Centre feedpoint'}
           aria-label="Centre feedpoint offset"
           style={{ flex: '0 0 auto' }}

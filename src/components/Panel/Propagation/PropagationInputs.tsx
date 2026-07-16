@@ -162,8 +162,8 @@ function LatitudeInput() {
         />
         <button
           type="button"
-          onClick={() => { void requestLocation(); }}
-          disabled={geoStatus === 'requesting'}
+          onClick={() => { if (geoStatus !== 'requesting') void requestLocation(); }}
+          aria-disabled={geoStatus === 'requesting'}
           aria-busy={geoStatus === 'requesting'}
           style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: '6px' }}
           title="Use the browser geolocation API to populate latitude. Asks for permission only when clicked."
@@ -269,8 +269,8 @@ function UtcHourInput() {
         />
         <button
           type="button"
-          onClick={() => setUtcHourOverride(null)}
-          disabled={utcHourOverride === null}
+          onClick={() => { if (utcHourOverride !== null) setUtcHourOverride(null); }}
+          aria-disabled={utcHourOverride === null}
           style={{ flex: '0 0 auto' }}
           title={utcHourOverride === null ? 'Already using current UTC time' : 'Reset to current UTC time'}
         >

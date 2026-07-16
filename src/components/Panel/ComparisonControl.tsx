@@ -42,15 +42,15 @@ export function ComparisonControl() {
       <div className="button-group" role="group" aria-label="Comparison Actions" style={{ marginTop: 10 }}>
         <button
           className="primary"
-          onClick={captureReference}
-          disabled={!canCapture}
+          onClick={() => { if (canCapture) captureReference(); }}
+          aria-disabled={!canCapture}
           title={!canCapture ? 'Wait for antenna calculation to complete' : 'Capture current settings as reference'}
         >
           Use current as reference
         </button>
         <button
-          onClick={clearReference}
-          disabled={!reference}
+          onClick={() => { if (reference) clearReference(); }}
+          aria-disabled={!reference}
           title={!reference ? 'No reference captured' : 'Clear the captured reference'}
         >
           Clear reference
