@@ -58,16 +58,16 @@ describe('physics constants and helpers', () => {
       expect(referenceLength('inverted-v', 14.150)).toBeCloseTo(lambda * 0.5 * 0.97, 4);
     });
 
-    it('calculates delta-loop perimeter (1.02λ, no end-effect for loops)', () => {
-      expect(referenceLength('delta-loop', 14.150)).toBeCloseTo(lambda * 1.02, 4);
+    it('calculates delta-loop perimeter (1.0λ, no end-effect for loops)', () => {
+      expect(referenceLength('delta-loop', 14.150)).toBeCloseTo(lambda * 1.0, 4);
     });
 
     it('calculates sloping-v length (2λ total, traveling-wave, no end-effect)', () => {
       expect(referenceLength('sloping-v', 14.150)).toBeCloseTo(lambda * 2.0, 4);
     });
 
-    it('calculates terminated-delta perimeter (1.02λ, same as delta-loop)', () => {
-      expect(referenceLength('terminated-delta', 14.150)).toBeCloseTo(lambda * 1.02, 4);
+    it('calculates terminated-delta perimeter (1.0λ, same as delta-loop)', () => {
+      expect(referenceLength('terminated-delta', 14.150)).toBeCloseTo(lambda * 1.0, 4);
     });
 
     it('calculates vertical-whip length', () => {

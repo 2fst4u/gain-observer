@@ -47,8 +47,8 @@ const REFERENCE_LENGTH_STRATEGIES: Record<AntennaType, (lambda: number, endEffec
   },
   'delta-loop': (lambda) => {
     // Full-wave loop: no free ends, so end-effect does not apply.
-    // ARRL formula (1005/f MHz ft) gives ≈1.02λ for thin wire at HF.
-    return lambda * 1.02;
+    // Default length is exactly 1.0λ.
+    return lambda;
   },
   'sloping-v': (lambda) => {
     // Traveling-wave V antenna: 1λ per leg. End-effect correction does not
@@ -57,8 +57,8 @@ const REFERENCE_LENGTH_STRATEGIES: Record<AntennaType, (lambda: number, endEffec
   },
   'terminated-delta': (lambda) => {
     // Same perimeter as delta-loop. Resonance is irrelevant in a true
-    // terminated configuration, but 1.02λ is the canonical starting point.
-    return lambda * 1.02;
+    // terminated configuration, but 1.0λ is the canonical starting point.
+    return lambda;
   },
   'vertical-whip': (lambda, endEffect) => {
     // Quarter-wave monopole resonant length.
@@ -85,11 +85,11 @@ const REFERENCE_LENGTH_STRATEGIES: Record<AntennaType, (lambda: number, endEffec
  *   - inverted-v: 0.485λ total (0.5λ × 0.97). Slightly more wire than a flat
  *     dipole: the V geometry reduces the effective horizontal current
  *     component, so extra wire restores the resonant frequency.
- *   - delta-loop: 1.02λ perimeter (ARRL formula: 1005/f ft; no end-effect
- *     correction — loops have no free ends).
+ *   - delta-loop: 1.0λ perimeter (no end-effect correction — loops have
+ *     no free ends).
  *   - sloping-v: 2λ total (1λ per leg). Traveling-wave antenna; no
  *     end-effect correction applies.
- *   - terminated-delta: 1.02λ perimeter (same triangle as delta-loop).
+ *   - terminated-delta: 1.0λ perimeter (same triangle as delta-loop).
  *
  * Applies the standard HF end-effect factor k ~ 0.95 only to resonant
  * half-wave elements (dipole variants, quarter-wave monopoles).
