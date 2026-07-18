@@ -8,7 +8,7 @@
   # Protect sensitive information in the referrer header
   Referrer-Policy: strict-origin-when-cross-origin
   # Opt-out of FLoC and restricts sensitive APIs, acting as a defense-in-depth measure
-  Permissions-Policy: accelerometer=(), camera=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=(), browsing-topics=(), sync-xhr=()
   # Content Security Policy to enforce secure content delivery and prevent XSS
   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests;
   # Isolate the browsing context to same-origin to prevent cross-origin info leaks
