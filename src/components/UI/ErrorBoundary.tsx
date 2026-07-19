@@ -47,7 +47,9 @@ export class ErrorBoundary extends Component<Props, State> {
           }}
         >
           <h2 style={{ marginTop: 0 }}>Render error</h2>
-          <div style={{ marginBottom: 12 }}>{this.state.error.message}</div>
+          <div style={{ marginBottom: 12 }}>
+            {import.meta.env.DEV ? this.state.error.message : 'An unexpected error occurred.'}
+          </div>
           <button onClick={this.reset}>Try again</button>
         </div>
       );
