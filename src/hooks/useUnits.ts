@@ -1,11 +1,15 @@
 import { useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAntennaStore } from '../store/antennaStore';
 
 const STORAGE_KEY = 'gv.units';
 
 export function useUnitsPersistence(): void {
-  const units = useAntennaStore((s) => s.units);
-  const setUnits = useAntennaStore((s) => s.setUnits);
+  // ⚡ Bolt: Group multiple store selections into a single useShallow block
+  const { units, setUnits } = useAntennaStore(useShallow((s) => ({
+    units: s.units,
+    setUnits: s.setUnits,
+  })));
 
   useEffect(() => {
     try {

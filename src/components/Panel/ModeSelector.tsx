@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useAntennaStore } from '../../store/antennaStore';
 import type { Mode } from '../../store/antennaStore';
 
@@ -7,8 +8,11 @@ const MODES: Array<{ id: Mode; label: string; hint: string; shortcut?: string }>
 ];
 
 export function ModeSelector() {
-  const mode = useAntennaStore((s) => s.mode);
-  const setMode = useAntennaStore((s) => s.setMode);
+  // ⚡ Bolt: Group multiple store selections into a single useShallow block
+  const { mode, setMode } = useAntennaStore(useShallow((s) => ({
+    mode: s.mode,
+    setMode: s.setMode,
+  })));
   return (
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}

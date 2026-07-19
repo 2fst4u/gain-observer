@@ -1,8 +1,12 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useAntennaStore } from '../../store/antennaStore';
 
 export function UnitToggle() {
-  const units = useAntennaStore((s) => s.units);
-  const setUnits = useAntennaStore((s) => s.setUnits);
+  // ⚡ Bolt: Group multiple store selections into a single useShallow block
+  const { units, setUnits } = useAntennaStore(useShallow((s) => ({
+    units: s.units,
+    setUnits: s.setUnits,
+  })));
   return (
     <div className="button-group" role="group" aria-label="Unit system">
       <button

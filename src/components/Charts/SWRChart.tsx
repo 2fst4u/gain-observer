@@ -185,8 +185,11 @@ function useSwrViewGestures() {
   const dragRef = useRef<{ startX: number; mhzPerPixel: number; startCenter: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const zoomSwrView = useAntennaStore((s) => s.zoomSwrView);
-  const panSwrViewByMHz = useAntennaStore((s) => s.panSwrViewByMHz);
+  // ⚡ Bolt: Group multiple store selections into a single useShallow block
+  const { zoomSwrView, panSwrViewByMHz } = useAntennaStore(useShallow((s) => ({
+    zoomSwrView: s.zoomSwrView,
+    panSwrViewByMHz: s.panSwrViewByMHz,
+  })));
 
   // Non-passive wheel listener so we can preventDefault and stop the panel
   // scrolling while zooming the chart.
