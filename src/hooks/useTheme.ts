@@ -2,13 +2,17 @@
 // variables kick in. Also restores theme from localStorage on first load.
 
 import { useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAntennaStore } from '../store/antennaStore';
 
 const STORAGE_KEY = 'gv.theme';
 
 export function useTheme(): void {
-  const theme = useAntennaStore((s) => s.theme);
-  const setTheme = useAntennaStore((s) => s.setTheme);
+  // ⚡ Bolt: Group multiple store selections into a single useShallow block
+  const { theme, setTheme } = useAntennaStore(useShallow((s) => ({
+    theme: s.theme,
+    setTheme: s.setTheme,
+  })));
 
   // Restore on mount.
   useEffect(() => {

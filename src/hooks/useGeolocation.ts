@@ -10,6 +10,7 @@
 // can react to it without mounting this hook.
 
 import { useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAntennaStore } from '../store/antennaStore';
 
 export interface GeolocationResult {
@@ -24,10 +25,13 @@ export function useGeolocation(): {
   status: ReturnType<typeof useAntennaStore.getState>['geolocationStatus'];
   requestLocation: () => Promise<GeolocationResult>;
 } {
-  const status = useAntennaStore((s) => s.geolocationStatus);
-  const setStatus = useAntennaStore((s) => s.setGeolocationStatus);
-  const setLatitude = useAntennaStore((s) => s.setLatitude);
-  const setLongitude = useAntennaStore((s) => s.setLongitude);
+  // ⚡ Bolt: Group multiple store selections into a single useShallow block
+  const { status, setStatus, setLatitude, setLongitude } = useAntennaStore(useShallow((s) => ({
+    status: s.geolocationStatus,
+    setStatus: s.setGeolocationStatus,
+    setLatitude: s.setLatitude,
+    setLongitude: s.setLongitude,
+  })));
 
   const requestLocation = useCallback(async (): Promise<GeolocationResult> => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {

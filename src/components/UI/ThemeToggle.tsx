@@ -1,8 +1,12 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useAntennaStore } from '../../store/antennaStore';
 
 export function ThemeToggle() {
-  const theme = useAntennaStore((s) => s.theme);
-  const toggle = useAntennaStore((s) => s.toggleTheme);
+  // ⚡ Bolt: Group multiple store selections into a single useShallow block
+  const { theme, toggleTheme: toggle } = useAntennaStore(useShallow((s) => ({
+    theme: s.theme,
+    toggleTheme: s.toggleTheme,
+  })));
   return (
     <button
       onClick={toggle}

@@ -216,3 +216,6 @@
 ## 2026-07-12 - Optimize Array Traversals with Single-Pass For Loops
 **Learning:** In performance-sensitive codebases, combining multiple array lookups via higher-order functions like `.some()` over the same collection causes redundant traversals and closure allocation overhead. The `selectSimulationInput` function demonstrated this pattern by iterating through the same wire collection twice.
 **Action:** Replace multiple `.some()` calls on the same array with a single-pass `for` loop and early break conditions when all target state variables are resolved. This ensures optimal lookup time, particularly when arrays scale.
+## 2026-07-20 - Group React hooks using Zustand's useShallow (components and hooks)
+**Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within components or hooks incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
+**Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block across the codebase (e.g., `useGeolocation`, `useTheme`, `useUnits`, `ModeSelector`, `UnitToggle`, `ThemeToggle`, `SWRChart`).
