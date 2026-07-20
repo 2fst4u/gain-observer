@@ -134,7 +134,7 @@ function LiveAntennaScene({ engineReady, loading, error }: { engineReady: boolea
       )}
       {error && (
         <div className="error-banner" role="alert" aria-live="assertive">
-          <strong>Solver error:</strong> {error}
+          <strong>Solver error:</strong> {import.meta.env.DEV ? error : 'An unexpected error occurred during simulation.'}
         </div>
       )}
     </>
