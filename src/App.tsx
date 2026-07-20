@@ -7,7 +7,7 @@ import { useUnitsPersistence } from './hooks/useUnits';
 import { usePhysicsEngine } from './hooks/usePhysicsEngine';
 import { useAntennaStore } from './store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { type ReactNode, useEffect } from 'react';
+import { useEffect } from 'react';
 
 const ANTENNA_LABELS: Record<string, string> = {
   'dipole': 'Dipole',
@@ -98,7 +98,7 @@ function ScenePane({
 }: {
   title: string;
   subtitle: string;
-  children: ReactNode;
+  children: React.ReactNode;
   result: import('./physics/types').SimulationResult | null;
 }) {
   return (
