@@ -10,6 +10,7 @@
 
 import { useShallow } from 'zustand/react/shallow';
 import { useAntennaStore } from '../../store/antennaStore';
+import { THEME_COLORS } from '../../utils/themeColors';
 import { useAntennaGeometry, type AntennaWireProps } from './useAntennaGeometry';
 import { AntennaElement } from './AntennaElement';
 import { Feedpoint } from './Feedpoint';
@@ -24,10 +25,12 @@ export function AntennaWire(props: AntennaWireProps) {
   })));
 
   const { rendered, shield, feedpoint, terminatedDeltaSplit } = useAntennaGeometry(props);
+  const wireColor = THEME_COLORS[theme].wire;
+
   return (
     <group>
       {rendered.map((s) => (
-        <AntennaElement key={s.key} wire={s} theme={theme} />
+        <AntennaElement key={s.key} wire={s} color={wireColor} />
       ))}
       {feedpoint && <Feedpoint position={feedpoint} theme={theme} />}
       {shield && (
