@@ -13,7 +13,7 @@ import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import React, { useMemo, type ComponentProps } from 'react';
 import { displayedFeedMetrics } from '../../physics/impedance';
-import type { GainPattern } from '../../physics/types';
+import type { GainPattern, SimulationResult } from '../../physics/types';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip);
 
@@ -170,7 +170,43 @@ function usePolarChartOptions(theme: string, dbRange: number, result: { maxGainD
 }
 
 
-function usePolarData() {
+function AzimuthPlot({ result, dbRange, options }: { result: SimulationResult, dbRange: number, options: ComponentProps<typeof PolarPlotPanel>['options'] }) {
+  const data = useMemo(() => {
+    // NEC theta = 90 - elevation. 0 elevation (horizon) is 90 theta (from zenith).
+    const thetaDeg = 90 - result.takeoffElevationDeg;
+    const cut = cutAzimuth(result.pattern, thetaDeg);
+    return normaliseForPolar(cut, result.maxGainDbi, dbRange);
+  }, [result, dbRange]);
+  const labels = useMemo(() => getAzimuthLabels(result.pattern), [result]);
+
+  return (
+    <PolarPlotPanel
+      title={`Azimuth @ Peak (${result.takeoffElevationDeg.toFixed(0)}°)`}
+      labels={labels}
+      data={data}
+      options={options}
+    />
+  );
+}
+
+function ElevationPlot({ title, result, dbRange, azimuth, options }: { title: string, result: SimulationResult, dbRange: number, azimuth: number, options: ComponentProps<typeof PolarPlotPanel>['options'] }) {
+  const data = useMemo(() => {
+    const cut = cutElevation(result.pattern, azimuth);
+    return normaliseForPolar(cut, result.maxGainDbi, dbRange);
+  }, [result, dbRange, azimuth]);
+  const labels = useMemo(() => getElevationLabels(result.pattern), [result]);
+
+  return (
+    <PolarPlotPanel
+      title={title}
+      labels={labels}
+      data={data}
+      options={options}
+    />
+  );
+}
+
+export function PolarPlots() {
   // ⚡ Bolt: Performance Optimization
   // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
   // This reduces React hook allocation overhead and minimizes the number of store listeners,
@@ -220,14 +256,6 @@ function usePolarData() {
     return displayedRealizedGainDbi ?? result.maxGainDbi;
   }, [result, transformerEnabled, transformerRatio, feedlineId, atuEnabled, frequency, feedlineLength, atuMainFeedlineLength]);
 
-  const azData = useMemo(() => {
-    if (!result) return null;
-    // NEC theta = 90 - elevation. 0 elevation (horizon) is 90 theta (from zenith).
-    const thetaDeg = 90 - result.takeoffElevationDeg;
-    const cut = cutAzimuth(result.pattern, thetaDeg);
-    return normaliseForPolar(cut, result.maxGainDbi, dbRange);
-  }, [result, dbRange]);
-
   const { broadsideAz, endOnAz } = useMemo(() => {
     let azimuth = 0;
     if (typeof orientation === 'number') {
@@ -248,71 +276,32 @@ function usePolarData() {
     };
   }, [orientation]);
 
-  const elDataBroadside = useMemo(() => {
-    if (!result) return null;
-    const cut = cutElevation(result.pattern, broadsideAz);
-    return normaliseForPolar(cut, result.maxGainDbi, dbRange);
-  }, [result, dbRange, broadsideAz]);
-
-  const elDataEndOn = useMemo(() => {
-    if (!result) return null;
-    const cut = cutElevation(result.pattern, endOnAz);
-    return normaliseForPolar(cut, result.maxGainDbi, dbRange);
-  }, [result, dbRange, endOnAz]);
-
-  const azLabels = useMemo(() => (result ? getAzimuthLabels(result.pattern) : []), [result]);
-  const elLabels = useMemo(() => (result ? getElevationLabels(result.pattern) : []), [result]);
-
   const options = usePolarChartOptions(theme, dbRange, result, peakDbi);
 
-  return {
-    showPolarCuts,
-    result,
-    azData,
-    elDataBroadside,
-    elDataEndOn,
-    azLabels,
-    elLabels,
-    options,
-  };
-}
-
-export function PolarPlots() {
-
-  const {
-    showPolarCuts,
-    result,
-    azData,
-    elDataBroadside,
-    elDataEndOn,
-    azLabels,
-    elLabels,
-    options,
-  } = usePolarData();
-
-  if (!showPolarCuts || !result || !azData || !elDataBroadside || !elDataEndOn) return null;
+  if (!showPolarCuts || !result) return null;
 
   return (
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Polar cuts</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
-        <PolarPlotPanel
-          title={`Azimuth @ Peak (${result.takeoffElevationDeg.toFixed(0)}°)`}
-          labels={azLabels}
-          data={azData}
+        <AzimuthPlot
+          result={result}
+          dbRange={dbRange}
           options={options}
         />
-        <PolarPlotPanel
+        <ElevationPlot
           title="Elevation (Broadside)"
-          labels={elLabels}
-          data={elDataBroadside}
+          result={result}
+          dbRange={dbRange}
+          azimuth={broadsideAz}
           options={options}
         />
-        <PolarPlotPanel
+        <ElevationPlot
           title="Elevation (End-on)"
-          labels={elLabels}
-          data={elDataEndOn}
+          result={result}
+          dbRange={dbRange}
+          azimuth={endOnAz}
           options={options}
         />
       </div>
