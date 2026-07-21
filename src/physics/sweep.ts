@@ -1,5 +1,5 @@
 import { swr } from './impedance';
-import { findSwrBands, type SwrBand } from './bandwidth';
+import { findSwrBands } from './bandwidth';
 import type { ImpedanceResult, SimulationInput, SweepPoint } from './types';
 import type { SweepOptions } from './nec2Engine';
 import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ } from './constants';
@@ -112,7 +112,7 @@ export async function adaptiveSweep(
 
   // Frame the final sweep window around a set of ≤2:1 bands, keeping the
   // operating-frequency marker in view and clamping to the HF band limits.
-  const frameWindow = (bands: readonly SwrBand[]): { start: number; end: number } => {
+  const frameWindow = (bands: ReturnType<typeof findSwrBands>): { start: number; end: number } => {
     let winStart: number;
     let winEnd: number;
     if (bands.length > 0) {
