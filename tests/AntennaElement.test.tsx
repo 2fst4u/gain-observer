@@ -44,7 +44,7 @@ describe('AntennaElement', () => {
 
   it('renders a basic antenna element wire', () => {
     const { container } = render(
-      <AntennaElement wire={defaultWire} theme="dark" />
+      <AntennaElement wire={defaultWire} color={THEME_COLORS['dark'].wire} />
     );
 
     // Verify correct structure is rendered
@@ -59,7 +59,7 @@ describe('AntennaElement', () => {
   it('adjusts properties for shield wires', () => {
     const shieldWire = { ...defaultWire, isShield: true };
     const { container } = render(
-      <AntennaElement wire={shieldWire} theme="dark" />
+      <AntennaElement wire={shieldWire} color={THEME_COLORS['dark'].wire} />
     );
 
     const material = container.querySelector('meshstandardmaterial');
@@ -71,7 +71,7 @@ describe('AntennaElement', () => {
   it('adjusts properties for bridge wires', () => {
     const bridgeWire = { ...defaultWire, isBridge: true };
     const { container } = render(
-      <AntennaElement wire={bridgeWire} theme="dark" />
+      <AntennaElement wire={bridgeWire} color={THEME_COLORS['dark'].wire} />
     );
 
     const material = container.querySelector('meshstandardmaterial');
@@ -83,7 +83,7 @@ describe('AntennaElement', () => {
   it('adjusts properties for standard wires', () => {
     const standardWire = { ...defaultWire, isShield: false, isBridge: false };
     const { container } = render(
-      <AntennaElement wire={standardWire} theme="dark" />
+      <AntennaElement wire={standardWire} color={THEME_COLORS['dark'].wire} />
     );
 
     const material = container.querySelector('meshstandardmaterial');
@@ -94,7 +94,7 @@ describe('AntennaElement', () => {
 
   it('applies theme colors correctly for light theme', () => {
     const { container } = render(
-      <AntennaElement wire={defaultWire} theme="light" />
+      <AntennaElement wire={defaultWire} color={THEME_COLORS['light'].wire} />
     );
 
     const material = container.querySelector('meshstandardmaterial');
@@ -105,7 +105,7 @@ describe('AntennaElement', () => {
 
   it('applies theme colors correctly for dark theme', () => {
     const { container } = render(
-      <AntennaElement wire={defaultWire} theme="dark" />
+      <AntennaElement wire={defaultWire} color={THEME_COLORS['dark'].wire} />
     );
 
     const material = container.querySelector('meshstandardmaterial');
