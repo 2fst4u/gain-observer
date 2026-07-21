@@ -1,17 +1,15 @@
-import { THEME_COLORS, type Theme } from '../../utils/themeColors';
-
 export interface FeedpointProps {
   position: [number, number, number];
-  theme: Theme;
+  color: string;
 }
 
-export function Feedpoint({ position, theme }: FeedpointProps) {
+export function Feedpoint({ position, color }: FeedpointProps) {
   return (
     <mesh position={position}>
       <sphereGeometry args={[0.22, 16, 16]} />
       <meshStandardMaterial
-        color={THEME_COLORS[theme].feedpoint}
-        emissive={THEME_COLORS[theme].feedpoint}
+        color={color}
+        emissive={color}
         emissiveIntensity={0.4}
       />
     </mesh>

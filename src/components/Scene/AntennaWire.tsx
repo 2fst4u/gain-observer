@@ -32,7 +32,7 @@ export function AntennaWire(props: AntennaWireProps) {
       {rendered.map((s) => (
         <AntennaElement key={s.key} wire={s} color={wireColor} />
       ))}
-      {feedpoint && <Feedpoint position={feedpoint} theme={theme} />}
+      {feedpoint && <Feedpoint position={feedpoint} color={THEME_COLORS[theme].feedpoint} />}
       {shield && (
         <ShieldElement shield={shield} transformerEnabled={transformerEnabled} />
       )}

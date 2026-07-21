@@ -26,7 +26,7 @@ describe('Feedpoint', () => {
 
   it('renders correctly with dark theme', () => {
     const position: [number, number, number] = [1, 2, 3];
-    const { container } = render(<Feedpoint position={position} theme="dark" />);
+    const { container } = render(<Feedpoint position={position} color={THEME_COLORS.dark.feedpoint} />);
 
     const mesh = container.querySelector('mesh');
     expect(mesh).toBeTruthy();
@@ -51,7 +51,7 @@ describe('Feedpoint', () => {
 
   it('renders correctly with light theme', () => {
     const position: [number, number, number] = [-5, 0, 10];
-    const { container } = render(<Feedpoint position={position} theme="light" />);
+    const { container } = render(<Feedpoint position={position} color={THEME_COLORS.light.feedpoint} />);
 
     const material = container.querySelector('meshstandardmaterial');
     expect(material).toBeTruthy();
