@@ -102,3 +102,4 @@
 ## 2025-03-02 - Removed unused oddRound export
 **Learning:** `knip` will correctly flag functions that are exported but only used within the file they are defined in. In `src/store/antennaGeometry.ts`, `oddRound` was exported despite only being consumed locally.
 **Action:** Un-export functions that are strictly internal helpers. This reduces the public API surface area and eliminates false-positive static analysis warnings without deleting necessary code.
+## 2026-07-22 - Un-export internal types to fix Knip warnings\n**Learning:** When Knip flags types as unused exports, merely un-exporting them can break the TypeScript build if those types are still used inside other exported interfaces (TS4023). However, if carefully done for types that don't leak into the public API, it clears technical debt.\n**Action:** Un-exported HopStatus, LinkQuality, Vec3, GroundType, Excitation, and FeedlineShield since they were only used internally.

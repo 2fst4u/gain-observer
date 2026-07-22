@@ -400,7 +400,7 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   return wires;
 }
 
-export interface FeedlineShield {
+interface FeedlineShield {
   readonly bottomZ: number;
   readonly radius: number;
   readonly segments: number;
