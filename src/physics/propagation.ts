@@ -76,8 +76,8 @@ export interface PropagationInputs {
   readonly swr?: number;
 }
 
-export type HopStatus = 'open' | 'marginal' | 'closed';
-export type LinkQuality = 'useful' | 'weak' | 'unusable';
+type HopStatus = 'open' | 'marginal' | 'closed';
+type LinkQuality = 'useful' | 'weak' | 'unusable';
 
 export interface HopPrediction {
   /** Hop number, 1-based. */
