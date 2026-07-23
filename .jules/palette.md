@@ -14,3 +14,6 @@
 ## 2025-07-15 - Accessible Tooltips for Disabled Buttons
 **Learning:** Native `disabled` attributes on buttons completely remove them from the keyboard focus order and swallow mouse hover events in most browsers, making `title` tooltips explaining the disabled state invisible to both mouse and keyboard users.
 **Action:** Use `aria-disabled="true"` with conditional `onClick` handlers and matching CSS styles (`button[aria-disabled="true"]`) instead of native `disabled` when a button requires an explanatory tooltip.
+## 2024-07-23 - Prevent layout shift with persistent disabled action buttons
+**Learning:** Disappearing action buttons (like "Match ratio") after being clicked cause jarring layout shifts and remove the indication that the feature exists. They also disrupt screen reader focus.
+**Action:** Use `aria-disabled="true"` with an updated `title` explaining the disabled state instead of conditionally rendering the button out of the DOM. This provides consistent UI and reassures users their setting is optimal.
