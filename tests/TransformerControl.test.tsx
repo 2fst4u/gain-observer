@@ -84,15 +84,17 @@ describe('TransformerControl', () => {
     expect(button).not.toBeNull();
   });
 
-  it('does not suggest optimal ratio if it matches current ratio', () => {
+  it('suggests optimal ratio is matched if it matches current ratio', () => {
     useAntennaStore.setState({
       transformerEnabled: true,
       transformerRatio: 4,
       feedlineId: 'none',
       result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
     });
-    const { queryByRole } = render(<TransformerControl />);
-    expect(queryByRole('button', { name: /Match/i })).toBeNull();
+    const { getByRole } = render(<TransformerControl />);
+    const button = getByRole('button', { name: /Match/i });
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.getAttribute('title')).toContain('Already optimally matched to 4:1');
   });
 
   it('applies optimal ratio when match button is clicked', () => {

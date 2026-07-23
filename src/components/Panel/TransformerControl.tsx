@@ -59,10 +59,13 @@ function TransformerRatioInput({
             setLocalRatio(transformerRatio.toString());
           }}
         />
-        {optimalRatio !== null && optimalRatio !== transformerRatio && (
+        {optimalRatio !== null && (
           <button
-            onClick={() => setTransformerRatio(optimalRatio)}
-            title={`Set ratio to ${optimalRatio}:1 — the estimated best match for this antenna${feedlineActive ? ' and feedline' : ''}, from the simulated impedance. The ratio is never changed automatically; click to apply.`}
+            onClick={() => { if (optimalRatio !== transformerRatio) setTransformerRatio(optimalRatio); }}
+            aria-disabled={optimalRatio === transformerRatio}
+            title={optimalRatio === transformerRatio
+              ? `Already optimally matched to ${optimalRatio}:1`
+              : `Set ratio to ${optimalRatio}:1 — the estimated best match for this antenna${feedlineActive ? ' and feedline' : ''}, from the simulated impedance. The ratio is never changed automatically; click to apply.`}
             aria-label={`Match transformer ratio to ${optimalRatio}:1`}
             style={{ flex: '0 0 auto' }}
           >
