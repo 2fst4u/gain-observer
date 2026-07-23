@@ -131,3 +131,6 @@
 ## 2026-07-28 - Inverted-L Base Height Documentation Drift
 **Learning:** The documentation claimed the Inverted-L vertical wire started at `VERTICAL_WHIP_BASE_GAP_M` above ground, comparing it to the vertical whip for "same electrical isolation". However, `buildVerticalWhipWires` uses `Math.max(VERTICAL_WHIP_BASE_GAP_M, height)` while `buildInvertedLWires` hardcodes it to exactly `VERTICAL_WHIP_BASE_GAP_M` regardless of height. The comparison was inaccurate.
 **Action:** Updated `docs/antenna-spec.md` to state the Inverted-L base starts exactly at `VERTICAL_WHIP_BASE_GAP_M` regardless of height, removing the false comparison to the vertical whip.
+## 2026-07-29 - Sloping V leg slope calculation
+**Learning:** The documentation for the Sloping V antenna listed a user-configurable slope angle $\theta$ (below horizontal) under "Angle/Slope". However, the application engine ignores any input `legSlope` parameter and calculates the downward slope to force the tips to precisely rest at the ground floor (`SLOPING_V_MIN_TIP_Z_M` or $0.5$ m) to ensure termination to the ground.
+**Action:** Updated `docs/antenna-spec.md` to clarify that the downward slope of the legs is automatically calculated, eliminating confusion about a user-configurable slope setting.
