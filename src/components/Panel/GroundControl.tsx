@@ -53,6 +53,7 @@ export function GroundControl() {
           style={{ padding: '2px 8px', fontSize: 11, marginLeft: 8 }}
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
+          aria-controls="custom-ground-settings"
           aria-label={expanded ? 'Simple: Hide custom ground settings' : 'Custom: Show custom ground settings'}
           title={expanded ? 'Hide custom settings' : 'Show custom settings'}
         >
@@ -69,7 +70,7 @@ export function GroundControl() {
         {GROUND_PRESET_MAP.get(groundId)?.hint ?? 'Custom ground parameters.'}
       </div>
       {(expanded || groundId === 'custom') && (
-        <>
+        <div id="custom-ground-settings">
           <label htmlFor="custom-ground-sigma" style={{ marginTop: 10 }}>Conductivity σ (S/m)</label>
           <input
             id="custom-ground-sigma"
@@ -112,7 +113,7 @@ export function GroundControl() {
               setLocalEpsilon(epsilon.toString());
             }}
           />
-        </>
+        </div>
       )}
     </section>
   );
