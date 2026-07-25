@@ -14,7 +14,7 @@ import {
   TERMINATED_DELTA_RIGHT_BASE_TAG,
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
-  TERMINATED_DELTA_CENTRE_GAP_M,
+  FEED_BRIDGE_LENGTH_M,
   FOLDED_DIPOLE_OPPOSITE_TAG,
   FOLDED_DIPOLE_CONNECTOR_TAG,
   SLOPING_V_MIN_TIP_Z_M
@@ -108,7 +108,7 @@ describe('buildTerminatedDeltaWires', () => {
       rightBase!.start[2] - leftBase!.end[2]
     );
 
-    expect(gap).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
+    expect(gap).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
   });
 
   it('creates 6 wires including feed bridge and shield wires when feedlineShield is provided', () => {
@@ -427,8 +427,8 @@ describe('buildFoldedAntennaWires', () => {
     const dz = leftOpp.end[2] - rightOpp.start[2];
     const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-    // The gap should equal TERMINATED_DELTA_CENTRE_GAP_M
-    expect(distance).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M);
+    // The gap should equal FEED_BRIDGE_LENGTH_M
+    expect(distance).toBeCloseTo(FEED_BRIDGE_LENGTH_M);
   });
 
   it('respects orientation by rotating the antenna along the correct axis', () => {

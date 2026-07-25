@@ -313,7 +313,6 @@ export const VERTICAL_WHIP_RADIAL_COUNT = 4;
  * NEC-valid (no coincident wires) without materially altering the
  * radiating perimeter.
  */
-export const TERMINATED_DELTA_CENTRE_GAP_M = FEED_BRIDGE_LENGTH_M;
 
 /**
  * Z-coordinate of the bottom endpoint of the sloping-V termination stubs,

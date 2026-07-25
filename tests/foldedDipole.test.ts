@@ -11,7 +11,7 @@ import {
   FOLDED_DIPOLE_TERM_BRIDGE_TAG,
   type AntennaState,
 } from '../src/store/antennaStore';
-import { TERMINATED_DELTA_CENTRE_GAP_M, FEEDLINE_SHIELD_TAG } from '../src/physics/constants';
+import { FEED_BRIDGE_LENGTH_M, FEEDLINE_SHIELD_TAG } from '../src/physics/constants';
 
 const FREQ = 7.1;
 const APERTURE = 0.5;
@@ -99,7 +99,7 @@ describe('folded dipole geometry', () => {
     expect(leftEnd[2]).toBeCloseTo(12 + APERTURE, 9);
   });
 
-  it('terminated: top conductor halves have a gap of TERMINATED_DELTA_CENTRE_GAP_M at the centre', () => {
+  it('terminated: top conductor halves have a gap of FEED_BRIDGE_LENGTH_M at the centre', () => {
     const wires = foldedAntennaWires({ height: 12, terminatingResistor: 600 });
     const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
     expect(oppWires).toHaveLength(2);
@@ -108,13 +108,13 @@ describe('folded dipole geometry', () => {
     // Both halves are at z = height + aperture.
     expect(leftEnd[2]).toBeCloseTo(12 + APERTURE, 9);
     expect(rightStart[2]).toBeCloseTo(12 + APERTURE, 9);
-    // The gap between them equals TERMINATED_DELTA_CENTRE_GAP_M.
+    // The gap between them equals FEED_BRIDGE_LENGTH_M.
     const gapDist = Math.hypot(
       rightStart[0] - leftEnd[0],
       rightStart[1] - leftEnd[1],
       rightStart[2] - leftEnd[2],
     );
-    expect(gapDist).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
+    expect(gapDist).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
   });
 
   it('forms a closed loop — connector endpoints coincide with both conductors', () => {
@@ -188,7 +188,7 @@ describe('folded dipole excitation and termination', () => {
       bridge.end[1] - bridge.start[1],
       bridge.end[2] - bridge.start[2],
     );
-    expect(bridgeLen).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
+    expect(bridgeLen).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
 
     // LD-4 on segment 1 of the bridge wire, with the correct resistance.
     const bridgeLoads = (input.loads ?? []).filter((l) => l.wireTag === FOLDED_DIPOLE_TERM_BRIDGE_TAG);

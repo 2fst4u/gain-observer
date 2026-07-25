@@ -11,7 +11,6 @@ import {
   FEEDLINE_SHIELD_TAG,
   TERMINATED_DELTA_LEFT_BASE_TAG,
   TERMINATED_DELTA_RIGHT_BASE_TAG,
-  TERMINATED_DELTA_CENTRE_GAP_M,
   VERTICAL_WHIP_TAG,
   VERTICAL_WHIP_BASE_GAP_M,
   VERTICAL_WHIP_RADIAL_TAG,
@@ -577,10 +576,10 @@ function calcTerminatedDeltaPoints(halfBase: number, dx: number, dy: number, bot
   const rightCorner: [number, number, number] = [halfBase * dx, halfBase * dy, bottomZ];
 
   // Inner ends of the two half-base wires. They sit slightly to the left
-  // and right of the geometric centre with a gap of TERMINATED_DELTA_CENTRE_GAP_M
+  // and right of the geometric centre with a gap of FEED_BRIDGE_LENGTH_M
   // between them — the gap is electrically open in the unterminated case
   // and is bridged by the stub+resistor pair to ground when terminated.
-  const innerOffset = Math.max(0, TERMINATED_DELTA_CENTRE_GAP_M / 2);
+  const innerOffset = Math.max(0, FEED_BRIDGE_LENGTH_M / 2);
   const innerHalfBase = Math.max(0.01, halfBase - innerOffset);
   const centreLeft: [number, number, number] = [-innerOffset * dx, -innerOffset * dy, bottomZ];
   const centreRight: [number, number, number] = [innerOffset * dx, innerOffset * dy, bottomZ];
@@ -595,7 +594,7 @@ function calcTerminatedDeltaPoints(halfBase: number, dx: number, dy: number, bot
  * perimeter-preserving leg/base math, same equilateral-when-possible
  * shape, same apex feed convention. The only structural difference is
  * that the base is **split in the middle** into two independent
- * half-base wires separated by `TERMINATED_DELTA_CENTRE_GAP_M`. Each
+ * half-base wires separated by `FEED_BRIDGE_LENGTH_M`. Each
  * half-base ends near the centre and the termination network (vertical
  * stub + LD-4 resistor) is added in selectSimulationInput when the user
  * specifies a non-zero terminating resistance — mirroring the
@@ -1013,7 +1012,7 @@ export interface FoldedAntennaWiresParams {
   frequency: number;
   /**
    * When > 0, the top (un-fed) conductor is split at its centre with a gap
-   * of TERMINATED_DELTA_CENTRE_GAP_M so that buildTerminationElements can
+   * of FEED_BRIDGE_LENGTH_M so that buildTerminationElements can
    * add a resistive bridge across the gap (TFD topology). When 0 (unterminated),
    * both halves share a common junction at the top centre — electrically
    * equivalent to a single continuous wire.
@@ -1038,7 +1037,7 @@ export interface FoldedAntennaWiresParams {
  * The top (un-fed) conductor is always split into two halves at the centre:
  *   • Unterminated: both halves share the same junction point at topCenter
  *     (0, 0, height + aperture), forming a continuous wire. No gap, no bridge.
- *   • Terminated (terminatingResistor > 0): a gap of TERMINATED_DELTA_CENTRE_GAP_M
+ *   • Terminated (terminatingResistor > 0): a gap of FEED_BRIDGE_LENGTH_M
  *     separates the two inner ends. buildTerminationElements adds a horizontal
  *     bridge wire (FOLDED_DIPOLE_TERM_BRIDGE_TAG) with an LD-4 load across the
  *     gap. Current must flow through R to pass between the halves — exactly the
@@ -1058,7 +1057,7 @@ export function buildFoldedAntennaWires(params: FoldedAntennaWiresParams): Wire[
   const aperture = Math.max(0.02, params.aperture);
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
   const hasTermination = (params.terminatingResistor ?? 0) > 0;
-  const gapHalf = hasTermination ? TERMINATED_DELTA_CENTRE_GAP_M / 2 : 0;
+  const gapHalf = hasTermination ? FEED_BRIDGE_LENGTH_M / 2 : 0;
 
   const pts = calcFoldedAntennaPoints(params.orientation, h, half, aperture, bridgeHalf, gapHalf);
   const segs = calcFoldedAntennaSegments(
