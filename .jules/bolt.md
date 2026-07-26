@@ -219,3 +219,6 @@
 ## 2026-07-20 - Group React hooks using Zustand's useShallow (components and hooks)
 **Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within components or hooks incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
 **Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block across the codebase (e.g., `useGeolocation`, `useTheme`, `useUnits`, `ModeSelector`, `UnitToggle`, `ThemeToggle`, `SWRChart`).
+## 2026-07-26 - Eliminate redundant array allocation in PolarPlots
+**Learning:** To minimize garbage collection (GC) pressure in high-frequency rendering loops (e.g., charts or sliders), avoid allocating new arrays when processing intermediate data. If an input array is freshly allocated by a preceding function and is not shared or retained elsewhere, mutate it in-place instead of creating a second array.
+**Action:** Modified `normaliseForPolar` in `PolarPlots.tsx` to mutate the freshly allocated input `values` array in-place, removing a redundant array allocation per chart render.

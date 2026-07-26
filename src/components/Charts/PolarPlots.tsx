@@ -85,14 +85,14 @@ function normaliseForPolar(values: number[], maxDb: number, rangeDb: number): nu
   const min = maxDb - rangeDb;
   const len = values.length;
   // ⚡ Bolt: Performance Optimization
-  // Pre-allocate the result array and use a standard for-loop instead of Array.prototype.map.
-  // This avoids intermediate array resizing and callback allocation overhead, reducing garbage collection
+  // Mutate the result array in-place instead of allocating a new array.
+  // The caller (cutAzimuth / cutElevation) always passes a freshly allocated array.
+  // This avoids a redundant array allocation, reducing garbage collection
   // pressure during high-frequency chart re-renders.
-  const out = new Array<number>(len);
   for (let i = 0; i < len; i++) {
-    out[i] = Math.max(0, values[i] - min);
+    values[i] = Math.max(0, values[i] - min);
   }
-  return out;
+  return values;
 }
 
 function getCssVar(name: string): string {
