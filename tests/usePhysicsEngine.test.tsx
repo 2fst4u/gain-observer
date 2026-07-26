@@ -101,7 +101,7 @@ describe('usePhysicsEngine', () => {
 
     // Mock ready
     act(() => {
-      messageHandler({ data: { type: 'ready' } });
+      messageHandler({ data: { type: 'ready' }, origin: window.location.origin });
     });
     expect(useAntennaStore.getState().engineReady).toBe(true);
 
@@ -121,7 +121,8 @@ describe('usePhysicsEngine', () => {
           type: 'result',
           result: { test: true },
           sweep: []
-        }
+        },
+        origin: window.location.origin
       });
     });
 
@@ -134,7 +135,8 @@ describe('usePhysicsEngine', () => {
           id: initialId,
           type: 'error',
           message: 'Test Error'
-        }
+        },
+        origin: window.location.origin
       });
     });
 
@@ -149,7 +151,8 @@ describe('usePhysicsEngine', () => {
           type: 'result',
           result: { test: true },
           sweep: []
-        }
+        },
+        origin: window.location.origin
       });
     });
     // Loading state shouldn't change
@@ -163,7 +166,8 @@ describe('usePhysicsEngine', () => {
           id: initialId - 1, // Stale ID
           type: 'error',
           message: 'Stale Error'
-        }
+        },
+        origin: window.location.origin
       });
     });
     expect(useAntennaStore.getState().error).toBe(null);
@@ -175,7 +179,8 @@ describe('usePhysicsEngine', () => {
           id: -1,
           type: 'error',
           message: 'Init Error'
-        }
+        },
+        origin: window.location.origin
       });
     });
     expect(useAntennaStore.getState().error).toBe('Init Error');
@@ -199,7 +204,7 @@ describe('usePhysicsEngine', () => {
 
     // Resolve it so no full solve is in flight.
     act(() => {
-      messageHandler({ data: { id: initial.id, type: 'result', result: { test: true }, sweep: [] } });
+      messageHandler({ data: { id: initial.id, type: 'result', result: { test: true }, sweep: [] }, origin: window.location.origin });
     });
 
     // Pure zoom/pan → cheap sweep-only recompute (no pattern re-solve).
@@ -217,7 +222,7 @@ describe('usePhysicsEngine', () => {
 
     // A sweep result updates the sweep without touching the pattern result.
     act(() => {
-      messageHandler({ data: { id: msg.id, type: 'sweep', sweep: [{ frequencyMHz: 7, R: 50, X: 0, swr: 1.1 }] } });
+      messageHandler({ data: { id: msg.id, type: 'sweep', sweep: [{ frequencyMHz: 7, R: 50, X: 0, swr: 1.1 }] }, origin: window.location.origin });
     });
     expect(useAntennaStore.getState().sweep).toHaveLength(1);
     expect(useAntennaStore.getState().result).toEqual({ test: true });

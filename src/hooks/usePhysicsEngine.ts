@@ -123,6 +123,10 @@ function useWorkerLifecycle(
     workerRef.current = worker;
 
     const handler = (ev: MessageEvent<WorkerResponse>) => {
+      if (ev.origin !== '' && ev.origin !== window.location.origin) {
+        console.warn('[usePhysicsEngine] Ignored message from untrusted origin:', ev.origin);
+        return;
+      }
       handleWorkerMessage(ev.data, latestIdRef.current, (val) => {
         fullPendingRef.current = val;
       });
