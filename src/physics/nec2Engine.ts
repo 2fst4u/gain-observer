@@ -204,112 +204,79 @@ export class Nec2Engine implements Engine {
   }
 
   async simulate(input: SimulationInput): Promise<SimulationResult> {
-    if (!this.factory) await this.init();
-    const factory = this.factory;
-    if (!factory) throw new Error('NEC-2 engine failed to initialise');
-
-    // Serialise so concurrent simulate() calls don't compete for memory.
-    const release = await this.acquire();
     const t0 = performance.now();
-    try {
-      const stderrLines: string[] = [];
-      const instance = await factory({
-        noInitialRun: true,
-        locateFile: (path: string) => this.resolveAsset(path),
-        print: this.quiet ? () => {} : (s) => this.logger?.info('[nec2]', s),
-        printErr: (s) => {
-          stderrLines.push(s);
-          if (!this.quiet) this.logger?.warn('[nec2 stderr]', s);
-        },
-      });
+    const cards = buildNecCards(input);
+    const output = await this.executeNec2(cards, 'nec2');
 
-      const inPath = '/input.nec';
-      const outPath = '/output.nout';
+    const parsed = parseNecOutput(
+      output,
+      input.patternResolution.thetaSteps,
+      input.patternResolution.phiSteps,
+    );
 
-      const cards = buildNecCards(input);
-      instance.FS.writeFile(inPath, cards);
-
-      const rc = instance.callMain(['-i', inPath, '-o', outPath]);
-      if (rc !== 0) {
-        const tail = stderrLines.slice(-5).join(' | ') || '(no stderr)';
-        throw new Error(`nec2c exited with status ${rc}. ${tail}`);
-      }
-
-      const outputBytes = instance.FS.readFile(outPath);
-      const output = new TextDecoder().decode(outputBytes);
-
-      const parsed = parseNecOutput(
-        output,
-        input.patternResolution.thetaSteps,
-        input.patternResolution.phiSteps,
+    if (!parsed.pattern) {
+      throw new Error(
+        `NEC-2 did not produce a radiation pattern. Notices: ${parsed.notices.join('; ') || '(none)'}`,
       );
-
-      if (!parsed.pattern) {
-        throw new Error(
-          `NEC-2 did not produce a radiation pattern. Notices: ${parsed.notices.join('; ') || '(none)'}`,
-        );
-      }
-      if (!parsed.impedance) {
-        throw new Error('NEC-2 did not produce an impedance result.');
-      }
-
-      // Locate max gain direction.
-      let maxGain = -Infinity;
-      let maxIdx = 0;
-      for (let i = 0; i < parsed.pattern.data.length; i++) {
-        const v = parsed.pattern.data[i]!;
-        if (v > maxGain) {
-          maxGain = v;
-          maxIdx = i;
-        }
-      }
-      const ti = Math.floor(maxIdx / parsed.pattern.phiSteps);
-      const pi = maxIdx % parsed.pattern.phiSteps;
-      const thetaDeg = ti * parsed.pattern.dTheta;
-      const phiDeg = pi * parsed.pattern.dPhi;
-      // Convert NEC theta (0 = +z zenith) to elevation (0 = horizon).
-      const elevationDeg = 90 - thetaDeg;
-
-      const computeTimeMs = performance.now() - t0;
-
-      const terminationDiagnostics = computeTerminationDiagnostics(
-        parsed.currents,
-        parsed.powerBudget,
-        parsed.pattern,
-        elevationDeg,
-        phiDeg,
-      );
-
-      const efficiency = parsed.powerBudget ? parsed.powerBudget.efficiencyPct / 100 : undefined;
-
-      // Directivity: D = G / η  →  D(dBi) = G(dBi) − 10·log10(η)
-      // Only defined when the power budget is available and η > 0.
-      const maxDirectivityDbi =
-        efficiency && efficiency > 1e-6
-          ? maxGain - 10 * Math.log10(efficiency)
-          : undefined;
-
-      // Realized gain: deducts feedpoint mismatch loss vs 50 Ω source.
-      // G_r(dBi) = G(dBi) + 10·log10(1 − |Γ|²)
-      const mlf = mismatchLossFactor(parsed.impedance);
-      const maxRealizedGainDbi = mlf > 0 ? maxGain + 10 * Math.log10(mlf) : undefined;
-
-      return {
-        pattern: parsed.pattern,
-        maxGainDbi: maxGain,
-        maxDirectivityDbi,
-        maxRealizedGainDbi,
-        takeoffElevationDeg: elevationDeg,
-        takeoffAzimuthDeg: phiDeg,
-        impedance: parsed.impedance,
-        swr: swr(parsed.impedance),
-        efficiency,
-        computeTimeMs,
-        terminationDiagnostics,
-      };
-    } finally {
-      release();
     }
+    if (!parsed.impedance) {
+      throw new Error('NEC-2 did not produce an impedance result.');
+    }
+
+    // Locate max gain direction.
+    let maxGain = -Infinity;
+    let maxIdx = 0;
+    for (let i = 0; i < parsed.pattern.data.length; i++) {
+      const v = parsed.pattern.data[i]!;
+      if (v > maxGain) {
+        maxGain = v;
+        maxIdx = i;
+      }
+    }
+    const ti = Math.floor(maxIdx / parsed.pattern.phiSteps);
+    const pi = maxIdx % parsed.pattern.phiSteps;
+    const thetaDeg = ti * parsed.pattern.dTheta;
+    const phiDeg = pi * parsed.pattern.dPhi;
+    // Convert NEC theta (0 = +z zenith) to elevation (0 = horizon).
+    const elevationDeg = 90 - thetaDeg;
+
+    const computeTimeMs = performance.now() - t0;
+
+    const terminationDiagnostics = computeTerminationDiagnostics(
+      parsed.currents,
+      parsed.powerBudget,
+      parsed.pattern,
+      elevationDeg,
+      phiDeg,
+    );
+
+    const efficiency = parsed.powerBudget ? parsed.powerBudget.efficiencyPct / 100 : undefined;
+
+    // Directivity: D = G / η  →  D(dBi) = G(dBi) − 10·log10(η)
+    // Only defined when the power budget is available and η > 0.
+    const maxDirectivityDbi =
+      efficiency && efficiency > 1e-6
+        ? maxGain - 10 * Math.log10(efficiency)
+        : undefined;
+
+    // Realized gain: deducts feedpoint mismatch loss vs 50 Ω source.
+    // G_r(dBi) = G(dBi) + 10·log10(1 − |Γ|²)
+    const mlf = mismatchLossFactor(parsed.impedance);
+    const maxRealizedGainDbi = mlf > 0 ? maxGain + 10 * Math.log10(mlf) : undefined;
+
+    return {
+      pattern: parsed.pattern,
+      maxGainDbi: maxGain,
+      maxDirectivityDbi,
+      maxRealizedGainDbi,
+      takeoffElevationDeg: elevationDeg,
+      takeoffAzimuthDeg: phiDeg,
+      impedance: parsed.impedance,
+      swr: swr(parsed.impedance),
+      efficiency,
+      computeTimeMs,
+      terminationDiagnostics,
+    };
   }
 
   /**
@@ -361,12 +328,7 @@ export class Nec2Engine implements Engine {
     return release;
   }
 
-  private async solveImpedanceSweep(
-    input: SimulationInput,
-    points: number,
-    startFreq: number,
-    step: number,
-  ): Promise<{ impedance: ImpedanceResult | null; power: number | null }[]> {
+  private async executeNec2(cards: string, logPrefix: string): Promise<string> {
     if (!this.factory) await this.init();
     const factory = this.factory;
     if (!factory) throw new Error('NEC-2 engine failed to initialise');
@@ -377,36 +339,44 @@ export class Nec2Engine implements Engine {
       const instance = await factory({
         noInitialRun: true,
         locateFile: (path: string) => this.resolveAsset(path),
-        print: this.quiet ? () => {} : (s) => this.logger?.info('[nec2 sweep]', s),
+        print: this.quiet ? () => {} : (s) => this.logger?.info(`[${logPrefix}]`, s),
         printErr: (s) => {
           stderrLines.push(s);
-          if (!this.quiet) this.logger?.warn('[nec2 sweep stderr]', s);
+          if (!this.quiet) this.logger?.warn(`[${logPrefix} stderr]`, s);
         },
       });
 
       const inPath = '/input.nec';
       const outPath = '/output.nout';
-      instance.FS.writeFile(
-        inPath,
-        buildNecCards(input, {
-          includePattern: false,
-          sweepPoints: points,
-          sweepStartFreq: startFreq,
-          sweepStep: step,
-        }),
-      );
+      instance.FS.writeFile(inPath, cards);
 
       const rc = instance.callMain(['-i', inPath, '-o', outPath]);
       if (rc !== 0) {
         const tail = stderrLines.slice(-5).join(' | ') || '(no stderr)';
-        throw new Error(`nec2c sweep exited with status ${rc}. ${tail}`);
+        const prefix = logPrefix === 'nec2 sweep' ? 'nec2c sweep' : 'nec2c';
+        throw new Error(`${prefix} exited with status ${rc}. ${tail}`);
       }
 
       const outputBytes = instance.FS.readFile(outPath);
-      const output = new TextDecoder().decode(outputBytes);
-      return parseNecImpedanceSweep(output);
+      return new TextDecoder().decode(outputBytes);
     } finally {
       release();
     }
+  }
+
+  private async solveImpedanceSweep(
+    input: SimulationInput,
+    points: number,
+    startFreq: number,
+    step: number,
+  ): Promise<{ impedance: ImpedanceResult | null; power: number | null }[]> {
+    const cards = buildNecCards(input, {
+      includePattern: false,
+      sweepPoints: points,
+      sweepStartFreq: startFreq,
+      sweepStep: step,
+    });
+    const output = await this.executeNec2(cards, 'nec2 sweep');
+    return parseNecImpedanceSweep(output);
   }
 }

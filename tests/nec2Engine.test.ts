@@ -8,7 +8,15 @@ describe('Nec2Engine unit tests', () => {
     // Stub init to simulate a silent failure where this.factory remains null
     engine.init = async () => {};
 
-    const dummyInput = {} as SimulationInput;
+    const dummyInput = {
+      frequencyMHz: 14.1,
+      wires: [],
+      ground: { type: 'perfect' },
+      excitation: { wireTag: 1, segment: 1, voltage: 1 },
+      patternResolution: { thetaSteps: 2, phiSteps: 2, dTheta: 1, dPhi: 1 },
+      loads: [],
+      transmissionLines: [],
+    } as unknown as SimulationInput;
 
     await expect(engine.simulate(dummyInput)).rejects.toThrow(
       'NEC-2 engine failed to initialise'
@@ -20,7 +28,15 @@ describe('Nec2Engine unit tests', () => {
     // Stub init to simulate a silent failure where this.factory remains null
     engine.init = async () => {};
 
-    const dummyInput = {} as SimulationInput;
+    const dummyInput = {
+      frequencyMHz: 14.1,
+      wires: [],
+      ground: { type: 'perfect' },
+      excitation: { wireTag: 1, segment: 1, voltage: 1 },
+      patternResolution: { thetaSteps: 1, phiSteps: 1 },
+      loads: [],
+      transmissionLines: [],
+    } as unknown as SimulationInput;
 
     await expect(engine.sweepImpedance(dummyInput)).rejects.toThrow(
       'NEC-2 engine failed to initialise'
