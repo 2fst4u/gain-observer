@@ -219,3 +219,6 @@
 ## 2026-07-20 - Group React hooks using Zustand's useShallow (components and hooks)
 **Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within components or hooks incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
 **Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block across the codebase (e.g., `useGeolocation`, `useTheme`, `useUnits`, `ModeSelector`, `UnitToggle`, `ThemeToggle`, `SWRChart`).
+## 2026-07-26 - Remove unnecessary array allocation in RadiationPattern
+**Learning:** `Float32Array.from(typedArray)` creates a completely new backing buffer and copies all elements. If the intention is simply to have a `Float32Array` reference to an existing typed array (like from a Three.js buffer attribute), use type assertion (`typedArray as Float32Array`) or directly reference the array. This prevents unnecessary memory allocation and garbage collection pressure in hot paths.
+**Action:** Replaced `Float32Array.from(positions.array as Float32Array)` with `positions.array as Float32Array` in `src/components/Scene/RadiationPattern.tsx`.

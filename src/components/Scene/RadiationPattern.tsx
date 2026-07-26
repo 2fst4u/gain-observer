@@ -31,7 +31,7 @@ interface CachedGeometry {
 function createBaseGeometry(phiSegments: number, thetaSegments: number): CachedGeometry {
   const source = new THREE.SphereGeometry(1, phiSegments, thetaSegments).toNonIndexed();
   const positions = source.attributes.position as THREE.BufferAttribute;
-  const basePositions = Float32Array.from(positions.array as Float32Array);
+  const basePositions = positions.array as Float32Array;
   const count = positions.count;
   const angles = new Float32Array(count * 2);
 
