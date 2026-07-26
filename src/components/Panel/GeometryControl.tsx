@@ -104,9 +104,8 @@ function LengthControl() {
             const s = e.target.value;
             setLocalLen(s);
             const val = parseFloat(s);
-            if (!isNaN(val)) {
-              setLength(fromDisplayLength(val, units));
-            }
+            if (isNaN(val)) return;
+            setLength(fromDisplayLength(val, units));
           }}
           onBlur={() => {
             setIsFocused(false);
@@ -212,7 +211,8 @@ function TerminationControl() {
             const s = e.target.value;
             setLocalResistor(s);
             const val = parseFloat(s);
-            if (!isNaN(val)) setTerminatingResistor(val);
+            if (isNaN(val)) return;
+            setTerminatingResistor(val);
           }}
           onBlur={() => {
             setIsResistorFocused(false);
@@ -313,9 +313,8 @@ function OrientationControl() {
             const s = e.target.value;
             setLocalOrient(s);
             const val = parseFloat(s);
-            if (!isNaN(val)) {
-              setOrientation(val);
-            }
+            if (isNaN(val)) return;
+            setOrientation(val);
           }}
           onBlur={() => {
             setIsOrientFocused(false);
@@ -409,7 +408,8 @@ function HeightControl() {
         aria-valuetext={`${dispHeight.toFixed(1)} ${unit}`}
         onChange={(e) => {
           const val = parseFloat(e.target.value);
-          if (!isNaN(val)) setHeight(fromDisplayLength(val, units));
+          if (isNaN(val)) return;
+          setHeight(fromDisplayLength(val, units));
         }}
       />
     </>
@@ -441,7 +441,8 @@ function VAngleControl() {
         aria-valuetext={`${vAngle}°`}
         onChange={(e) => {
           const val = parseFloat(e.target.value);
-          if (!isNaN(val)) setVAngle(val);
+          if (isNaN(val)) return;
+          setVAngle(val);
         }}
       />
     </>
@@ -484,7 +485,8 @@ function ApertureControl() {
         aria-describedby="folded-dipole-aperture-hint"
         onChange={(e) => {
           const val = parseFloat(e.target.value);
-          if (!isNaN(val)) setFoldedDipoleAperture(fromDisplayLength(val, units));
+          if (isNaN(val)) return;
+          setFoldedDipoleAperture(fromDisplayLength(val, units));
         }}
       />
       <div id="folded-dipole-aperture-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
