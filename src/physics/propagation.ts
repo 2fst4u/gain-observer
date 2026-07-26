@@ -425,30 +425,26 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
         const linkQuality = classifyLinkQuality(effectiveGainDbi);
         const qRank = qualityRank(linkQuality);
 
-        if (bestTi === -1) {
-          bestTi = ti;
-          bestEffectiveGainDbi = effectiveGainDbi;
-          bestQualityRank = qRank;
-          bestLinkQuality = linkQuality;
-          continue;
+        if (bestTi !== -1) {
+          const bestBase = baseRays[bestTi]!;
+          if (
+            !isBetterRay(
+              baseRay.statusRankValue,
+              bestBase.statusRankValue,
+              qRank,
+              bestQualityRank,
+              baseRay.rangeKm,
+              bestBase.rangeKm
+            )
+          ) {
+            continue;
+          }
         }
 
-        const bestBase = baseRays[bestTi]!;
-        if (
-          isBetterRay(
-            baseRay.statusRankValue,
-            bestBase.statusRankValue,
-            qRank,
-            bestQualityRank,
-            baseRay.rangeKm,
-            bestBase.rangeKm
-          )
-        ) {
-          bestTi = ti;
-          bestEffectiveGainDbi = effectiveGainDbi;
-          bestQualityRank = qRank;
-          bestLinkQuality = linkQuality;
-        }
+        bestTi = ti;
+        bestEffectiveGainDbi = effectiveGainDbi;
+        bestQualityRank = qRank;
+        bestLinkQuality = linkQuality;
       }
 
       if (bestTi !== -1) {
