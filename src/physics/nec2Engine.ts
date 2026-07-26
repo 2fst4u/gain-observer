@@ -22,7 +22,7 @@ import { buildNecCards } from './necCard';
 import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
 import { computeTerminationDiagnostics } from './terminationDiagnostics';
 import { swr, mismatchLossFactor } from './impedance';
-import type { Engine, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
+import type { Engine, GainPattern, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ } from './constants';
 import { clampSpan, runScan, adaptiveSweep } from './sweep';
 
@@ -94,6 +94,30 @@ export interface Nec2EngineOptions {
   quiet?: boolean;
   /** Optional logger to receive console output from the engine. */
   logger?: Logger;
+}
+
+/**
+ * Helper to locate the maximum gain direction and its corresponding elevation
+ * and azimuth angles in degrees.
+ */
+function findMaxGainDirection(pattern: GainPattern): { maxGain: number; elevationDeg: number; phiDeg: number } {
+  let maxGain = -Infinity;
+  let maxIdx = 0;
+  for (let i = 0; i < pattern.data.length; i++) {
+    const v = pattern.data[i]!;
+    if (v > maxGain) {
+      maxGain = v;
+      maxIdx = i;
+    }
+  }
+  const ti = Math.floor(maxIdx / pattern.phiSteps);
+  const pi = maxIdx % pattern.phiSteps;
+  const thetaDeg = ti * pattern.dTheta;
+  const phiDeg = pi * pattern.dPhi;
+  // Convert NEC theta (0 = +z zenith) to elevation (0 = horizon).
+  const elevationDeg = 90 - thetaDeg;
+
+  return { maxGain, elevationDeg, phiDeg };
 }
 
 export interface SweepOptions {
@@ -273,21 +297,7 @@ export class Nec2Engine implements Engine {
       }
 
       // Locate max gain direction.
-      let maxGain = -Infinity;
-      let maxIdx = 0;
-      for (let i = 0; i < parsed.pattern.data.length; i++) {
-        const v = parsed.pattern.data[i]!;
-        if (v > maxGain) {
-          maxGain = v;
-          maxIdx = i;
-        }
-      }
-      const ti = Math.floor(maxIdx / parsed.pattern.phiSteps);
-      const pi = maxIdx % parsed.pattern.phiSteps;
-      const thetaDeg = ti * parsed.pattern.dTheta;
-      const phiDeg = pi * parsed.pattern.dPhi;
-      // Convert NEC theta (0 = +z zenith) to elevation (0 = horizon).
-      const elevationDeg = 90 - thetaDeg;
+      const { maxGain, elevationDeg, phiDeg } = findMaxGainDirection(parsed.pattern);
 
       const computeTimeMs = performance.now() - t0;
 
