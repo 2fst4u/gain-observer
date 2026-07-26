@@ -55,9 +55,8 @@ export function SyncedLengthInput({
           const s = e.target.value;
           setLocalVal(s);
           const val = parseFloat(s);
-          if (!isNaN(val)) {
-            onChange(fromDisplayLength(val, units));
-          }
+          if (isNaN(val)) return;
+          onChange(fromDisplayLength(val, units));
         }}
         onBlur={() => {
           setIsFocused(false);
