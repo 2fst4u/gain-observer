@@ -49,6 +49,7 @@ function n(v: number, digits = 6): string {
   return v.toFixed(digits);
 }
 
+/** Geometry cards (GW): one per wire, auto-numbering untagged wires. */
 function buildGeometryCards(lines: string[], wires: readonly Wire[]): void {
   let tagCounter = 1;
   for (const w of wires) {
@@ -61,14 +62,17 @@ function buildGeometryCards(lines: string[], wires: readonly Wire[]): void {
   }
 }
 
+/** Loading cards (LD): segment loads such as a choke balun. */
 function buildLoadingCards(lines: string[], loads?: readonly SegmentLoad[]): void {
   for (const ld of loads ?? []) {
     if (ld.type === 0) {
+      // Series RLC: P1=R Ω, P2=L H, P3=C F.
       const p3 = ld.param3 ?? 0;
       lines.push(
         `LD 0 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 8)} ${n(p3, 12)}`,
       );
     } else {
+      // Impedance load: P1=R Ω, P2=X Ω.
       lines.push(
         `LD 4 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 5)}`,
       );
@@ -76,6 +80,7 @@ function buildLoadingCards(lines: string[], loads?: readonly SegmentLoad[]): voi
   }
 }
 
+/** Network cards (NT): non-radiating two-port networks. */
 function buildNetworkCards(lines: string[], networks?: readonly NetworkLoad[]): void {
   for (const nt of networks ?? []) {
     const y11i = nt.y11Imag ?? 0;
@@ -87,6 +92,10 @@ function buildNetworkCards(lines: string[], networks?: readonly NetworkLoad[]): 
   }
 }
 
+/**
+ * Transmission-line cards (TL): differential signal in coax/parallel line.
+ * NEC's TL card is lossless and non-radiating by definition.
+ */
 function buildTransmissionLineCards(lines: string[], transmissionLines?: readonly TransmissionLine[]): void {
   for (const tl of transmissionLines ?? []) {
     const y1r = tl.shuntAdmEnd1Real ?? 0;
