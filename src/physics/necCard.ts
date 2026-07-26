@@ -29,7 +29,7 @@
 // We generate minimal cards for a single-frequency excitation + RP sweep,
 // with optional LD/TL cards for feedline modelling.
 
-import type { SimulationInput } from './types';
+import type { NetworkLoad, SegmentLoad, SimulationInput, TransmissionLine, Wire } from './types';
 
 export interface BuildNecCardsOptions {
   readonly includePattern?: boolean;
@@ -49,6 +49,65 @@ function n(v: number, digits = 6): string {
   return v.toFixed(digits);
 }
 
+/** Geometry cards (GW): one per wire, auto-numbering untagged wires. */
+function buildGeometryCards(lines: string[], wires: readonly Wire[]): void {
+  let tagCounter = 1;
+  for (const w of wires) {
+    const tag = w.tag ?? tagCounter++;
+    const [x1, y1, z1] = w.start;
+    const [x2, y2, z2] = w.end;
+    lines.push(
+      `GW ${tag} ${w.segments} ${n(x1, 5)} ${n(y1, 5)} ${n(z1, 5)} ${n(x2, 5)} ${n(y2, 5)} ${n(z2, 5)} ${n(w.radius, 5)}`,
+    );
+  }
+}
+
+/** Loading cards (LD): segment loads such as a choke balun. */
+function buildLoadingCards(lines: string[], loads?: readonly SegmentLoad[]): void {
+  for (const ld of loads ?? []) {
+    if (ld.type === 0) {
+      // Series RLC: P1=R Ω, P2=L H, P3=C F.
+      const p3 = ld.param3 ?? 0;
+      lines.push(
+        `LD 0 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 8)} ${n(p3, 12)}`,
+      );
+    } else {
+      // Impedance load: P1=R Ω, P2=X Ω.
+      lines.push(
+        `LD 4 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 5)}`,
+      );
+    }
+  }
+}
+
+/** Network cards (NT): non-radiating two-port networks. */
+function buildNetworkCards(lines: string[], networks?: readonly NetworkLoad[]): void {
+  for (const nt of networks ?? []) {
+    const y11i = nt.y11Imag ?? 0;
+    const y12i = nt.y12Imag ?? 0;
+    const y22i = nt.y22Imag ?? 0;
+    lines.push(
+      `NT ${nt.fromTag} ${nt.fromSegment} ${nt.toTag} ${nt.toSegment} ${n(nt.y11Real, 6)} ${n(y11i, 6)} ${n(nt.y12Real, 6)} ${n(y12i, 6)} ${n(nt.y22Real, 6)} ${n(y22i, 6)}`,
+    );
+  }
+}
+
+/**
+ * Transmission-line cards (TL): differential signal in coax/parallel line.
+ * NEC's TL card is lossless and non-radiating by definition.
+ */
+function buildTransmissionLineCards(lines: string[], transmissionLines?: readonly TransmissionLine[]): void {
+  for (const tl of transmissionLines ?? []) {
+    const y1r = tl.shuntAdmEnd1Real ?? 0;
+    const y1i = tl.shuntAdmEnd1Imag ?? 0;
+    const y2r = tl.shuntAdmEnd2Real ?? 0;
+    const y2i = tl.shuntAdmEnd2Imag ?? 0;
+    lines.push(
+      `TL ${tl.fromTag} ${tl.fromSegment} ${tl.toTag} ${tl.toSegment} ${n(tl.z0, 4)} ${n(tl.lengthM, 5)} ${n(y1r, 6)} ${n(y1i, 6)} ${n(y2r, 6)} ${n(y2i, 6)}`,
+    );
+  }
+}
+
 export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions = {}): string {
   const includePattern = opts.includePattern ?? true;
   const lines: string[] = [];
@@ -57,15 +116,7 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
   lines.push('CE');
 
   // Geometry
-  let tagCounter = 1;
-  for (const w of input.wires) {
-    const tag = w.tag ?? tagCounter++;
-    const [x1, y1, z1] = w.start;
-    const [x2, y2, z2] = w.end;
-    lines.push(
-      `GW ${tag} ${w.segments} ${n(x1, 5)} ${n(y1, 5)} ${n(z1, 5)} ${n(x2, 5)} ${n(y2, 5)} ${n(z2, 5)} ${n(w.radius, 5)}`,
-    );
-  }
+  buildGeometryCards(lines, input.wires);
 
   // GE flag: 1 when a real ground is present (so NEC applies image theory),
   // 0 for free space. We also need to make sure no wire touches z=0 with
@@ -94,42 +145,14 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
   }
 
   // Loading cards (LD): segment loads such as a choke balun.
-  for (const ld of input.loads ?? []) {
-    if (ld.type === 0) {
-      // Series RLC: P1=R Ω, P2=L H, P3=C F.
-      const p3 = ld.param3 ?? 0;
-      lines.push(
-        `LD 0 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 8)} ${n(p3, 12)}`,
-      );
-    } else {
-      // Impedance load: P1=R Ω, P2=X Ω.
-      lines.push(
-        `LD 4 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 5)}`,
-      );
-    }
-  }
+  buildLoadingCards(lines, input.loads);
 
   // Network cards (NT): non-radiating two-port networks.
-  for (const nt of input.networks ?? []) {
-    const y11i = nt.y11Imag ?? 0;
-    const y12i = nt.y12Imag ?? 0;
-    const y22i = nt.y22Imag ?? 0;
-    lines.push(
-      `NT ${nt.fromTag} ${nt.fromSegment} ${nt.toTag} ${nt.toSegment} ${n(nt.y11Real, 6)} ${n(y11i, 6)} ${n(nt.y12Real, 6)} ${n(y12i, 6)} ${n(nt.y22Real, 6)} ${n(y22i, 6)}`,
-    );
-  }
+  buildNetworkCards(lines, input.networks);
 
   // Transmission-line cards (TL): differential signal in coax/parallel
   // line. NEC's TL card is lossless and non-radiating by definition.
-  for (const tl of input.transmissionLines ?? []) {
-    const y1r = tl.shuntAdmEnd1Real ?? 0;
-    const y1i = tl.shuntAdmEnd1Imag ?? 0;
-    const y2r = tl.shuntAdmEnd2Real ?? 0;
-    const y2i = tl.shuntAdmEnd2Imag ?? 0;
-    lines.push(
-      `TL ${tl.fromTag} ${tl.fromSegment} ${tl.toTag} ${tl.toSegment} ${n(tl.z0, 4)} ${n(tl.lengthM, 5)} ${n(y1r, 6)} ${n(y1i, 6)} ${n(y2r, 6)} ${n(y2i, 6)}`,
-    );
-  }
+  buildTransmissionLineCards(lines, input.transmissionLines);
 
   // Excitation: EX 0 tag seg 0 Vr Vi
   const ex = input.excitation;
