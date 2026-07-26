@@ -185,7 +185,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 - **Structure:** Two wires forming a V-shape, sloping from a high feedpoint toward the ground or lower supports.
 - **Apex Location:** Highest point at $(0, 0, \text{height})$. The `height` parameter refers to the feedpoint (apex).
-- **Leg Count & Length:** 2 legs, length $L$ **per leg** (Total radiating wire $2L$).
+- **Leg Count & Length:** 2 legs, total radiating length $L$ (sum of both legs).
 - **Reference Length:** $2.0\lambda$ **total** ($\approx 1.0\lambda$ per leg). The `length` parameter is the total radiating wire, split into two legs of $(L - \text{bridge})/2$ each. Traveling-wave structure, so no end-effect correction applies.
 - **Angle/Slope:** Included angle $\alpha$ (between legs). The downward slope of the legs is automatically calculated so that the tips rest at the ground floor (`SLOPING_V_MIN_TIP_Z_M` or $0.5$ m) to ensure consistent termination to ground.
 - **Tips:** Endpoints at ground-ward end of legs.
