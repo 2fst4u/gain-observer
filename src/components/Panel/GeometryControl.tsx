@@ -35,7 +35,6 @@ function LengthControl() {
     frequency,
     setLength,
     setHalfWaveLength,
-    setLegLengthMultiple,
   } = useAntennaStore(
     useShallow((s) => ({
       units: s.units,
@@ -44,7 +43,6 @@ function LengthControl() {
       frequency: s.frequency,
       setLength: s.setLength,
       setHalfWaveLength: s.setHalfWaveLength,
-      setLegLengthMultiple: s.setLegLengthMultiple,
     }))
   );
 
@@ -62,8 +60,6 @@ function LengthControl() {
     }
   }
 
-  const isTravelingWave = antennaType === 'sloping-v';
-  const currentLegMultiple = isTravelingWave ? legMultipleFromLength(length, frequency) : 1;
   const lambda = 299.792458 / frequency;
 
   const resonateLabels: Record<AntennaType, string> = {
@@ -112,7 +108,7 @@ function LengthControl() {
             setLocalLen(dispLen.toFixed(2));
           }}
         />
-        {!isTravelingWave && (
+        {antennaType !== 'sloping-v' && (
           <button
             onClick={setHalfWaveLength}
             title={resonateTitles[antennaType]}
@@ -131,22 +127,6 @@ function LengthControl() {
           </button>
         )}
       </div>
-
-      {isTravelingWave && (
-        <div className="button-group" role="group" aria-label="Leg length in wavelengths">
-          {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map((n) => (
-            <button
-              key={n}
-              className={currentLegMultiple === n ? 'active' : ''}
-              onClick={() => setLegLengthMultiple(n)}
-              title={`Set each leg to ${n}λ — ${(n * 2 * lambda).toFixed(1)} m total`}
-              aria-pressed={currentLegMultiple === n}
-            >
-              {n}λ
-            </button>
-          ))}
-        </div>
-      )}
     </>
   );
 }
@@ -168,6 +148,40 @@ function getTerminationHint(antennaType: AntennaType, terminatingResistor: numbe
   }
 
   return `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`;
+}
+
+function TravelingWaveLegControl() {
+  const { antennaType, length, frequency, setLegLengthMultiple } = useAntennaStore(
+    useShallow((s) => ({
+      antennaType: s.antennaType,
+      length: s.length,
+      frequency: s.frequency,
+      setLegLengthMultiple: s.setLegLengthMultiple,
+    }))
+  );
+
+  if (antennaType !== 'sloping-v') {
+    return null;
+  }
+
+  const currentLegMultiple = legMultipleFromLength(length, frequency);
+  const lambda = 299.792458 / frequency;
+
+  return (
+    <div className="button-group" role="group" aria-label="Leg length in wavelengths">
+      {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map((n) => (
+        <button
+          key={n}
+          className={currentLegMultiple === n ? 'active' : ''}
+          onClick={() => setLegLengthMultiple(n)}
+          title={`Set each leg to ${n}λ — ${(n * 2 * lambda).toFixed(1)} m total`}
+          aria-pressed={currentLegMultiple === n}
+        >
+          {n}λ
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function TerminationControl() {
@@ -558,6 +572,7 @@ export function GeometryControl() {
 
       <TypeControl />
       <LengthControl />
+      <TravelingWaveLegControl />
       <HeightControl />
       <VAngleControl />
       <ApertureControl />
