@@ -151,6 +151,25 @@ function LengthControl() {
   );
 }
 
+function getTerminationHint(antennaType: AntennaType, terminatingResistor: number, tfdZ0: number): string {
+  if (terminatingResistor === 0) {
+    if (antennaType === 'folded-dipole') {
+      return 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor for a broadband terminated folded dipole (T2FD); click Z₀ to set the optimal termination for this conductor spacing. Use the Match button in the Transformer section below to apply the suggested ratio.';
+    }
+    return 'Unterminated: travelling wave reflects, creating a standing-wave pattern. Use this mode to check whether the antenna structure resonates at the design frequency.';
+  }
+
+  if (antennaType === 'sloping-v') {
+    return `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`;
+  }
+
+  if (antennaType === 'folded-dipole') {
+    return `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. Estimated raw feedpoint ≈ ${terminatingResistor + 300} Ω. Use the Match button in the Transformer section below to apply the optimal ratio (the transformer is never changed automatically). For a true travelling-wave T2FD — flat broadband SWR — set R ≈ Z₀ of the two-wire line (≈ ${tfdZ0} Ω for this conductor spacing; click Z₀). Lower R reduces dissipation but leaves significant reflection, narrowing the bandwidth. Click Off to restore the plain folded dipole.`;
+  }
+
+  return `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`;
+}
+
 function TerminationControl() {
   const {
     antennaType,
@@ -245,15 +264,7 @@ function TerminationControl() {
         </button>
       </div>
       <div id="terminating-resistor-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-        {terminatingResistor === 0
-          ? antennaType === 'folded-dipole'
-            ? 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor for a broadband terminated folded dipole (T2FD); click Z₀ to set the optimal termination for this conductor spacing. Use the Match button in the Transformer section below to apply the suggested ratio.'
-            : 'Unterminated: travelling wave reflects, creating a standing-wave pattern. Use this mode to check whether the antenna structure resonates at the design frequency.'
-          : antennaType === 'sloping-v'
-            ? `${terminatingResistor} Ω resistors at each tip (to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`
-            : antennaType === 'folded-dipole'
-              ? `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. Estimated raw feedpoint ≈ ${terminatingResistor + 300} Ω. Use the Match button in the Transformer section below to apply the optimal ratio (the transformer is never changed automatically). For a true travelling-wave T2FD — flat broadband SWR — set R ≈ Z₀ of the two-wire line (≈ ${tfdZ0} Ω for this conductor spacing; click Z₀). Lower R reduces dissipation but leaves significant reflection, narrowing the bandwidth. Click Off to restore the plain folded dipole.`
-              : `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`}
+        {getTerminationHint(antennaType, terminatingResistor, tfdZ0)}
       </div>
     </>
   );
