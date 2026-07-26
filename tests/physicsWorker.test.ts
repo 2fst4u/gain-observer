@@ -218,4 +218,33 @@ describe('physicsWorker error path test', () => {
       message: 'String Error'
     });
   });
+
+  it('ignores messages from unauthorized origins', async () => {
+    mockEngineInstance.init.mockResolvedValue(undefined);
+
+    let messageHandler: (msg: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
+    addEventListenerSpy.mockImplementation((type, handler) => {
+      if (type === 'message') messageHandler = handler;
+    });
+
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await import('../src/workers/physicsWorker');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    postMessageSpy.mockClear();
+
+    messageHandler({
+      origin: 'https://evil.com',
+      data: { id: 126, type: 'simulate', input: { frequency: 14 } }
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith('[worker] dropping cross-origin message from', 'https://evil.com');
+    expect(mockEngineInstance.simulate).not.toHaveBeenCalled();
+    expect(postMessageSpy).not.toHaveBeenCalled();
+
+    consoleWarnSpy.mockRestore();
+  });
 });

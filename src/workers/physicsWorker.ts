@@ -91,6 +91,11 @@ engine
   });
 
 ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
+  // Security: drop cross-origin messages
+  if (ev.origin && ev.origin !== '' && ev.origin !== self.location.origin) {
+    console.warn('[worker] dropping cross-origin message from', ev.origin);
+    return;
+  }
   const msg = ev.data;
   if (msg.type === 'simulate') {
     const feedpointInput = msg.feedpointInput;
