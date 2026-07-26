@@ -203,6 +203,48 @@ export class Nec2Engine implements Engine {
     this.logger?.info('[nec2] engine ready');
   }
 
+  /**
+   * Run one nec2c job to completion: instantiate the Wasm module, feed it
+   * `cards` on the virtual filesystem, and return the decoded output deck.
+   *
+   * Callers own the concurrency lock and the module lifetime around this —
+   * `kind` only selects the log and error labels so the two call sites stay
+   * distinguishable in the console and in thrown messages.
+   */
+  private async runJob(
+    factory: EmscriptenFactory,
+    cards: string,
+    kind: 'simulate' | 'sweep',
+  ): Promise<string> {
+    const logLabel = kind === 'sweep' ? 'nec2 sweep' : 'nec2';
+    const errorLabel = kind === 'sweep' ? 'nec2c sweep' : 'nec2c';
+
+    const stderrLines: string[] = [];
+    const instance = await factory({
+      noInitialRun: true,
+      locateFile: (path: string) => this.resolveAsset(path),
+      print: this.quiet ? () => {} : (s) => this.logger?.info(`[${logLabel}]`, s),
+      printErr: (s) => {
+        stderrLines.push(s);
+        if (!this.quiet) this.logger?.warn(`[${logLabel} stderr]`, s);
+      },
+    });
+
+    const inPath = '/input.nec';
+    const outPath = '/output.nout';
+
+    instance.FS.writeFile(inPath, cards);
+
+    const rc = instance.callMain(['-i', inPath, '-o', outPath]);
+    if (rc !== 0) {
+      const tail = stderrLines.slice(-5).join(' | ') || '(no stderr)';
+      throw new Error(`${errorLabel} exited with status ${rc}. ${tail}`);
+    }
+
+    const outputBytes = instance.FS.readFile(outPath);
+    return new TextDecoder().decode(outputBytes);
+  }
+
   async simulate(input: SimulationInput): Promise<SimulationResult> {
     if (!this.factory) await this.init();
     const factory = this.factory;
@@ -212,31 +254,8 @@ export class Nec2Engine implements Engine {
     const release = await this.acquire();
     const t0 = performance.now();
     try {
-      const stderrLines: string[] = [];
-      const instance = await factory({
-        noInitialRun: true,
-        locateFile: (path: string) => this.resolveAsset(path),
-        print: this.quiet ? () => {} : (s) => this.logger?.info('[nec2]', s),
-        printErr: (s) => {
-          stderrLines.push(s);
-          if (!this.quiet) this.logger?.warn('[nec2 stderr]', s);
-        },
-      });
-
-      const inPath = '/input.nec';
-      const outPath = '/output.nout';
-
       const cards = buildNecCards(input);
-      instance.FS.writeFile(inPath, cards);
-
-      const rc = instance.callMain(['-i', inPath, '-o', outPath]);
-      if (rc !== 0) {
-        const tail = stderrLines.slice(-5).join(' | ') || '(no stderr)';
-        throw new Error(`nec2c exited with status ${rc}. ${tail}`);
-      }
-
-      const outputBytes = instance.FS.readFile(outPath);
-      const output = new TextDecoder().decode(outputBytes);
+      const output = await this.runJob(factory, cards, 'simulate');
 
       const parsed = parseNecOutput(
         output,
@@ -373,37 +392,13 @@ export class Nec2Engine implements Engine {
 
     const release = await this.acquire();
     try {
-      const stderrLines: string[] = [];
-      const instance = await factory({
-        noInitialRun: true,
-        locateFile: (path: string) => this.resolveAsset(path),
-        print: this.quiet ? () => {} : (s) => this.logger?.info('[nec2 sweep]', s),
-        printErr: (s) => {
-          stderrLines.push(s);
-          if (!this.quiet) this.logger?.warn('[nec2 sweep stderr]', s);
-        },
+      const cards = buildNecCards(input, {
+        includePattern: false,
+        sweepPoints: points,
+        sweepStartFreq: startFreq,
+        sweepStep: step,
       });
-
-      const inPath = '/input.nec';
-      const outPath = '/output.nout';
-      instance.FS.writeFile(
-        inPath,
-        buildNecCards(input, {
-          includePattern: false,
-          sweepPoints: points,
-          sweepStartFreq: startFreq,
-          sweepStep: step,
-        }),
-      );
-
-      const rc = instance.callMain(['-i', inPath, '-o', outPath]);
-      if (rc !== 0) {
-        const tail = stderrLines.slice(-5).join(' | ') || '(no stderr)';
-        throw new Error(`nec2c sweep exited with status ${rc}. ${tail}`);
-      }
-
-      const outputBytes = instance.FS.readFile(outPath);
-      const output = new TextDecoder().decode(outputBytes);
+      const output = await this.runJob(factory, cards, 'sweep');
       return parseNecImpedanceSweep(output);
     } finally {
       release();
