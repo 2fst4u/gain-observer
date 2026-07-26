@@ -1327,7 +1327,7 @@ function buildFoldedDipoleTermination(R: number, radius: number, wires: Wire[]) 
   // Terminated Folded Dipole (TFD) — correct travelling-wave gap-bridge topology.
   //
   // buildFoldedAntennaWires splits the top (un-fed) conductor into two halves
-  // with a gap of TERMINATED_DELTA_CENTRE_GAP_M at the centre when a
+  // with a gap of FEED_BRIDGE_LENGTH_M at the centre when a
   // terminating resistor is non-zero. The gap inner ends are:
   //   left-half  .end = topCenterLeft
   //   right-half .start = topCenterRight
