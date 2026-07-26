@@ -20,7 +20,7 @@ import {
   FEED_BRIDGE_TAG,
   FEEDLINE_SHIELD_TAG,
   SLOPING_V_MIN_TIP_Z_M,
-  TERMINATED_DELTA_CENTRE_GAP_M,
+  FEED_BRIDGE_LENGTH_M,
   wavelengthMeters,
 } from '../src/physics/constants';
 
@@ -215,7 +215,7 @@ describe('Terminated Delta — base geometry', () => {
     expect(leftHalfBase.start[2]).toBeCloseTo(rightHalfBase.start[2], 6);
   });
 
-  it('the two half-base inner ends are separated by TERMINATED_DELTA_CENTRE_GAP_M', () => {
+  it('the two half-base inner ends are separated by FEED_BRIDGE_LENGTH_M', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
     const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
@@ -229,7 +229,7 @@ describe('Terminated Delta — base geometry', () => {
       rightInner[1] - leftInner[1],
       rightInner[2] - leftInner[2],
     );
-    expect(gap).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
+    expect(gap).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
   });
 
   it('the half-base inner ends straddle the geometric centre symmetrically', () => {
@@ -305,7 +305,7 @@ describe('Terminated Delta — base geometry', () => {
       rightHalfBase.end[1] - rightHalfBase.start[1],
       rightHalfBase.end[2] - rightHalfBase.start[2],
     );
-    const baseLen = leftHalfBaseLen + rightHalfBaseLen + TERMINATED_DELTA_CENTRE_GAP_M;
+    const baseLen = leftHalfBaseLen + rightHalfBaseLen + FEED_BRIDGE_LENGTH_M;
     // Bottom corners clamped to SLOPING_V_MIN_TIP_Z_M.
     expect(leftLeg.start[2]).toBeCloseTo(SLOPING_V_MIN_TIP_Z_M, 4);
     // In a flattened isosceles triangle (t < equilateral height), legs are
@@ -377,7 +377,7 @@ describe('Terminated Delta — terminated (T2FD-style bridge resistor)', () => {
       bridge.end[1] - bridge.start[1],
       bridge.end[2] - bridge.start[2],
     );
-    expect(len).toBeCloseTo(TERMINATED_DELTA_CENTRE_GAP_M, 6);
+    expect(len).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
   });
 
   it('LD card is type 4 on segment 1 of the bridge, resistance equals terminatingResistor', () => {
