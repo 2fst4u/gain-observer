@@ -203,15 +203,30 @@ export class Nec2Engine implements Engine {
     this.logger?.info('[nec2] engine ready');
   }
 
-    private async runJob(factory: EmscriptenFactory, cards: string, logPrefix: string, errPrefix: string, errorName: string): Promise<string> {
+  /**
+   * Run one nec2c job to completion: instantiate the Wasm module, feed it
+   * `cards` on the virtual filesystem, and return the decoded output deck.
+   *
+   * Callers own the concurrency lock and the module lifetime around this —
+   * `kind` only selects the log and error labels so the two call sites stay
+   * distinguishable in the console and in thrown messages.
+   */
+  private async runJob(
+    factory: EmscriptenFactory,
+    cards: string,
+    kind: 'simulate' | 'sweep',
+  ): Promise<string> {
+    const logLabel = kind === 'sweep' ? 'nec2 sweep' : 'nec2';
+    const errorLabel = kind === 'sweep' ? 'nec2c sweep' : 'nec2c';
+
     const stderrLines: string[] = [];
     const instance = await factory({
       noInitialRun: true,
       locateFile: (path: string) => this.resolveAsset(path),
-      print: this.quiet ? () => {} : (s) => this.logger?.info(logPrefix, s),
+      print: this.quiet ? () => {} : (s) => this.logger?.info(`[${logLabel}]`, s),
       printErr: (s) => {
         stderrLines.push(s);
-        if (!this.quiet) this.logger?.warn(errPrefix, s);
+        if (!this.quiet) this.logger?.warn(`[${logLabel} stderr]`, s);
       },
     });
 
@@ -223,7 +238,7 @@ export class Nec2Engine implements Engine {
     const rc = instance.callMain(['-i', inPath, '-o', outPath]);
     if (rc !== 0) {
       const tail = stderrLines.slice(-5).join(' | ') || '(no stderr)';
-      throw new Error(`${errorName} exited with status ${rc}. ${tail}`);
+      throw new Error(`${errorLabel} exited with status ${rc}. ${tail}`);
     }
 
     const outputBytes = instance.FS.readFile(outPath);
@@ -240,7 +255,7 @@ export class Nec2Engine implements Engine {
     const t0 = performance.now();
     try {
       const cards = buildNecCards(input);
-      const output = await this.runJob(factory, cards, '[nec2]', '[nec2 stderr]', 'nec2c');
+      const output = await this.runJob(factory, cards, 'simulate');
 
       const parsed = parseNecOutput(
         output,
@@ -383,7 +398,7 @@ export class Nec2Engine implements Engine {
         sweepStartFreq: startFreq,
         sweepStep: step,
       });
-      const output = await this.runJob(factory, cards, '[nec2 sweep]', '[nec2 sweep stderr]', 'nec2c sweep');
+      const output = await this.runJob(factory, cards, 'sweep');
       return parseNecImpedanceSweep(output);
     } finally {
       release();
