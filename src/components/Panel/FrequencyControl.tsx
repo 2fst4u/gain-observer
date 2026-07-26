@@ -33,6 +33,14 @@ export function FrequencyControl() {
     }
   }
 
+  const handleFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const s = e.target.value;
+    setLocalVal(s);
+    const val = parseFloat(s);
+    if (isNaN(val)) return;
+    setFrequency(val);
+  };
+
   return (
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
@@ -51,14 +59,7 @@ export function FrequencyControl() {
           value={localVal}
           aria-label="Frequency in MHz"
           onFocus={() => setIsFocused(true)}
-          onChange={(e) => {
-            const s = e.target.value;
-            setLocalVal(s);
-            const val = parseFloat(s);
-            if (!isNaN(val)) {
-              setFrequency(val);
-            }
-          }}
+          onChange={handleFrequencyChange}
           onBlur={() => {
             setIsFocused(false);
             // On blur, ensure the local value matches the (possibly clamped) store value.
