@@ -98,7 +98,8 @@ function TIndexInput() {
             const s = e.target.value;
             setLocalTIndex(s);
             const v = parseFloat(s);
-            if (!isNaN(v)) setTIndex(v);
+            if (isNaN(v)) return;
+            setTIndex(v);
           }}
           onBlur={() => {
             setIsTIndexFocused(false);

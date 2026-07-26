@@ -40,7 +40,8 @@ export function DipoleOffsetControl({
           aria-describedby="feedline-offset-hint"
           onChange={(e) => {
             const val = parseFloat(e.target.value);
-            if (!isNaN(val)) setFeedlineOffset(fromDisplayLength(val, units));
+            if (isNaN(val)) return;
+            setFeedlineOffset(fromDisplayLength(val, units));
           }}
         />
         <button
