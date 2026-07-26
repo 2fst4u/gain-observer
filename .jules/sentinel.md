@@ -30,3 +30,7 @@
 **Vulnerability:** Similar to UI exception handling, the raw solver error output from the worker (`error` string passed from `nec2c` engine) was exposed directly to the end user in the `LiveAntennaScene` component within `src/App.tsx`. This could leak stderr output from the WASM engine, potentially exposing internal compilation artifacts or paths.
 **Learning:** Any dynamic string originating from an underlying system process, shell, or solver engine should be considered untrusted for user-display purposes in production. Even if it's "just" an engine error, it should fail securely to avoid information leakage.
 **Prevention:** Extend the pattern of checking `import.meta.env.DEV` to all error messages rendered in the DOM, including those mapped from application state (like `error` from a Zustand store), replacing them with generic fallback messages in production.
+## 2025-02-14 - Web Worker Message Origin Validation
+**Vulnerability:** The physics worker accepted messages from any origin. If the worker was unintentionally or maliciously exposed or if messages were somehow relayed cross-origin, an attacker could potentially execute simulated workloads or cause denial of service.
+**Learning:** Web Workers should validate the `origin` of incoming `message` events, especially if they handle complex logic or perform intensive computations.
+**Prevention:** Implement an origin check in the worker's `message` event listener (`if (ev.origin && ev.origin !== '' && ev.origin !== self.location.origin) return;`) to ensure only same-origin messages are processed.
