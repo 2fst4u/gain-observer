@@ -91,6 +91,14 @@ engine
   });
 
 ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
+  // Validate origin for defense-in-depth against cross-origin messages.
+  // Note: Dedicated workers only receive messages from their creator,
+  // but origin verification is still a good practice.
+  if (ev.origin && ev.origin !== '' && ev.origin !== self.location.origin) {
+    console.warn(`[worker] Dropping message from unauthorized origin: ${ev.origin}`);
+    return;
+  }
+
   const msg = ev.data;
   if (msg.type === 'simulate') {
     const feedpointInput = msg.feedpointInput;
