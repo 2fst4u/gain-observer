@@ -7,6 +7,11 @@ const MODES: Array<{ id: Mode; label: string; hint: string; shortcut?: string }>
   { id: 'comparison', label: 'Compare', hint: 'Side-by-side two configs', shortcut: 'm' },
 ];
 
+const MODE_MAP = MODES.reduce((acc, m) => {
+  acc[m.id] = m;
+  return acc;
+}, {} as Record<Mode, (typeof MODES)[0]>);
+
 export function ModeSelector() {
   // ⚡ Bolt: Group multiple store selections into a single useShallow block
   const { mode, setMode } = useAntennaStore(useShallow((s) => ({
@@ -30,7 +35,7 @@ export function ModeSelector() {
         ))}
       </div>
       <div id="mode-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-        {MODES.find((m) => m.id === mode)!.hint}
+        {MODE_MAP[mode].hint}
       </div>
     </section>
   );
