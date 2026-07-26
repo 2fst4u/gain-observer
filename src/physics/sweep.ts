@@ -194,15 +194,20 @@ export async function adaptiveSweep(
     let merged: typeof primaryBands | null = null;
     for (let i = 0; i < broadBands.length; i++) {
       const b = broadBands[i];
-      if (b.fHigh < loEdge - 0.5 || b.fLow > hiEdge + 0.5) {
-        if (merged === null) {
-          merged = [];
-          for (let j = 0; j < primaryBands.length; j++) {
-            merged.push(primaryBands[j]);
-          }
-        }
-        merged.push(b);
+
+      // Skip bands that overlap or are too close to the primary scan window
+      if (b.fHigh >= loEdge - 0.5 && b.fLow <= hiEdge + 0.5) {
+        continue;
       }
+
+      // Initialize merged array on first valid distant band
+      if (merged === null) {
+        merged = [];
+        for (let j = 0; j < primaryBands.length; j++) {
+          merged.push(primaryBands[j]);
+        }
+      }
+      merged.push(b);
     }
 
     if (merged !== null) {
