@@ -313,9 +313,8 @@ function OrientationControl() {
             const s = e.target.value;
             setLocalOrient(s);
             const val = parseFloat(s);
-            if (!isNaN(val)) {
-              setOrientation(val);
-            }
+            if (isNaN(val)) return;
+            setOrientation(val);
           }}
           onBlur={() => {
             setIsOrientFocused(false);
