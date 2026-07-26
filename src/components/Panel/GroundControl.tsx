@@ -83,9 +83,8 @@ export function GroundControl() {
               const s = e.target.value;
               setLocalSigma(s);
               const val = parseFloat(s);
-              if (!isNaN(val)) {
-                setCustomGround(val, epsilon);
-              }
+              if (isNaN(val)) return;
+              setCustomGround(val, epsilon);
             }}
             onBlur={() => {
               setIsSigmaFocused(false);
@@ -104,9 +103,8 @@ export function GroundControl() {
               const s = e.target.value;
               setLocalEpsilon(s);
               const val = parseFloat(s);
-              if (!isNaN(val)) {
-                setCustomGround(sigma, val);
-              }
+              if (isNaN(val)) return;
+              setCustomGround(sigma, val);
             }}
             onBlur={() => {
               setIsEpsilonFocused(false);
