@@ -45,6 +45,42 @@ export async function runScan(
   return sweep;
 }
 
+function resolveMergedBands(
+  merged: ReturnType<typeof findSwrBands> | null,
+  primaryBands: ReturnType<typeof findSwrBands>,
+  frameWindow: (bands: ReturnType<typeof findSwrBands>) => { start: number; end: number },
+  points: number,
+  operatingBandWidth: number,
+): ReturnType<typeof findSwrBands> {
+  if (merged === null) {
+    return primaryBands;
+  }
+
+  merged.sort((a, b) => a.fLow - b.fLow);
+
+  if (primaryBands.length === 0) {
+    // No operating-frequency band to protect — show whatever band exists.
+    return merged;
+  }
+
+  // Resolve-aware merge: only widen the window to include a distant band
+  // (e.g. a harmonic resonance of a narrowband dipole) if the operating
+  // band stays adequately sampled at the final point count. Otherwise
+  // the operating band falls between samples — its dip vanishes from the
+  // chart and the marker reads an off-resonance SWR — so we keep the
+  // window focused on the operating band instead.
+  const MIN_OPERATING_BAND_SAMPLES = 4;
+  const { start, end } = frameWindow(merged);
+  const spacing = points > 1 ? (end - start) / (points - 1) : end - start;
+  const samplesInOperatingBand = spacing > 0 ? operatingBandWidth / spacing : Infinity;
+
+  if (samplesInOperatingBand >= MIN_OPERATING_BAND_SAMPLES) {
+    return merged;
+  }
+
+  return primaryBands;
+}
+
 /**
  * Adaptive sweep: expands a coarse characterisation window until the
  * (display-effective) SWR rises above 2:1 on both sides of the minimum or
@@ -210,27 +246,7 @@ export async function adaptiveSweep(
       merged.push(b);
     }
 
-    if (merged !== null) {
-      merged.sort((a, b) => a.fLow - b.fLow);
-      if (primaryBands.length === 0) {
-        // No operating-frequency band to protect — show whatever band exists.
-        allBands = merged;
-      } else {
-        // Resolve-aware merge: only widen the window to include a distant band
-        // (e.g. a harmonic resonance of a narrowband dipole) if the operating
-        // band stays adequately sampled at the final point count. Otherwise
-        // the operating band falls between samples — its dip vanishes from the
-        // chart and the marker reads an off-resonance SWR — so we keep the
-        // window focused on the operating band instead.
-        const MIN_OPERATING_BAND_SAMPLES = 4;
-        const { start, end } = frameWindow(merged);
-        const spacing = points > 1 ? (end - start) / (points - 1) : end - start;
-        const samplesInOperatingBand = spacing > 0 ? operatingBandWidth / spacing : Infinity;
-        if (samplesInOperatingBand >= MIN_OPERATING_BAND_SAMPLES) {
-          allBands = merged;
-        }
-      }
-    }
+    allBands = resolveMergedBands(merged, primaryBands, frameWindow, points, operatingBandWidth);
   }
 
   const { start: winStart, end: winEnd } = frameWindow(allBands);
