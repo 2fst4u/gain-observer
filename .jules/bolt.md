@@ -219,3 +219,7 @@
 ## 2026-07-20 - Group React hooks using Zustand's useShallow (components and hooks)
 **Learning:** Using multiple separate `useAntennaStore((s) => s.property)` selector calls within components or hooks incurs excess React hook allocation and store listener overhead, dragging down performance during high-frequency global state updates.
 **Action:** Group multiple related Zustand store property selections into a single `useAntennaStore(useShallow(...))` hook block across the codebase (e.g., `useGeolocation`, `useTheme`, `useUnits`, `ModeSelector`, `UnitToggle`, `ThemeToggle`, `SWRChart`).
+## 2026-07-26 - ⚡ Bolt: Replace .find with for loop in buildWires
+**Learning:** Replaced .find() with a direct for loop to remove closure allocations in a high frequency path.
+**Action:** Modified buildWires in src/store/antennaStore.ts to use a standard for loop.
+## 2026-07-26 - ⚡ Bolt: Cleanup .find in buildWires\n**Learning:** Replaced another .find() with a direct for loop to remove closure allocations in a high frequency path.\n**Action:** Modified buildExcitation in src/store/antennaStore.ts to use a standard for loop.

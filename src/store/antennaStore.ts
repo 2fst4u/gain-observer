@@ -940,7 +940,13 @@ export function buildWires(
   const wires = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
   if (layout?.shield && state.antennaType !== 'delta-loop' && state.antennaType !== 'terminated-delta') {
-    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
+    let bridge;
+    for (let i = 0; i < wires.length; i++) {
+      if (wires[i].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[i];
+        break;
+      }
+    }
     if (bridge) {
       wires.push({
         start: bridge.end,
@@ -1133,8 +1139,14 @@ function buildExcitation(
   } else if (state.antennaType === 'delta-loop' || state.antennaType === 'terminated-delta') {
     // Apex-fed: excitation lives on the last segment of the left leg
     // (whose .end is the apex by convention in build*Wires).
-    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
-    return { wireTag: LEFT_LEG_TAG, segment: leftLeg.segments };
+    let leftLeg;
+    for (let i = 0; i < wires.length; i++) {
+      if (wires[i].tag === LEFT_LEG_TAG) {
+        leftLeg = wires[i];
+        break;
+      }
+    }
+    return { wireTag: LEFT_LEG_TAG, segment: leftLeg!.segments };
   } else if (state.antennaType === 'vertical-whip') {
     // Base-fed monopole: excitation on the first (lowest) segment.
     return { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
