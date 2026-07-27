@@ -149,8 +149,8 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Apex Location:** Highest point at $(0, 0, \text{height})$. The `height` parameter refers to the apex.
 - **Leg Count & Length:** 2 legs, total radiating length $L$ (sum of both legs).
 - **Reference Length:** $0.485\lambda$ total ($0.5\lambda$ with 0.97 end-effect).
-- **Angle/Slope:** Included angle $\alpha$ between legs (Default 120°). Mapping: $\alpha$ is the angle in the vertical plane.
-- **Tips:** Symmetric endpoints at $z = \text{height} - (L/2) \cdot \cos(\alpha/2)$.
+- **Angle/Slope:** Included angle $\alpha$ between legs (Default 120°). The angle automatically flattens (increases) if necessary to prevent the tips from dropping below the minimum height.
+- **Tips:** Symmetric endpoints at $z = \text{height} - \frac{L - \text{bridge}}{2} \cdot \cos(\alpha_{\text{eff}}/2)$, where $\alpha_{\text{eff}}$ is the effective angle after any required flattening.
 - **Min Height:** Tip height must be $\ge 0.5$ m.
 
 ### 7.2 Feedpoint Definition
