@@ -50,13 +50,28 @@ export function GroundControl() {
       <h2>
         <label htmlFor="ground-preset" style={{ display: 'inline-block' }}>Ground</label>
         <button
-          style={{ padding: '2px 8px', fontSize: 11, marginLeft: 8 }}
+          style={{
+            padding: '2px 8px', fontSize: 11, marginLeft: 8,
+            display: 'inline-flex', alignItems: 'center', gap: 4
+          }}
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
           aria-controls="custom-ground-settings"
           aria-label={expanded ? 'Simple: Hide custom ground settings' : 'Custom: Show custom ground settings'}
           title={expanded ? 'Hide custom settings' : 'Show custom settings'}
         >
+          <svg
+            width="10" height="10" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" strokeWidth="3"
+            strokeLinecap="round" strokeLinejoin="round"
+            style={{
+              transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease-in-out'
+            }}
+            aria-hidden="true"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
           {expanded ? 'Simple' : 'Custom'}
         </button>
       </h2>
