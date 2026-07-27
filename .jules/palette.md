@@ -20,3 +20,7 @@
 ## 2026-07-24 - Added aria-controls to Ground Settings toggle
 **Learning:** When using `aria-expanded` on a toggle button to reveal conditionally rendered React content, ensure the target content is wrapped in a container element with an explicit ID, and link the button via `aria-controls` to maintain strict accessibility semantics.
 **Action:** Always check that toggle buttons with `aria-expanded` also have a matching `aria-controls` attribute, and refactor React fragments to `div`s if an ID anchor is missing.
+
+## 2025-02-26 - Add animated chevron to disclosure widget
+**Learning:** Disclosure widgets (like the "Model & assumptions" button) benefit greatly from a visual indicator showing their state. An animated chevron provides clear visual affordance and smooth feedback, improving discoverability and making it obvious that the component is an accordion/disclosure.
+**Action:** Use inline SVG chevrons with `transform: rotate()` transitions tied to `aria-expanded` state on disclosure buttons.

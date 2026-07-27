@@ -103,8 +103,21 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: Conditions
         style={{
           marginTop: 10, background: 'transparent', border: 'none',
           color: 'var(--accent)', padding: 0, fontSize: 11, cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
         }}
       >
+        <svg
+          width="10" height="10" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="3"
+          strokeLinecap="round" strokeLinejoin="round"
+          style={{
+            transform: showAssumptions ? 'rotate(90deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease-in-out'
+          }}
+          aria-hidden="true"
+        >
+          <path d="M9 18l6-6-6-6" />
+        </svg>
         {showAssumptions ? 'Hide model assumptions' : 'Model & assumptions'}
       </button>
       {showAssumptions && (
