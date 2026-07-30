@@ -256,9 +256,11 @@ function TerminationControl() {
           <button
             onClick={() => { if (terminatingResistor !== recommended) setTerminatingResistor(recommended); }}
             aria-disabled={terminatingResistor === recommended}
-            title={isFolded
-              ? `Set terminating resistor to Z₀ ≈ ${recommended} Ω — the characteristic impedance of the two-wire line for this conductor spacing and wire diameter. Terminating at R = Z₀ gives a true travelling-wave (T2FD): flat broadband SWR at the cost of ~3 dB efficiency.`
-              : `Set terminating resistor to the recommended ${recommended} Ω for this antenna — approximately the structure's characteristic impedance over real ground, giving a flat broadband match.`}
+            title={terminatingResistor === recommended
+              ? `Already using the recommended ${recommended} Ω termination`
+              : isFolded
+                ? `Set terminating resistor to Z₀ ≈ ${recommended} Ω — the characteristic impedance of the two-wire line for this conductor spacing and wire diameter. Terminating at R = Z₀ gives a true travelling-wave (T2FD): flat broadband SWR at the cost of ~3 dB efficiency.`
+                : `Set terminating resistor to the recommended ${recommended} Ω for this antenna — approximately the structure's characteristic impedance over real ground, giving a flat broadband match.`}
             aria-label={isFolded
               ? `Set terminating resistor to Z₀ (${recommended} Ω)`
               : `Set terminating resistor to recommended (${recommended} Ω)`}
