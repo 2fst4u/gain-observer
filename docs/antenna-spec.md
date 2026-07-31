@@ -399,7 +399,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 - **NEC Excitation:** Segment 1 of `FEED_BRIDGE_TAG` (3) at the centre of the lower conductor — handled by the existing `hasBridge` excitation path.
 - **Feed Type:** Single-segment voltage source on the bridge; balanced.
-- **Feedline Support:** Not currently modelled (the antenna is balanced and typically fed via 300 Ω twin-lead or a 4:1 balun). The transformer/balun post-processing control is available.
+- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at the centre bridge, offset is not applicable).
 - **Feedpoint Impedance:** Approximately 4× a plain dipole (~300 Ω) for equal-diameter conductors, largely independent of spacing. A 4:1 balun brings this to ~75 Ω; a 6:1 brings it to ~50 Ω for direct coax use. 300 Ω twin-lead matches it directly.
 
 ### 13.3 Termination Definition
