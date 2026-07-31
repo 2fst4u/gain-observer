@@ -143,3 +143,6 @@
 ## 2025-03-02 - [Markdown Drift from Code Cleanup]
 **Learning:** Static analysis tools (like Knip) only search source code. When developers rename or consolidate duplicate exported constants (e.g., `TERMINATED_DELTA_CENTRE_GAP_M` to `FEED_BRIDGE_LENGTH_M`), Markdown documentation goes out of sync because these tools don't flag string occurrences in `docs/`.
 **Action:** When performing or verifying codebase cleanups (especially removing/renaming variables), always run a global search (e.g., `grep -r "VARIABLE_NAME" .`) to ensure technical documentation is updated alongside the codebase.
+## 2026-08-01 - Folded Dipole Feedline Support Documentation Drift
+**Learning:** The `docs/antenna-spec.md` falsely claimed that feedline support was "Not currently modelled" for the Folded Dipole. However, the codebase (`src/store/antennaStore.ts`) explicitly includes `folded-dipole` in `FEEDLINE_SUPPORTED_TYPES`, and the geometry engine fully generates the feedline shield layout for it just like standard dipoles. The documentation drifted from the implemented physics model.
+**Action:** The documentation in `docs/antenna-spec.md` was updated for the Folded Dipole to remove the false claim and explicitly clarify that feedline support is implemented using the standard radiating shield and NEC TL card at the centre bridge.
