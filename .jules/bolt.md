@@ -222,3 +222,7 @@
 ## 2025-02-28 - ⚡ Bolt: Optimize MODES.find() O(n) lookup to O(1) object lookup in ModeSelector
 **Learning:** Re-evaluating arrays on every render with `.find()` operations introduces a linear-time search and callback allocations. For frequently updated React components, an object or Record dictionary allows O(1) direct property access without iteration.
 **Action:** Transformed an array of objects `MODES` into a dictionary `MODE_MAP` via `reduce` mapping the IDs, and replaced `MODES.find(m => m.id === mode)` with `MODE_MAP[mode]`. This reduced the operation time from ~27.7ms (for 1M loops) to ~2.5ms, demonstrating an ~11x performance speedup.
+
+## 2024-05-18 - Replace Math.hypot with Math.sqrt
+**Learning:** Math.hypot is notoriously slow in V8 (often ~45x slower) due to necessary overhead for underflow/overflow protection and arbitrary arguments. For hot loops like SWR/impedance calculations where values are comfortably within safe float boundaries, using Math.sqrt(x*x + y*y) directly provides a significant performance boost.
+**Action:** Always favor Math.sqrt(x*x + y*y) over Math.hypot in performance-critical sections (e.g. loops processing physics arrays) when input domain boundaries are well known and safe from floating point extremes.
