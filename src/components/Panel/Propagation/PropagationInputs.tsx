@@ -255,6 +255,7 @@ function UtcHourInput() {
           value={localUtcHour}
           onFocus={() => setIsUtcHourFocused(true)}
           aria-label="UTC hour override"
+          aria-invalid={HHmmToHour(localUtcHour) === null}
           onChange={(e) => {
             const s = e.target.value;
             setLocalUtcHour(s);
