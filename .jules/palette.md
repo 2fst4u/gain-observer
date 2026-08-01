@@ -28,3 +28,6 @@
 ## 2024-07-31 - Semantic feedback on custom input validation
 **Learning:** In custom text inputs that accept parsed formats (like a UTC hour "HH:mm" input), when an invalid format is typed, the internal parser naturally returns null. If the input silently ignores it, screen readers receive no feedback that the value is invalid.
 **Action:** Always dynamically bind `aria-invalid` to the result of the validation/parsing function (e.g., `aria-invalid={parse(value) === null}`) to provide immediate semantic feedback to screen readers for custom inputs.
+## 2024-10-27 - Fix ARIA Controls Missing Element
+**Learning:** When using `aria-controls` on a disclosure button, the controlled element MUST remain in the DOM even when collapsed. Conditionally rendering the target element (e.g., `{show && <div id="...">}`) causes the screen reader to lose track of the controlled element.
+**Action:** Use the `hidden` attribute (`<div id="..." hidden={!show}>`) instead of conditional mounting for elements controlled by `aria-controls`. When updating this logic, remember to update the corresponding tests (e.g., from `toBeNull()` to checking the `hidden` property on the wrapper element).

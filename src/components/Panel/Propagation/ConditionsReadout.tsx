@@ -120,8 +120,7 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: Conditions
         </svg>
         {showAssumptions ? 'Hide model assumptions' : 'Model & assumptions'}
       </button>
-      {showAssumptions && (
-        <div id="assumptions-panel" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
+      <div id="assumptions-panel" hidden={!showAssumptions} style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
           <p style={{ marginTop: 0 }}>
             This is a closed-form approximation, not IRI / ASAPS / VOACAP.
             It captures the right monotonic behaviours (foF2 rises with
@@ -141,7 +140,6 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: Conditions
             <li>No sporadic-E, auroral, or polar effects.</li>
           </ul>
         </div>
-      )}
     </>
   );
 }

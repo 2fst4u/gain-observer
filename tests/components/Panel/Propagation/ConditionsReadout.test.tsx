@@ -100,13 +100,13 @@ describe('ConditionsReadout', () => {
     );
 
     const button = screen.getByRole('button', { name: /Model & assumptions/i });
-    expect(screen.queryByText(/This is a closed-form approximation/i)).toBeNull();
+    expect(screen.getByText(/This is a closed-form approximation/i).closest('div')).toHaveProperty('hidden', true);
 
     fireEvent.click(button);
-    expect(screen.getByText(/This is a closed-form approximation/i)).toBeDefined();
+    expect(screen.getByText(/This is a closed-form approximation/i).closest('div')).toHaveProperty('hidden', false);
 
     fireEvent.click(button);
-    expect(screen.queryByText(/This is a closed-form approximation/i)).toBeNull();
+    expect(screen.getByText(/This is a closed-form approximation/i).closest('div')).toHaveProperty('hidden', true);
   });
 
   it('displays ranges in km when units is metric', () => {
