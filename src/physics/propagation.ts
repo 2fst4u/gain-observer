@@ -411,7 +411,10 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
     }
 
     const bestTiArr = new Int32Array(p.phiSteps).fill(-1);
-    const bestEffectiveGainDbiArr = new Float32Array(p.phiSteps).fill(-Infinity);
+    // Float64, not Float32: this holds `gainDbi - mismatchLossDb`, a float64
+    // result. Narrowing it to float32 would round the reported gain and could
+    // flip classifyLinkQuality() right at a threshold.
+    const bestEffectiveGainDbiArr = new Float64Array(p.phiSteps).fill(-Infinity);
     const bestQualityRankArr = new Int32Array(p.phiSteps).fill(-1);
 
     for (let ti = 0; ti < p.thetaSteps; ti++) {
@@ -423,12 +426,7 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
       const candidateRangeKm = baseRay.rangeKm;
 
       for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
-        // The original code used ?? -Infinity on p.data which meant it handled undefined.
-        // On TypedArrays out of bounds gives undefined, but we are in bounds.
-        // However, some tests might pass standard arrays with sparse values.
-        let gainDbi = p.data[rowOffset + pi];
-        if (gainDbi === undefined) gainDbi = -Infinity;
-
+        const gainDbi = p.data[rowOffset + pi] ?? -Infinity;
         const effectiveGainDbi = gainDbi - mismatchLossDb;
         const linkQuality = classifyLinkQuality(effectiveGainDbi);
         const actualQRank = qualityRank(linkQuality);
