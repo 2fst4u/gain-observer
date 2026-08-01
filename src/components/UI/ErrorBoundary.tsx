@@ -2,7 +2,7 @@
 // the whole tab doesn't go blank when something throws. We also log the
 // error to the console so it's visible during development.
 
-import { Component, type ErrorInfo } from 'react';
+import { Component } from 'react';
 
 interface Props {
   children: React.ReactNode;
@@ -20,7 +20,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return { error };
   }
 
-  override componentDidCatch(error: Error, info: ErrorInfo): void {
+  override componentDidCatch(error: Error, info: React.ErrorInfo): void {
     // Surface the stack so it shows up clearly in the console during development only.
     if (import.meta.env.DEV) {
       console.error('[ErrorBoundary] caught', error, info);
