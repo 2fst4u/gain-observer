@@ -67,6 +67,7 @@ export function FeedlineControl() {
   if (!SUPPORTED_ANTENNA_TYPES.has(antennaType)) return null;
 
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
+  const atuMainRunLossDb = enabled ? feedlineLossDb(preset, frequency, atuMainFeedlineLength) : 0;
 
   return (
     <section className="panel-section">
@@ -121,8 +122,7 @@ export function FeedlineControl() {
           <AtuSection
             units={units}
             unit={unit}
-            frequency={frequency}
-            preset={preset}
+            mainRunLossDb={atuMainRunLossDb}
             atuEnabled={atuEnabled}
             atuMainFeedlineLength={atuMainFeedlineLength}
             setAtuEnabled={setAtuEnabled}

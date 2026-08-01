@@ -34,3 +34,7 @@
 **Vulnerability:** The physics worker accepted messages from any origin. If the worker was unintentionally or maliciously exposed or if messages were somehow relayed cross-origin, an attacker could potentially execute simulated workloads or cause denial of service.
 **Learning:** Web Workers should validate the `origin` of incoming `message` events, especially if they handle complex logic or perform intensive computations.
 **Prevention:** Implement an origin check in the worker's `message` event listener (`if (ev.origin && ev.origin !== '' && ev.origin !== self.location.origin) return;`) to ensure only same-origin messages are processed.
+## 2025-02-04 - Fix insecure GitHub Actions trigger for issue comments
+**Vulnerability:** The Claude action was triggering on `issue_comment`, `pull_request_review_comment`, `pull_request_review`, and `issues` events by solely checking if the payload contained `@claude`. This allowed anyone to trigger the workflow and potentially execute arbitrary code or consume resources.
+**Learning:** GitHub Actions workflows triggered by comment and issue events without strict author validation can be exploited by unprivileged users. Always validate the `author_association` when responding to user-generated content in automated workflows.
+**Prevention:** Ensured the `if` condition in the workflow checks the `author_association` of the event's actor, restricting it to `OWNER`, `MEMBER`, or `COLLABORATOR` before execution.

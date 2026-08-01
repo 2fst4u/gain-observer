@@ -105,6 +105,7 @@ describe('Nec2Engine error handling', () => {
       'NEC-2 did not produce an impedance result.'
     );
   });
+
   it('throws an error when sweep missing impedance result', async () => {
     const engine = new Nec2Engine({ baseUrl: '/' });
 
@@ -151,16 +152,43 @@ describe('Nec2Engine error handling', () => {
 
     await expect(engine.simulate(dummyInput)).rejects.toThrow('Simulated execution failure');
 
-    // Ensure that the lock has been released
-    // The lock is stored in engine['lock'], which is a promise that resolves.
-    // If we can acquire the lock again, it means it was released properly.
-    // However, since simulate() resolves the lock promise in a finally block,
-    // if we just await another method that acquires the lock, it shouldn't block.
-
-    // intercept runJob again to return valid output to test lock acquisition
+    // Ensure that the lock has been released: simulate() resolves the lock in a
+    // finally block, so a second simulate() must run rather than hang.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.spyOn(engine as any, 'runJob').mockResolvedValue('Dummy output with pattern and impedance\nRUN TIME=0.001\n                                 - - - RADIATION PATTERNS - - -\n  THETA    PHI    VERT    HORIZ    TOTAL\n    0.00    0.00   -1.00   -2.00   10.00\n                                 - - - ANTENNA INPUT PARAMETERS - - -\n  TAG   SEG       VOLTAGE (VOLTS)         CURRENT (AMPS)         IMPEDANCE (OHMS)        ADMITTANCE (MHOS)     POWER\n  NO.   NO.     REAL      IMAG.         REAL      IMAG.         REAL      IMAG.         REAL      IMAG.       (WATTS)\n    1     6  1.000E+00  0.000E+00    1.00E-02  2.00E-02    1.00E+01  2.00E+01    1.00E-03  2.00E-03    1.00E+00\n');
 
     await expect(engine.simulate(dummyInput)).resolves.toBeDefined();
+  });
+
+  it('releases lock when solveImpedanceSweep execution fails', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).factory = async () => ({});
+
+    let lockReleased = false;
+    // Mock acquire to return a function that sets our flag
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'acquire').mockResolvedValue(() => {
+      lockReleased = true;
+    });
+
+    // Mock runJob to throw an error
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'runJob').mockRejectedValue(new Error('Sweep execution failed'));
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await expect((engine as any).solveImpedanceSweep(dummyInput, 1, 14, 0)).rejects.toThrow('Sweep execution failed');
+    expect(lockReleased).toBe(true);
   });
 });

@@ -1,13 +1,12 @@
-import { THEME_COLORS, type Theme } from '../../utils/themeColors';
 import type { TerminatedDeltaSplitResult } from './useAntennaGeometry';
 
 export interface TerminatedDeltaElementProps {
   split: TerminatedDeltaSplitResult;
-  theme: Theme;
+  color: string;
   terminatingResistor: number;
 }
 
-export function TerminatedDeltaElement({ split, theme, terminatingResistor }: TerminatedDeltaElementProps) {
+export function TerminatedDeltaElement({ split, color, terminatingResistor }: TerminatedDeltaElementProps) {
   return (
     <>
       {/* Always show small marker spheres at each half-base inner end —
@@ -17,8 +16,8 @@ export function TerminatedDeltaElement({ split, theme, terminatingResistor }: Te
       <mesh position={split.leftInner}>
         <sphereGeometry args={[0.11, 12, 12]} />
         <meshStandardMaterial
-          color={THEME_COLORS[theme].wire}
-          emissive={THEME_COLORS[theme].wire}
+          color={color}
+          emissive={color}
           emissiveIntensity={0.2}
           metalness={0.8}
           roughness={0.4}
@@ -27,8 +26,8 @@ export function TerminatedDeltaElement({ split, theme, terminatingResistor }: Te
       <mesh position={split.rightInner}>
         <sphereGeometry args={[0.11, 12, 12]} />
         <meshStandardMaterial
-          color={THEME_COLORS[theme].wire}
-          emissive={THEME_COLORS[theme].wire}
+          color={color}
+          emissive={color}
           emissiveIntensity={0.2}
           metalness={0.8}
           roughness={0.4}
