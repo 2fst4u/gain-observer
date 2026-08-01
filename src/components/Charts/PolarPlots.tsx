@@ -171,12 +171,15 @@ function usePolarChartOptions(theme: string, dbRange: number, result: { maxGainD
 
 
 function AzimuthPlot({ result, dbRange, options }: { result: SimulationResult, dbRange: number, options: ComponentProps<typeof PolarPlotPanel>['options'] }) {
-  const data = useMemo(() => {
+  const cut = useMemo(() => {
     // NEC theta = 90 - elevation. 0 elevation (horizon) is 90 theta (from zenith).
     const thetaDeg = 90 - result.takeoffElevationDeg;
-    const cut = cutAzimuth(result.pattern, thetaDeg);
+    return cutAzimuth(result.pattern, thetaDeg);
+  }, [result]);
+
+  const data = useMemo(() => {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
-  }, [result, dbRange]);
+  }, [cut, result.maxGainDbi, dbRange]);
   const labels = useMemo(() => getAzimuthLabels(result.pattern), [result]);
 
   return (
@@ -190,10 +193,13 @@ function AzimuthPlot({ result, dbRange, options }: { result: SimulationResult, d
 }
 
 function ElevationPlot({ title, result, dbRange, azimuth, options }: { title: string, result: SimulationResult, dbRange: number, azimuth: number, options: ComponentProps<typeof PolarPlotPanel>['options'] }) {
+  const cut = useMemo(() => {
+    return cutElevation(result.pattern, azimuth);
+  }, [result, azimuth]);
+
   const data = useMemo(() => {
-    const cut = cutElevation(result.pattern, azimuth);
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
-  }, [result, dbRange, azimuth]);
+  }, [cut, result.maxGainDbi, dbRange]);
   const labels = useMemo(() => getElevationLabels(result.pattern), [result]);
 
   return (
