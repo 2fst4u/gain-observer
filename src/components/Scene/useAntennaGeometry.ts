@@ -230,11 +230,12 @@ function useTerminatedDeltaSplit(
       (leftInner[1] + rightInner[1]) / 2,
       (leftInner[2] + rightInner[2]) / 2,
     ];
-    const bridgeLen = Math.hypot(
-      rightInner[0] - leftInner[0],
-      rightInner[1] - leftInner[1],
-      rightInner[2] - leftInner[2],
-    );
+    const dx = rightInner[0] - leftInner[0];
+    const dy = rightInner[1] - leftInner[1];
+    const dz = rightInner[2] - leftInner[2];
+    // ⚡ Bolt: Math.hypot is notoriously slow in V8 due to overflow/underflow checks.
+    // We use Math.sqrt directly since these values are safe from float limits.
+    const bridgeLen = Math.sqrt(dx * dx + dy * dy + dz * dz);
     // Quaternion that points a +Y cylinder along the bridge direction.
     const bridgeQuat = new THREE.Quaternion();
     if (bridgeLen > 1e-9) {
