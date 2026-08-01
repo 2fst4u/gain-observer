@@ -105,6 +105,7 @@ describe('Nec2Engine error handling', () => {
       'NEC-2 did not produce an impedance result.'
     );
   });
+
   it('throws an error when sweep missing impedance result', async () => {
     const engine = new Nec2Engine({ baseUrl: '/' });
 
@@ -126,5 +127,37 @@ describe('Nec2Engine error handling', () => {
     await expect(engine.sweepImpedance(dummyInput, { points: 1, window: { startMHz: 14, endMHz: 14 } })).rejects.toThrow(
       'NEC-2 sweep missing impedance result for frequency 14 MHz'
     );
+  });
+
+  it('releases lock when solveImpedanceSweep execution fails', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).factory = async () => ({});
+
+    let lockReleased = false;
+    // Mock acquire to return a function that sets our flag
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'acquire').mockResolvedValue(() => {
+      lockReleased = true;
+    });
+
+    // Mock runJob to throw an error
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'runJob').mockRejectedValue(new Error('Sweep execution failed'));
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await expect((engine as any).solveImpedanceSweep(dummyInput, 1, 14, 0)).rejects.toThrow('Sweep execution failed');
+    expect(lockReleased).toBe(true);
   });
 });
