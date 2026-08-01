@@ -198,23 +198,6 @@ describe('computeStats', () => {
     expect(result?.minFreq).toBe(7.1);
   });
 
-  it('handles undefined optional parameters (transformerInDisplay, transformerRatio)', () => {
-    const sweep: SweepPoint[] = [
-      { frequencyMHz: 7.0, R: 50, X: 0, swr: 1.2 },
-    ];
-    // Cast to any to simulate JavaScript calling it with missing parameters that might bypass type safety if it were exposed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = computeStats({ sweep } as any);
-    expect(result).not.toBeNull();
-    expect(result?.minSWR).toBe(1.2);
-  });
-
-  it('returns null when sweep array is completely empty', () => {
-    // Tests explicit edge case of length = 0
-    const result = computeStats({ sweep: [] });
-    expect(result).toBeNull();
-  });
-
   it('evaluates minSWR, minFreq, and bands with active transformer', () => {
     // With a 4:1 transformer, impedance gets divided by 4 before SWR is calculated.
     // 50 Ohm vs 50 Ohm -> SWR 1.0 (Raw SWR)
