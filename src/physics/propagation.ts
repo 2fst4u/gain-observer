@@ -410,53 +410,61 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
       };
     }
 
-    for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
-      let bestTi = -1;
-      let bestEffectiveGainDbi = -Infinity;
-      let bestQualityRank = -1;
-      let bestLinkQuality: LinkQuality = 'unusable';
+    const bestTiArr = new Int32Array(p.phiSteps).fill(-1);
+    // Float64, not Float32: this holds `gainDbi - mismatchLossDb`, a float64
+    // result. Narrowing it to float32 would round the reported gain and could
+    // flip classifyLinkQuality() right at a threshold.
+    const bestEffectiveGainDbiArr = new Float64Array(p.phiSteps).fill(-Infinity);
+    const bestQualityRankArr = new Int32Array(p.phiSteps).fill(-1);
 
-      for (let ti = 0; ti < p.thetaSteps; ti++) {
-        const baseRay = baseRays[ti];
-        if (!baseRay) continue;
+    for (let ti = 0; ti < p.thetaSteps; ti++) {
+      const baseRay = baseRays[ti];
+      if (!baseRay) continue;
 
-        const gainDbi = p.data[ti * p.phiSteps + pi] ?? -Infinity;
+      const rowOffset = ti * p.phiSteps;
+      const candidateStatusRank = baseRay.statusRankValue;
+      const candidateRangeKm = baseRay.rangeKm;
+
+      for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
+        const gainDbi = p.data[rowOffset + pi] ?? -Infinity;
         const effectiveGainDbi = gainDbi - mismatchLossDb;
         const linkQuality = classifyLinkQuality(effectiveGainDbi);
-        const qRank = qualityRank(linkQuality);
+        const actualQRank = qualityRank(linkQuality);
 
-        if (bestTi !== -1) {
-          const bestBase = baseRays[bestTi]!;
-          if (
-            !isBetterRay(
-              baseRay.statusRankValue,
-              bestBase.statusRankValue,
-              qRank,
-              bestQualityRank,
-              baseRay.rangeKm,
-              bestBase.rangeKm
-            )
-          ) {
-            continue;
-          }
+        const bestTi = bestTiArr[pi];
+        if (
+          bestTi === -1 ||
+          isBetterRay(
+            candidateStatusRank,
+            baseRays[bestTi]!.statusRankValue,
+            actualQRank,
+            bestQualityRankArr[pi],
+            candidateRangeKm,
+            baseRays[bestTi]!.rangeKm
+          )
+        ) {
+          bestTiArr[pi] = ti;
+          bestEffectiveGainDbiArr[pi] = effectiveGainDbi;
+          bestQualityRankArr[pi] = actualQRank;
         }
-
-        bestTi = ti;
-        bestEffectiveGainDbi = effectiveGainDbi;
-        bestQualityRank = qRank;
-        bestLinkQuality = linkQuality;
       }
+    }
 
+    for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
+      const bestTi = bestTiArr[pi];
       if (bestTi !== -1) {
         const bestBase = baseRays[bestTi]!;
+        const effectiveGainDbi = bestEffectiveGainDbiArr[pi];
+        const linkQuality = classifyLinkQuality(effectiveGainDbi);
+
         azimuthalHops.push({
           phiDeg: pi * p.dPhi,
           takeoffElevationDeg: bestBase.takeoffElevationDeg,
           rangeKm: [bestBase.rangeKm, bestBase.rangeKm * 2, bestBase.rangeKm * 3],
           status: bestBase.status,
           reason: bestBase.reason,
-          linkQuality: bestLinkQuality,
-          effectiveGainDbi: bestEffectiveGainDbi,
+          linkQuality,
+          effectiveGainDbi,
         });
       }
     }

@@ -232,3 +232,6 @@
 ## 2026-08-01 - Optimize polar plot data generation caching
 **Learning:** Splitting computationally expensive array transformations from lightweight normalisation steps within React `useMemo` hooks prevents redundant recalculations when only cosmetic or scaling properties change.
 **Action:** Extracted the expensive `cutAzimuth` and `cutElevation` array generation functions in `PolarPlots.tsx` into independent `useMemo` hooks to decouple their execution from UI slider updates (like `dbRange`).
+## 2026-08-01 - Optimize propagation loop memory access pattern
+**Learning:** Sequential memory access for TypedArrays drastically improves execution speed in V8. Always swap loops so the inner loop steps sequentially through contiguous memory (row-major order). Additionally, defer string/object generation out of inner loops. Keep per-index accumulators at the precision of the value they replace — a `Float32Array` scratch buffer silently rounds a float64 result and can flip a downstream threshold comparison.
+**Action:** Inverted theta and phi loops in `predictPropagation`, and deferred `linkQuality` string resolution to the final output generation.
