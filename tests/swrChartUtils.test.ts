@@ -203,6 +203,7 @@ describe('computeStats', () => {
       { frequencyMHz: 7.0, R: 50, X: 0, swr: 1.2 },
     ];
     // Cast to any to simulate JavaScript calling it with missing parameters that might bypass type safety if it were exposed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = computeStats({ sweep } as any);
     expect(result).not.toBeNull();
     expect(result?.minSWR).toBe(1.2);
