@@ -229,3 +229,6 @@
 ## 2026-08-01 - Avoid Math.hypot in bounded rendering loops
 **Learning:** `Math.hypot` is significantly slower than doing a manual sum of squares and `Math.sqrt`, especially in V8 and other modern JS engines. The overhead of handling an arbitrary number of arguments and ensuring protection against overflow/underflow makes `Math.hypot` roughly 10-12x slower than standard `Math.sqrt(x*x + y*y + z*z)` when iterating over thousands of vertices.
 **Action:** Always prefer `Math.sqrt` with manual squaring for simple 2D or 3D distance calculations in tight rendering or geometry loops where numbers are bounded (e.g. unit sphere coordinates). Avoid this optimization for unbounded numeric domains like complex magnitude or impedance calculations, where `Math.hypot`'s overflow/underflow protections are necessary.
+## 2026-08-01 - Optimize polar plot data generation caching
+**Learning:** Splitting computationally expensive array transformations from lightweight normalisation steps within React `useMemo` hooks prevents redundant recalculations when only cosmetic or scaling properties change.
+**Action:** Extracted the expensive `cutAzimuth` and `cutElevation` array generation functions in `PolarPlots.tsx` into independent `useMemo` hooks to decouple their execution from UI slider updates (like `dbRange`).
