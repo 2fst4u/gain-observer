@@ -52,6 +52,11 @@ describe('main.tsx', () => {
     document.getElementById('root')?.remove();
     rootElement = null;
 
-    await expect(import('./main.tsx?missing')).rejects.toThrow('Missing #root element');
+    // Reset modules to ensure main.tsx is re-evaluated when imported
+    vi.resetModules();
+
+    // Workaround for TypeScript complaining about non-existent module if we use a query param
+    // We can just use the regular import since we reset the modules.
+    await expect(import('./main.tsx')).rejects.toThrow('Missing #root element');
   });
 });
