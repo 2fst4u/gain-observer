@@ -254,6 +254,12 @@ describe('PropagationInputs time parsers', () => {
       expect(HHmmToHour('12345')).toBe(null);
     });
 
+    it('returns null for empty strings or strings stripping to empty', () => {
+      expect(HHmmToHour('')).toBe(null);
+      expect(HHmmToHour('   ')).toBe(null);
+      expect(HHmmToHour('abc')).toBe(null);
+    });
+
     it('returns null for out-of-bounds hours or minutes', () => {
       expect(HHmmToHour('24:00')).toBe(null); // h=24 is invalid
       expect(HHmmToHour('25:00')).toBe(null);

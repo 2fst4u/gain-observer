@@ -39,7 +39,7 @@ export function AntennaWire(props: AntennaWireProps) {
       {terminatedDeltaSplit && (
         <TerminatedDeltaElement
           split={terminatedDeltaSplit}
-          theme={theme}
+          color={wireColor}
           terminatingResistor={terminatingResistor}
         />
       )}
