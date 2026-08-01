@@ -9,7 +9,7 @@ describe('computeChartData', () => {
     { frequencyMHz: 7.1, R: 100, X: 0, swr: 2.0 },
   ];
 
-  const mockReference: ComparisonSnapshot = {
+  const mockReference: Partial<ComparisonSnapshot> = {
     antennaType: 'dipole',
     height: 10,
     sweep: [
@@ -47,7 +47,7 @@ describe('computeChartData', () => {
     const result = computeChartData({
       ...baseArgs,
       comparisonActive: true,
-      reference: mockReference,
+      reference: mockReference as ComparisonSnapshot,
     });
 
     expect(result.datasets).toHaveLength(2);
@@ -91,7 +91,7 @@ describe('computeChartData', () => {
     const result = computeChartData({
       ...baseArgs,
       comparisonActive: true,
-      reference: mockReference,
+      reference: mockReference as ComparisonSnapshot,
       transformerInDisplay: true,
       transformerRatio: 2, // 2:1 balun => divides impedance by 2
       // At 7.0 MHz, R is 50. Post-balun R = 25. SWR for 25 vs 50 is 2.0.
@@ -163,6 +163,39 @@ describe('computeStats', () => {
     expect(band.lowClipped).toBe(true);
     expect(band.fHigh).toBeCloseTo(7.19, 3);
     expect(band.highClipped).toBe(false);
+  });
+
+  it('handles single-point sweep array safely', () => {
+    const sweep: SweepPoint[] = [{ frequencyMHz: 7.0, R: 50, X: 0, swr: 1.5 }];
+    const result = computeStats({ sweep });
+    expect(result).not.toBeNull();
+    expect(result?.minSWR).toBe(1.5);
+    expect(result?.minFreq).toBe(7.0);
+    expect(result?.bands).toHaveLength(1); // The single point evaluates to <=2, forming a band with fLow=fHigh
+    expect(result?.bands[0].fLow).toBe(7.0);
+    expect(result?.bands[0].fHigh).toBe(7.0);
+  });
+
+  it('handles sweep with NaN swr values gracefully', () => {
+    const sweep: SweepPoint[] = [
+      { frequencyMHz: 7.0, R: 50, X: 0, swr: NaN },
+      { frequencyMHz: 7.1, R: 50, X: 0, swr: 2.0 },
+    ];
+    const result = computeStats({ sweep });
+    expect(result).not.toBeNull();
+    expect(result?.minSWR).toBe(2.0);
+    expect(result?.minFreq).toBe(7.1);
+  });
+
+  it('handles sweep with Infinity swr values gracefully', () => {
+    const sweep: SweepPoint[] = [
+      { frequencyMHz: 7.0, R: 0, X: 0, swr: Infinity },
+      { frequencyMHz: 7.1, R: 50, X: 0, swr: 1.5 },
+    ];
+    const result = computeStats({ sweep });
+    expect(result).not.toBeNull();
+    expect(result?.minSWR).toBe(1.5);
+    expect(result?.minFreq).toBe(7.1);
   });
 
   it('evaluates minSWR, minFreq, and bands with active transformer', () => {
@@ -285,7 +318,7 @@ describe('computeYMax', () => {
     { frequencyMHz: 7.1, R: 50, X: 0, swr: 1.8 },
   ];
 
-  const mockReference: ComparisonSnapshot = {
+  const mockReference: Partial<ComparisonSnapshot> = {
     antennaType: 'dipole',
     height: 10,
     sweep: [
@@ -339,7 +372,7 @@ describe('computeYMax', () => {
     expect(computeYMax({
       ...baseArgs,
       comparisonActive: true,
-      reference: mockReference,
+      reference: mockReference as ComparisonSnapshot,
     })).toBe(4);
   });
 
