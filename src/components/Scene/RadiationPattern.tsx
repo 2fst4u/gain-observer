@@ -34,17 +34,21 @@ function createBaseGeometry(phiSegments: number, thetaSegments: number): CachedG
   const basePositions = Float32Array.from(positions.array as Float32Array);
   const count = positions.count;
   const angles = new Float32Array(count * 2);
+  const radToDeg = 180 / Math.PI;
 
   for (let i = 0; i < count; i++) {
     const x = basePositions[i * 3]!;
     const y = basePositions[i * 3 + 1]!;
     const z = basePositions[i * 3 + 2]!;
-    const necZ = y;
-    const necX = x;
-    const necY = -z;
-    const r = Math.sqrt(necX * necX + necY * necY + necZ * necZ);
-    const thetaDeg = (Math.acos(necZ / r) * 180) / Math.PI;
-    let phiDeg = (Math.atan2(necY, necX) * 180) / Math.PI;
+
+    // ⚡ Bolt: Performance Optimization
+    // We avoid computing Math.sqrt because the base geometry is a unit sphere (r = 1).
+
+    // Clamp y to [-1, 1] to prevent Math.acos from returning NaN due to float precision
+    const acosArg = y > 1 ? 1 : y < -1 ? -1 : y;
+    const thetaDeg = Math.acos(acosArg) * radToDeg;
+
+    let phiDeg = Math.atan2(-z, x) * radToDeg;
     if (phiDeg < 0) phiDeg += 360;
 
     angles[i * 2] = thetaDeg;
