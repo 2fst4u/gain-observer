@@ -55,8 +55,8 @@ describe('main.tsx', () => {
     // Reset modules to ensure main.tsx is re-evaluated when imported
     vi.resetModules();
 
-    // Workaround for TypeScript complaining about non-existent module if we use a query param
-    // We can just use the regular import since we reset the modules.
+    // A plain re-import is enough here: resetModules() forces main.tsx to be
+    // evaluated again, so no cache-busting query param is needed.
     await expect(import('./main.tsx')).rejects.toThrow('Missing #root element');
   });
 });
