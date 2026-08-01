@@ -49,6 +49,13 @@ describe('sweep functions', () => {
       expect(clampSpan(1, 1).start).toBe(SWEEP_F_MIN_MHZ);
       expect(clampSpan(30, 1).end).toBe(SWEEP_F_MAX_MHZ);
     });
+
+    it('results in start > end for negative spanFraction', () => {
+      const result = clampSpan(14, -0.1);
+      expect(result.start).toBeGreaterThan(result.end);
+      expect(result.start).toBeCloseTo(14.7, 6);
+      expect(result.end).toBeCloseTo(13.3, 6);
+    });
   });
 
   describe('runScan', () => {
