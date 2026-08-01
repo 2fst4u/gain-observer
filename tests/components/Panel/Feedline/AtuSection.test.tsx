@@ -1,28 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { AtuSection } from '../../../../src/components/Panel/Feedline/AtuSection';
-import type { FeedlinePreset } from '../../../../src/physics/constants';
-
-const nonePreset: FeedlinePreset = {
-  id: 'none',
-  label: 'No feedline',
-  z0: 0,
-  velocityFactor: 1,
-  lossK1: 0,
-  lossK2: 0,
-};
-
-const rg8Preset: FeedlinePreset = {
-  id: 'rg8',
-  label: 'RG-8',
-  z0: 50,
-  velocityFactor: 0.82,
-  // Using simple values to make math easy:
-  // lossPer100m = 1 * sqrt(16) + 0 * 16 = 4.
-  // if length is 50m, loss = 4 * 0.5 = 2.
-  lossK1: 1,
-  lossK2: 0,
-};
+// Removed FeedlinePreset mocks as they are no longer used by the component.
 
 describe('AtuSection', () => {
   afterEach(() => {
@@ -37,8 +16,7 @@ describe('AtuSection', () => {
       <AtuSection
         units="metric"
         unit="m"
-        frequency={14}
-        preset={nonePreset}
+        mainRunLossDb={0}
         atuEnabled={false}
         atuMainFeedlineLength={10}
         setAtuEnabled={setAtuEnabled}
@@ -63,8 +41,7 @@ describe('AtuSection', () => {
       <AtuSection
         units="metric"
         unit="m"
-        frequency={14}
-        preset={nonePreset}
+        mainRunLossDb={0}
         atuEnabled={false}
         atuMainFeedlineLength={10}
         setAtuEnabled={setAtuEnabled}
@@ -85,8 +62,7 @@ describe('AtuSection', () => {
       <AtuSection
         units="metric"
         unit="m"
-        frequency={16}
-        preset={rg8Preset}
+        mainRunLossDb={2}
         atuEnabled={true}
         atuMainFeedlineLength={50}
         setAtuEnabled={setAtuEnabled}
@@ -116,8 +92,7 @@ describe('AtuSection', () => {
       <AtuSection
         units="imperial"
         unit="ft"
-        frequency={14}
-        preset={rg8Preset}
+        mainRunLossDb={0}
         atuEnabled={true}
         atuMainFeedlineLength={30.48}
         setAtuEnabled={vi.fn()}
@@ -138,8 +113,7 @@ describe('AtuSection', () => {
       <AtuSection
         units="imperial"
         unit="ft"
-        frequency={14}
-        preset={nonePreset}
+        mainRunLossDb={0}
         atuEnabled={true}
         atuMainFeedlineLength={100}
         setAtuEnabled={setAtuEnabled}

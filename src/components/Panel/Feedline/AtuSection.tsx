@@ -1,14 +1,9 @@
-import {
-  type FeedlinePreset,
-  feedlineLossDb,
-} from '../../../physics/constants';
 import { SyncedLengthInput } from './SyncedLengthInput';
 
 export interface AtuSectionProps {
   units: 'metric' | 'imperial';
   unit: string;
-  frequency: number;
-  preset: FeedlinePreset;
+  mainRunLossDb: number;
   atuEnabled: boolean;
   atuMainFeedlineLength: number;
   setAtuEnabled: (val: boolean) => void;
@@ -18,15 +13,12 @@ export interface AtuSectionProps {
 export function AtuSection({
   units,
   unit,
-  frequency,
-  preset,
+  mainRunLossDb,
   atuEnabled,
   atuMainFeedlineLength,
   setAtuEnabled,
   setAtuMainFeedlineLength,
 }: AtuSectionProps) {
-  const mainRunLossDb = preset.id !== 'none' ? feedlineLossDb(preset, frequency, atuMainFeedlineLength) : 0;
-
   return (
     <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
       <label
