@@ -940,7 +940,13 @@ export function buildWires(
   const wires = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
   if (layout?.shield && state.antennaType !== 'delta-loop' && state.antennaType !== 'terminated-delta') {
-    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
+    let bridge;
+    for (let i = 0; i < wires.length; i++) {
+      if (wires[i].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[i];
+        break;
+      }
+    }
     if (bridge) {
       wires.push({
         start: bridge.end,
