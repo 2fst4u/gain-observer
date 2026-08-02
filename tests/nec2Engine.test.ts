@@ -48,20 +48,47 @@ describe('Nec2Engine unit tests', () => {
 
     const dummyInput = {
       frequencyMHz: 14.1,
-      wires: [],
-      ground: { type: 'perfect' },
-      excitation: {
-        wireTag: 1,
-        segment: 1,
-        voltage: 1,
-      },
-      patternResolution: { thetaSteps: 1, phiSteps: 1 },
-      loads: [],
-      transmissionLines: [],
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
     } as unknown as SimulationInput;
 
     await expect(engine.sweepImpedance(dummyInput)).rejects.toThrow(
       'nec2c sweep exited with status 1. some error line 1 | some error line 2'
     );
+  });
+
+  it('simulate() propagates runJob execution error and releases lock', async () => {
+    const engine = new Nec2Engine();
+    // Bypass actual wasm loading
+    (engine as any).ready = true;
+    (engine as any).factory = {}; // bypass factory check
+
+    let lockReleased = false;
+    const originalAcquire = (engine as any).acquire.bind(engine);
+    (engine as any).acquire = async () => {
+      const release = await originalAcquire();
+      return () => {
+        lockReleased = true;
+        release();
+      };
+    };
+
+    // Intercept runJob to throw an error
+    (engine as any).runJob = async () => {
+      throw new Error('Simulated execution failure');
+    };
+
+    const dummyInput = {
+      frequencyMHz: 14.1,
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    } as unknown as SimulationInput;
+
+    await expect(engine.simulate(dummyInput)).rejects.toThrow('Simulated execution failure');
+    expect(lockReleased).toBe(true);
   });
 });
