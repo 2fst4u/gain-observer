@@ -235,3 +235,7 @@
 ## 2026-08-01 - Optimize propagation loop memory access pattern
 **Learning:** Sequential memory access for TypedArrays drastically improves execution speed in V8. Always swap loops so the inner loop steps sequentially through contiguous memory (row-major order). Additionally, defer string/object generation out of inner loops. Keep per-index accumulators at the precision of the value they replace — a `Float32Array` scratch buffer silently rounds a float64 result and can flip a downstream threshold comparison.
 **Action:** Inverted theta and phi loops in `predictPropagation`, and deferred `linkQuality` string resolution to the final output generation.
+## 2024-11-20 - Dependency Array Optimization in PolarPlots
+
+**Learning:** When passing large simulation objects like `result` into `useMemo`, even stable substructures like `result.pattern` can trigger recalculations if the dependency array blindly tracks `[result]`.
+**Action:** Narrowed React `useMemo` dependency arrays in `PolarPlots.tsx` (for `cutAzimuth` and `cutElevation`) to specifically target scalar dependencies (`result.pattern.phiSteps`, `result.takeoffElevationDeg`) instead of the monolithic `result` object, avoiding costly unneeded array regenerations and significantly reducing execution time during independent state changes.

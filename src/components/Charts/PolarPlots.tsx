@@ -175,12 +175,14 @@ function AzimuthPlot({ result, dbRange, options }: { result: SimulationResult, d
     // NEC theta = 90 - elevation. 0 elevation (horizon) is 90 theta (from zenith).
     const thetaDeg = 90 - result.takeoffElevationDeg;
     return cutAzimuth(result.pattern, thetaDeg);
-  }, [result]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result.pattern.phiSteps, result.pattern.thetaSteps, result.takeoffElevationDeg, result.pattern.data]);
 
   const data = useMemo(() => {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [cut, result.maxGainDbi, dbRange]);
-  const labels = useMemo(() => getAzimuthLabels(result.pattern), [result]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labels = useMemo(() => getAzimuthLabels(result.pattern), [result.pattern.phiSteps]);
 
   return (
     <PolarPlotPanel
@@ -195,12 +197,14 @@ function AzimuthPlot({ result, dbRange, options }: { result: SimulationResult, d
 function ElevationPlot({ title, result, dbRange, azimuth, options }: { title: string, result: SimulationResult, dbRange: number, azimuth: number, options: ComponentProps<typeof PolarPlotPanel>['options'] }) {
   const cut = useMemo(() => {
     return cutElevation(result.pattern, azimuth);
-  }, [result, azimuth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result.pattern.phiSteps, result.pattern.thetaSteps, result.pattern.data, azimuth]);
 
   const data = useMemo(() => {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [cut, result.maxGainDbi, dbRange]);
-  const labels = useMemo(() => getElevationLabels(result.pattern), [result]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labels = useMemo(() => getElevationLabels(result.pattern), [result.pattern.thetaSteps]);
 
   return (
     <PolarPlotPanel
