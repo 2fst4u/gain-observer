@@ -62,11 +62,15 @@ describe('Nec2Engine unit tests', () => {
   it('simulate() propagates runJob execution error and releases lock', async () => {
     const engine = new Nec2Engine();
     // Bypass actual wasm loading
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (engine as any).ready = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (engine as any).factory = {}; // bypass factory check
 
     let lockReleased = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const originalAcquire = (engine as any).acquire.bind(engine);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (engine as any).acquire = async () => {
       const release = await originalAcquire();
       return () => {
@@ -76,6 +80,7 @@ describe('Nec2Engine unit tests', () => {
     };
 
     // Intercept runJob to throw an error
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (engine as any).runJob = async () => {
       throw new Error('Simulated execution failure');
     };
