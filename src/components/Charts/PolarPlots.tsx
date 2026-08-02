@@ -180,7 +180,8 @@ function AzimuthPlot({ result, dbRange, options }: { result: SimulationResult, d
   const data = useMemo(() => {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [cut, result.maxGainDbi, dbRange]);
-  const labels = useMemo(() => getAzimuthLabels(result.pattern), [result]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labels = useMemo(() => getAzimuthLabels(result.pattern), [result.pattern.phiSteps, result.pattern.dPhi]);
 
   return (
     <PolarPlotPanel
@@ -200,7 +201,8 @@ function ElevationPlot({ title, result, dbRange, azimuth, options }: { title: st
   const data = useMemo(() => {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [cut, result.maxGainDbi, dbRange]);
-  const labels = useMemo(() => getElevationLabels(result.pattern), [result]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labels = useMemo(() => getElevationLabels(result.pattern), [result.pattern.dTheta]);
 
   return (
     <PolarPlotPanel
