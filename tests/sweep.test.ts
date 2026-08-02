@@ -45,6 +45,16 @@ describe('sweep functions', () => {
       expect(result.end).toBe(7.1);
     });
 
+    it('handles negative spanFraction resulting in start > end', () => {
+      const result = clampSpan(14, -0.1);
+      // freq = 14, spanFraction = -0.1
+      // start = 14 * (1 - (-0.05)) = 14 * 1.05 = 14.7
+      // end = 14 * (1 + (-0.05)) = 14 * 0.95 = 13.3
+      expect(result.start).toBeCloseTo(14.7, 6);
+      expect(result.end).toBeCloseTo(13.3, 6);
+      expect(result.start).toBeGreaterThan(result.end);
+    });
+
     it('clamps to min/max HF bounds', () => {
       expect(clampSpan(1, 1).start).toBe(SWEEP_F_MIN_MHZ);
       expect(clampSpan(30, 1).end).toBe(SWEEP_F_MAX_MHZ);
