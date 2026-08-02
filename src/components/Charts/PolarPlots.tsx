@@ -180,7 +180,11 @@ function AzimuthPlot({ result, dbRange, options }: { result: SimulationResult, d
   const data = useMemo(() => {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [cut, result.maxGainDbi, dbRange]);
-  const labels = useMemo(() => getAzimuthLabels(result.pattern), [result]);
+  // ⚡ Bolt: Performance Optimization
+  // Use specific primitive properties of result.pattern to prevent recalculation
+  // on every simulation update (e.g. maxGainDbi changes).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labels = useMemo(() => getAzimuthLabels(result.pattern), [result.pattern.phiSteps, result.pattern.dPhi]);
 
   return (
     <PolarPlotPanel
@@ -200,7 +204,10 @@ function ElevationPlot({ title, result, dbRange, azimuth, options }: { title: st
   const data = useMemo(() => {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
   }, [cut, result.maxGainDbi, dbRange]);
-  const labels = useMemo(() => getElevationLabels(result.pattern), [result]);
+  // ⚡ Bolt: Performance Optimization
+  // Cache labels based on strictly required primitive inputs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labels = useMemo(() => getElevationLabels(result.pattern), [result.pattern.dTheta]);
 
   return (
     <PolarPlotPanel
