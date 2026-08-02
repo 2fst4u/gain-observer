@@ -28,3 +28,6 @@
 ## 2024-07-31 - Semantic feedback on custom input validation
 **Learning:** In custom text inputs that accept parsed formats (like a UTC hour "HH:mm" input), when an invalid format is typed, the internal parser naturally returns null. If the input silently ignores it, screen readers receive no feedback that the value is invalid.
 **Action:** Always dynamically bind `aria-invalid` to the result of the validation/parsing function (e.g., `aria-invalid={parse(value) === null}`) to provide immediate semantic feedback to screen readers for custom inputs.
+## 2026-08-02 - DOM Presence for aria-controls
+**Learning:** When using `aria-controls` to link a disclosure button to its target, conditionally unmounting the target in React breaks the accessibility reference because the ID disappears from the DOM.
+**Action:** Use the HTML `hidden` attribute instead of conditional React rendering so the target element's ID always remains in the DOM.
