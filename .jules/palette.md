@@ -28,3 +28,6 @@
 ## 2024-07-31 - Semantic feedback on custom input validation
 **Learning:** In custom text inputs that accept parsed formats (like a UTC hour "HH:mm" input), when an invalid format is typed, the internal parser naturally returns null. If the input silently ignores it, screen readers receive no feedback that the value is invalid.
 **Action:** Always dynamically bind `aria-invalid` to the result of the validation/parsing function (e.g., `aria-invalid={parse(value) === null}`) to provide immediate semantic feedback to screen readers for custom inputs.
+## 2025-02-09 - Fix invalid aria-controls references for disclosure widgets
+**Learning:** React conditional rendering (`{expanded && <div id="panel">}`) breaks `aria-controls` because the target ID must remain in the DOM even when the panel is collapsed, otherwise screen readers report a broken reference.
+**Action:** Use the HTML `hidden` attribute (e.g., `<div id="panel" hidden={!expanded}>`) for the content container of any disclosure widget instead of unmounting the element from the DOM entirely.

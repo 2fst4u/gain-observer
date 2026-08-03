@@ -84,9 +84,8 @@ export function GroundControl() {
       <div id="ground-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         {GROUND_PRESET_MAP.get(groundId)?.hint ?? 'Custom ground parameters.'}
       </div>
-      {(expanded || groundId === 'custom') && (
-        <div id="custom-ground-settings">
-          <label htmlFor="custom-ground-sigma" style={{ marginTop: 10 }}>Conductivity σ (S/m)</label>
+      <div id="custom-ground-settings" hidden={!(expanded || groundId === 'custom')}>
+        <label htmlFor="custom-ground-sigma" style={{ marginTop: 10 }}>Conductivity σ (S/m)</label>
           <input
             id="custom-ground-sigma"
             type="number"
@@ -126,8 +125,7 @@ export function GroundControl() {
               setLocalEpsilon(epsilon.toString());
             }}
           />
-        </div>
-      )}
+      </div>
     </section>
   );
 }

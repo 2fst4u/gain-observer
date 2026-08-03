@@ -101,15 +101,15 @@ describe('GroundControl', () => {
     render(<GroundControl />);
 
     // Initially custom inputs are not visible
-    expect(screen.queryByLabelText('Conductivity σ (S/m)')).toBeNull();
-    expect(screen.queryByLabelText('Permittivity εr')).toBeNull();
+    expect(screen.getByLabelText('Conductivity σ (S/m)').closest('div')).toHaveProperty('hidden', true);
+    expect(screen.getByLabelText('Permittivity εr').closest('div')).toHaveProperty('hidden', true);
 
     const expandButton = screen.getByRole('button', { name: /Custom/i });
     fireEvent.click(expandButton);
 
     // After clicking, they should be visible
-    expect(screen.getByLabelText('Conductivity σ (S/m)')).toBeDefined();
-    expect(screen.getByLabelText('Permittivity εr')).toBeDefined();
+    expect(screen.getByLabelText('Conductivity σ (S/m)').closest('div')).toHaveProperty('hidden', false);
+    expect(screen.getByLabelText('Permittivity εr').closest('div')).toHaveProperty('hidden', false);
   });
 
   it('collapses the custom inputs again via the Simple toggle', () => {
@@ -122,7 +122,7 @@ describe('GroundControl', () => {
 
     // Once expanded the toggle reads "Simple" and hides the inputs again.
     fireEvent.click(screen.getByRole('button', { name: /Simple/i }));
-    expect(screen.queryByLabelText('Conductivity σ (S/m)')).toBeNull();
+    expect(screen.getByLabelText('Conductivity σ (S/m)').closest('div')).toHaveProperty('hidden', true);
   });
 
   it('resets the sigma field to the store value on blur', () => {
