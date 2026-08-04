@@ -51,7 +51,7 @@ describe('folded dipole geometry', () => {
     const wires = foldedAntennaWires({ height: 12 });
     // Fed conductor wires (left half, bridge, right half) must be at z = 12.
     const fedTags = new Set([LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG]);
-    for (const w of wires.filter((w) => fedTags.has(w.tag))) {
+    for (const w of wires.filter((w) => w.tag !== undefined && fedTags.has(w.tag))) {
       expect(w.start[2]).toBeCloseTo(12, 9);
       expect(w.end[2]).toBeCloseTo(12, 9);
     }

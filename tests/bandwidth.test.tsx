@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { SWRChart } from '../src/components/Charts/SWRChart';
 import { useAntennaStore } from '../src/store/antennaStore';
+import { makeComparisonSnapshot, makeSimulationResult } from './helpers/factories';
 
 // Mock Chart.js to avoid canvas rendering issues in test environment
 vi.mock('react-chartjs-2', () => ({
@@ -17,7 +18,7 @@ describe('SWRChart Bandwidth Calculation', () => {
   beforeEach(() => {
     cleanup();
     useAntennaStore.setState({
-      result: {
+      result: makeSimulationResult({
         swr: 1.5,
         computeTimeMs: 10,
         impedance: { R: 50, X: 0 },
@@ -31,7 +32,7 @@ describe('SWRChart Bandwidth Calculation', () => {
           dTheta: 0,
           dPhi: 0,
         },
-      },
+      }),
       sweep: [],
       frequency: 7.1,
     });
@@ -87,7 +88,7 @@ describe('SWRChart Bandwidth Calculation', () => {
   it('renders correctly when comparison mode is active', () => {
     useAntennaStore.setState({
       mode: 'comparison',
-      comparisonReference: {
+      comparisonReference: makeComparisonSnapshot({
         sweep: [
           { frequencyMHz: 7.0, swr: 3.0, R: 50, X: 0 },
           { frequencyMHz: 7.1, swr: 1.5, R: 50, X: 0 }, // Below 2
@@ -95,7 +96,7 @@ describe('SWRChart Bandwidth Calculation', () => {
         ],
         antennaType: 'dipole',
         frequency: 7.1,
-        result: {
+        result: makeSimulationResult({
           swr: 1.5,
           computeTimeMs: 10,
           impedance: { R: 50, X: 0 },
@@ -109,8 +110,8 @@ describe('SWRChart Bandwidth Calculation', () => {
             dTheta: 0,
             dPhi: 0,
           },
-        },
-      },
+        }),
+      }),
       sweep: [
         { frequencyMHz: 7.0, swr: 50, R: 50, X: 0 },
         { frequencyMHz: 7.1, swr: 40, R: 50, X: 0 },

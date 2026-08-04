@@ -1144,7 +1144,7 @@ describe("antennaStore actions", () => {
     it("produces exactly 3 wires with distinct tags", () => {
       const wires = buildWires(baseState);
       expect(wires).toHaveLength(3);
-      const tags = wires.map((w) => w.tag).sort((a, b) => a - b);
+      const tags = wires.map((w) => w.tag!).sort((a, b) => a - b);
       expect(tags).toEqual([LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG]);
     });
 
@@ -1251,7 +1251,7 @@ describe("antennaStore actions", () => {
       const input = selectSimulationInput(state as AntennaState);
       // 5 wires: left leg (1), right leg (2), bridge (3), shield (4), base (6)
       expect(input.wires).toHaveLength(5);
-      const tags = input.wires.map((w) => w.tag).sort((a, b) => a - b);
+      const tags = input.wires.map((w) => w.tag!).sort((a, b) => a - b);
       expect(tags).toEqual([1, 2, 3, 4, 6]);
       // Excitation moves to shield bottom
       expect(input.excitation.wireTag).toBe(4);

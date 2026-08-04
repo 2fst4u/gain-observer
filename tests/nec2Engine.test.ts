@@ -43,7 +43,7 @@ describe('Nec2Engine unit tests', () => {
           readFile: () => new Uint8Array([]),
         },
         callMain: () => 1, // Non-zero exit code
-      } as unknown;
+      } as unknown as NonNullable<Awaited<ReturnType<NonNullable<typeof engine['factory']>>>>;
     };
 
     const dummyInput = {

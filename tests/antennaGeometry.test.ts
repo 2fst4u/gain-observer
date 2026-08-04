@@ -622,7 +622,7 @@ describe('buildInvertedVWires', () => {
   const baseParams = {
     length: 20, // total length
     height: 10,
-    orientation: 'N' as const,
+    orientation: 'NS' as const,
     wireRadius: 0.001,
     segments: 51,
     frequency: 14.15,

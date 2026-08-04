@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { GroundPlane } from '../src/components/Scene/GroundPlane';
-import { useAntennaStore } from '../src/store/antennaStore';
+import { mockAntennaStore } from './helpers/mockStore';
 import React from 'react';
 
 // Mock the store
@@ -28,10 +28,7 @@ afterEach(() => {
 
 describe('GroundPlane', () => {
   it('renders correctly with grid visible', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: { theme: string, antennaType: string }) => unknown) => {
-      const state = { theme: 'light', antennaType: 'dipole' };
-      return selector(state);
-    });
+    mockAntennaStore({ theme: 'light', antennaType: 'dipole' });
 
     const { container, getByTestId } = render(<GroundPlane groundId="pastoral" height={10} showGrid={true} antennaType="dipole" />);
 
@@ -46,50 +43,35 @@ describe('GroundPlane', () => {
   });
 
   it('renders nothing when height <= 0 and antenna is not vertical-whip', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: { theme: string, antennaType: string }) => unknown) => {
-      const state = { theme: 'light', antennaType: 'dipole' };
-      return selector(state);
-    });
+    mockAntennaStore({ theme: 'light', antennaType: 'dipole' });
 
     const { container } = render(<GroundPlane groundId="pastoral" height={0} showGrid={true} antennaType="dipole" />);
     expect(container.innerHTML).toBe('');
   });
 
   it('renders when height <= 0 and antenna IS vertical-whip', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: { theme: string, antennaType: string }) => unknown) => {
-      const state = { theme: 'light', antennaType: 'vertical-whip' };
-      return selector(state);
-    });
+    mockAntennaStore({ theme: 'light', antennaType: 'vertical-whip' });
 
     const { container } = render(<GroundPlane groundId="pastoral" height={0} showGrid={true} antennaType="vertical-whip" />);
     expect(container.innerHTML).not.toBe('');
   });
 
   it('renders when height <= 0 and antenna IS inverted-l', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: { theme: string }) => unknown) => {
-      const state = { theme: 'light' };
-      return selector(state);
-    });
+    mockAntennaStore({ theme: 'light' });
 
     const { container } = render(<GroundPlane groundId="pastoral" height={0} showGrid={true} antennaType="inverted-l" />);
     expect(container.innerHTML).not.toBe('');
   });
 
   it('renders nothing when groundId is "free"', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: { theme: string, antennaType: string }) => unknown) => {
-      const state = { theme: 'light', antennaType: 'dipole' };
-      return selector(state);
-    });
+    mockAntennaStore({ theme: 'light', antennaType: 'dipole' });
 
     const { container } = render(<GroundPlane groundId="free" height={10} showGrid={true} antennaType="dipole" />);
     expect(container.innerHTML).toBe('');
   });
 
   it('does not render grid when showGrid is false', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: { theme: string, antennaType: string }) => unknown) => {
-      const state = { theme: 'light', antennaType: 'dipole' };
-      return selector(state);
-    });
+    mockAntennaStore({ theme: 'light', antennaType: 'dipole' });
 
     const { container, queryByTestId } = render(<GroundPlane groundId="pastoral" height={10} showGrid={false} antennaType="dipole" />);
     expect(container.innerHTML).not.toBe('');

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { ComparisonControl } from '../src/components/Panel/ComparisonControl';
-import { useAntennaStore } from '../src/store/antennaStore';
+import { mockAntennaStore } from './helpers/mockStore';
+import { makeComparisonSnapshot, makeSimulationResult } from './helpers/factories';
 
 // Mock the store
 vi.mock('../src/store/antennaStore', async () => {
@@ -19,26 +20,22 @@ describe('ComparisonControl', () => {
   });
 
   it('renders nothing when mode is not comparison', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
-        mode: 'standard',
+    mockAntennaStore({
+        mode: 'normal',
         units: 'metric',
         result: null,
         sweep: [],
         comparisonReference: null,
         captureComparisonReference: vi.fn(),
         clearComparisonReference: vi.fn(),
-      };
-      return selector(state);
-    });
+      });
 
     const { container } = render(<ComparisonControl />);
     expect(container.firstChild).toBeNull();
   });
 
   it('renders buttons but disabled when no result available', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
+    mockAntennaStore({
         mode: 'comparison',
         units: 'metric',
         result: null,
@@ -46,9 +43,7 @@ describe('ComparisonControl', () => {
         comparisonReference: null,
         captureComparisonReference: vi.fn(),
         clearComparisonReference: vi.fn(),
-      };
-      return selector(state);
-    });
+      });
 
     render(<ComparisonControl />);
 
@@ -65,18 +60,15 @@ describe('ComparisonControl', () => {
 
   it('enables capture button when result is available', () => {
     const captureComparisonReference = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
+    mockAntennaStore({
         mode: 'comparison',
         units: 'metric',
-        result: { maxGainDbi: 2.15, swr: 1.5 },
-        sweep: [ { frequency: 14.1, swr: 1.5, impedance: { real: 50, imag: 0 } } ],
+        result: makeSimulationResult({ maxGainDbi: 2.15, swr: 1.5 }),
+        sweep: [{ frequencyMHz: 14.1, swr: 1.5, R: 50, X: 0 }],
         comparisonReference: null,
         captureComparisonReference,
         clearComparisonReference: vi.fn(),
-      };
-      return selector(state);
-    });
+      });
 
     render(<ComparisonControl />);
 
@@ -89,26 +81,23 @@ describe('ComparisonControl', () => {
 
   it('displays reference and enables clear button when reference is captured', () => {
     const clearComparisonReference = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
+    mockAntennaStore({
         mode: 'comparison',
         units: 'metric',
-        result: { maxGainDbi: 2.15, swr: 1.5 },
-        sweep: [ { frequency: 14.1, swr: 1.5, impedance: { real: 50, imag: 0 } } ],
-        comparisonReference: {
+        result: makeSimulationResult({ maxGainDbi: 2.15, swr: 1.5 }),
+        sweep: [{ frequencyMHz: 14.1, swr: 1.5, R: 50, X: 0 }],
+        comparisonReference: makeComparisonSnapshot({
           capturedAt: 1680000000000,
           frequency: 14.1,
           length: 10,
           height: 5,
           orientation: 'NS',
           groundId: 'pastoral',
-          result: { maxGainDbi: 2.15, swr: 1.5 },
-        },
+          result: makeSimulationResult({ maxGainDbi: 2.15, swr: 1.5 }),
+        }),
         captureComparisonReference: vi.fn(),
         clearComparisonReference,
-      };
-      return selector(state);
-    });
+      });
 
     render(<ComparisonControl />);
 
@@ -126,26 +115,23 @@ describe('ComparisonControl', () => {
   });
 
   it('displays custom ground correctly', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
+    mockAntennaStore({
         mode: 'comparison',
         units: 'metric',
         result: null,
         sweep: [],
-        comparisonReference: {
+        comparisonReference: makeComparisonSnapshot({
           capturedAt: 1680000000000,
           frequency: 14.1,
           length: 10,
           height: 5,
           orientation: 45,
           groundId: 'custom',
-          result: { maxGainDbi: 2.15, swr: 1.5 },
-        },
+          result: makeSimulationResult({ maxGainDbi: 2.15, swr: 1.5 }),
+        }),
         captureComparisonReference: vi.fn(),
         clearComparisonReference: vi.fn(),
-      };
-      return selector(state);
-    });
+      });
 
     render(<ComparisonControl />);
     expect(screen.getByText('Custom')).toBeTruthy();

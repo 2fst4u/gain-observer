@@ -39,7 +39,7 @@ describe('TerminatedDeltaElement', () => {
     const { container } = render(
       <TerminatedDeltaElement
         split={mockSplit}
-        theme="dark"
+        color="#e8e8e8"
         terminatingResistor={0}
       />
     );
@@ -55,7 +55,7 @@ describe('TerminatedDeltaElement', () => {
     const { container } = render(
       <TerminatedDeltaElement
         split={mockSplit}
-        theme="dark"
+        color="#e8e8e8"
         terminatingResistor={500}
       />
     );
@@ -71,7 +71,7 @@ describe('TerminatedDeltaElement', () => {
     const { container } = render(
       <TerminatedDeltaElement
         split={{ ...mockSplit, bridgeLen: 0.0001 }}
-        theme="dark"
+        color="#e8e8e8"
         terminatingResistor={500}
       />
     );
