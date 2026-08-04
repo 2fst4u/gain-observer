@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { AntennaScene } from '../src/components/Scene/AntennaScene';
-import { useAntennaStore } from '../src/store/antennaStore';
+import { mockAntennaStore } from './helpers/mockStore';
+import { makeSimulationResult } from './helpers/factories';
 import React from 'react';
 
 // Mock specific three.js components to avoid jsdom warnings
@@ -48,8 +49,7 @@ describe('AntennaScene', () => {
       console.warn(msg); // log others as warn to see them
     });
 
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
+    mockAntennaStore({
         antennaType: 'dipole',
         length: 20,
         height: 10,
@@ -57,22 +57,20 @@ describe('AntennaScene', () => {
         wireRadius: 0.001,
         segments: 21,
         groundId: 'pastoral',
-        result: { maxGainDbi: 2.15 },
+        result: makeSimulationResult({ maxGainDbi: 2.15 }),
         feedlineId: 'coax',
         feedlineLength: 15,
         feedlineOffset: 0.5,
-        whipCounterpoise: 0,
+        whipCounterpoise: false,
         showGrid: true,
         showAxes: false,
         patternScale: 1,
         dbRange: 40,
         colorMaxDb: 0,
         colormap: 'viridis',
-        mode: 'standard',
+        mode: 'normal',
         theme: 'dark',
-      };
-      return selector(state);
-    });
+      });
   });
 
   afterEach(() => {
@@ -94,7 +92,7 @@ describe('AntennaScene', () => {
     // RadiationPattern should receive live state props
     const radiationPattern = getByTestId('radiation-pattern');
     const patternProps = JSON.parse(radiationPattern.getAttribute('data-props') || '{}');
-    expect(patternProps.result).toEqual({ maxGainDbi: 2.15 });
+    expect(patternProps.result.maxGainDbi).toBe(2.15);
 
     // GroundPlane should receive live state props
     const groundPlane = getByTestId('ground-plane');
@@ -146,14 +144,11 @@ describe('AntennaScene', () => {
   });
 
   it('shows axes when showAxes is true', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
+    mockAntennaStore({
         antennaType: 'dipole',
         showAxes: true,
         theme: 'dark',
-      };
-      return selector(state);
-    });
+      });
 
     const { container } = render(<AntennaScene />);
     expect(container.innerHTML).toContain('<axeshelper'); // axesHelper might be lowercase in DOM

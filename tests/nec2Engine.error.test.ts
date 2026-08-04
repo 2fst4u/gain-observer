@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Nec2Engine } from '../src/physics/nec2Engine';
-import { SimulationInput } from '../src/physics/types';
+import type { SimulationInput } from '../src/physics/types';
 
 describe('Nec2Engine error handling', () => {
   it('throws an error with stderr when nec2c exits with a non-zero status code', async () => {

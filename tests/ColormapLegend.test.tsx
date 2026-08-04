@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { ColormapLegend } from '../src/components/Scene/ColormapLegend';
 import { useAntennaStore } from '../src/store/antennaStore';
-import type { SimulationResult } from '../src/physics/types';
+import { makeSimulationResult } from './helpers/factories';
 
 describe('ColormapLegend', () => {
   const originalState = useAntennaStore.getState();
@@ -12,25 +12,13 @@ describe('ColormapLegend', () => {
     useAntennaStore.setState(originalState, true);
   });
 
-  const mockResult: SimulationResult = {
-    pattern: {
-      powerMax: 10,
-      thetas: new Float32Array(),
-      phis: new Float32Array(),
-      powers: new Float32Array(),
-    },
+  const mockResult = makeSimulationResult({
     maxGainDbi: 5,
     takeoffElevationDeg: 45,
     takeoffAzimuthDeg: 90,
-    impedance: {
-      r: 50,
-      x: 0,
-      magnitude: 50,
-      phaseDeg: 0,
-    },
     swr: 1.0,
     efficiency: 1.0,
-  };
+  });
 
   it('renders nothing when result is null', () => {
     const { container } = render(<ColormapLegend result={null} />);

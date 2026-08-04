@@ -127,7 +127,7 @@ describe('App', () => {
             groundId: 'pastoral',
             result: { maxGainDbi: 2.15, swr: 1.5, impedance: { r: 50, x: 0 }, efficiency: 100 },
             sweep: []
-        } as unknown as import('../src/physics/types').SimulationSnapshot
+        } as unknown as import('../src/store/antennaStore').ComparisonSnapshot
       });
       render(<App />);
 

@@ -1,8 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { PropagationControl } from '../src/components/Panel/PropagationControl';
-import { useAntennaStore } from '../src/store/antennaStore';
-import type { SimulationResult } from '../src/physics/types';
+import { mockAntennaStore, type MockAntennaState } from './helpers/mockStore';
 
 // Mock the store
 vi.mock('../src/store/antennaStore', async () => {
@@ -18,21 +17,7 @@ vi.mock('../src/components/Charts/PropagationRadar', () => ({
   PropagationRadar: () => <div data-testid="propagation-radar" />,
 }));
 
-interface MockState {
-  frequency: number;
-  tIndex: number;
-  latitudeDeg: number | null;
-  longitudeDeg: number | null;
-  monthOverride: number | null;
-  utcHourOverride: number | null;
-  units: 'metric' | 'imperial';
-  result: SimulationResult | null;
-  setTIndex: (v: number) => void;
-  setLatitude: (v: number | null) => void;
-  setMonthOverride: (v: number | null) => void;
-  setUtcHourOverride: (v: number | null) => void;
-  geolocationStatus: string;
-}
+type MockState = MockAntennaState;
 
 describe('PropagationControl - time override visibility', () => {
   const mockSetMonthOverride = vi.fn();
@@ -44,8 +29,7 @@ describe('PropagationControl - time override visibility', () => {
   });
 
   const setupMockStore = (overrides: Partial<MockState> = {}) => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      const state: MockState = {
+    mockAntennaStore({
         frequency: 7.1,
         tIndex: 30,
         latitudeDeg: null,
@@ -60,9 +44,7 @@ describe('PropagationControl - time override visibility', () => {
         setUtcHourOverride: mockSetUtcHourOverride,
         geolocationStatus: 'idle',
         ...overrides,
-      };
-      return selector(state);
-    });
+      });
   };
 
   it('renders Month and UTC Hour inputs by default', () => {
@@ -166,8 +148,7 @@ describe('PropagationControl - T-index Input Bug', () => {
     const setTIndex = vi.fn();
     let currentTIndex = 30;
 
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      const state: MockState = {
+    mockAntennaStore(() => ({
         frequency: 7.1,
         tIndex: currentTIndex,
         setTIndex: (v: number) => {
@@ -184,9 +165,7 @@ describe('PropagationControl - T-index Input Bug', () => {
         result: null,
         units: 'metric',
         geolocationStatus: 'idle',
-      };
-      return selector(state);
-    });
+      }));
 
     const { getByLabelText } = render(<PropagationControl />);
     const tInput = getByLabelText('Ionospheric T-index') as HTMLInputElement;
@@ -211,8 +190,7 @@ describe('PropagationControl - T-index Input Bug', () => {
     const setTIndex = vi.fn();
     let currentTIndex = 30;
 
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      const state: MockState = {
+    mockAntennaStore(() => ({
         frequency: 7.1,
         tIndex: currentTIndex,
         setTIndex,
@@ -226,9 +204,7 @@ describe('PropagationControl - T-index Input Bug', () => {
         result: null,
         units: 'metric',
         geolocationStatus: 'idle',
-      };
-      return selector(state);
-    });
+      }));
 
     const { getByLabelText, rerender } = render(<PropagationControl />);
     const tInput = getByLabelText('Ionospheric T-index') as HTMLInputElement;

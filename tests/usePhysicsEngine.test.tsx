@@ -97,7 +97,7 @@ describe('usePhysicsEngine', () => {
     // Get the message handler
     const messageHandler = worker.addEventListener.mock.calls.find(
       (call: unknown[]) => call[0] === 'message'
-    )[1];
+    )![1];
 
     // Mock ready
     act(() => {
@@ -248,12 +248,12 @@ describe('usePhysicsEngine', () => {
     // Get the error handler
     const errorHandler = worker.addEventListener.mock.calls.find(
       (call: unknown[]) => call[0] === 'error'
-    )[1];
+    )![1];
 
     // Get the messageerror handler
     const messageErrorHandler = worker.addEventListener.mock.calls.find(
       (call: unknown[]) => call[0] === 'messageerror'
-    )[1];
+    )![1];
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
