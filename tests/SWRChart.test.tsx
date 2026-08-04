@@ -2,6 +2,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { SWRChart } from '../src/components/Charts/SWRChart';
 import { useAntennaStore } from '../src/store/antennaStore';
+import { makeSimulationResult } from './helpers/factories';
 
 // Mock chart.js so canvas rendering doesn't crash jsdom
 vi.mock('react-chartjs-2', () => ({
@@ -29,7 +30,7 @@ describe('SWRChart', () => {
         { frequencyMHz: 14.0, R: 50, X: 0, swr: 1 },
         { frequencyMHz: 14.2, R: 50, X: 0, swr: 1 },
       ],
-      result: { R: 50, X: 0, swr: 1, gainMax: 0, efficiency: 1, maxGainElevation: 0, maxGainAzimuth: 0 },
+      result: makeSimulationResult({ swr: 1, maxGainDbi: 0, efficiency: 1 }),
     });
     render(<SWRChart />);
     expect(screen.getAllByTestId('mock-line-chart')[0]).toBeDefined();
@@ -43,7 +44,7 @@ describe('SWRChart', () => {
         { frequencyMHz: 14.1, R: 50, X: 0, swr: 1.1 },
         { frequencyMHz: 14.2, R: 50, X: 0, swr: 1.5 },
       ],
-      result: { R: 50, X: 0, swr: 1.1, gainMax: 0, efficiency: 1, maxGainElevation: 0, maxGainAzimuth: 0 },
+      result: makeSimulationResult({ swr: 1.1, maxGainDbi: 0, efficiency: 1 }),
     });
     render(<SWRChart />);
 
@@ -60,7 +61,7 @@ describe('SWRChart', () => {
         { frequencyMHz: 14.1, R: 50, X: 0, swr: 2.5 },
         { frequencyMHz: 14.2, R: 50, X: 0, swr: 3.0 },
       ],
-      result: { R: 50, X: 0, swr: 2.5, gainMax: 0, efficiency: 1, maxGainElevation: 0, maxGainAzimuth: 0 },
+      result: makeSimulationResult({ swr: 2.5, maxGainDbi: 0, efficiency: 1 }),
     });
     render(<SWRChart />);
 
@@ -77,7 +78,7 @@ describe('SWRChart', () => {
         { frequencyMHz: 14.0, R: 50, X: 0, swr: 1 },
         { frequencyMHz: 14.2, R: 50, X: 0, swr: 1 },
       ],
-      result: { R: 50, X: 0, swr: 1, gainMax: 0, efficiency: 1, maxGainElevation: 0, maxGainAzimuth: 0 },
+      result: makeSimulationResult({ swr: 1, maxGainDbi: 0, efficiency: 1 }),
       zoomSwrView: zoomSwrViewMock,
       panSwrView: panSwrViewMock,
       resetSwrView: resetSwrViewMock,
@@ -114,7 +115,7 @@ describe('SWRChart', () => {
         { frequencyMHz: 14.0, R: 50, X: 0, swr: 1 },
         { frequencyMHz: 14.2, R: 50, X: 0, swr: 1 },
       ],
-      result: { R: 50, X: 0, swr: 1, gainMax: 0, efficiency: 1, maxGainElevation: 0, maxGainAzimuth: 0 },
+      result: makeSimulationResult({ swr: 1, maxGainDbi: 0, efficiency: 1 }),
       zoomSwrView: zoomSwrViewMock,
     });
 
@@ -136,7 +137,7 @@ describe('SWRChart', () => {
         { frequencyMHz: 14.0, R: 50, X: 0, swr: 1 },
         { frequencyMHz: 14.2, R: 50, X: 0, swr: 1 },
       ],
-      result: { R: 50, X: 0, swr: 1, gainMax: 0, efficiency: 1, maxGainElevation: 0, maxGainAzimuth: 0 },
+      result: makeSimulationResult({ swr: 1, maxGainDbi: 0, efficiency: 1 }),
       panSwrViewByMHz: panSwrViewByMHzMock,
       swrViewSpanMHz: 0.2,
       swrViewCenterMHz: 14.1,

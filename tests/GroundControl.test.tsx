@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { GroundControl } from '../src/components/Panel/GroundControl';
-import { useAntennaStore } from '../src/store/antennaStore';
+import { mockAntennaStore, type MockAntennaState } from './helpers/mockStore';
 
 // Mock the store
 vi.mock('../src/store/antennaStore', async () => {
@@ -12,13 +12,7 @@ vi.mock('../src/store/antennaStore', async () => {
   };
 });
 
-interface MockState {
-  groundId: string;
-  groundSigma: number;
-  groundEpsilon: number;
-  setGround: (id: string) => void;
-  setCustomGround: (sigma: number, epsilon: number) => void;
-}
+type MockState = MockAntennaState;
 
 function mockGround(overrides: Partial<MockState> = {}) {
   const state: MockState = {
@@ -29,9 +23,7 @@ function mockGround(overrides: Partial<MockState> = {}) {
     setCustomGround: vi.fn(),
     ...overrides,
   };
-  vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) =>
-    selector(state),
-  );
+  mockAntennaStore(state);
   return state;
 }
 
@@ -43,16 +35,13 @@ describe('GroundControl', () => {
 
   it('updates groundId when selection changes', () => {
     const setGround = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      const state: MockState = {
+    mockAntennaStore({
         groundId: 'pastoral',
         groundSigma: 0.005,
         groundEpsilon: 13,
         setGround,
         setCustomGround: vi.fn(),
-      };
-      return selector(state);
-    });
+      });
 
     render(<GroundControl />);
 
@@ -64,16 +53,13 @@ describe('GroundControl', () => {
 
   it('shows custom inputs and updates them when custom is selected', () => {
     const setCustomGround = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      const state: MockState = {
+    mockAntennaStore({
         groundId: 'custom',
         groundSigma: 0.005,
         groundEpsilon: 13,
         setGround: vi.fn(),
         setCustomGround,
-      };
-      return selector(state);
-    });
+      });
 
     render(<GroundControl />);
 
@@ -87,16 +73,13 @@ describe('GroundControl', () => {
   });
 
   it('shows custom inputs when expanded button is clicked', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      const state: MockState = {
+    mockAntennaStore({
         groundId: 'pastoral',
         groundSigma: 0.005,
         groundEpsilon: 13,
         setGround: vi.fn(),
         setCustomGround: vi.fn(),
-      };
-      return selector(state);
-    });
+      });
 
     render(<GroundControl />);
 

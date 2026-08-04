@@ -107,3 +107,6 @@
 ## 2025-03-02 - [Remove duplicate TERMINATED_DELTA_CENTRE_GAP_M export]
 **Learning:** When Knip flags duplicate exports that are simply aliases of each other, they should be cleaned up by keeping only the canonical constant and removing the alias. Also, removing imports without removing their usage causes AST parsing errors (`[PARSE_ERROR] Identifier X has already been declared`), so it's critical to ensure tests pass after modifying both the export and the consuming files.
 **Action:** Use a regex or simple find-and-replace to migrate consuming files to use the canonical name before deleting the alias.
+## 2024-05-30 - False Positives in Knip Analysis
+**Learning:** Knip static analysis might falsely flag exports that are actively used if it doesn't parse dynamically or if it's explicitly run with `--production`, which ignores usages inside test files. Wait to use `grep` everywhere to verify.
+**Action:** Always verify a Knip suggestion via a global text search (`grep -rn`) before including its deletion in the execution plan.

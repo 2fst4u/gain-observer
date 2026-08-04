@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { PolarPlots } from '../src/components/Charts/PolarPlots';
 import { useAntennaStore } from '../src/store/antennaStore';
+import { makeSimulationResult } from './helpers/factories';
 
 const { tickCbs } = vi.hoisted(() => ({ tickCbs: [] as Array<(v: number) => string> }));
 
@@ -27,7 +28,7 @@ describe('PolarPlots', () => {
       orientation: 'NS',
       dbRange: 40,
       theme: 'light',
-      result: {
+      result: makeSimulationResult({
         swr: 1.5,
         computeTimeMs: 10,
         impedance: { R: 50, X: 0 },
@@ -41,7 +42,7 @@ describe('PolarPlots', () => {
           dTheta: 1,
           dPhi: 5,
         },
-      },
+      }),
     });
   });
 
@@ -98,7 +99,7 @@ describe('PolarPlots', () => {
       dbRange: 40,
       transformerEnabled: false,
       feedlineId: 'none',
-      result: {
+      result: makeSimulationResult({
         swr: 60.89,
         computeTimeMs: 10,
         impedance: { R: 1.7, X: 50.9 },
@@ -107,7 +108,7 @@ describe('PolarPlots', () => {
         takeoffElevationDeg: 90,
         takeoffAzimuthDeg: 0,
         pattern: { data: new Float32Array(0), thetaSteps: 91, phiSteps: 72, dTheta: 1, dPhi: 5 },
-      } as unknown as import('../src/physics/types').SimulationResult,
+      }),
     });
     render(<PolarPlots />);
     // val = dbRange maps to the outer ring; it should read the realized peak.
@@ -121,7 +122,7 @@ describe('PolarPlots', () => {
       dbRange: 40,
       transformerEnabled: false,
       feedlineId: 'none',
-      result: {
+      result: makeSimulationResult({
         swr: 1.5,
         computeTimeMs: 10,
         impedance: { R: 50, X: 0 },
@@ -130,7 +131,7 @@ describe('PolarPlots', () => {
         takeoffElevationDeg: 30,
         takeoffAzimuthDeg: 0,
         pattern: { data: new Float32Array(0), thetaSteps: 91, phiSteps: 72, dTheta: 1, dPhi: 5 },
-      } as unknown as import('../src/physics/types').SimulationResult,
+      }),
     });
     render(<PolarPlots />);
     expect(tickCbs[0]!(40)).toBe('6 dBi');

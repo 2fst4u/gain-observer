@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Nec2Engine } from '../src/physics/nec2Engine';
-import { SimulationInput } from '../src/physics/types';
+import type { SimulationInput } from '../src/physics/types';
 
 describe('Nec2Engine error handling', () => {
   it('throws an error with stderr when nec2c exits with a non-zero status code', async () => {
@@ -156,6 +156,37 @@ describe('Nec2Engine error handling', () => {
     // finally block, so a second simulate() must run rather than hang.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.spyOn(engine as any, 'runJob').mockResolvedValue('Dummy output with pattern and impedance\nRUN TIME=0.001\n                                 - - - RADIATION PATTERNS - - -\n  THETA    PHI    VERT    HORIZ    TOTAL\n    0.00    0.00   -1.00   -2.00   10.00\n                                 - - - ANTENNA INPUT PARAMETERS - - -\n  TAG   SEG       VOLTAGE (VOLTS)         CURRENT (AMPS)         IMPEDANCE (OHMS)        ADMITTANCE (MHOS)     POWER\n  NO.   NO.     REAL      IMAG.         REAL      IMAG.         REAL      IMAG.         REAL      IMAG.       (WATTS)\n    1     6  1.000E+00  0.000E+00    1.00E-02  2.00E-02    1.00E+01  2.00E+01    1.00E-03  2.00E-03    1.00E+00\n');
+
+    await expect(engine.simulate(dummyInput)).resolves.toBeDefined();
+  });
+
+
+  it('throws a general execution exception and cleans up lock when sweep fails', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).factory = {}; // bypass factory check
+
+    // intercept runJob to throw an error
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'runJob').mockRejectedValue(new Error('Sweep execution failure'));
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    // Use specific bounds so sweep doesn't do multiple adaptive passes that all fail
+    await expect(engine.sweepImpedance(dummyInput, { points: 1, window: { startMHz: 14, endMHz: 14 } })).rejects.toThrow('Sweep execution failure');
+
+    // Check that lock was released by doing a successful simulation next
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'runJob').mockResolvedValue('Dummy output\nRUN TIME=0.001\n                                 - - - RADIATION PATTERNS - - -\n  THETA    PHI    VERT    HORIZ    TOTAL\n    0.00    0.00   -1.00   -2.00   10.00\n                                 - - - ANTENNA INPUT PARAMETERS - - -\n  TAG   SEG       VOLTAGE (VOLTS)         CURRENT (AMPS)         IMPEDANCE (OHMS)        ADMITTANCE (MHOS)     POWER\n  NO.   NO.     REAL      IMAG.         REAL      IMAG.         REAL      IMAG.         REAL      IMAG.       (WATTS)\n    1     6  1.000E+00  0.000E+00    1.00E-02  2.00E-02    1.00E+01  2.00E+01    1.00E-03  2.00E-03    1.00E+00\n');
 
     await expect(engine.simulate(dummyInput)).resolves.toBeDefined();
   });

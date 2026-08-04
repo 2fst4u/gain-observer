@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { AntennaWire } from '../src/components/Scene/AntennaWire';
-import { useAntennaStore } from '../src/store/antennaStore';
+import { mockAntennaStore } from './helpers/mockStore';
 
 // Mock specific three.js components to avoid jsdom warnings
 vi.mock('@react-three/fiber', () => ({
@@ -29,17 +29,14 @@ describe('AntennaWire', () => {
       console.warn(msg, ...args);
     });
 
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
+    mockAntennaStore({
         theme: 'dark',
         transformerEnabled: false,
         terminatingResistor: 0,
         vAngle: 120,
         legSlope: 0,
         frequency: 14.1,
-      };
-      return selector(state);
-    });
+      });
   });
 
   afterEach(() => {
@@ -54,6 +51,10 @@ describe('AntennaWire', () => {
         length={10}
         height={5}
         orientation="EW"
+        vAngle={120}
+        legSlope={0}
+        frequency={14.1}
+        foldedDipoleAperture={0.1}
         wireRadius={0.001}
         segments={11}
         feedlineId="none"
@@ -72,17 +73,14 @@ describe('AntennaWire', () => {
   });
 
   it('renders a terminated delta split wire', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
+    mockAntennaStore({
         theme: 'dark',
         transformerEnabled: false,
         terminatingResistor: 500, // Non-zero terminating resistor
         vAngle: 120,
         legSlope: 0,
         frequency: 14.1,
-      };
-      return selector(state);
-    });
+      });
 
     const { container } = render(
       <AntennaWire
@@ -90,6 +88,10 @@ describe('AntennaWire', () => {
         length={20}
         height={10}
         orientation="EW"
+        vAngle={120}
+        legSlope={0}
+        frequency={14.1}
+        foldedDipoleAperture={0.1}
         wireRadius={0.001}
         segments={21}
         feedlineId="none"
@@ -105,17 +107,14 @@ describe('AntennaWire', () => {
   });
 
   it('renders a feedline shield and transformer', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
+    mockAntennaStore({
         theme: 'dark',
         transformerEnabled: true,
         terminatingResistor: 0,
         vAngle: 120,
         legSlope: 0,
         frequency: 14.1,
-      };
-      return selector(state);
-    });
+      });
 
     const { container } = render(
       <AntennaWire
@@ -123,6 +122,10 @@ describe('AntennaWire', () => {
         length={10}
         height={5}
         orientation="EW"
+        vAngle={120}
+        legSlope={0}
+        frequency={14.1}
+        foldedDipoleAperture={0.1}
         wireRadius={0.001}
         segments={11}
         feedlineId="rg58" // Use a real feedlineId to enable shield

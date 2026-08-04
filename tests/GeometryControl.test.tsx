@@ -1,13 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { GeometryControl } from '../src/components/Panel/GeometryControl';
-import { useAntennaStore } from '../src/store/antennaStore';
-
-function mockStore(state: MockState) {
-  vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) =>
-    selector(state),
-  );
-}
+import { mockAntennaStore, type MockAntennaState } from './helpers/mockStore';
 
 // Mock the store
 vi.mock('../src/store/antennaStore', async () => {
@@ -18,33 +12,7 @@ vi.mock('../src/store/antennaStore', async () => {
   };
 });
 
-interface MockState {
-  units: string;
-  antennaType: string;
-  length: number;
-  height: number;
-  frequency: number;
-  orientation: string | number;
-  vAngle: number;
-  foldedDipoleAperture: number;
-  wireRadius: number;
-  terminatingResistor: number;
-  whipCounterpoise: boolean;
-  transformerEnabled: boolean;
-  transformerRatio: number;
-  setAntennaType: () => void;
-  setLength: () => void;
-  setHalfWaveLength: () => void;
-  setLegLengthMultiple: () => void;
-  setHeight: () => void;
-  setOrientation: (o: string | number) => void;
-  setVAngle: () => void;
-  setFoldedDipoleAperture: (a: number) => void;
-  setWhipCounterpoise: (w: boolean) => void;
-  setTerminatingResistor: () => void;
-  setTransformerEnabled: () => void;
-  setTransformerRatio: () => void;
-}
+type MockState = MockAntennaState;
 
 function buildMockState(overrides: Partial<MockState> = {}): MockState {
   return {
@@ -80,13 +48,11 @@ function buildMockState(overrides: Partial<MockState> = {}): MockState {
 describe('GeometryControl', () => {
   it('updates V angle when input changes', () => {
     const setVAngle = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      return selector(buildMockState({
+    mockAntennaStore(buildMockState({
         antennaType: 'sloping-v',
         vAngle: 120,
         setVAngle
       }));
-    });
 
     render(<GeometryControl />);
 
@@ -98,13 +64,11 @@ describe('GeometryControl', () => {
 
   it('toggles whip counterpoise when antenna is vertical-whip', () => {
     const setWhipCounterpoise = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      return selector(buildMockState({
+    mockAntennaStore(buildMockState({
         antennaType: 'vertical-whip',
         whipCounterpoise: false,
         setWhipCounterpoise
       }));
-    });
 
     render(<GeometryControl />);
 
@@ -116,13 +80,11 @@ describe('GeometryControl', () => {
 
   it('updates aperture when antenna is folded-dipole', () => {
     const setFoldedDipoleAperture = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      return selector(buildMockState({
+    mockAntennaStore(buildMockState({
         antennaType: 'folded-dipole',
         foldedDipoleAperture: 0.1,
         setFoldedDipoleAperture
       }));
-    });
 
     render(<GeometryControl />);
 
@@ -139,9 +101,7 @@ describe('GeometryControl', () => {
 
   it('updates orientation when numeric input changes', () => {
     const setOrientation = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      return selector(buildMockState({ setOrientation }));
-    });
+    mockAntennaStore(buildMockState({ setOrientation }));
 
     render(<GeometryControl />);
 
@@ -153,9 +113,7 @@ describe('GeometryControl', () => {
 
   it('updates orientation when preset buttons are clicked', () => {
     const setOrientation = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      return selector(buildMockState({ setOrientation }));
-    });
+    mockAntennaStore(buildMockState({ setOrientation }));
 
     render(<GeometryControl />);
 
@@ -166,9 +124,7 @@ describe('GeometryControl', () => {
   });
 
   it('embeds the transformer subsection inside the Antenna panel', () => {
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      return selector(buildMockState());
-    });
+    mockAntennaStore(buildMockState());
 
     render(<GeometryControl />);
 
@@ -182,9 +138,7 @@ describe('GeometryControl', () => {
 
   it('updates antenna type when changed', () => {
     const setAntennaType = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      return selector(buildMockState({ setAntennaType }));
-    });
+    mockAntennaStore(buildMockState({ setAntennaType }));
 
     render(<GeometryControl />);
 
@@ -196,13 +150,11 @@ describe('GeometryControl', () => {
 
   it('updates terminating resistor when input changes', () => {
     const setTerminatingResistor = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      return selector(buildMockState({
+    mockAntennaStore(buildMockState({
         antennaType: 'terminated-delta',
         terminatingResistor: 0,
         setTerminatingResistor
       }));
-    });
 
     render(<GeometryControl />);
 
@@ -214,12 +166,10 @@ describe('GeometryControl', () => {
 
   it('updates inverted-l orientation when input changes', () => {
     const setOrientation = vi.fn();
-    vi.mocked(useAntennaStore).mockImplementation((selector: (s: MockState) => unknown) => {
-      return selector(buildMockState({
+    mockAntennaStore(buildMockState({
         antennaType: 'inverted-l',
         setOrientation
       }));
-    });
 
     render(<GeometryControl />);
 
@@ -231,7 +181,7 @@ describe('GeometryControl', () => {
 
   it('updates length and resets the local value on blur', () => {
     const setLength = vi.fn();
-    mockStore(buildMockState({ length: 20, setLength }));
+    mockAntennaStore(buildMockState({ length: 20, setLength }));
 
     render(<GeometryControl />);
 
@@ -250,7 +200,7 @@ describe('GeometryControl', () => {
 
   it('ignores non-numeric length input', () => {
     const setLength = vi.fn();
-    mockStore(buildMockState({ setLength }));
+    mockAntennaStore(buildMockState({ setLength }));
 
     render(<GeometryControl />);
 
@@ -262,7 +212,7 @@ describe('GeometryControl', () => {
 
   it('resonates the antenna to ½λ when the resonate button is clicked', () => {
     const setHalfWaveLength = vi.fn();
-    mockStore(buildMockState({ antennaType: 'dipole', setHalfWaveLength }));
+    mockAntennaStore(buildMockState({ antennaType: 'dipole', setHalfWaveLength }));
 
     render(<GeometryControl />);
 
@@ -274,7 +224,7 @@ describe('GeometryControl', () => {
 
   it('applies the 1.25λ Extended Double Zepp preset for a dipole', () => {
     const setLength = vi.fn();
-    mockStore(buildMockState({ antennaType: 'dipole', frequency: 7.1, setLength }));
+    mockAntennaStore(buildMockState({ antennaType: 'dipole', frequency: 7.1, setLength }));
 
     render(<GeometryControl />);
 
@@ -287,7 +237,7 @@ describe('GeometryControl', () => {
 
   it('sets the leg-length multiple for a sloping-v', () => {
     const setLegLengthMultiple = vi.fn();
-    mockStore(buildMockState({ antennaType: 'sloping-v', setLegLengthMultiple }));
+    mockAntennaStore(buildMockState({ antennaType: 'sloping-v', setLegLengthMultiple }));
 
     render(<GeometryControl />);
 
@@ -299,7 +249,7 @@ describe('GeometryControl', () => {
 
   it('updates height when the slider changes', () => {
     const setHeight = vi.fn();
-    mockStore(buildMockState({ setHeight }));
+    mockAntennaStore(buildMockState({ setHeight }));
 
     render(<GeometryControl />);
 
@@ -311,7 +261,7 @@ describe('GeometryControl', () => {
 
   it('sets the terminating resistor to Z₀ for a folded dipole', () => {
     const setTerminatingResistor = vi.fn();
-    mockStore(buildMockState({
+    mockAntennaStore(buildMockState({
       antennaType: 'folded-dipole',
       foldedDipoleAperture: 0.1,
       wireRadius: 0.001,
@@ -331,7 +281,7 @@ describe('GeometryControl', () => {
 
   it('turns the termination off and resets the resistor field on blur', () => {
     const setTerminatingResistor = vi.fn();
-    mockStore(buildMockState({
+    mockAntennaStore(buildMockState({
       antennaType: 'terminated-delta',
       terminatingResistor: 600,
       setTerminatingResistor,
@@ -353,7 +303,7 @@ describe('GeometryControl', () => {
   });
 
   it('renders the counterpoise-enabled hint for a vertical whip', () => {
-    mockStore(buildMockState({ antennaType: 'vertical-whip', whipCounterpoise: true }));
+    mockAntennaStore(buildMockState({ antennaType: 'vertical-whip', whipCounterpoise: true }));
 
     render(<GeometryControl />);
 
@@ -364,7 +314,7 @@ describe('GeometryControl', () => {
 
   it('selects an inverted-l horizontal direction preset', () => {
     const setOrientation = vi.fn();
-    mockStore(buildMockState({ antennaType: 'inverted-l', setOrientation }));
+    mockAntennaStore(buildMockState({ antennaType: 'inverted-l', setOrientation }));
 
     render(<GeometryControl />);
 
@@ -377,7 +327,7 @@ describe('GeometryControl', () => {
   });
 
   it('reconciles the length field when the store value changes while unfocused', () => {
-    mockStore(buildMockState({ length: 20 }));
+    mockAntennaStore(buildMockState({ length: 20 }));
 
     const { rerender } = render(<GeometryControl />);
     const lengthInput = document.getElementById('dipole-length') as HTMLInputElement;
@@ -385,7 +335,7 @@ describe('GeometryControl', () => {
 
     // External store update (e.g. a resonate click elsewhere) should flow into
     // the controlled input because the field is not focused.
-    mockStore(buildMockState({ length: 42 }));
+    mockAntennaStore(buildMockState({ length: 42 }));
     rerender(<GeometryControl />);
 
     expect(lengthInput.value).toBe('42.00');

@@ -2,23 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { ConditionsReadout } from '../../../../src/components/Panel/Propagation/ConditionsReadout';
 import type { PropagationPrediction } from '../../../../src/physics/propagation';
+import { makeHop } from '../../../helpers/factories';
 
 describe('ConditionsReadout', () => {
   it('assigns correct colors based on hop status', () => {
     // Construct a mock prediction with all hop statuses
     const mockPrediction: PropagationPrediction = {
-      mode: 'skywave',
-      criticalFreqMhz: 5,
       foF2MHz: 5.5,
       hmF2Km: 300,
       mufMHz: 14.2,
       lufMHz: 3.5,
       selectedTakeoffElevationDeg: 15,
       mismatchLossDb: 0,
+      solarZenithDeg: 45,
       hops: [
-        { n: 1, rangeKm: 1000, status: 'open', linkQuality: 'useful', reason: 'Open path' },
-        { n: 2, rangeKm: 2000, status: 'marginal', linkQuality: 'weak', reason: 'Marginal path' },
-        { n: 3, rangeKm: 3000, status: 'closed', linkQuality: 'unusable', reason: 'Closed path' },
+        makeHop(makeHop({ reason: 'Open path' })),
+        makeHop({ n: 2, rangeKm: 2000, status: 'marginal', linkQuality: 'weak', reason: 'Marginal path' }),
+        makeHop({ n: 3, rangeKm: 3000, status: 'closed', linkQuality: 'unusable', reason: 'Closed path' }),
       ],
       azimuthalHops: []
     };
@@ -50,14 +50,13 @@ describe('ConditionsReadout', () => {
 
   it('renders "Computing antenna pattern..." when haveTakeoff is false', () => {
     const mockPrediction: PropagationPrediction = {
-      mode: 'skywave',
-      criticalFreqMhz: 5,
       foF2MHz: 5.5,
       hmF2Km: 300,
       mufMHz: 14.2,
       lufMHz: 3.5,
       selectedTakeoffElevationDeg: 15,
       mismatchLossDb: 0,
+      solarZenithDeg: 45,
       hops: [],
       azimuthalHops: []
     };
@@ -77,14 +76,13 @@ describe('ConditionsReadout', () => {
 
   it('toggles assumptions panel visibility', () => {
     const mockPrediction: PropagationPrediction = {
-      mode: 'skywave',
-      criticalFreqMhz: 5,
       foF2MHz: 5.5,
       hmF2Km: 300,
       mufMHz: 14.2,
       lufMHz: 3.5,
       selectedTakeoffElevationDeg: 15,
       mismatchLossDb: 0,
+      solarZenithDeg: 45,
       hops: [],
       azimuthalHops: []
     };
@@ -111,16 +109,15 @@ describe('ConditionsReadout', () => {
 
   it('displays ranges in km when units is metric', () => {
     const mockPrediction: PropagationPrediction = {
-      mode: 'skywave',
-      criticalFreqMhz: 5,
       foF2MHz: 5.5,
       hmF2Km: 300,
       mufMHz: 14.2,
       lufMHz: 3.5,
       selectedTakeoffElevationDeg: 15,
       mismatchLossDb: 0,
+      solarZenithDeg: 45,
       hops: [
-        { n: 1, rangeKm: 1000, status: 'open', linkQuality: 'useful', reason: 'Open path' },
+        makeHop(makeHop({ reason: 'Open path' })),
       ],
       azimuthalHops: []
     };
@@ -141,16 +138,15 @@ describe('ConditionsReadout', () => {
 
   it('displays ranges in miles when units is imperial', () => {
     const mockPrediction: PropagationPrediction = {
-      mode: 'skywave',
-      criticalFreqMhz: 5,
       foF2MHz: 5.5,
       hmF2Km: 300,
       mufMHz: 14.2,
       lufMHz: 3.5,
       selectedTakeoffElevationDeg: 15,
       mismatchLossDb: 0,
+      solarZenithDeg: 45,
       hops: [
-        { n: 1, rangeKm: 1609.344, status: 'open', linkQuality: 'useful', reason: 'Open path' },
+        makeHop({ rangeKm: 1609.344 }),
       ],
       azimuthalHops: []
     };
