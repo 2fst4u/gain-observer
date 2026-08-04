@@ -49,7 +49,7 @@ export const MAX_SEGS_PER_LEG = 100;
  * than ~2× in length, otherwise basis functions can't resolve the rapid
  * current variation at the source.
  */
-export interface GradedSegmentPlan {
+interface GradedSegmentPlan {
   /** Lengths of the geometrically-growing prefix segments (short → long). */
   readonly prefixLens: number[];
   /** Length of each uniform tail segment (0 if no tail). */
