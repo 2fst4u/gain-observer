@@ -20,3 +20,25 @@ When making modifications to the project or the `nec2c` prediction engine (locat
 4. **Source Code Availability:** Ensure that the repository structure continues to support the free distribution of the source code for both the frontend application and the engine.
 
 Failure to adhere to these rules violates the GPL v3 license.
+
+## Agent Journals (`.jules/*.md`)
+
+Each agent keeps a journal of lessons learned. Entries are `## YYYY-MM-DD - Title`
+followed by `**Learning:**` and `**Action:**` lines. Before appending one:
+
+1. **Use the real current date.** Check it (`date -u +%F`) rather than recalling
+   one. Journals have accumulated entries dated one to two years before the work
+   actually happened, which makes the chronology useless for judging whether a
+   lesson still applies.
+2. **Search the file for the lesson first.** If an entry already covers it, amend
+   that entry instead of appending a second one. Journals have carried up to three
+   verbatim copies of the same lesson.
+3. **Title the entry after what the body says.** A title describing a different
+   optimisation than the body makes the lesson unfindable.
+4. **Check the interpolation actually happened.** Entries have been committed
+   reading `Inverted theta and phi loops in , and deferred  string resolution`,
+   where a template variable resolved to nothing.
+
+A journal entry is not a substitute for a code change. If the finding turns out to
+be already fixed, or a false positive, say so on the issue — do not open a pull
+request whose diff is empty.
