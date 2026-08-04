@@ -18,17 +18,16 @@
 ## 2024-06-11 - Constant export cleanup
 **Learning:** Removing an unused export for a constant that is still used internally within the same file requires leaving the import intact.
 **Action:** When un-exporting variables, do a local grep to see if they are still used in the file; if so, do not remove the import.
-## 2025-02-13 - Un-exporting Internal Utilities and Constants
 ## 2026-06-17 - Un-exporting Internal Utilities and Constants
 **Learning:** `knip` correctly flagged `reflectionCoefficientMag`, `INITIAL_HEIGHT`, and `FEED_BRIDGE_LENGTH_M` (re-export) as unused outside their declaring files. When a function or constant is only used internally, it should not be exported, improving module encapsulation.
 **Action:** When cleaning up unused exports, simply remove the `export` keyword if the symbol is used locally. If it was re-exported in a centralized `export { ... }` block but unused outside, remove it from that block while keeping its import intact if it's used within the aggregator file. Always verify with `npm run build` and `npm run test` afterward.
-## 2024-05-18 - [False Positive on Unused Type Import]
+## 2024-05-18 - [False Positive on Unused Type Import: ComparisonSnapshot]
 **Learning:** A static analysis tool incorrectly flagged a valid type import (`ComparisonSnapshot` in `src/components/Scene/AntennaScene.tsx`) as unused, when it was actually being used as a type for a property in an interface definition (`interface AntennaSceneProps`).
 **Action:** When investigating reported unused type imports, carefully examine the file to ensure the type isn't used within type signatures or interfaces. If verified as a false positive, do not remove the import, and instead note the false positive in the journal and close the task without making codebase changes.
 ## 2024-06-25 - False Positive on AntennaType Import
 **Learning:** The static analysis scanner incorrectly flagged `type AntennaType` in `src/components/Panel/GeometryControl.tsx` as an unused import. However, manual inspection verified it was used as a type parameter in definitions like `Record<AntennaType, string>`. Removing valid, in-use imports causes build failures and is an anti-pattern.
 **Action:** Closed the task without making changes to the codebase, strictly adhering to the Code Health Refactoring Pattern which dictates preserving valid code when confronted with false positives.
-## 2024-05-19 - [False Positive on Unused Type Import]
+## 2024-05-19 - [False Positive on Unused Type Import: SwrBand]
 **Learning:** A static analysis tool incorrectly flagged a valid type import (`SwrBand` in `src/physics/nec2Engine.ts`) as unused, when it was actually being used as a type annotation for function parameters (`bands: readonly SwrBand[]` and `b: SwrBand`). Removing it causes `tsc` build errors.
 **Action:** When investigating reported unused type imports, carefully examine the file to ensure the type isn't used within type signatures or interfaces. If verified as a false positive, do not remove the import, and instead note the false positive in the journal and close the task without making codebase changes.
 
