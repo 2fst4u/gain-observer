@@ -63,10 +63,14 @@ const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
 // Surface worker-side errors explicitly so they don't vanish silently.
 self.addEventListener('error', (ev) => {
-  console.error('[worker error]', ev.message, ev.error);
+  if (import.meta.env.DEV) {
+    console.error('[worker error]', ev.message, ev.error);
+  }
 });
 self.addEventListener('unhandledrejection', (ev: PromiseRejectionEvent) => {
-  console.error('[worker unhandledrejection]', ev.reason);
+  if (import.meta.env.DEV) {
+    console.error('[worker unhandledrejection]', ev.reason);
+  }
 });
 
 
@@ -82,7 +86,7 @@ engine
     ctx.postMessage({ type: 'ready' } satisfies WorkerResponse);
   })
   .catch((err: unknown) => {
-    console.error('[worker] engine init failed', err);
+    if (import.meta.env.DEV) console.error('[worker] engine init failed', err);
     ctx.postMessage({
       id: -1,
       type: 'error',
@@ -93,7 +97,7 @@ engine
 ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
   // Security: drop cross-origin messages
   if (ev.origin && ev.origin !== '' && ev.origin !== self.location.origin) {
-    console.warn('[worker] dropping cross-origin message from', ev.origin);
+    if (import.meta.env.DEV) console.warn('[worker] dropping cross-origin message from', ev.origin);
     return;
   }
   const msg = ev.data;

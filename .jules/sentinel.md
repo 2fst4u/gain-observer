@@ -38,3 +38,7 @@
 **Vulnerability:** The Claude action was triggering on `issue_comment`, `pull_request_review_comment`, `pull_request_review`, and `issues` events by solely checking if the payload contained `@claude`. This allowed anyone to trigger the workflow and potentially execute arbitrary code or consume resources.
 **Learning:** GitHub Actions workflows triggered by comment and issue events without strict author validation can be exploited by unprivileged users. Always validate the `author_association` when responding to user-generated content in automated workflows.
 **Prevention:** Ensured the `if` condition in the workflow checks the `author_association` of the event's actor, restricting it to `OWNER`, `MEMBER`, or `COLLABORATOR` before execution.
+## 2025-02-14 - Information Leakage in Web Worker Error Handlers
+**Vulnerability:** Worker-side error and unhandledrejection handlers blindly invoked `console.error` in all environments, potentially leaking internal stack traces or configuration paths to the production browser console.
+**Learning:** Web workers typically run outside the main application bundle but are still client-facing. They must respect the same environmental error-masking rules (like `import.meta.env.DEV`) as the main UI to prevent inadvertent information disclosure.
+**Prevention:** Always wrap `console.error` and `console.warn` calls inside worker event listeners or hooks managing worker lifecycle with `if (import.meta.env.DEV)` to silence them in production.
