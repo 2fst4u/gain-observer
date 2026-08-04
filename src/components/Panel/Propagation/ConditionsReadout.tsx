@@ -120,28 +120,26 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: Conditions
         </svg>
         {showAssumptions ? 'Hide model assumptions' : 'Model & assumptions'}
       </button>
-      {showAssumptions && (
-        <div id="assumptions-panel" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
-          <p style={{ marginTop: 0 }}>
-            This is a closed-form approximation, not IRI / ASAPS / VOACAP.
-            It captures the right monotonic behaviours (foF2 rises with
-            T-index, MUF rises with shallower take-off) but is not a
-            propagation-prediction product.
-          </p>
-          <ul style={{ paddingLeft: 18, margin: '6px 0' }}>
-            <li>foF2 from T-index, solar zenith angle, latitude (no URSI/CCIR maps).</li>
-            <li>hmF2 from a simple day/night sinusoid centred on canonical values.</li>
-            <li>MUF: secant law with curved-Earth correction.</li>
-            <li>Range is ray geometry from elevation and hmF2. Gain and SWR affect signal quality, not skip distance.</li>
-            <li>
-              <strong>LUF: heuristic from D-layer absorption.</strong> Treat with caution
-              — least reliable part of the model, especially near sunrise/sunset.
-            </li>
-            <li>User latitude is taken as the path-midpoint latitude (fine for short hops).</li>
-            <li>No sporadic-E, auroral, or polar effects.</li>
-          </ul>
-        </div>
-      )}
+      <div id="assumptions-panel" hidden={!showAssumptions} style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
+        <p style={{ marginTop: 0 }}>
+          This is a closed-form approximation, not IRI / ASAPS / VOACAP.
+          It captures the right monotonic behaviours (foF2 rises with
+          T-index, MUF rises with shallower take-off) but is not a
+          propagation-prediction product.
+        </p>
+        <ul style={{ paddingLeft: 18, margin: '6px 0' }}>
+          <li>foF2 from T-index, solar zenith angle, latitude (no URSI/CCIR maps).</li>
+          <li>hmF2 from a simple day/night sinusoid centred on canonical values.</li>
+          <li>MUF: secant law with curved-Earth correction.</li>
+          <li>Range is ray geometry from elevation and hmF2. Gain and SWR affect signal quality, not skip distance.</li>
+          <li>
+            <strong>LUF: heuristic from D-layer absorption.</strong> Treat with caution
+            — least reliable part of the model, especially near sunrise/sunset.
+          </li>
+          <li>User latitude is taken as the path-midpoint latitude (fine for short hops).</li>
+          <li>No sporadic-E, auroral, or polar effects.</li>
+        </ul>
+      </div>
     </>
   );
 }

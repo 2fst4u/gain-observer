@@ -84,50 +84,48 @@ export function GroundControl() {
       <div id="ground-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         {GROUND_PRESET_MAP.get(groundId)?.hint ?? 'Custom ground parameters.'}
       </div>
-      {(expanded || groundId === 'custom') && (
-        <div id="custom-ground-settings">
-          <label htmlFor="custom-ground-sigma" style={{ marginTop: 10 }}>Conductivity σ (S/m)</label>
-          <input
-            id="custom-ground-sigma"
-            type="number"
-            min={0}
-            step={0.001}
-            value={localSigma}
-            onFocus={() => setIsSigmaFocused(true)}
-            onChange={(e) => {
-              const s = e.target.value;
-              setLocalSigma(s);
-              const val = parseFloat(s);
-              if (isNaN(val)) return;
-              setCustomGround(val, epsilon);
-            }}
-            onBlur={() => {
-              setIsSigmaFocused(false);
-              setLocalSigma(sigma.toString());
-            }}
-          />
-          <label htmlFor="custom-ground-epsilon" style={{ marginTop: 6 }}>Permittivity εr</label>
-          <input
-            id="custom-ground-epsilon"
-            type="number"
-            min={1}
-            step={0.5}
-            value={localEpsilon}
-            onFocus={() => setIsEpsilonFocused(true)}
-            onChange={(e) => {
-              const s = e.target.value;
-              setLocalEpsilon(s);
-              const val = parseFloat(s);
-              if (isNaN(val)) return;
-              setCustomGround(sigma, val);
-            }}
-            onBlur={() => {
-              setIsEpsilonFocused(false);
-              setLocalEpsilon(epsilon.toString());
-            }}
-          />
-        </div>
-      )}
+      <div id="custom-ground-settings" hidden={!(expanded || groundId === 'custom')}>
+        <label htmlFor="custom-ground-sigma" style={{ marginTop: 10 }}>Conductivity σ (S/m)</label>
+        <input
+          id="custom-ground-sigma"
+          type="number"
+          min={0}
+          step={0.001}
+          value={localSigma}
+          onFocus={() => setIsSigmaFocused(true)}
+          onChange={(e) => {
+            const s = e.target.value;
+            setLocalSigma(s);
+            const val = parseFloat(s);
+            if (isNaN(val)) return;
+            setCustomGround(val, epsilon);
+          }}
+          onBlur={() => {
+            setIsSigmaFocused(false);
+            setLocalSigma(sigma.toString());
+          }}
+        />
+        <label htmlFor="custom-ground-epsilon" style={{ marginTop: 6 }}>Permittivity εr</label>
+        <input
+          id="custom-ground-epsilon"
+          type="number"
+          min={1}
+          step={0.5}
+          value={localEpsilon}
+          onFocus={() => setIsEpsilonFocused(true)}
+          onChange={(e) => {
+            const s = e.target.value;
+            setLocalEpsilon(s);
+            const val = parseFloat(s);
+            if (isNaN(val)) return;
+            setCustomGround(sigma, val);
+          }}
+          onBlur={() => {
+            setIsEpsilonFocused(false);
+            setLocalEpsilon(epsilon.toString());
+          }}
+        />
+      </div>
     </section>
   );
 }
