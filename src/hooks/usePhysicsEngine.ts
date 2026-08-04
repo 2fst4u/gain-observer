@@ -130,11 +130,15 @@ function useWorkerLifecycle(
     worker.addEventListener('message', handler);
 
     const errHandler = (ev: ErrorEvent) => {
-      console.error('[usePhysicsEngine] worker error', ev.message, ev.error);
+      if (import.meta.env.DEV) {
+        console.error('[usePhysicsEngine] worker error', ev.message, ev.error);
+      }
       useAntennaStore.getState()._setError(`Worker error: ${ev.message}`);
     };
     const rejectHandler = (ev: MessageEvent) => {
-      console.error('[usePhysicsEngine] worker messageerror', ev);
+      if (import.meta.env.DEV) {
+        console.error('[usePhysicsEngine] worker messageerror', ev);
+      }
     };
     worker.addEventListener('error', errHandler);
     worker.addEventListener('messageerror', rejectHandler);
