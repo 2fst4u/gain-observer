@@ -12,10 +12,10 @@ vi.mock('virtual:pwa-register', () => ({
   registerSW: vi.fn(),
 }));
 
-vi.mock('./App', () => ({
+vi.mock('../src/App', () => ({
   App: () => null,
 }));
-vi.mock('./components/UI/ErrorBoundary', () => ({
+vi.mock('../src/components/UI/ErrorBoundary', () => ({
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
@@ -39,7 +39,7 @@ describe('main.tsx', () => {
   });
 
   it('renders without crashing and registers service worker', async () => {
-    await import('./main.tsx');
+    await import('../src/main.tsx');
 
     expect(registerSW).toHaveBeenCalledWith({ immediate: true });
     expect(createRoot).toHaveBeenCalledWith(rootElement);
@@ -57,6 +57,6 @@ describe('main.tsx', () => {
 
     // A plain re-import is enough here: resetModules() forces main.tsx to be
     // evaluated again, so no cache-busting query param is needed.
-    await expect(import('./main.tsx')).rejects.toThrow('Missing #root element');
+    await expect(import('../src/main.tsx')).rejects.toThrow('Missing #root element');
   });
 });
