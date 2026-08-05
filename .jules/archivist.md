@@ -146,3 +146,7 @@
 ## 2026-08-01 - Folded Dipole Feedline Support Documentation Drift
 **Learning:** The `docs/antenna-spec.md` falsely claimed that feedline support was "Not currently modelled" for the Folded Dipole. However, the codebase (`src/store/antennaStore.ts`) explicitly includes `folded-dipole` in `FEEDLINE_SUPPORTED_TYPES`, and the geometry engine fully generates the feedline shield layout for it just like standard dipoles. The documentation drifted from the implemented physics model.
 **Action:** The documentation in `docs/antenna-spec.md` was updated for the Folded Dipole to remove the false claim and explicitly clarify that feedline support is implemented using the standard radiating shield and NEC TL card at the centre bridge.
+
+## 2026-08-02 - Folded Dipole Tag Documentation Drift
+**Learning:** The documentation for the Folded Dipole claimed that the bottom (fed) conductor was split into two halves carrying `DIPOLE_LEFT_TAG` / `DIPOLE_RIGHT_TAG`. However, the codebase uses the standard split-fed convention tags `LEFT_LEG_TAG` / `RIGHT_LEG_TAG` for these halves, consistent with the standard dipole. The documentation drifted from the implemented physics constants.
+**Action:** Updated `docs/antenna-spec.md` to accurately reflect the use of `LEFT_LEG_TAG` and `RIGHT_LEG_TAG` for the fed conductor halves of the Folded Dipole.

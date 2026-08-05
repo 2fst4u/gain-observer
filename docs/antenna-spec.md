@@ -392,7 +392,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **`length` parameter:** Each conductor's length (metres). Reference length: ½λ (0.475λ with end-effect) — same as a standard dipole; the fold does not change the resonant length.
 - **`foldedDipoleAperture` parameter:** Vertical spacing between the two parallel conductors (metres). Default 0.3 m. Clamped to [0.02 m, `FOLDED_DIPOLE_MAX_APERTURE_M` = 0.5 m]. The upper cap keeps the antenna a genuine folded dipole and, crucially, within the spacing range where NEC's close-parallel-wire solution converges inside `MAX_SEGS_PER_LEG` (see §13.5).
 - **Orientation:** Azimuth the conductor axis runs. The aperture is in the vertical (Z) direction; changing the orientation rotates the axis in the horizontal plane but the top/bottom wire layout is preserved.
-- **Fed conductor:** Split at its centre by a `FEED_BRIDGE_LENGTH_M` feed bridge (the two halves carry `DIPOLE_LEFT_TAG` / `DIPOLE_RIGHT_TAG`, the same split-fed convention as the standard dipole).
+- **Fed conductor:** Split at its centre by a `FEED_BRIDGE_LENGTH_M` feed bridge (the two halves carry `LEFT_LEG_TAG` / `RIGHT_LEG_TAG`, the same split-fed convention as the standard dipole).
 - **Min Height:** Bottom conductor at `z = height`; fully supports `height = 0` (or `height <= 0`), which seamlessly switches the model to a free space environment without ground, preventing NEC-2 `GE 1` instability. The top conductor is automatically at `z = height + aperture`.
 
 ### 13.2 Feedpoint Definition
