@@ -177,3 +177,6 @@
 ## 2026-08-01 - Optimize propagation loop memory access pattern
 **Learning:** Sequential memory access for TypedArrays drastically improves execution speed in V8. Always swap loops so the inner loop steps sequentially through contiguous memory (row-major order). Additionally, defer string/object generation out of inner loops. Keep per-index accumulators at the precision of the value they replace — a `Float32Array` scratch buffer silently rounds a float64 result and can flip a downstream threshold comparison.
 **Action:** Inverted theta and phi loops in `predictPropagation`, and deferred `linkQuality` string resolution to the final output generation.
+## 2026-08-05 - Math.pow vs Math.exp / Multiplication
+**Learning:** In V8, `Math.pow(10, x)` is significantly slower than its natural exponential equivalent `Math.exp(x * Math.LN10)`. Additionally, `Math.pow(x, 2)` is generally slower than simple multiplication (`x * x`).
+**Action:** Replaced `Math.pow(10, ...)` with `Math.exp(...)` and `Math.pow(x, 2)` with `x * x` in math-heavy paths to reduce overhead.

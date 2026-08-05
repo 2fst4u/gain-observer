@@ -61,7 +61,9 @@ export function mismatchLossFactor(z: ImpedanceResult, z0: number = Z0_SYSTEM): 
  */
 export function feedlineLossUnderSwrDb(matchedLossDb: number, gammaMag: number): number {
   if (matchedLossDb <= 0) return 0;
-  const a = Math.pow(10, matchedLossDb / 10);
+  // ⚡ Bolt: Performance Optimization
+  // 10^(x/10) = exp(x * ln(10)/10) is significantly faster in V8 than Math.pow(10, ...)
+  const a = Math.exp((matchedLossDb / 10) * Math.LN10);
   // Clamp just shy of total reflection so the (1 − |Γ|²) denominator is finite.
   const g2 = Math.min(gammaMag * gammaMag, 0.999999);
   return 10 * Math.log10((a * a - g2) / (a * (1 - g2)));
