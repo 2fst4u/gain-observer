@@ -371,7 +371,9 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
   // Account for mismatch loss if SWR is provided.
   const s = input.swr ?? 1;
   const mismatchLossDb = Number.isFinite(s) && s > 1
-    ? -10 * Math.log10(1 - Math.pow((s - 1) / (s + 1), 2))
+    // ⚡ Bolt: Performance Optimization
+    // Using simple multiplication (gamma * gamma) is faster than Math.pow(gamma, 2) in V8
+    ? -10 * Math.log10(1 - ((s - 1) / (s + 1)) * ((s - 1) / (s + 1)))
     : 0;
   const luf = estimateLUFMHz(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
 
