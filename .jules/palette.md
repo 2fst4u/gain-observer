@@ -31,3 +31,6 @@
 ## 2026-08-02 - Fix ARIA Controls Missing Element
 **Learning:** When using `aria-controls` on a disclosure button, the controlled element MUST remain in the DOM even when collapsed. Conditionally rendering the target element (e.g., `{show && <div id="...">}`) causes the screen reader to lose track of the controlled element.
 **Action:** Use the `hidden` attribute (`<div id="..." hidden={!show}>`) instead of conditional mounting for elements controlled by `aria-controls`. When updating this logic, remember to update the corresponding tests (e.g., from `toBeNull()` to checking the `hidden` property on the wrapper element).
+## 2024-11-09 - Accessible External Links Context Change
+**Learning:** External links utilizing `target="_blank"` cause an unexpected context switch for screen reader users, disrupting navigation flow. Simply providing a visually-informative title is insufficient for accessibility.
+**Action:** When adding or modifying external links (`target="_blank"`), ensure an explicit `aria-label` is applied that appends "(opens in a new tab)" to the link text to provide fair warning of the behavior change.
