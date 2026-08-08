@@ -63,6 +63,7 @@ export function ControlPanel() {
           target="_blank"
           rel="noopener noreferrer"
           title="View source code on GitHub"
+          aria-label="Source code on GitHub (opens in a new tab)"
           style={{ color: 'inherit', textDecoration: 'none' }}
           onMouseOver={(e) => (e.currentTarget.style.textDecoration = 'underline')}
           onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
