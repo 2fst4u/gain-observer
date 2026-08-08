@@ -132,6 +132,7 @@ describe('useUnitsPersistence', () => {
     setItemSpy.mockClear();
 
     act(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       useAntennaStore.getState().setUnits('invalid-unit' as any);
     });
 

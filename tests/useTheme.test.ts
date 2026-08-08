@@ -104,6 +104,7 @@ describe('useTheme hook', () => {
     setItemSpy.mockClear();
 
     act(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       useAntennaStore.getState().setTheme('invalid-theme' as any);
     });
 
