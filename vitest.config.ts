@@ -18,10 +18,10 @@ export default defineConfig({
       // forces unrelated edits to this file. Raise a floor deliberately when
       // coverage has moved up for good, not reflexively in each PR.
       thresholds: {
-        statements: 72,
-        branches: 64,
-        functions: 77,
-        lines: 94,
+        statements: 73,
+        branches: 65,
+        functions: 78,
+        lines: 95,
       }
     }
   },

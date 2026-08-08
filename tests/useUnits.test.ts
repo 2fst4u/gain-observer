@@ -109,4 +109,34 @@ describe('useUnitsPersistence', () => {
 
     expect(useAntennaStore.getState().units).toBe('imperial');
   });
+
+  it('handles window.localStorage getter throwing an error gracefully', () => {
+    const getterSpy = vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+
+    useAntennaStore.setState({ units: 'metric' });
+
+    expect(() => {
+      renderHook(() => useUnitsPersistence());
+    }).not.toThrow();
+
+    expect(useAntennaStore.getState().units).toBe('metric');
+    getterSpy.mockRestore();
+  });
+
+  it('does not save invalid unit to localStorage', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    renderHook(() => useUnitsPersistence());
+    setItemSpy.mockClear();
+
+    act(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      useAntennaStore.getState().setUnits('invalid-unit' as any);
+    });
+
+    expect(setItemSpy).not.toHaveBeenCalled();
+    setItemSpy.mockRestore();
+  });
 });
