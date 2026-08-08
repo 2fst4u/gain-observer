@@ -9,6 +9,7 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import { Nec2Engine } from '../src/physics/nec2Engine';
 import { halfWaveLength, wavelengthMeters } from '../src/physics/constants';
+import { averageGainLinear } from '../src/physics/patternIntegral';
 import type { SimulationInput } from '../src/physics/types';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
@@ -55,6 +56,79 @@ describe('Nec2Engine (real Wasm)', () => {
     // Wavelength sanity.
     const lambda = wavelengthMeters(freq);
     expect(lambda).toBeCloseTo(42.224, 2);
+  }, 30_000);
+
+  it('integrates the pattern to an average gain of 1 in free space', async () => {
+    // NEC's average-gain test: for a lossless antenna in free space the whole-
+    // sphere average of the power gain must come back as 1.0, so directivity
+    // and gain coincide. This is simultaneously a check on the quadrature and
+    // on the pattern grid being parsed onto the right θ/φ axes.
+    const freq = 7.1;
+    const tip = halfWaveLength(freq, 1.0) / 2;
+    const input: SimulationInput = {
+      wires: [{ start: [-tip, 0, 0], end: [tip, 0, 0], radius: 0.001, segments: 21, tag: 1 }],
+      frequencyMHz: freq,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+    };
+
+    const r = await engine.simulate(input);
+    expect(averageGainLinear(r.pattern)).toBeCloseTo(1, 1);
+    expect(r.maxDirectivityDbi!).toBeCloseTo(r.maxGainDbi, 1);
+  }, 30_000);
+
+  it('credits ground absorption to directivity, not to gain', async () => {
+    // Over average soil NEC's POWER BUDGET still reports 100 % efficiency —
+    // it counts conductor and network loss only, and the soil absorbs power
+    // after it has left the antenna. Directivity therefore has to come from
+    // integrating the pattern, and must exceed the gain by the absorbed share.
+    const freq = 7.1;
+    const tip = halfWaveLength(freq, 1.0) / 2;
+    const input: SimulationInput = {
+      wires: [{ start: [-tip, 0, 10], end: [tip, 0, 10], radius: 0.001, segments: 21, tag: 1 }],
+      frequencyMHz: freq,
+      ground: { type: 'real', sigma: 0.005, epsilon: 13 },
+      excitation: { wireTag: 1, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+    };
+
+    const r = await engine.simulate(input);
+    // The wire itself is lossless, so the power budget sees no loss at all.
+    expect(r.efficiency).toBeCloseTo(1, 3);
+    // But a quarter or so of the radiated power goes into the soil.
+    const avg = averageGainLinear(r.pattern);
+    expect(avg).toBeGreaterThan(0.5);
+    expect(avg).toBeLessThan(0.95);
+    expect(r.maxDirectivityDbi!).toBeGreaterThan(r.maxGainDbi + 0.5);
+    expect(r.maxDirectivityDbi!).toBeCloseTo(r.maxGainDbi - 10 * Math.log10(avg), 6);
+  }, 30_000);
+
+  it('resolves a tied free-space peak toward the horizon, not the zenith', async () => {
+    // A free-space dipole is exactly as strong straight up as it is broadside,
+    // so the peak search has to break a tie. Taking the first grid hit landed
+    // on θ = 0 (the zenith), which reports a 90° take-off angle and makes the
+    // azimuth cut a featureless circle — every φ holds the same value up there.
+    const freq = 7.1;
+    const tip = halfWaveLength(freq, 1.0) / 2;
+    const input: SimulationInput = {
+      // Wire along +X, so broadside (the peak) is the ±Y directions: φ = 90°
+      // and 270°, i.e. due North and South.
+      wires: [{ start: [-tip, 0, 0], end: [tip, 0, 0], radius: 0.001, segments: 21, tag: 1 }],
+      frequencyMHz: freq,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 11 },
+      patternResolution: { thetaSteps: 37, phiSteps: 72 },
+    };
+
+    const r = await engine.simulate(input);
+    expect(r.takeoffElevationDeg).toBe(0);
+    expect(r.takeoffAzimuthDeg).toBe(90);
+    // And the reported direction really is a peak of the pattern.
+    const p = r.pattern;
+    const ti = Math.round((90 - r.takeoffElevationDeg) / p.dTheta);
+    const pi = Math.round(r.takeoffAzimuthDeg / p.dPhi);
+    expect(p.data[ti * p.phiSteps + pi]).toBeCloseTo(r.maxGainDbi, 5);
   }, 30_000);
 
   it('reports higher gain when above real ground vs free space', async () => {

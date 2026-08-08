@@ -21,6 +21,7 @@
 import { buildNecCards } from './necCard';
 import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
 import { computeTerminationDiagnostics } from './terminationDiagnostics';
+import { directivityDbi } from './patternIntegral';
 import { swr, mismatchLossFactor } from './impedance';
 import type { Engine, GainPattern, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ } from './constants';
@@ -97,23 +98,70 @@ export interface Nec2EngineOptions {
 }
 
 /**
- * Helper to locate the maximum gain direction and its corresponding elevation
- * and azimuth angles in degrees.
+ * Locate the maximum-gain direction and report it as an elevation angle and a
+ * NEC azimuth φ, both in degrees.
+ *
+ * Ties matter. A pattern is frequently flat to within NEC's 0.01 dB print
+ * resolution over a whole span of directions — a free-space dipole is exactly
+ * as strong straight up as it is broadside, and a lobe over ground is often
+ * equal-valued across several elevation rows. Scanning the flat grid and
+ * keeping the first strict maximum resolves every one of those ties toward
+ * θ = 0 (the zenith), because row 0 is visited first. That produced a
+ * take-off elevation of 90° for free-space patterns, and made the azimuth cut
+ * a featureless circle: at the zenith every φ holds the same value.
+ *
+ * So among directions tied at the peak we keep the *lowest* elevation, which
+ * is both the useful HF take-off angle and the direction whose azimuth cut
+ * actually carries the pattern's shape. Remaining ties keep the lowest φ.
  */
 function findMaxGainDirection(pattern: GainPattern): { maxGain: number; elevationDeg: number; phiDeg: number } {
+  // NEC prints gains to 0.01 dB, so tied directions arrive as bit-identical
+  // Float32s. This epsilon only absorbs float noise — it deliberately does not
+  // merge directions NEC itself distinguishes.
+  const TIE_EPSILON_DB = 1e-6;
+
   let maxGain = -Infinity;
-  let maxIdx = 0;
   for (let i = 0; i < pattern.data.length; i++) {
     const v = pattern.data[i]!;
-    if (v > maxGain) {
-      maxGain = v;
-      maxIdx = i;
+    if (v > maxGain) maxGain = v;
+  }
+
+  // Walk theta rows from the horizon back up to the zenith so the first row
+  // holding a tied peak is the lowest-elevation one. θ > 90° (below the
+  // horizon) is only ever populated in free space, so it is searched last.
+  const threshold = maxGain - TIE_EPSILON_DB;
+  const horizonTi = Math.min(pattern.thetaSteps - 1, Math.round(90 / pattern.dTheta));
+  const firstPeakPi = (ti: number): number => {
+    const row = ti * pattern.phiSteps;
+    for (let pi = 0; pi < pattern.phiSteps; pi++) {
+      if (pattern.data[row + pi]! >= threshold) return pi;
+    }
+    return -1;
+  };
+
+  let bestTi = 0;
+  let bestPi = 0;
+  let found = false;
+  for (let ti = horizonTi; ti >= 0 && !found; ti--) {
+    const pi = firstPeakPi(ti);
+    if (pi >= 0) {
+      bestTi = ti;
+      bestPi = pi;
+      found = true;
     }
   }
-  const ti = Math.floor(maxIdx / pattern.phiSteps);
-  const pi = maxIdx % pattern.phiSteps;
-  const thetaDeg = ti * pattern.dTheta;
-  const phiDeg = pi * pattern.dPhi;
+  // Peak lies below the horizon (only reachable in free space).
+  for (let ti = horizonTi + 1; ti < pattern.thetaSteps && !found; ti++) {
+    const pi = firstPeakPi(ti);
+    if (pi >= 0) {
+      bestTi = ti;
+      bestPi = pi;
+      found = true;
+    }
+  }
+
+  const thetaDeg = bestTi * pattern.dTheta;
+  const phiDeg = bestPi * pattern.dPhi;
   // Convert NEC theta (0 = +z zenith) to elevation (0 = horizon).
   const elevationDeg = 90 - thetaDeg;
 
@@ -311,12 +359,12 @@ export class Nec2Engine implements Engine {
 
       const efficiency = parsed.powerBudget ? parsed.powerBudget.efficiencyPct / 100 : undefined;
 
-      // Directivity: D = G / η  →  D(dBi) = G(dBi) − 10·log10(η)
-      // Only defined when the power budget is available and η > 0.
-      const maxDirectivityDbi =
-        efficiency && efficiency > 1e-6
-          ? maxGain - 10 * Math.log10(efficiency)
-          : undefined;
+      // Directivity: D = 4π·U_max / P_rad = G_max / ⟨G⟩, with ⟨G⟩ the whole-
+      // sphere average of the power gain. Integrating the pattern is the
+      // definition; the shortcut D = G / η only matches it in free space,
+      // because NEC's power budget cannot see the power a lossy ground
+      // absorbs and so reports η = 100 % over soil.
+      const maxDirectivityDbi = directivityDbi(parsed.pattern, maxGain);
 
       // Realized gain: deducts feedpoint mismatch loss vs 50 Ω source.
       // G_r(dBi) = G(dBi) + 10·log10(1 − |Γ|²)

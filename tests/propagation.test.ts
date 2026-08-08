@@ -268,6 +268,26 @@ describe('predictPropagation', () => {
     expect(hop1!.rangeKm[0]).toBeLessThan(hop0!.rangeKm[0]);
   });
 
+  it('tags every azimuthal hop with the compass bearing of its φ', () => {
+    const pattern = {
+      data: new Float32Array(37 * 72).fill(-20),
+      thetaSteps: 37,
+      phiSteps: 72,
+      dTheta: 5,
+      dPhi: 5,
+    };
+    const p = predictPropagation({ ...baseInput, frequencyMHz: 7.1, pattern });
+    const hops = p.azimuthalHops!;
+    // φ = 0 is +X, which the geometry puts due East; φ = 90 is +Y, due North.
+    // The radar plots bearings, so it needs the converted value, not φ.
+    expect(hops[0]!.bearingDeg).toBe(90);
+    expect(hops.find((h) => h.phiDeg === 90)!.bearingDeg).toBe(0);
+    expect(hops.find((h) => h.phiDeg === 180)!.bearingDeg).toBe(270);
+    for (const h of hops) {
+      expect(h.bearingDeg).toBe(((90 - h.phiDeg) % 360 + 360) % 360);
+    }
+  });
+
   it('uses antenna support to choose a relevant ray without changing hop geometry', () => {
     const pattern = {
       data: new Float32Array(37 * 72).fill(-20),

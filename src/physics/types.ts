@@ -292,9 +292,16 @@ export interface SimulationResult {
   readonly efficiency?: number;
   /**
    * Peak directivity in dBi. Directivity describes pattern shape only,
-   * normalised to radiated power (excluding all losses).
-   * D(dBi) = G(dBi) − 10·log10(η)  where η = efficiency.
-   * Undefined when the NEC power budget cannot be parsed or η ≈ 0.
+   * normalised to the power that actually radiates:
+   *   D = 4π·U_max / P_rad = G_max / ⟨G⟩
+   * where ⟨G⟩ is the whole-sphere average of the power gain, obtained by
+   * integrating the pattern (see physics/patternIntegral.ts).
+   *
+   * NOT D = G − 10·log10(η): NEC's power budget accounts for conductor and
+   * network loss but not for power absorbed by a lossy ground, so that form
+   * collapses D onto G over real soil.
+   *
+   * Undefined when the pattern cannot be integrated.
    */
   readonly maxDirectivityDbi?: number;
   /**

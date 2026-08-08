@@ -93,7 +93,10 @@ function buildAzimuthalWedges(
   const ringIndex = ringN - 1;
   let aPoint = az[0]!;
   const rA = (aPoint.rangeKm[ringIndex] ?? 0) * kmToPx;
-  const aRad = (((aPoint.phiDeg % 360) + 360) % 360) * DEG_TO_RAD;
+  // Screen angle is a compass bearing: 0° points up (North) and grows
+  // clockwise, hence x = sin, y = −cos. The pattern's own NEC azimuth φ is a
+  // different convention and must not be substituted here.
+  const aRad = (((aPoint.bearingDeg % 360) + 360) % 360) * DEG_TO_RAD;
   let ax = cx + rA * Math.sin(aRad);
   let ay = cy - rA * Math.cos(aRad);
 
@@ -112,7 +115,7 @@ function buildAzimuthalWedges(
     } else {
       bPoint = az[i + 1]!;
       const rB = (bPoint.rangeKm[ringIndex] ?? 0) * kmToPx;
-      const bRad = (((bPoint.phiDeg % 360) + 360) % 360) * DEG_TO_RAD;
+      const bRad = (((bPoint.bearingDeg % 360) + 360) % 360) * DEG_TO_RAD;
       bx = cx + rB * Math.sin(bRad);
       by = cy - rB * Math.cos(bRad);
     }

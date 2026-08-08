@@ -34,14 +34,26 @@ We use the standard NEC-2 Cartesian coordinate system:
 - **Internal Mapping**: To convert a compass heading $\alpha$ to a standard unit circle angle $\theta$ (where $0^\circ$ is $+X$): $\theta = 90^\circ - \alpha$.
 - **Elevation**: $0^\circ$ is the horizon (XY plane), $90^\circ$ is the zenith ($+Z$ axis).
 
+#### 1.3.1 NEC azimuth $\varphi$ vs compass bearing
+
+The NEC-2 `RP` card sweeps its own azimuth $\varphi$, measured from $+X$ toward $+Y$ (counter-clockwise seen from above). That is the axis `GainPattern` is indexed by and the one `SimulationResult.takeoffAzimuthDeg` reports. Because the geometry puts North on $+Y$ and East on $+X$, $\varphi = 0^\circ$ is due **East** and $\varphi = 90^\circ$ is due **North**:
+
+$$\text{bearing} = 90^\circ - \varphi \pmod{360^\circ}$$
+
+The relation is its own inverse — the two conventions differ by a $90^\circ$ rotation *and* a handedness flip. **Every** display that shows a direction to the user (polar cuts, propagation radar, stats readout) must convert; helpers live in `src/physics/angles.ts`. Substituting $\varphi$ for a bearing rotates and mirrors the whole pattern, which makes a north–south dipole appear to radiate north and south — off its ends, where it has nulls.
+
+The 3D scene is a separate mapping and needs no conversion: it remaps NEC $(x, y, z)$ to Three.js $(x, z, -y)$, so its $\varphi = \operatorname{atan2}(-z, x)$ recovers the NEC azimuth exactly.
+
 ## 2. Glossary
 
 These definitions apply to every antenna type in Part II.
 
-- **Directivity ($D$):** $D = \frac{4\pi U_{max}}{P_{rad}}$.
-- **Gain ($G$):** $10 \log_{10}(\eta \cdot D)$ dBi.
+- **Directivity ($D$):** $D = \frac{4\pi U_{max}}{P_{rad}}$. Computed as $G_{max} / \langle G \rangle$, where $\langle G \rangle$ is the whole-sphere average of the NEC power-gain pattern (`src/physics/patternIntegral.ts`). Deriving it from the NEC `POWER BUDGET` block instead ($D = G/\eta$) is only valid in free space: that budget counts conductor and network loss but not power absorbed by a lossy ground, so over real soil it collapses $D$ onto $G$.
+- **Gain ($G$):** $10 \log_{10}(\eta \cdot D)$ dBi. Read directly from the `RP` card's TOTAL column, which with `XNDA = 1000` is power gain referenced to the accepted input power — all ohmic and termination losses already included.
 - **Realized Gain:** $G(dBi) + 10 \log_{10}(1 - |\Gamma|^2)$.
-- **Efficiency ($\eta$):** $P_{rad} / P_{in}$.
+- **Efficiency ($\eta$):** $P_{rad} / P_{in}$, from the NEC power budget: conductor and termination loss only. Ground absorption happens after radiation and is not counted here — it shows up as the gap between $G$ and $D$.
+- **Average gain ($\langle G \rangle$):** $\frac{1}{4\pi}\oint G\,d\Omega$ — the fraction of input power that reaches the far field. NEC's classical average-gain test: a lossless free-space model must return $1.0$, and a value far off that indicates unconverged segmentation.
+- **Pattern surface (3D):** the rendered radius is the *linear power* gain, $r \propto 10^{G(\theta,\varphi)/10}$, so the bubble is the gain surface itself. The $/20$ field-amplitude exponent would draw its square root and halve every lobe ratio in dB.
 - **Front/Back:** $G_{peak} - G_{180^\circ}$ (dB).
 - **Ripple:** $(I_{max}-I_{min})/(I_{max}+I_{min})$.
 

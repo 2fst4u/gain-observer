@@ -49,6 +49,7 @@
 //   • IPS Radio & Space Services (Australia): definition of T-index.
 //   • Davies, K. (1990), Ionospheric Radio: zenith-angle absorption model.
 
+import { phiToBearingDeg } from './angles';
 import type { GainPattern } from './types';
 
 /**
@@ -109,7 +110,14 @@ export interface PropagationPrediction {
   readonly solarZenithDeg: number;
   /** Ranges for each azimuth, if a pattern was provided. */
   readonly azimuthalHops?: {
+    /** NEC azimuth φ (0° = +X = East, counter-clockwise): the pattern column. */
     readonly phiDeg: number;
+    /**
+     * The same direction as a compass bearing (0° = North, clockwise). Carried
+     * alongside φ so the radar plot never has to re-derive it — plotting φ as
+     * though it were a bearing rotates the whole plot 90° and mirrors it.
+     */
+    readonly bearingDeg: number;
     readonly takeoffElevationDeg: number;
     readonly rangeKm: number[];
     readonly status: HopStatus;
@@ -461,6 +469,7 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
 
         azimuthalHops.push({
           phiDeg: pi * p.dPhi,
+          bearingDeg: phiToBearingDeg(pi * p.dPhi),
           takeoffElevationDeg: bestBase.takeoffElevationDeg,
           rangeKm: [bestBase.rangeKm, bestBase.rangeKm * 2, bestBase.rangeKm * 3],
           status: bestBase.status,

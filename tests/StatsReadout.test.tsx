@@ -41,7 +41,9 @@ describe('StatsReadout', () => {
     expect(getByText('Gain')).not.toBeNull();
     expect(getByText('5.50 dBi')).not.toBeNull();
     expect(getByText('25.0°')).not.toBeNull();
-    expect(getByText('90°')).not.toBeNull();
+    // takeoffAzimuthDeg is NEC azimuth φ (0° = +X = East). The row reports a
+    // compass bearing, so φ = 90° (which is +Y) reads as 0° = North.
+    expect(getByText('0°')).not.toBeNull();
     expect(getByText('1.20:1')).not.toBeNull();
     expect(container.textContent).toContain('45.0 +j10.0 Ω');
     // SWR label updated to "vs 50 Ω"

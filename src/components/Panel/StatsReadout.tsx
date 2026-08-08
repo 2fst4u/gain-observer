@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useAntennaStore, selectAtuConfig, LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { displayedFeedMetrics } from '../../physics/impedance';
+import { phiToBearingDeg } from '../../physics/angles';
 import type { AtuMatchConfig } from '../../physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 import type { TerminationDiagnostics } from '../../physics/types';
@@ -72,7 +73,7 @@ export function StatsReadout() {
       <h2>Results <span className="badge">{result.computeTimeMs.toFixed(0)} ms</span></h2>
       <StatRow label="Gain" title="Antenna gain (dBi): NEC total power gain relative to isotropic, normalised to accepted input power. Includes all ohmic and termination losses." value={`${result.maxGainDbi.toFixed(2)} dBi`} valueClassName="accent" />
       {result.maxDirectivityDbi != null && (
-        <StatRow label="Directivity" title="Directivity (dBi): normalised to radiated power only, excluding all losses. = Gain / efficiency." value={`${result.maxDirectivityDbi.toFixed(2)} dBi`} />
+        <StatRow label="Directivity" title="Directivity (dBi): peak gain normalised to the power that actually radiates, D = 4π·U_max / P_rad, obtained by integrating the pattern over the sphere. Over real ground it exceeds the gain by the conductor, termination and soil-absorption losses combined." value={`${result.maxDirectivityDbi.toFixed(2)} dBi`} />
       )}
       {displayedRealizedGainDbi != null && (
         <StatRow label="Realized gain" title={realizedGainTitle} value={`${displayedRealizedGainDbi.toFixed(2)} dBi`} />
@@ -80,8 +81,8 @@ export function StatsReadout() {
       {result.efficiency != null && (
         <StatRow label="Efficiency" title="Radiation efficiency: radiated power / accepted input power. Losses include wire conductors and any termination resistors." value={`${(result.efficiency * 100).toFixed(1)}%`} />
       )}
-      <StatRow label="Take-off elevation" value={`${result.takeoffElevationDeg.toFixed(1)}°`} />
-      <StatRow label="Azimuth of peak" value={`${result.takeoffAzimuthDeg.toFixed(0)}°`} />
+      <StatRow label="Take-off elevation" title="Elevation angle of the peak-gain direction: 0° = horizon, 90° = zenith." value={`${result.takeoffElevationDeg.toFixed(1)}°`} />
+      <StatRow label="Azimuth of peak" title="Compass bearing of the peak-gain direction: 0° = North, 90° = East. (NEC solves in its own azimuth φ, measured from +X/East; this row reports the bearing.)" value={`${phiToBearingDeg(result.takeoffAzimuthDeg).toFixed(0)}°`} />
       <StatRow label={impedanceLabel} title={impedanceTitle} value={`${displayedZ.R.toFixed(1)} ${displayedZ.X >= 0 ? '+' : '−'}j${Math.abs(displayedZ.X).toFixed(1)} Ω`} />
       <StatRow label="SWR (vs 50 Ω)" title={swrTitle} value={`${displayedSwr.toFixed(2)}:1`} valueStyle={{ color: displayedSwr > 2 ? 'var(--danger)' : displayedSwr > 1.5 ? 'var(--warning)' : 'var(--success)' }} />
       {mode === 'comparison' && reference && (
