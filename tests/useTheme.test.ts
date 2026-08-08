@@ -54,7 +54,7 @@ describe('useTheme hook', () => {
   });
 
   it('handles localStorage.getItem errors gracefully', () => {
-    const getItemSpy = vi.spyOn(window.localStorage.__proto__, 'getItem').mockImplementation(() => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('Access denied');
     });
 
@@ -67,7 +67,7 @@ describe('useTheme hook', () => {
   });
 
   it('handles localStorage.setItem errors gracefully', () => {
-    const setItemSpy = vi.spyOn(window.localStorage.__proto__, 'setItem').mockImplementation(() => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('Quota exceeded');
     });
 
@@ -83,4 +83,31 @@ describe('useTheme hook', () => {
     setItemSpy.mockRestore();
   });
 
+
+  it('handles window.localStorage getter throwing an error gracefully', () => {
+    const getterSpy = vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+
+    expect(() => {
+      renderHook(() => useTheme());
+    }).not.toThrow();
+
+    expect(useAntennaStore.getState().theme).toBe('dark');
+    getterSpy.mockRestore();
+  });
+
+  it('does not save invalid theme to localStorage', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    renderHook(() => useTheme());
+    setItemSpy.mockClear();
+
+    act(() => {
+      useAntennaStore.getState().setTheme('invalid-theme' as any);
+    });
+
+    expect(setItemSpy).not.toHaveBeenCalled();
+    setItemSpy.mockRestore();
+  });
 });
