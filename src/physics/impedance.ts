@@ -216,17 +216,6 @@ export function displayedFeedMetrics(
 }
 
 /**
- * Apply an ideal impedance transformer: Z_transformed = Z_raw / ratio.
- * Divides both R and X by the impedance ratio (n²). Post-processing display
- * only — does not affect radiation pattern, currents, or NEC simulation.
- * Returns the original z unchanged for invalid ratios (≤ 0 or non-finite).
- */
-export function transformImpedance(z: ImpedanceResult, ratio: number): ImpedanceResult {
-  if (!Number.isFinite(ratio) || ratio <= 0) return z;
-  return { R: z.R / ratio, X: z.X / ratio };
-}
-
-/**
  * Forward propagation through a lossless transmission line: given the load
  * (far-end) impedance, returns the input (near-end) impedance seen looking
  * into a line of characteristic impedance `z0Line` and electrical length
