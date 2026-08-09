@@ -99,7 +99,7 @@ export function ComparisonControl() {
           </div>
         </div>
       ) : (
-        <div className="compare-empty">Capture a solved configuration to enable side-by-side comparison.</div>
+        <div className="compare-empty" role="status" aria-live="polite">Capture a solved configuration to enable side-by-side comparison.</div>
       )}
     </section>
   );
