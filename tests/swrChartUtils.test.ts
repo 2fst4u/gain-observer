@@ -136,6 +136,11 @@ describe('formatBandwidth', () => {
     expect(formatBandwidth(1.555)).toBe('1.55 MHz');
     expect(formatBandwidth(1.556)).toBe('1.56 MHz');
     expect(formatBandwidth(10)).toBe('10.00 MHz');
+    expect(formatBandwidth(2000)).toBe('2000.00 MHz');
+  });
+
+  it('formats exactly 0 correctly', () => {
+    expect(formatBandwidth(0)).toBe('0 kHz');
   });
 });
 
