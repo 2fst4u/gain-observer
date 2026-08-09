@@ -245,6 +245,12 @@ describe('PropagationInputs time parsers', () => {
       expect(HHmmToHour('12:30 PM')).toBe(12.5);
       expect(HHmmToHour('  09:45  ')).toBe(9.75);
       expect(HHmmToHour('a01b30c')).toBe(1.5);
+      expect(HHmmToHour('12x30')).toBe(12.5);
+    });
+
+    it('returns null for inputs longer than 20 characters', () => {
+      expect(HHmmToHour('12:30 with a very long string that exceeds 20 characters')).toBe(null);
+      expect(HHmmToHour('012345678901234567890')).toBe(null);
     });
 
     it('returns null for invalid lengths', () => {
