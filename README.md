@@ -34,6 +34,7 @@ Prerequisites:
 npm ci             # install dependencies strictly from lockfile
 npm run dev        # start Vite dev server
 npm run lint       # run ESLint
+npm run typecheck  # run TypeScript type check
 npm run test       # run unit + NEC-2 integration tests
 npm run build      # production build
 ```
