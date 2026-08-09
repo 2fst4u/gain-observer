@@ -8,7 +8,7 @@ describe('useAntennaGeometry benchmark', () => {
       type: 'delta-loop' as const,
       length: 10,
       height: 10,
-      orientation: 'horizontal' as const,
+      orientation: 'EW' as const,
       wireRadius: 0.001,
       segments: 21,
       feedlineId: 'rg58',
