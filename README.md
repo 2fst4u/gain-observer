@@ -1,54 +1,39 @@
 # HF Antenna Gain Visualiser
 
-**Live App:** [www.gain.observer](https://www.gain.observer/)
+**[www.gain.observer](https://www.gain.observer/)**
 
-A 3D, responsive, physics-accurate visualiser for HF antenna radiation patterns, powered by NEC-2 compiled to WebAssembly.
+A 3D, physics-accurate visualiser for HF antenna radiation patterns, powered by
+NEC-2 compiled to WebAssembly.
 
-While this repository is fully open source and developers are welcome to fork or clone it to run locally, the primary way to use the application is via the hosted URL at **[www.gain.observer](https://www.gain.observer/)**.
+Pick an antenna, set your frequency, height and ground, and see the pattern it
+actually radiates — in 3D, with elevation and azimuth cuts, SWR across the band,
+and a comparison mode for putting two configurations side by side. The NEC-2
+engine runs entirely in your browser; nothing is uploaded, and there is nothing
+to install.
 
-## Keyboard Shortcuts
+## Using it
 
-- **`t`**: Toggle dark/light theme
-- **`u`**: Toggle metric/imperial units
-- **`m`**: Toggle between normal and comparison mode
+Open **[www.gain.observer](https://www.gain.observer/)**. That's it — it runs on
+phones, tablets and desktops, and works offline once loaded.
 
-## Stack
+Keyboard shortcuts:
 
-- React 19 + Vite + TypeScript (strict)
-- Three.js / React Three Fiber / drei (3D)
-- Zustand + Immer (state)
-- Chart.js + react-chartjs-2 (2D plots)
-- NEC-2 (`nec2c` by N. Kyriazis, GPL v3) via Emscripten → WebAssembly
-- Vitest (physics validation + unit tests)
+- **`t`** — toggle dark/light theme
+- **`u`** — toggle metric/imperial units
+- **`m`** — toggle between normal and comparison mode
 
-## Local Development
+## What it models
 
-If you wish to contribute or run the application locally, you can clone or fork the repository.
+Dipoles, inverted-V, sloping-V, inverted-L, vertical whips, folded dipoles,
+delta loops and terminated deltas, from 1.8–30 MHz, over real ground.
+`docs/antenna-spec.md` describes the geometry and physics of each in detail.
 
-Prerequisites:
+## About the project
 
-- Node.js 20+ (recommended 22)
-- Emscripten SDK (only required when rebuilding the Wasm binary)
+This is a hosted application first. The source is open under GPL v3 and you are
+welcome to read, fork or run it, but it is built and maintained to be used at
+the link above rather than self-hosted, and the documentation is written with
+that reader in mind.
 
-```bash
-npm ci             # install dependencies strictly from lockfile
-npm run dev        # start Vite dev server
-npm run lint       # run ESLint
-npm run test       # run unit + NEC-2 integration tests
-npm run build      # production build
-```
-
-## Rebuilding the NEC-2 WebAssembly binary
-
-The compiled `public/nec2.js` / `public/nec2.wasm` are checked in so a `git clone` is enough to run the app. To rebuild:
-
-```bash
-source ~/emsdk/emsdk_env.sh
-npm run build:nec2
-```
-
-Output goes to `public/nec2.{js,wasm}`.
-
-## Licensing
-
-This project is GPL v3 because it statically links `nec2c`, which is itself GPL v3. See LICENSE for the full text.
+It is GPL v3 because it statically links `nec2c` (by N. Kyriazis), which is
+itself GPL v3. See LICENSE for the full text.

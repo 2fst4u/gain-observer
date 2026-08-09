@@ -8,6 +8,30 @@ This application is primarily intended to be used at its hosted URL: **[www.gain
 
 While developers may fork or clone the repository to run it locally, you should **direct users to the live URL in the first instance** rather than focusing on local development instructions unless explicitly asked to help with local setup or contribution.
 
+## Toolchain and Commands (settled — do not re-litigate)
+
+This repository uses **npm**. Not pnpm, not yarn, not bun. `package-lock.json`
+is committed, `.npmrc` sets `legacy-peer-deps=true`, and CI installs with
+`npm ci`. This was settled in May 2026 after documentation was switched to
+`pnpm` and reverted the next day; do not switch it again.
+
+`package.json` (`scripts`) and `.github/workflows/test.yml` are the only source
+of truth for how to build, check and test this project. Read them directly.
+CI runs `npm ci`, `npm run lint`, `npm run typecheck` and `npm run test` on
+every push and pull request to `main`; running those four reproduces the
+pipeline. To rebuild the NEC-2 Wasm binary, `nec2-build/build.sh` documents its
+own Emscripten prerequisites in its header.
+
+**Do not add setup or build instructions to `README.md`.** This is a hosted
+application; the README is for someone deciding whether to use
+www.gain.observer, not for someone configuring a checkout. The README used to
+carry a command list, and keeping that second copy of `package.json` current
+produced a string of documentation-only pull requests (a pnpm switch and its
+revert, `npm install` vs `npm ci`, `npm test` vs `npm run test`, a phantom
+`test:ui`, a missing `npm run typecheck`). It was removed in August 2026 rather
+than synced again. Its absence is deliberate — do not restore it, and do not
+report it as missing. Contributor guidance goes here in `AGENTS.md` instead.
+
 ## CRITICAL: Licensing and Modifications (GPL v3)
 
 This project statically links and depends on the `nec2c` engine, which is licensed under the **GNU General Public License, version 3 (GPL v3)**. Due to the copyleft nature of this license, the entire combined project (the React application and the compiled WebAssembly engine) must be distributed under the GPL v3.

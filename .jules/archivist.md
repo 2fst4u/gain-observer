@@ -1,9 +1,13 @@
-## 2024-05-03 - Package Manager Drift
+## 2026-05-03 - Package Manager Drift (closed 2026-08-09)
 
-**Learning:** The documentation originally instructed users to use `pnpm`, but the repository strictly uses `npm` (as evidenced by `package-lock.json`, `.npmrc` with `legacy-peer-deps=true`, and the GitHub Actions test workflow which runs `npm ci`). The `README.md` likely drifted from the actual toolchain over time or inherited an old template.
-**Action:** The `README.md` was updated to accurately reflect `npm` commands to prevent setup failures and confusion.
+**Learning:** The documentation instructed users to use `pnpm`, but the repository strictly uses `npm` (as evidenced by `package-lock.json`, `.npmrc` with `legacy-peer-deps=true`, and the GitHub Actions test workflow which runs `npm ci`). The `README.md` had been switched from `npm` to `pnpm` the previous day (PR #14) on the mistaken belief that pnpm matched the repository's package management.
+**Action:** The `README.md` was updated back to `npm` commands to prevent setup failures and confusion. This is the only time the package manager has flapped — `npm` has been the documented and actual toolchain continuously since 2026-05-03. Do not revisit it.
 
-## 2025-02-12 - Phantom UI Test Command
+**Follow-up (2026-08-09):** The *package manager* stopped flapping here, but the *command list* kept drifting by omission, costing one documentation-only pull request each time: `npm install` → `npm ci` (PR #99), `npm test` → `npm run test`, a phantom `test:ui` script, and a missing `npm run typecheck` (PR #630). All four shared a root cause — the README's code block was a second, hand-curated copy of `package.json` with nothing keeping it honest.
+
+The fix was not to sync the copy but to delete it. This is a hosted application; the README addresses someone deciding whether to use www.gain.observer, and build instructions never belonged there. Setup commands are gone from `README.md`, contributor and toolchain guidance lives in `AGENTS.md`, and `nec2-build/build.sh` documents its own prerequisites. **The lesson generalises: when documentation keeps drifting from code, ask whether that documentation should exist at all before syncing it again.** A second copy of machine-readable truth is a maintenance liability, and prose that restates `package.json` has no independent readership. The README's lack of setup instructions is deliberate: do not restore them, and do not report them as missing.
+
+## 2026-05-06 - Phantom UI Test Command
 
 **Learning:** `package.json` included a phantom command `"test:ui": "vitest --ui"` which fails out-of-the-box because `@vitest/ui` is deliberately excluded from `devDependencies`. Adding dependencies to fix phantom commands violates strict boundaries on modifying project architecture/configs unnecessarily.
 **Action:** When finding phantom scripts in `package.json`, carefully remove the script to align with the actual project state rather than artificially installing dependencies to "make the documentation work".
@@ -13,10 +17,10 @@
 **Learning:** The documentation and agent guidelines referenced the root domain `https://gain.observer` as the hosted URL, but the site's metadata (`index.html` canonical/og links) strictly enforces the `www` subdomain (`https://www.gain.observer/`). Inconsistent domain documentation can cause SEO confusion and duplicate indexing.
 **Action:** Ensure all documentation links pointing to the production application match the exact `rel="canonical"` URL defined in the application's main HTML entry point.
 
-## 2024-05-17 - README Scope Drift
+## 2026-05-17 - README Scope Drift
 
 **Learning:** The `README.md` file listed only "horizontal dipoles" under its current scope, while the application actually supports multiple other topologies (e.g., inverted-v, sloping-v, delta-loop), leading to an inaccurate representation of the tool's capabilities.
-**Action:** Regularly audit the capabilities listed in the README against the actual codebase features to prevent scope drift and ensure the documented features accurately reflect the product's true capabilities.
+**Action:** Regularly audit the capabilities listed in the README against the actual codebase features to prevent scope drift and ensure the documented features accurately reflect the product's true capabilities. This has recurred five times (PRs #164, #184, #285, #288, #357) — when adding or removing an `AntennaType`, update the README in the same change rather than leaving it for a later audit.
 
 ## 2026-05-19 - Sloping V Termination Topology Drift
 
@@ -38,9 +42,9 @@
 **Learning:** The "V-Beam" terminology was previously added to the "Sloping V" documentation to clarify that they use the same geometry function. However, the user clarified that V-beam antennas are not actually used anymore in the project.
 **Action:** All references to "V-Beam" have been entirely removed from the documentation (`docs/antenna-model-spec.md`, `docs/antenna-spec.md`) and the codebase (`src/store/antennaGeometry.ts`) to avoid confusion and properly reflect the current state of the application.
 
-## 2025-05-26 - README phase 1 scope is outdated
+## 2026-05-26 - README phase 1 scope is outdated
 **Learning:** The `README.md` listed phase 1 scope and did not include `vertical-whip`, `inverted-l`, and `folded-dipole` which are supported in `AntennaType` type now.
-**Action:** Always verify `AntennaType` against `README.md` or other files that hardcode supported types.
+**Action:** Always verify `AntennaType` against `README.md` or other files that hardcode supported types (e.g. `docs/antenna-spec.md`).
 
 ## 2025-05-27 - Antenna Model Spec Drift
 **Learning:** `docs/antenna-model-spec.md` drifted and omitted several supported antenna types (Vertical Whip, Inverted-L, Folded Dipole) under "2. Antenna Type Definitions". These types were already documented in the codebase, `README.md`, and `docs/antenna-spec.md`, leading to an incomplete representation of the physics model.
