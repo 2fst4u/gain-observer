@@ -47,7 +47,7 @@ function necToScene(p: readonly [number, number, number]): [number, number, numb
   return [p[0], p[2], -p[1]];
 }
 
-function useRenderedWires(props: AntennaWireProps): RenderedWire[] {
+function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; byTag: Map<number, RenderedWire> } {
   const {
     type,
     length,
@@ -84,6 +84,7 @@ function useRenderedWires(props: AntennaWireProps): RenderedWire[] {
     });
 
     const out: RenderedWire[] = [];
+    const byTag = new Map<number, RenderedWire>();
     for (let idx = 0; idx < wires.length; idx++) {
       const w = wires[idx]!;
       const a = new THREE.Vector3(...necToScene(w.start));
@@ -101,20 +102,22 @@ function useRenderedWires(props: AntennaWireProps): RenderedWire[] {
       if (isShield) radius = Math.max(w.radius * 6, 0.025);
       else if (isBridge) radius = Math.max(w.radius * 4, 0.018);
       else radius = Math.max(w.radius * 8, 0.03);
-      out.push({
+      const wireObj = {
         key: idx,
         tag,
-        position: [mid.x, mid.y, mid.z],
+        position: [mid.x, mid.y, mid.z] as [number, number, number],
         quaternion: q,
         length: lengthScene,
         radius,
-        sceneStart: [a.x, a.y, a.z],
-        sceneEnd: [b.x, b.y, b.z],
+        sceneStart: [a.x, a.y, a.z] as [number, number, number],
+        sceneEnd: [b.x, b.y, b.z] as [number, number, number],
         isShield,
         isBridge,
-      });
+      };
+      out.push(wireObj);
+      if (!byTag.has(tag)) byTag.set(tag, wireObj);
     }
-    return out;
+    return { rendered: out, byTag };
   }, [
     type,
     length,
@@ -133,50 +136,18 @@ function useRenderedWires(props: AntennaWireProps): RenderedWire[] {
   ]);
 }
 
-function useFeedpointAndShield(rendered: readonly RenderedWire[], type: AntennaType) {
+function useFeedpointAndShield(byTag: Map<number, RenderedWire>, type: AntennaType) {
   return useMemo(() => {
     const isDelta = type === 'delta-loop' || type === 'terminated-delta';
     const isWhip = type === 'vertical-whip';
     const isInvertedL = type === 'inverted-l';
 
-    let bridge: RenderedWire | undefined;
-    let mainWireSingle: RenderedWire | undefined;
-    let shieldWire: RenderedWire | undefined;
-    let apexFedLeft: RenderedWire | undefined;
-    let verticalWhip: RenderedWire | undefined;
-    let invertedLVertical: RenderedWire | undefined;
-
-    // Single pass to locate all special elements.
-    for (let i = 0; i < rendered.length; i++) {
-      const s = rendered[i]!;
-      if (s.isBridge && !bridge) bridge = s;
-      if (s.isShield && !shieldWire) shieldWire = s;
-
-      switch (s.tag) {
-        case MAIN_WIRE_TAG:
-          // MAIN_WIRE_TAG and LEFT_LEG_TAG are both 1.
-          if (!mainWireSingle) mainWireSingle = s;
-          if (isDelta && !apexFedLeft) apexFedLeft = s;
-          break;
-        case VERTICAL_WHIP_TAG:
-          if (isWhip && !verticalWhip) verticalWhip = s;
-          break;
-        case INVERTED_L_VERTICAL_TAG:
-          if (isInvertedL && !invertedLVertical) invertedLVertical = s;
-          break;
-      }
-
-      if (
-        bridge &&
-        shieldWire &&
-        mainWireSingle &&
-        (!isDelta || apexFedLeft) &&
-        (!isWhip || verticalWhip) &&
-        (!isInvertedL || invertedLVertical)
-      ) {
-        break;
-      }
-    }
+    const bridge = byTag.get(FEED_BRIDGE_TAG);
+    const shieldWire = byTag.get(FEEDLINE_SHIELD_TAG);
+    const mainWireSingle = byTag.get(MAIN_WIRE_TAG);
+    const apexFedLeft = isDelta ? byTag.get(MAIN_WIRE_TAG) : undefined;
+    const verticalWhip = isWhip ? byTag.get(VERTICAL_WHIP_TAG) : undefined;
+    const invertedLVertical = isInvertedL ? byTag.get(INVERTED_L_VERTICAL_TAG) : undefined;
 
     // If we have a bridge, the legacy dipole wire isn't the primary feed.
     const feedSingle = bridge ? undefined : mainWireSingle;
@@ -192,7 +163,7 @@ function useFeedpointAndShield(rendered: readonly RenderedWire[], type: AntennaT
       null;
 
     return { shield: shieldWire, feedpoint: feedpointObj };
-  }, [rendered, type]);
+  }, [byTag, type]);
 }
 
 export interface TerminatedDeltaSplitResult {
@@ -205,22 +176,14 @@ export interface TerminatedDeltaSplitResult {
 }
 
 function useTerminatedDeltaSplit(
-  rendered: readonly RenderedWire[],
+  byTag: Map<number, RenderedWire>,
   type: AntennaType,
   wireRadius: number
 ): TerminatedDeltaSplitResult | null {
   return useMemo(() => {
     if (type !== 'terminated-delta') return null;
-    let leftHalfBase: RenderedWire | undefined;
-    let rightHalfBase: RenderedWire | undefined;
-
-    // Single pass to locate the two half-base wires.
-    for (let i = 0; i < rendered.length; i++) {
-      const s = rendered[i]!;
-      if (s.tag === TERMINATED_DELTA_LEFT_BASE_TAG && !leftHalfBase) leftHalfBase = s;
-      if (s.tag === TERMINATED_DELTA_RIGHT_BASE_TAG && !rightHalfBase) rightHalfBase = s;
-      if (leftHalfBase && rightHalfBase) break;
-    }
+    const leftHalfBase = byTag.get(TERMINATED_DELTA_LEFT_BASE_TAG);
+    const rightHalfBase = byTag.get(TERMINATED_DELTA_RIGHT_BASE_TAG);
 
     if (!leftHalfBase || !rightHalfBase) return null;
     const leftInner = leftHalfBase.sceneEnd;
@@ -254,13 +217,13 @@ function useTerminatedDeltaSplit(
       bridgeQuat,
       resistorRadius: Math.max(wireRadius * 8, 0.04),
     };
-  }, [type, rendered, wireRadius]);
+  }, [type, byTag, wireRadius]);
 }
 
 export function useAntennaGeometry(props: AntennaWireProps) {
-  const rendered = useRenderedWires(props);
-  const { shield, feedpoint } = useFeedpointAndShield(rendered, props.type);
-  const terminatedDeltaSplit = useTerminatedDeltaSplit(rendered, props.type, props.wireRadius);
+  const { rendered, byTag } = useRenderedWires(props);
+  const { shield, feedpoint } = useFeedpointAndShield(byTag, props.type);
+  const terminatedDeltaSplit = useTerminatedDeltaSplit(byTag, props.type, props.wireRadius);
 
   return { rendered, shield, feedpoint, terminatedDeltaSplit };
 }
