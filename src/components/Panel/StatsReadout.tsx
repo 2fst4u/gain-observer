@@ -172,7 +172,11 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
       )}
       {powerBudget !== null && (
         <>
-          <StatRow label="Termination load" value={`${(powerBudget.networkLossW * 1000).toFixed(2)} mW`} />
+          <StatRow
+            label="Termination load"
+            title="Power dissipated in the termination resistors. NEC books LD-card segment loads (which is how every termination in this app is modelled) as STRUCTURE LOSS and NT-card networks as NETWORK LOSS; no conductor loss is modelled, so the sum is the termination's alone."
+            value={`${((powerBudget.structureLossW + powerBudget.networkLossW) * 1000).toFixed(2)} mW`}
+          />
           <StatRow label="Radiated power" value={`${(powerBudget.radiatedW * 1000).toFixed(2)} mW`} />
         </>
       )}

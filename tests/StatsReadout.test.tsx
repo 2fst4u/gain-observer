@@ -257,6 +257,35 @@ describe('StatsReadout', () => {
     expect(container.textContent).not.toContain('Termination reduces reflections');
   });
 
+  it('reads termination dissipation from the structure-loss bucket', () => {
+    // Every termination in this app is an LD-4 segment load, and NEC books LD
+    // loads as STRUCTURE LOSS — NETWORK LOSS covers NT-card two-port networks,
+    // which these decks never emit. Reading networkLossW alone made this row
+    // display 0.00 mW no matter how much the resistor was absorbing.
+    const diagnostics: TerminationDiagnostics = {
+      currentRippleByTag: [
+        { tagNo: 1, magnitudes: [2e-3, 1e-3], ripple: 2, rippleDb: 2.0 },
+      ],
+      powerBudget: {
+        inputW: 0.01, radiatedW: 0.006, structureLossW: 0.004,
+        networkLossW: 0, efficiencyPct: 60,
+      },
+      frontBackDb: 8.5,
+    };
+    useAntennaStore.setState({
+      antennaType: 'sloping-v',
+      result: {
+        computeTimeMs: 10, maxGainDbi: 2, takeoffElevationDeg: 15,
+        takeoffAzimuthDeg: 0, impedance: { R: 50, X: 0 }, swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+        terminationDiagnostics: diagnostics,
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { getByText } = render(<StatsReadout />);
+    expect(getByText('4.00 mW')).not.toBeNull();
+  });
+
   it('renders termination section for sloping-v with front-back ratio', () => {
     // Arrange
     const diagnostics: TerminationDiagnostics = {

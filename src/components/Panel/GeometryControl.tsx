@@ -9,7 +9,7 @@ import {
 } from '../../physics/units';
 import { type AntennaType } from '../../store/antennaStore';
 import { type OrientationPreset } from '../../store/antennaGeometry';
-import { FOLDED_DIPOLE_MAX_APERTURE_M } from '../../physics/constants';
+import { FOLDED_DIPOLE_MAX_APERTURE_M, FOLDED_DIPOLE_FEED_R_OHMS } from '../../physics/constants';
 import { TransformerControl } from './TransformerControl';
 
 const resonateTitles: Record<AntennaType, string> = {
@@ -20,7 +20,7 @@ const resonateTitles: Record<AntennaType, string> = {
   'terminated-delta': 'Set perimeter to 1λ',
   'vertical-whip': 'Set whip length to resonant ¼λ',
   'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
-  'folded-dipole': 'Set each conductor to a resonant ½λ. Raw feedpoint ~300 Ω (~4× a plain dipole). A 6:1 impedance-transforming balun is enabled by default, which transforms this to ~50 Ω and reveals the characteristic narrowband resonant curve. Same gain and pattern as a plain dipole when unterminated. For a broadband T2FD, add a terminating resistor (click Z₀) and apply the suggested transformer ratio.',
+  'folded-dipole': 'Set each conductor to a resonant ½λ. Raw feedpoint ~300 Ω (~4× a plain dipole). A 9:1 impedance-transforming balun is enabled by default — a compromise that lands both the plain and the terminated antenna under 1.7:1, since terminating adds the resistor in series with the feedpoint. Same gain and pattern as a plain dipole when unterminated. For a broadband T2FD, add the recommended 300 Ω terminating resistor and apply the suggested transformer ratio.',
 };
 
 function calculateTfdZ0(aperture: number, radius: number): number {
@@ -134,7 +134,7 @@ function LengthControl() {
 function getTerminationHint(antennaType: AntennaType, terminatingResistor: number, tfdZ0: number): string {
   if (terminatingResistor === 0) {
     if (antennaType === 'folded-dipole') {
-      return 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor for a broadband terminated folded dipole (T2FD); click Z₀ to set the optimal termination for this conductor spacing. Use the Match button in the Transformer section below to apply the suggested ratio.';
+      return 'Unterminated: a classic folded dipole — ~300 Ω feedpoint, narrowband, same gain and pattern as a plain dipole. Add a resistor for a broadband terminated folded dipole (T2FD); the recommended 300 Ω costs 3 dB, the least you can pay for broadband behaviour. Use the Match button in the Transformer section below to apply the suggested ratio.';
     }
     return 'Unterminated: travelling wave reflects, creating a standing-wave pattern. Use this mode to check whether the antenna structure resonates at the design frequency.';
   }
@@ -144,7 +144,8 @@ function getTerminationHint(antennaType: AntennaType, terminatingResistor: numbe
   }
 
   if (antennaType === 'folded-dipole') {
-    return `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. Estimated raw feedpoint ≈ ${terminatingResistor + 300} Ω. Use the Match button in the Transformer section below to apply the optimal ratio (the transformer is never changed automatically). For a true travelling-wave T2FD — flat broadband SWR — set R ≈ Z₀ of the two-wire line (≈ ${tfdZ0} Ω for this conductor spacing; click Z₀). Lower R reduces dissipation but leaves significant reflection, narrowing the bandwidth. Click Off to restore the plain folded dipole.`;
+    const lossDb = (10 * Math.log10(1 + terminatingResistor / FOLDED_DIPOLE_FEED_R_OHMS)).toFixed(1);
+    return `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. It sits at that conductor's current maximum, so it lands at the feedpoint almost 1:1 — raw feedpoint ≈ ${terminatingResistor + FOLDED_DIPOLE_FEED_R_OHMS} Ω — and costs about ${lossDb} dB of gain (10·log10(1 + R/${FOLDED_DIPOLE_FEED_R_OHMS})). The pattern shape is unchanged; watch Directivity hold still while Gain drops. Use the Match button in the Transformer section below to apply the optimal ratio (the transformer is never changed automatically). Raising R toward the two-wire line's Z₀ (≈ ${tfdZ0} Ω here) flattens SWR further at a steep price in gain; lowering it keeps gain but narrows the usable range. Click Off to restore the plain folded dipole.`;
   }
 
   return `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`;
@@ -216,15 +217,17 @@ function TerminationControl() {
     return null;
   }
 
-  // Characteristic impedance of the two-wire line formed by the folded-dipole conductors.
-  // Z₀ = 120 × acosh(D / (2r))  where D = spacing (aperture), r = wire radius.
-  // Terminating at R ≈ Z₀ gives a travelling-wave (T2FD) — broadband flat SWR.
+  // Characteristic impedance of the two-wire line formed by the folded-dipole
+  // conductors. Z₀ = 120 × acosh(D / (2r)), D = spacing (aperture), r = wire
+  // radius. Quoted in the hint as the maximum-flatness option; it is no longer
+  // the recommended value, because that line is the non-radiating
+  // transmission-line mode and damping it costs far more gain than it is worth.
   const tfdZ0 = antennaType === 'folded-dipole' ? calculateTfdZ0(foldedDipoleAperture, wireRadius) : 0;
 
   // Recommended ("auto") terminating resistance for this antenna. Every type that
   // supports a terminating resistor gets the auto-resistance button.
   const isFolded = antennaType === 'folded-dipole';
-  const recommended = recommendedTerminatingResistor(antennaType, foldedDipoleAperture, wireRadius);
+  const recommended = recommendedTerminatingResistor(antennaType);
 
   return (
     <>
@@ -259,14 +262,12 @@ function TerminationControl() {
             title={terminatingResistor === recommended
               ? `Already using the recommended ${recommended} Ω termination`
               : isFolded
-                ? `Set terminating resistor to Z₀ ≈ ${recommended} Ω — the characteristic impedance of the two-wire line for this conductor spacing and wire diameter. Terminating at R = Z₀ gives a true travelling-wave (T2FD): flat broadband SWR at the cost of ~3 dB efficiency.`
+                ? `Set terminating resistor to ${recommended} Ω — the folded dipole's own feedpoint resistance, so the resistor takes half the power: −3 dB, the least you can pay for broadband behaviour. Raising it flattens SWR further but the loss grows as 10·log10(1 + R/${recommended}) dB.`
                 : `Set terminating resistor to the recommended ${recommended} Ω for this antenna — approximately the structure's characteristic impedance over real ground, giving a flat broadband match.`}
-            aria-label={isFolded
-              ? `Set terminating resistor to Z₀ (${recommended} Ω)`
-              : `Set terminating resistor to recommended (${recommended} Ω)`}
+            aria-label={`Set terminating resistor to recommended (${recommended} Ω)`}
             style={{ flex: '0 0 auto' }}
           >
-            {isFolded ? 'Z₀' : `${recommended} Ω`}
+            {`${recommended} Ω`}
           </button>
         )}
         <button

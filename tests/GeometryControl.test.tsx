@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { GeometryControl } from '../src/components/Panel/GeometryControl';
 import { mockAntennaStore, type MockAntennaState } from './helpers/mockStore';
+import { FOLDED_DIPOLE_FEED_R_OHMS } from '../src/physics/constants';
 
 // Mock the store
 vi.mock('../src/store/antennaStore', async () => {
@@ -259,7 +260,7 @@ describe('GeometryControl', () => {
     expect(setHeight).toHaveBeenCalledWith(15);
   });
 
-  it('sets the terminating resistor to Z₀ for a folded dipole', () => {
+  it('sets the terminating resistor to the recommended -3 dB value for a folded dipole', () => {
     const setTerminatingResistor = vi.fn();
     mockAntennaStore(buildMockState({
       antennaType: 'folded-dipole',
@@ -271,12 +272,13 @@ describe('GeometryControl', () => {
 
     render(<GeometryControl />);
 
-    const z0Button = screen.getByRole('button', { name: /Set terminating resistor to Z₀/i });
-    fireEvent.click(z0Button);
+    const recommendButton = screen.getByRole('button', { name: /Set terminating resistor to recommended/i });
+    fireEvent.click(recommendButton);
 
     expect(setTerminatingResistor).toHaveBeenCalledTimes(1);
-    // Z₀ = round(120 · acosh(0.1 / 0.002)) ≈ 552 Ω — well above zero.
-    expect(setTerminatingResistor.mock.calls[0][0]).toBeGreaterThan(100);
+    // The folded dipole's own feedpoint resistance, not the two-wire line's Z₀
+    // (which for this 0.1 m aperture would be ~552 Ω and cost 4.3 dB).
+    expect(setTerminatingResistor.mock.calls[0][0]).toBe(FOLDED_DIPOLE_FEED_R_OHMS);
   });
 
   it('turns the termination off and resets the resistor field on blur', () => {

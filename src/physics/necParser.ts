@@ -206,7 +206,10 @@ export function parseNecCurrents(text: string): SegmentCurrent[] {
  *   NETWORK LOSS  =  0.0000E+00 Watts
  *   EFFICIENCY    =  100.00 Percent
  *
- * NETWORK LOSS includes power dissipated in NT-card resistors (termination).
+ * STRUCTURE LOSS is where LD-card segment loads land — which is how every
+ * termination resistor in this app is modelled, so it is the termination's
+ * dissipation. NETWORK LOSS covers NT-card two-port networks instead, and is
+ * therefore 0 for these decks.
  */
 export function parseNecPowerBudget(text: string): PowerBudget | null {
   const blockStart = text.indexOf('POWER BUDGET');
