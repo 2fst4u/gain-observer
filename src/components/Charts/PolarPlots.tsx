@@ -13,48 +13,70 @@ import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import React, { useMemo, type ComponentProps } from 'react';
 import { displayedFeedMetrics } from '../../physics/impedance';
+import { bearingToPhiDeg, normalizeDeg } from '../../physics/angles';
 import type { GainPattern, SimulationResult } from '../../physics/types';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip);
 
+/** Grid column holding NEC azimuth φ, wrapped into the pattern's phi range. */
+function phiIndex(p: GainPattern, phiDeg: number): number {
+  const wrapped = ((phiDeg % 360) + 360) % 360;
+  return Math.round(wrapped / p.dPhi) % p.phiSteps;
+}
+
+/**
+ * Azimuth cut at a fixed theta, resampled onto compass bearings.
+ *
+ * The pattern is indexed by NEC azimuth φ (0° = +X = East, counter-clockwise),
+ * but Chart.js lays a radar's points out clockwise from the top — i.e. exactly
+ * a compass rose. Entry k therefore has to sample the grid at
+ * φ = bearingToPhiDeg(k · dPhi), otherwise the plotted pattern is rotated 90°
+ * and mirrored relative to the cardinal labels.
+ */
 function cutAzimuth(p: GainPattern, thetaDeg: number): number[] {
   const ti = Math.max(0, Math.min(p.thetaSteps - 1, Math.round(thetaDeg / p.dTheta)));
   const out = new Array<number>(p.phiSteps);
   const baseIdx = ti * p.phiSteps;
-  for (let pi = 0; pi < p.phiSteps; pi++) {
-    out[pi] = p.data[baseIdx + pi] ?? -60;
+  for (let k = 0; k < p.phiSteps; k++) {
+    const pi = phiIndex(p, bearingToPhiDeg(k * p.dPhi));
+    out[k] = p.data[baseIdx + pi] ?? -60;
   }
   return out;
 }
 
+/** Cardinal labels for the azimuth ring, which is indexed by compass bearing. */
 function getAzimuthLabels(p: GainPattern): string[] {
   const labels = new Array<string>(p.phiSteps).fill('');
-  for (let pi = 0; pi < p.phiSteps; pi++) {
-    const phiDeg = pi * p.dPhi;
-    // We only label primary cardinal points if they align with the phi step.
-    if (phiDeg === 0 || phiDeg === 360) labels[pi] = 'N';
-    else if (phiDeg === 45) labels[pi] = 'NE';
-    else if (phiDeg === 90) labels[pi] = 'E';
-    else if (phiDeg === 135) labels[pi] = 'SE';
-    else if (phiDeg === 180) labels[pi] = 'S';
-    else if (phiDeg === 225) labels[pi] = 'SW';
-    else if (phiDeg === 270) labels[pi] = 'W';
-    else if (phiDeg === 315) labels[pi] = 'NW';
+  for (let k = 0; k < p.phiSteps; k++) {
+    const bearingDeg = k * p.dPhi;
+    // We only label primary cardinal points if they align with the step.
+    if (bearingDeg === 0 || bearingDeg === 360) labels[k] = 'N';
+    else if (bearingDeg === 45) labels[k] = 'NE';
+    else if (bearingDeg === 90) labels[k] = 'E';
+    else if (bearingDeg === 135) labels[k] = 'SE';
+    else if (bearingDeg === 180) labels[k] = 'S';
+    else if (bearingDeg === 225) labels[k] = 'SW';
+    else if (bearingDeg === 270) labels[k] = 'W';
+    else if (bearingDeg === 315) labels[k] = 'NW';
   }
   return labels;
 }
 
-function cutElevation(p: GainPattern, phiDeg: number): number[] {
+/**
+ * Elevation cut through a given compass bearing (0° = North, clockwise).
+ * The bearing is converted to NEC azimuth φ before indexing the pattern.
+ */
+function cutElevation(p: GainPattern, bearingDeg: number): number[] {
   // To create a full 360 degree elevation slice:
   // Top (0 deg) is Zenith. Bottom (180 deg) is Nadir.
-  // Right side (0 to 180) maps to forward azimuth (phiDeg).
-  // Left side (360 down to 180) maps to backward azimuth (phiDeg + 180).
+  // Right side (0 to 180) maps to the forward bearing.
+  // Left side (360 down to 180) maps to the reciprocal bearing (+180°).
   const numPoints = Math.round(360 / p.dTheta);
   const out = new Array<number>(numPoints).fill(-60);
 
-  const forwardPi = Math.max(0, Math.min(p.phiSteps - 1, Math.round(phiDeg / p.dPhi)));
-  const backwardPhiDeg = (phiDeg + 180) % 360;
-  const backwardPi = Math.max(0, Math.min(p.phiSteps - 1, Math.round(backwardPhiDeg / p.dPhi)));
+  const forwardPhiDeg = bearingToPhiDeg(bearingDeg);
+  const forwardPi = phiIndex(p, forwardPhiDeg);
+  const backwardPi = phiIndex(p, forwardPhiDeg + 180);
 
   for (let ti = 0; ti < p.thetaSteps; ti++) {
     out[ti] = p.data[ti * p.phiSteps + forwardPi] ?? -60;
@@ -192,10 +214,10 @@ function AzimuthPlot({ result, dbRange, options }: { result: SimulationResult, d
   );
 }
 
-function ElevationPlot({ title, result, dbRange, azimuth, options }: { title: string, result: SimulationResult, dbRange: number, azimuth: number, options: ComponentProps<typeof PolarPlotPanel>['options'] }) {
+function ElevationPlot({ title, result, dbRange, bearingDeg, options }: { title: string, result: SimulationResult, dbRange: number, bearingDeg: number, options: ComponentProps<typeof PolarPlotPanel>['options'] }) {
   const cut = useMemo(() => {
-    return cutElevation(result.pattern, azimuth);
-  }, [result.pattern, azimuth]);
+    return cutElevation(result.pattern, bearingDeg);
+  }, [result.pattern, bearingDeg]);
 
   const data = useMemo(() => {
     return normaliseForPolar(cut, result.maxGainDbi, dbRange);
@@ -262,23 +284,25 @@ export function PolarPlots() {
     return displayedRealizedGainDbi ?? result.maxGainDbi;
   }, [result, transformerEnabled, transformerRatio, feedlineId, atuEnabled, frequency, feedlineLength, atuMainFeedlineLength]);
 
-  const { broadsideAz, endOnAz } = useMemo(() => {
-    let azimuth = 0;
+  // `orientation` is a compass heading of the wire axis (NS = 0°, EW = 90°),
+  // the same convention `orientationVector()` builds the geometry from. Both
+  // cuts stay in compass bearings; `cutElevation` converts to NEC φ.
+  const { broadsideBearing, endOnBearing } = useMemo(() => {
+    let heading = 0;
     if (typeof orientation === 'number') {
-      azimuth = orientation;
+      heading = orientation;
     } else {
       switch (orientation) {
-        case 'NS': azimuth = 0; break;
-        case 'EW': azimuth = 90; break;
-        case 'NE-SW': azimuth = 45; break;
-        case 'NW-SE': azimuth = 315; break;
+        case 'NS': heading = 0; break;
+        case 'EW': heading = 90; break;
+        case 'NE-SW': heading = 45; break;
+        case 'NW-SE': heading = 315; break;
       }
     }
-    // "End-on" is along the wire axis (phi = azimuth).
-    // "Broadside" is perpendicular to the wire axis (azimuth + 90).
+    // "End-on" is along the wire axis; "broadside" is perpendicular to it.
     return {
-      endOnAz: azimuth % 360,
-      broadsideAz: (azimuth + 90) % 360,
+      endOnBearing: normalizeDeg(heading),
+      broadsideBearing: normalizeDeg(heading + 90),
     };
   }, [orientation]);
 
@@ -300,14 +324,14 @@ export function PolarPlots() {
           title="Elevation (Broadside)"
           result={result}
           dbRange={dbRange}
-          azimuth={broadsideAz}
+          bearingDeg={broadsideBearing}
           options={options}
         />
         <ElevationPlot
           title="Elevation (End-on)"
           result={result}
           dbRange={dbRange}
-          azimuth={endOnAz}
+          bearingDeg={endOnBearing}
           options={options}
         />
       </div>

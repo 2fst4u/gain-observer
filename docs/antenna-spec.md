@@ -34,14 +34,26 @@ We use the standard NEC-2 Cartesian coordinate system:
 - **Internal Mapping**: To convert a compass heading $\alpha$ to a standard unit circle angle $\theta$ (where $0^\circ$ is $+X$): $\theta = 90^\circ - \alpha$.
 - **Elevation**: $0^\circ$ is the horizon (XY plane), $90^\circ$ is the zenith ($+Z$ axis).
 
+#### 1.3.1 NEC azimuth $\varphi$ vs compass bearing
+
+The NEC-2 `RP` card sweeps its own azimuth $\varphi$, measured from $+X$ toward $+Y$ (counter-clockwise seen from above). That is the axis `GainPattern` is indexed by and the one `SimulationResult.takeoffAzimuthDeg` reports. Because the geometry puts North on $+Y$ and East on $+X$, $\varphi = 0^\circ$ is due **East** and $\varphi = 90^\circ$ is due **North**:
+
+$$\text{bearing} = 90^\circ - \varphi \pmod{360^\circ}$$
+
+The relation is its own inverse — the two conventions differ by a $90^\circ$ rotation *and* a handedness flip. **Every** display that shows a direction to the user (polar cuts, propagation radar, stats readout) must convert; helpers live in `src/physics/angles.ts`. Substituting $\varphi$ for a bearing rotates and mirrors the whole pattern, which makes a north–south dipole appear to radiate north and south — off its ends, where it has nulls.
+
+The 3D scene is a separate mapping and needs no conversion: it remaps NEC $(x, y, z)$ to Three.js $(x, z, -y)$, so its $\varphi = \operatorname{atan2}(-z, x)$ recovers the NEC azimuth exactly.
+
 ## 2. Glossary
 
 These definitions apply to every antenna type in Part II.
 
-- **Directivity ($D$):** $D = \frac{4\pi U_{max}}{P_{rad}}$.
-- **Gain ($G$):** $10 \log_{10}(\eta \cdot D)$ dBi.
+- **Directivity ($D$):** $D = \frac{4\pi U_{max}}{P_{rad}}$. Computed as $G_{max} / \langle G \rangle$, where $\langle G \rangle$ is the whole-sphere average of the NEC power-gain pattern (`src/physics/patternIntegral.ts`). Deriving it from the NEC `POWER BUDGET` block instead ($D = G/\eta$) is only valid in free space: that budget counts conductor and network loss but not power absorbed by a lossy ground, so over real soil it collapses $D$ onto $G$.
+- **Gain ($G$):** $10 \log_{10}(\eta \cdot D)$ dBi. Read directly from the `RP` card's TOTAL column, which with `XNDA = 1000` is power gain referenced to the accepted input power — all ohmic and termination losses already included.
 - **Realized Gain:** $G(dBi) + 10 \log_{10}(1 - |\Gamma|^2)$.
-- **Efficiency ($\eta$):** $P_{rad} / P_{in}$.
+- **Efficiency ($\eta$):** $P_{rad} / P_{in}$, from the NEC power budget: conductor and termination loss only. Ground absorption happens after radiation and is not counted here — it shows up as the gap between $G$ and $D$.
+- **Average gain ($\langle G \rangle$):** $\frac{1}{4\pi}\oint G\,d\Omega$ — the fraction of input power that reaches the far field. NEC's classical average-gain test: a lossless free-space model must return $1.0$, and a value far off that indicates unconverged segmentation.
+- **Pattern surface (3D):** the rendered radius is the *linear power* gain, $r \propto 10^{G(\theta,\varphi)/10}$, so the bubble is the gain surface itself. The $/20$ field-amplitude exponent would draw its square root and halve every lobe ratio in dB.
 - **Front/Back:** $G_{peak} - G_{180^\circ}$ (dB).
 - **Ripple:** $(I_{max}-I_{min})/(I_{max}+I_{min})$.
 
@@ -58,7 +70,7 @@ A **terminated** antenna places a non-inductive resistive load somewhere on the 
 
 - **Sloping V**: Termination consists of a resistor connected from the end of each leg to ground via a short stub wire. Typical value $300\text{--}600\,\Omega$ (matches the leg's characteristic impedance against ground).
 - **Terminated Delta**: Termination is a single resistor on a short horizontal _bridge wire_ spanning the gap at the centre of the base. Typical value $\sim 600\,\Omega$ (close to the loop wire's characteristic impedance over typical HF heights, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$). **Not** two resistors to ground — that topology is symmetric but fails to terminate the loop, leaving large reactive feedpoint impedance and high leg current ripple.
-- **Terminated Folded Dipole**: Termination is a single resistor on a short horizontal _bridge wire_ spanning the gap at the centre of the top (un-fed) conductor. Typical value $\sim 390\text{--}600\,\Omega$. Like the terminated delta, this implements a proper TFD (T2FD) aperiodic-loop topology by forcing current through the resistor across the gap.
+- **Terminated Folded Dipole**: Termination is a single resistor on a short horizontal _bridge wire_ spanning the gap at the centre of the top (un-fed) conductor. Like the terminated delta, this implements a proper TFD (T2FD) aperiodic-loop topology by forcing current through the resistor across the gap. Unlike the two loop types, the resistor lands in series with the feedpoint almost 1:1, so its value is a direct efficiency dial — recommended $300\,\Omega$ (−3 dB); see §13.3 for the closed form.
 - **Effect (sloping V)**: converts a resonant bi-directional radiator into a broadband uni-directional travelling-wave radiator.
 - **Effect (terminated delta)**: converts a resonant narrowband loop into a broadband aperiodic loop. Pattern stays roughly delta-loop-shaped (broadside max, end-fire minimum). Multi-band usable with a 9:1 unun.
 - **Effect (terminated folded dipole)**: flattens SWR across a wide frequency range compared to a standard folded dipole, at the cost of radiation efficiency due to power dissipated in the termination.
@@ -400,18 +412,26 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **NEC Excitation:** Segment 1 of `FEED_BRIDGE_TAG` (3) at the centre of the lower conductor — handled by the existing `hasBridge` excitation path.
 - **Feed Type:** Single-segment voltage source on the bridge; balanced.
 - **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at the centre bridge, offset is not applicable).
-- **Feedpoint Impedance:** Approximately 4× a plain dipole (~300 Ω) for equal-diameter conductors, largely independent of spacing. A 4:1 balun brings this to ~75 Ω; a 6:1 brings it to ~50 Ω for direct coax use. 300 Ω twin-lead matches it directly.
+- **Feedpoint Impedance:** Approximately 4× a plain dipole (~300 Ω, `FOLDED_DIPOLE_FEED_R_OHMS`) for equal-diameter conductors, largely independent of spacing — the two conductors each carry the same antenna-mode current, doubling the current for a given feed current. A 4:1 balun brings this to ~75 Ω; a 6:1 to ~50 Ω. 300 Ω twin-lead matches it directly.
+- **Default balun: 9:1**, not the textbook 6:1. Over real ground the feedpoint is ~285 + 90j rather than a clean 300 Ω, and the recommended termination adds another ~300 Ω in series, so 6:1 suits only the unterminated case. Measured at 7.1 MHz, 8 m over pastoral ground: 9:1 gives 1.6:1 unterminated and 1.4:1 terminated, where 6:1 gives 1.4:1 and 2.0:1.
 
 ### 13.3 Termination Definition
 
 - **Topology:** Optional. The opposite conductor is split into two halves at the centre. When terminated, a single `LD 4` resistor sits on a short horizontal bridge wire (`FOLDED_DIPOLE_TERM_BRIDGE_TAG`) that spans the gap between the two inner ends of the un-fed (top) conductor.
 - **Unterminated (`terminatingResistor = 0`):** A classic folded dipole — ~300 Ω, narrowband, dipole gain and pattern.
-- **Terminated (`terminatingResistor > 0`):** A terminated folded dipole (TFD or T2FD). The resistor flattens SWR across a wide frequency range at the cost of efficiency (roughly half the power is dissipated). Typical value ~390–600 Ω. This is the straight-conductor cousin of the aperiodic loop modelled under §10 as a terminated delta.
+- **Terminated (`terminatingResistor > 0`):** A terminated folded dipole (TFD or T2FD). The resistor flattens SWR across a wide frequency range at the cost of efficiency. This is the straight-conductor cousin of the aperiodic loop modelled under §10 as a terminated delta.
+- **Cost of termination — closed form.** At the half-wave resonance the unfed conductor carries essentially the same current as the fed one (that is *why* the feedpoint is 4× a dipole's), and the resistor sits at its current maximum, so it appears at the feedpoint almost 1:1 in series with the radiation resistance:
+
+$$\eta \approx \frac{R_{feed}}{R_{feed} + R} \qquad \Delta G \approx -10\log_{10}\left(1 + \frac{R}{R_{feed}}\right)\ \text{dB}$$
+
+  Verified against the solver at 7.1 MHz, 8 m over pastoral ground: R = 300 Ω → 49 % efficiency (predicted 48.6 %), R = 600 Ω → 32.5 % (predicted 32.1 %), R = 900 Ω → 24.4 % (predicted 24.0 %). The feedpoint rises by almost exactly R, which is the same statement.
+- **Recommended value: `FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS` = 300 Ω** = $R_{feed}$, i.e. the 50 % / −3 dB point — the least that can be paid for broadband behaviour. **Not** the two-wire line's $Z_0$ (≈ 684 Ω at the default aperture), which was the earlier recommendation: that line is the *non-radiating* transmission-line mode, so terminating it in its own $Z_0$ flattens SWR without contributing to radiation, and measured 5.3 dB down at the design frequency. Across 7–28 MHz the 300 Ω + 9:1 pair holds the same worst-case SWR (5.6:1) as the old 684 Ω + 6:1 pair while returning 2.2 dB at the design frequency.
+- **Where the loss is booked.** The termination is an `LD 4` segment load, so NEC reports its dissipation under **STRUCTURE LOSS**, not NETWORK LOSS (which covers `NT` two-port networks and is 0 for these decks).
 
 ### 13.4 SWR Convention
 
 - **Reference:** 50 Ω.
-- **Statement:** Raw SWR against 50 Ω is high (~6:1) for the unterminated ~300 Ω feedpoint. A 6:1 impedance-transforming balun is **enabled by default** when this antenna type is selected, transforming the feedpoint to ~50 Ω and showing the characteristic flat broadband SWR curve. The terminated variant (TFD) shows an even flatter curve, reflecting the resistive termination rather than improved efficiency.
+- **Statement:** Raw SWR against 50 Ω is high (~6:1) for the unterminated ~300 Ω feedpoint. A 9:1 impedance-transforming balun is **enabled by default** when this antenna type is selected (see §13.2), landing both the plain and the terminated antenna under 1.7:1 at the design frequency. The terminated variant (TFD) shows a flatter curve across the band, reflecting the resistive termination rather than improved efficiency.
 
 ### 13.5 Segmentation Rules
 
@@ -424,4 +444,5 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 - **Unterminated:** Identical to a standard dipole (~2.15 dBi in free space) at narrow apertures. The fold is an impedance transformation, not a gain mechanism.
 - **Wide aperture:** As the spacing grows toward a notable fraction of a wavelength, the two in-phase conductors begin to act as a broadside two-element array and the pattern departs from a simple dipole.
-- **Terminated:** Lower than a plain dipole — the terminating resistor dissipates a substantial fraction of the input power (the broadband-vs-efficiency trade).
+- **Terminated:** Lower than a plain dipole by $10\log_{10}(1 + R/R_{feed})$ dB — 3.0 dB at the recommended 300 Ω (§13.3). The *pattern* is untouched: directivity holds at 7.7 dBi across the whole range of R, so every dB is dissipation, not a change in radiation.
+- **Harmonic dips:** At even multiples of the design frequency the transmission-line mode presents a short across the feed (each side becomes a half-wave shorted stub), collapsing the feedpoint resistance. Terminated, nearly all the power then goes into the resistor: measured −0.3 dBi at 2× against +3.2 dBi at the design frequency. This is inherent to the folded topology and is why a T2FD is specified from its design frequency upward rather than at its harmonics.

@@ -4,6 +4,7 @@ import { useAdaptiveLOD } from '../../hooks/useAdaptiveLOD';
 import type { SimulationResult } from '../../physics/types';
 import type { Colormap } from '../../store/antennaStore';
 import { pickTable, sampleColormapFast } from '../../utils/colormap';
+import { DB_TO_LINEAR_POWER, radiusScaleForPattern } from './patternRadius';
 
 interface Props {
   originY?: number;
@@ -76,14 +77,22 @@ function buildRenderGeometry(
 
   const invDTheta = 1 / dTheta;
   const invDPhi = 1 / dPhi;
-  const linearRangeFactor = patternScale * 2.5;
-  // 10^(x/20) = exp(x * ln(10)/20)
-  const scaleFactor = Math.LN10 / 20;
-  // Floor the gain used for radius calculation to ensure the pattern remains
-  // visible even for extremely lossy antennas (e.g. verticals without a
-  // counterpoise). At -25 dBi the bubble is ~0.15m radius, large enough to
-  // peek out from the feedpoint marker.
-  const RADIUS_GAIN_FLOOR_DBI = -25;
+  const scaleFactor = DB_TO_LINEAR_POWER;
+
+  // Peak of the pattern actually being drawn (realized-gain offset included).
+  let peakDb = -Infinity;
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i]!;
+    if (v > peakDb) peakDb = v;
+  }
+  peakDb += realizedGainOffsetDb;
+
+  const { floorDb: radiusFloorDb, factor: linearRangeFactor } = radiusScaleForPattern(
+    peakDb,
+    dbRange,
+    patternScale,
+  );
+
   const minDb = colorMaxDb - dbRange;
   const invRange = 1 / dbRange;
   const table = pickTable(colormap);
@@ -123,7 +132,7 @@ function buildRenderGeometry(
     const gainDb = v0 + (v1 - v0) * ft + realizedGainOffsetDb;
 
     // Position
-    const radius = Math.exp(Math.max(gainDb, RADIUS_GAIN_FLOOR_DBI) * scaleFactor) * linearRangeFactor;
+    const radius = Math.exp(Math.max(gainDb, radiusFloorDb) * scaleFactor) * linearRangeFactor;
     const idx = i * 3;
     posBuffer[idx] = basePositions[idx]! * radius;
     posBuffer[idx + 1] = basePositions[idx + 1]! * radius;

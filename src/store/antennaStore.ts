@@ -55,6 +55,7 @@ import {
   FOLDED_DIPOLE_TERM_BRIDGE_TAG,
   FOLDED_DIPOLE_DEFAULT_APERTURE_M,
   FOLDED_DIPOLE_MAX_APERTURE_M,
+  FOLDED_DIPOLE_FEED_R_OHMS,
 } from '../physics/constants';
 
 // Re-export geometry tags for UI and tests.
@@ -100,6 +101,32 @@ const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta
 // is selected, and as the value set by the auto-resistance button in the UI.
 export const SLOPING_V_DEFAULT_TERMINATION_OHMS = 300;
 export const TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS = 600;
+/**
+ * Recommended T2FD termination, in ohms — equal to the folded dipole's own
+ * feedpoint resistance (`FOLDED_DIPOLE_FEED_R_OHMS`), and chosen for that
+ * reason.
+ *
+ * At the half-wave resonance the unfed conductor carries essentially the same
+ * current as the fed one — that is exactly why a folded dipole's feedpoint is
+ * 4× a plain dipole's — and the resistor sits at that conductor's current
+ * maximum. It therefore appears at the feedpoint almost 1:1, in series with
+ * the radiation resistance:
+ *
+ *   η ≈ R_feed / (R_feed + R)     loss ≈ 10·log10(1 + R / R_feed) dB
+ *
+ * So R = R_feed is the 50 % / −3 dB point, which is what the UI copy has
+ * always promised and roughly where published T2FD designs sit.
+ *
+ * The former recommendation was the two-wire line's Z₀ (≈ 684 Ω at the default
+ * 0.3 m aperture), on the reasoning that terminating a line in its own Z₀ kills
+ * reflections. But that line is the *non-radiating* transmission-line mode:
+ * damping it flattens SWR without contributing anything to radiation, and it
+ * cost 5.3 dB at the design frequency, measured. Dropping to R_feed recovers
+ * 2.2 dB of that while — paired with the 9:1 balun below — leaving the
+ * worst-case SWR across 7–28 MHz unchanged. Users who want maximum flatness
+ * can still type Z₀ in; the hint text quotes it.
+ */
+export const FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS = FOLDED_DIPOLE_FEED_R_OHMS;
 
 /**
  * The recommended terminating resistance for an antenna type, in ohms, or 0 for
@@ -108,23 +135,18 @@ export const TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS = 600;
  *
  *   • sloping-V / terminated-delta — a fixed design value (≈ the structure's
  *     characteristic impedance over real ground).
- *   • folded-dipole — the characteristic impedance Z₀ of the two-wire line,
- *     which depends on the conductor spacing (aperture) and wire radius:
- *     Z₀ = 120 · acosh(D / 2r). Terminating at R = Z₀ gives a travelling-wave
- *     (T2FD) broadband match.
+ *   • folded-dipole — the antenna's own feedpoint resistance, i.e. the −3 dB
+ *     efficiency point (see FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS). Both are
+ *     independent of the conductor spacing.
  */
-export function recommendedTerminatingResistor(
-  antennaType: AntennaType,
-  foldedDipoleAperture: number,
-  wireRadius: number,
-): number {
+export function recommendedTerminatingResistor(antennaType: AntennaType): number {
   switch (antennaType) {
     case 'sloping-v':
       return SLOPING_V_DEFAULT_TERMINATION_OHMS;
     case 'terminated-delta':
       return TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS;
     case 'folded-dipole':
-      return Math.round(120 * Math.acosh(foldedDipoleAperture / (2 * wireRadius)));
+      return FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS;
     default:
       return 0;
   }
@@ -149,7 +171,12 @@ const TRANSFORMER_DEFAULTS: Record<AntennaType, TransformerDefaults> = {
   'sloping-v': { enabled: true, ratio: 1 },
   'delta-loop': { enabled: true, ratio: 1 },
   'terminated-delta': { enabled: true, ratio: 9 },
-  'folded-dipole': { enabled: true, ratio: 6 },
+  // 9:1, not the textbook 6:1. Over real ground the unterminated feedpoint is
+  // ~285 + 90j rather than a clean 300 Ω, and the recommended termination adds
+  // another ~300 Ω in series. 6:1 suits only the unterminated case (1.4:1
+  // there, 2.0:1 terminated); 9:1 lands both within 1.7:1 and holds the same
+  // worst-case SWR across 7–28 MHz as the old high-loss default did.
+  'folded-dipole': { enabled: true, ratio: 9 },
   // Base-fed monopole-style verticals: unbalanced feedpoint, no balun.
   'vertical-whip': { enabled: false, ratio: 1 },
   'inverted-l': { enabled: false, ratio: 1 },
@@ -524,13 +551,12 @@ export const useAntennaStore = create<AntennaState>()(
         } else if (type === 'folded-dipole') {
           // Two parallel half-wave conductors separated vertically by the
           // aperture. Plain (unterminated) by default — ~300 Ω feedpoint,
-          // dipole-like pattern. A non-zero terminating resistor (TFD) adds
-          // a series R at the top-conductor centre, raising the feedpoint by
-          // approximately R (Z ≈ 300 + R Ω). The 6:1 balun is appropriate for
-          // both unterminated (~300 Ω → ~50 Ω) and terminated
-          // (e.g. R=600 Ω → ~900 Ω → ~150 Ω) cases; for optimal traveling-wave
-          // termination choose R ≈ Z0 of the two-wire line (typically 600–700 Ω
-          // for typical HF apertures of 0.1–0.5 m with 1 mm wire).
+          // dipole-like pattern, full gain. A non-zero terminating resistor
+          // (T2FD) adds a series R at the centre of the unfed conductor, which
+          // lands at the feedpoint almost 1:1 (Z ≈ 300 + R Ω) and costs
+          // 10·log10(1 + R/300) dB of gain. The recommended R is 300 Ω — the
+          // −3 dB point — with the 9:1 balun matching both states to under
+          // 1.7:1 at the design frequency.
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;

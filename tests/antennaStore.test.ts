@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   useAntennaStore,
   buildWires,
@@ -27,6 +27,7 @@ import {
   VERTICAL_WHIP_BASE_GAP_M,
   VERTICAL_WHIP_RADIAL_TAG,
   VERTICAL_WHIP_RADIAL_COUNT,
+  FOLDED_DIPOLE_FEED_R_OHMS,
 } from "../src/physics/constants";
 
 describe("antennaStore selectors", () => {
@@ -501,22 +502,54 @@ describe("antennaStore selectors", () => {
 });
 
 
+describe("folded-dipole defaults", () => {
+  // These switch the shared store's antenna type; put it back so the
+  // initial-defaults suite further down still sees a pristine store.
+  afterEach(() => {
+    useAntennaStore.getState().setAntennaType("dipole");
+  });
+
+  it("lands unterminated with a 9:1 balun", () => {
+    useAntennaStore.getState().setAntennaType("folded-dipole");
+    const s = useAntennaStore.getState();
+    // Plain folded dipole out of the box: full gain, dipole pattern.
+    expect(s.terminatingResistor).toBe(0);
+    expect(s.transformerEnabled).toBe(true);
+    // 9:1, not the textbook 6:1 — it has to suit the terminated state too,
+    // where the recommended resistor adds ~300 Ω in series with the feedpoint.
+    // Measured over real ground at 8 m: 1.6:1 unterminated, 1.4:1 terminated,
+    // against 6:1's 1.4 / 2.0.
+    expect(s.transformerRatio).toBe(9);
+  });
+
+  it("keeps the recommended termination and the balun consistent", () => {
+    // Raw feedpoint terminated ≈ R_feed + R = 600 Ω; through 9:1 that is 67 Ω,
+    // an SWR well under 1.5 before the antenna's own reactance is counted.
+    const r = recommendedTerminatingResistor("folded-dipole");
+    expect((FOLDED_DIPOLE_FEED_R_OHMS + r) / 9).toBeGreaterThan(50);
+    expect((FOLDED_DIPOLE_FEED_R_OHMS + r) / 9).toBeLessThan(75);
+  });
+});
+
 describe("recommendedTerminatingResistor", () => {
   it("returns SLOPING_V_DEFAULT_TERMINATION_OHMS for sloping-v", () => {
-    expect(recommendedTerminatingResistor("sloping-v", 0.5, 0.001)).toBe(SLOPING_V_DEFAULT_TERMINATION_OHMS);
+    expect(recommendedTerminatingResistor("sloping-v")).toBe(SLOPING_V_DEFAULT_TERMINATION_OHMS);
   });
 
   it("returns TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS for terminated-delta", () => {
-    expect(recommendedTerminatingResistor("terminated-delta", 0.5, 0.001)).toBe(TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS);
+    expect(recommendedTerminatingResistor("terminated-delta")).toBe(TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS);
   });
 
-  it("calculates correct rounded impedance for folded-dipole", () => {
-    // 120 * acosh(0.5 / (2 * 0.001)) = 120 * acosh(250) ≈ 120 * 6.2146 ≈ 746
-    expect(recommendedTerminatingResistor("folded-dipole", 0.5, 0.001)).toBe(746);
+  it("recommends the folded dipole's own feedpoint resistance — the -3 dB point", () => {
+    // A resistor in the unfed conductor lands in series with the feedpoint
+    // almost 1:1, so R = R_feed splits the power evenly: loss = 10*log10(2).
+    // Independent of conductor spacing, unlike the two-wire line's Z0.
+    expect(recommendedTerminatingResistor("folded-dipole")).toBe(FOLDED_DIPOLE_FEED_R_OHMS);
+    expect(10 * Math.log10(1 + FOLDED_DIPOLE_FEED_R_OHMS / FOLDED_DIPOLE_FEED_R_OHMS)).toBeCloseTo(3.01, 2);
   });
 
   it("returns 0 for unsupported antenna types like dipole", () => {
-    expect(recommendedTerminatingResistor("dipole", 0.5, 0.001)).toBe(0);
+    expect(recommendedTerminatingResistor("dipole")).toBe(0);
   });
 });
 

@@ -15,6 +15,7 @@ import type {
 } from '../../src/physics/types';
 import type { ComparisonSnapshot } from '../../src/store/antennaStore';
 import type { HopPrediction, PropagationPrediction } from '../../src/physics/propagation';
+import { phiToBearingDeg } from '../../src/physics/angles';
 
 /** Flat pattern with a mild gradient, so cuts and peak-finding have something to bite on. */
 export function makeGainPattern(overrides: Partial<GainPattern> = {}): GainPattern {
@@ -116,8 +117,11 @@ export function makeHop(overrides: Partial<HopPrediction> = {}): HopPrediction {
 type AzimuthalHop = NonNullable<PropagationPrediction['azimuthalHops']>[number];
 
 export function makeAzimuthalHop(overrides: Partial<AzimuthalHop> = {}): AzimuthalHop {
+  const phiDeg = overrides.phiDeg ?? 0;
   return {
-    phiDeg: 0,
+    phiDeg,
+    // Keep the pair consistent unless a test deliberately overrides it.
+    bearingDeg: phiToBearingDeg(phiDeg),
     takeoffElevationDeg: 15,
     rangeKm: [1000],
     status: 'open',

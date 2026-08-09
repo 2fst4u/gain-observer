@@ -288,6 +288,18 @@ export const FOLDED_DIPOLE_TERM_BRIDGE_TAG = 19;
 export const FOLDED_DIPOLE_DEFAULT_APERTURE_M = 0.3;
 
 /**
+ * Nominal feedpoint resistance of a resonant folded dipole, ohms: 4× a plain
+ * dipole's ~73 Ω, because the two equal-diameter conductors each carry the
+ * same antenna-mode current, doubling the current for a given feed current and
+ * so quadrupling the impedance. Independent of conductor spacing.
+ *
+ * Doubles as the recommended T2FD termination — see
+ * `FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS` — because a resistor in the unfed
+ * conductor lands in series with this resistance almost 1:1.
+ */
+export const FOLDED_DIPOLE_FEED_R_OHMS = 300;
+
+/**
  * Maximum folded-dipole conductor spacing, metres. Two long, closely-spaced
  * parallel wires converge slowly in NEC's thin-wire kernel: the segment length
  * must shrink with the spacing, and beyond ~0.5 m the structure would need
