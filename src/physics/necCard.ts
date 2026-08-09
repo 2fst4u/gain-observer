@@ -52,12 +52,24 @@ function n(v: number, digits = 6): string {
 /** Geometry cards (GW): one per wire, auto-numbering untagged wires. */
 function buildGeometryCards(lines: string[], wires: readonly Wire[]): void {
   let tagCounter = 1;
-  for (const w of wires) {
+  for (let i = 0; i < wires.length; i++) {
+    const w = wires[i];
     const tag = w.tag ?? tagCounter++;
-    const [x1, y1, z1] = w.start;
-    const [x2, y2, z2] = w.end;
+    const s = w.start;
+    const e = w.end;
+
+    // Check if finite
+    if (!Number.isFinite(s[0]) || !Number.isFinite(s[1]) || !Number.isFinite(s[2]) ||
+        !Number.isFinite(e[0]) || !Number.isFinite(e[1]) || !Number.isFinite(e[2]) ||
+        !Number.isFinite(w.radius)) {
+      throw new Error('Non-finite numeric value in NEC card: NaN');
+    }
+
     lines.push(
-      `GW ${tag} ${w.segments} ${n(x1, 5)} ${n(y1, 5)} ${n(z1, 5)} ${n(x2, 5)} ${n(y2, 5)} ${n(z2, 5)} ${n(w.radius, 5)}`,
+      'GW ' + tag + ' ' + w.segments +
+      ' ' + s[0].toFixed(5) + ' ' + s[1].toFixed(5) + ' ' + s[2].toFixed(5) +
+      ' ' + e[0].toFixed(5) + ' ' + e[1].toFixed(5) + ' ' + e[2].toFixed(5) +
+      ' ' + w.radius.toFixed(5)
     );
   }
 }
