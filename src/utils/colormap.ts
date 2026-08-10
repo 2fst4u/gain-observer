@@ -76,17 +76,6 @@ export function sampleColormap(name: ColormapName, t: number): RGB {
 }
 
 /**
- * Map a dBi gain to a 0..1 colormap position using the chosen dynamic range.
- * Values above maxDb map to 1; values below maxDb - range map to 0.
- */
-export function gainToColorT(gainDb: number, maxDb: number, rangeDb: number): number {
-  const minDb = maxDb - rangeDb;
-  if (gainDb >= maxDb) return 1;
-  if (gainDb <= minDb) return 0;
-  return (gainDb - minDb) / rangeDb;
-}
-
-/**
  * Hot-path optimized version of sampleColormap that writes directly into an output array.
  * Uses bitwise operations and avoids creating intermediate array allocations.
  */

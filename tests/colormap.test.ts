@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sampleColormap, gainToColorT, sampleColormapFast, getColormapCssGradient, pickTable } from '../src/utils/colormap';
+import { sampleColormap, sampleColormapFast, getColormapCssGradient, pickTable } from '../src/utils/colormap';
 
 describe('colormap utilities', () => {
   describe('sampleColormap', () => {
@@ -55,24 +55,6 @@ describe('colormap utilities', () => {
       // JET[0] = [0, 0, 0.5]
       const color = sampleColormap('jet', 0);
       expect(color).toEqual([0, 0, 0.5]);
-    });
-  });
-
-  describe('gainToColorT', () => {
-    it('returns 1 for gain at or above maxDb', () => {
-      expect(gainToColorT(10, 10, 20)).toBe(1);
-      expect(gainToColorT(15, 10, 20)).toBe(1);
-    });
-
-    it('returns 0 for gain at or below minDb', () => {
-      expect(gainToColorT(-10, 10, 20)).toBe(0);
-      expect(gainToColorT(-15, 10, 20)).toBe(0);
-    });
-
-    it('linearly maps intermediate values', () => {
-      expect(gainToColorT(0, 10, 20)).toBe(0.5);
-      expect(gainToColorT(-5, 10, 20)).toBe(0.25);
-      expect(gainToColorT(5, 10, 20)).toBe(0.75);
     });
   });
 
