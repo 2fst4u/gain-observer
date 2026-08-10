@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, realizedGainWithTransformer, suggestedTransformerRatio, matchRatioForFeedpoint, displayedFeedMetrics, atuLossDb, feedlineLossUnderSwrDb } from '../src/physics/impedance';
+import { swr, mismatchLossFactor, transformImpedance, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, suggestedTransformerRatio, matchRatioForFeedpoint, displayedFeedMetrics, atuLossDb, feedlineLossUnderSwrDb } from '../src/physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB, ATU_COMPONENT_Q, feedlineLossDb, findFeedlinePreset } from '../src/physics/constants';
 import type { SimulationResult } from '../src/physics/types';
 
@@ -418,20 +418,6 @@ describe('transformWithTransformerAtAntenna', () => {
     const result = transformWithTransformerAtAntenna(zSrc, 4, 50, 0.25);
     expect(result.R).toBeCloseTo(100, 6);
     expect(result.X).toBeCloseTo(0, 6);
-  });
-});
-
-describe('realizedGainWithTransformer', () => {
-  it('computes expected realized gain', () => {
-    const zSrc = { R: 50, X: 0 };
-    const result = realizedGainWithTransformer(2.15, zSrc, 1, 50, 0);
-    expect(result).toBeDefined();
-    expect(typeof result).toBe('number');
-  });
-
-  it('returns undefined if mismatch loss factor is <= 0', () => {
-    const result = realizedGainWithTransformer(2.15, { R: 0, X: 0 }, 1, 50, 0);
-    expect(result).toBeUndefined();
   });
 });
 

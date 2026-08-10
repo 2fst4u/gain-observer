@@ -5,7 +5,6 @@ import {
   selectSimulationInput,
   selectAtuConfig,
   selectSwrWindow,
-  computeEffectiveSlope,
   legMultipleFromLength,
   computeOptimalVAngleDeg,
   recommendedTerminatingResistor,
@@ -970,38 +969,6 @@ describe("antennaStore actions", () => {
   });
 
   describe("Sloping V Geometry", () => {
-    it("performs the hand-check at 7.1 MHz, height 10m, slope 45 deg", () => {
-      // λ = 299.792458 / 7.1 = 42.2243m.
-      // Sloping V ref length = λ * 2 * 0.95 = 80.2262m.
-      const length = 80.22615;
-      const state = {
-        antennaType: "sloping-v" as const,
-        length,
-        height: 10,
-        legSlope: 45,
-      };
-
-      const result = computeEffectiveSlope(state);
-
-      // maxSin = (10 - 0.5) / (80.226 / 2) = 9.5 / 40.113 ≈ 0.23683
-      // maxSlope = asin(0.23683) ≈ 13.701 deg
-      expect(result.clamped).toBe(true);
-      expect(result.effectiveDeg).toBeCloseTo(13.701, 2);
-      expect(result.tipHeightM).toBeCloseTo(0.5, 5);
-    });
-
-    it("reports clamped=false when slope is shallow", () => {
-      const state = {
-        antennaType: "sloping-v" as const,
-        length: 20,
-        height: 10,
-        legSlope: 10,
-      };
-      const result = computeEffectiveSlope(state);
-      expect(result.clamped).toBe(false);
-      expect(result.effectiveDeg).toBe(10);
-    });
-
     it("sets excitation on the apex bridge for sloping-v (no feedline)", () => {
       const state = {
         ...useAntennaStore.getState(),

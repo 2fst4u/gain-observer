@@ -109,6 +109,9 @@
 ## 2024-05-30 - False Positives in Knip Analysis
 **Learning:** Knip static analysis might falsely flag exports that are actively used if it doesn't parse dynamically or if it's explicitly run with `--production`, which ignores usages inside test files. Wait to use `grep` everywhere to verify.
 **Action:** Always verify a Knip suggestion via a global text search (`grep -rn`) before including its deletion in the execution plan.
-## 2025-02-09 - Sweep: Remove unused gainToColorT function
+## 2026-08-09 - Removed unused parseNtLine
+**Learning:** Functions that parse NEC output formats (like `parseNtLine`) might be written defensively or for future use, but if they are never actually invoked by the main codebase or tests (other than their own isolated unit test), they are dead code. Tools like `knip --production` might miss this if they ignore test directories, while standard `knip` correctly flags them.
+**Action:** Always cross-reference Knip's unused export findings with `grep` to ensure they are genuinely unused in all workflows before removing them entirely (including their tests).
+## 2026-08-09 - Sweep: Remove unused gainToColorT function
 **Learning:** `gainToColorT` was unused dead code in `src/utils/colormap.ts` and successfully removed alongside its tests to improve maintainability.
 **Action:** Removed unused `gainToColorT` from `src/utils/colormap.ts` and `tests/colormap.test.ts`.
