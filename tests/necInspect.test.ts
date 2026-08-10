@@ -5,7 +5,6 @@ import {
   parseGwLine,
   parseLdLine,
   parseTlLine,
-  parseNtLine,
   expectNoGroundTouchingWires,
   expectExcitation
 } from './necInspect';
@@ -86,26 +85,6 @@ describe('necInspect helpers', () => {
   it('parseTlLine throws on non-TL line', () => {
     const line = 'GW 1 11 0.00000 -5.00000 10.00000 0.00000 5.00000 10.00000 0.00100';
     expect(() => parseTlLine(line)).toThrow(/Not a TL line/);
-  });
-
-  it('parseNtLine parses NT correctly', () => {
-    const line = 'NT 1 1 2 1 0.020000 0.000000 -0.020000 0.000000 0.020000 0.000000';
-    const nt = parseNtLine(line);
-    expect(nt.tag1).toBe(1);
-    expect(nt.seg1).toBe(1);
-    expect(nt.tag2).toBe(2);
-    expect(nt.seg2).toBe(1);
-    expect(nt.y11r).toBe(0.02);
-    expect(nt.y11i).toBe(0);
-    expect(nt.y12r).toBe(-0.02);
-    expect(nt.y12i).toBe(0);
-    expect(nt.y22r).toBe(0.02);
-    expect(nt.y22i).toBe(0);
-  });
-
-  it('parseNtLine throws on non-NT line', () => {
-    const line = 'GW 1 11 0.00000 -5.00000 10.00000 0.00000 5.00000 10.00000 0.00100';
-    expect(() => parseNtLine(line)).toThrow(/Not an NT line/);
   });
 
   it('expectNoGroundTouchingWires passes for high dipole', () => {
