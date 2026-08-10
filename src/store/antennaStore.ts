@@ -931,34 +931,6 @@ function calculateDefaultLength(type: AntennaType, frequencyMHz: number): number
 const FEEDLINE_SHIELD_SEGMENTS = 11;
 const FEEDLINE_GROUND_GAP_M = 0.1;
 
-/**
- * Calculates the effective downward slope for a V-topology,
- * clamping it so the wire tips stay at or above SLOPING_V_MIN_TIP_Z_M.
- */
-export function computeEffectiveSlope(
-  state: Pick<AntennaState, 'length' | 'height' | 'legSlope'>,
-) {
-  const half = state.length / 2;
-  const h = state.height;
-  const requestedDeg = state.legSlope;
-
-  const maxSin = half > 0 ? Math.max(0, h - SLOPING_V_MIN_TIP_Z_M) / half : 0;
-  const maxSlopeRad = Math.asin(Math.min(1, maxSin));
-  const requestedRad = (requestedDeg * Math.PI) / 180;
-
-  const clamped = requestedRad > maxSlopeRad + 1e-7;
-  const effectiveRad = Math.min(requestedRad, maxSlopeRad);
-  const effectiveDeg = (effectiveRad * 180) / Math.PI;
-  const tipHeightM = h - half * Math.sin(effectiveRad);
-
-  return {
-    requestedDeg,
-    effectiveDeg,
-    tipHeightM,
-    clamped,
-  };
-}
-
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
