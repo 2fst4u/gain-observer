@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import * as necCard from '../src/physics/necCard';
 import { Nec2Engine } from '../src/physics/nec2Engine';
 import type { SimulationInput } from '../src/physics/types';
 
@@ -220,6 +221,70 @@ describe('Nec2Engine error handling', () => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await expect((engine as any).solveImpedanceSweep(dummyInput, 1, 14, 0)).rejects.toThrow('Sweep execution failed');
+    expect(lockReleased).toBe(true);
+  });
+
+  it('releases lock when buildNecCards throws an error in simulate', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).factory = {}; // bypass factory check
+
+    vi.spyOn(necCard, 'buildNecCards').mockImplementationOnce(() => {
+      throw new Error('Cards generation failed');
+    });
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    await expect(engine.simulate(dummyInput)).rejects.toThrow('Cards generation failed');
+
+    // Restore mock to return valid string for subsequent simulation
+    vi.spyOn(necCard, 'buildNecCards').mockReturnValue('mock cards');
+
+    // intercept runJob and return a valid pattern
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'runJob').mockResolvedValue('Dummy output\nRUN TIME=0.001\n                                 - - - RADIATION PATTERNS - - -\n  THETA    PHI    VERT    HORIZ    TOTAL\n    0.00    0.00   -1.00   -2.00   10.00\n                                 - - - ANTENNA INPUT PARAMETERS - - -\n  TAG   SEG       VOLTAGE (VOLTS)         CURRENT (AMPS)         IMPEDANCE (OHMS)        ADMITTANCE (MHOS)     POWER\n  NO.   NO.     REAL      IMAG.         REAL      IMAG.         REAL      IMAG.         REAL      IMAG.       (WATTS)\n    1     6  1.000E+00  0.000E+00    1.00E-02  2.00E-02    1.00E+01  2.00E+01    1.00E-03  2.00E-03    1.00E+00\n');
+
+    await expect(engine.simulate(dummyInput)).resolves.toBeDefined();
+  });
+
+  it('releases lock when buildNecCards throws an error in solveImpedanceSweep', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).factory = async () => ({});
+
+    vi.spyOn(necCard, 'buildNecCards').mockImplementationOnce(() => {
+      throw new Error('Cards sweep generation failed');
+    });
+
+    let lockReleased = false;
+    // Mock acquire to return a function that sets our flag
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'acquire').mockResolvedValue(() => {
+      lockReleased = true;
+    });
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await expect((engine as any).solveImpedanceSweep(dummyInput, 1, 14, 0)).rejects.toThrow('Cards sweep generation failed');
     expect(lockReleased).toBe(true);
   });
 });
