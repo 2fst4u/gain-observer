@@ -287,25 +287,6 @@ export function transformWithTransformerAtAntenna(
 }
 
 /**
- * Realized gain after a transformer fitted at the antenna terminals: the
- * NEC-computed `gainDbi` (intrinsic radiation) minus the mismatch loss
- * computed against the radio-side impedance with the transformer in
- * place, minus a fixed insertion loss for the transformer hardware.
- */
-export function realizedGainWithTransformer(
-  gainDbi: number,
-  zSrcReportedByNec: ImpedanceResult,
-  ratio: number,
-  z0Line: number = Z0_SYSTEM,
-  lineLengthLambdas: number = 0,
-): number | undefined {
-  const zRadio = transformWithTransformerAtAntenna(zSrcReportedByNec, ratio, z0Line, lineLengthLambdas);
-  const mlf = mismatchLossFactor(zRadio);
-  if (mlf <= 0) return undefined;
-  return gainDbi + 10 * Math.log10(mlf) - TRANSFORMER_INSERTION_LOSS_DB;
-}
-
-/**
  * De-embeds an impedance reading taken at the source end of a lossless
  * transmission line: given Z measured at the source, returns the load-side
  * impedance at the far end of the line.
