@@ -34,3 +34,6 @@
 ## 2024-11-09 - Accessible External Links Context Change
 **Learning:** External links utilizing `target="_blank"` cause an unexpected context switch for screen reader users, disrupting navigation flow. Simply providing a visually-informative title is insufficient for accessibility.
 **Action:** When adding or modifying external links (`target="_blank"`), ensure an explicit `aria-label` is applied that appends "(opens in a new tab)" to the link text to provide fair warning of the behavior change.
+## 2026-08-09 - Comparison Empty State Accessibility
+**Learning:** When a component conditionally renders an empty state message (e.g., after clearing a reference), screen readers do not automatically announce the transition back to the empty state unless the container has an explicit ARIA live region.
+**Action:** Add `role="status" aria-live="polite"` to conditionally rendered empty state containers to ensure screen readers announce the state change.
