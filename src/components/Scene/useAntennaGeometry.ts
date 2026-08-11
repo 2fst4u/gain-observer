@@ -43,10 +43,6 @@ export interface RenderedWire {
   readonly isBridge: boolean;
 }
 
-function necToScene(p: readonly [number, number, number]): [number, number, number] {
-  return [p[0], p[2], -p[1]];
-}
-
 function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; byTag: Map<number, RenderedWire> } {
   const {
     type,
@@ -85,16 +81,27 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
 
     const out: RenderedWire[] = [];
     const byTag = new Map<number, RenderedWire>();
+    const vUp = new THREE.Vector3(0, 1, 0);
+    const vDir = new THREE.Vector3();
     for (let idx = 0; idx < wires.length; idx++) {
       const w = wires[idx]!;
-      const a = new THREE.Vector3(...necToScene(w.start));
-      const b = new THREE.Vector3(...necToScene(w.end));
-      const mid = a.clone().add(b).multiplyScalar(0.5);
-      const dir = b.clone().sub(a);
-      const lengthScene = dir.length();
+      const ax = w.start[0];
+      const ay = w.start[2];
+      const az = -w.start[1];
+      const bx = w.end[0];
+      const by = w.end[2];
+      const bz = -w.end[1];
+      const midx = (ax + bx) * 0.5;
+      const midy = (ay + by) * 0.5;
+      const midz = (az + bz) * 0.5;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const dz = bz - az;
+      const lengthScene = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (lengthScene < 1e-6) continue;
+      vDir.set(dx, dy, dz).normalize();
       const q = new THREE.Quaternion();
-      q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+      q.setFromUnitVectors(vUp, vDir);
       const tag = w.tag ?? MAIN_WIRE_TAG;
       const isShield = tag === FEEDLINE_SHIELD_TAG;
       const isBridge = tag === FEED_BRIDGE_TAG;
@@ -105,12 +112,12 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
       const wireObj = {
         key: idx,
         tag,
-        position: [mid.x, mid.y, mid.z] as [number, number, number],
+        position: [midx, midy, midz] as [number, number, number],
         quaternion: q,
         length: lengthScene,
         radius,
-        sceneStart: [a.x, a.y, a.z] as [number, number, number],
-        sceneEnd: [b.x, b.y, b.z] as [number, number, number],
+        sceneStart: [ax, ay, az] as [number, number, number],
+        sceneEnd: [bx, by, bz] as [number, number, number],
         isShield,
         isBridge,
       };
