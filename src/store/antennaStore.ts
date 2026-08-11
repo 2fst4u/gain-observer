@@ -126,7 +126,6 @@ export const TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS = 600;
  * worst-case SWR across 7–28 MHz unchanged. Users who want maximum flatness
  * can still type Z₀ in; the hint text quotes it.
  */
-export const FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS = FOLDED_DIPOLE_FEED_R_OHMS;
 
 /**
  * The recommended terminating resistance for an antenna type, in ohms, or 0 for
@@ -136,7 +135,7 @@ export const FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS = FOLDED_DIPOLE_FEED_R_OHMS;
  *   • sloping-V / terminated-delta — a fixed design value (≈ the structure's
  *     characteristic impedance over real ground).
  *   • folded-dipole — the antenna's own feedpoint resistance, i.e. the −3 dB
- *     efficiency point (see FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS). Both are
+ *     efficiency point (see FOLDED_DIPOLE_FEED_R_OHMS). Both are
  *     independent of the conductor spacing.
  */
 export function recommendedTerminatingResistor(antennaType: AntennaType): number {
@@ -146,7 +145,7 @@ export function recommendedTerminatingResistor(antennaType: AntennaType): number
     case 'terminated-delta':
       return TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS;
     case 'folded-dipole':
-      return FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS;
+      return FOLDED_DIPOLE_FEED_R_OHMS;
     default:
       return 0;
   }
