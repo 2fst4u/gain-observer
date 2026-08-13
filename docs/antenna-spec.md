@@ -366,7 +366,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **`height` parameter:** Bend-point height above ground (metres). This equals the length of the vertical section (base gap excluded). Controls how tall the mast needs to be.
 - **`length` parameter:** Total wire length (vertical + horizontal combined, metres). The horizontal section absorbs any length beyond the vertical section: $L_{horiz} = L_{total} - L_{vert}$.
 - **Orientation:** Azimuth direction the horizontal section runs.
-- **Base:** The vertical wire starts at `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above ground — same electrical isolation as the vertical whip.
+- **Base:** The vertical wire starts at exactly `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above ground, regardless of the `height` parameter.
 - **Bend junction:** The end of the vertical wire and the start of the horizontal wire share an exact coordinate so NEC creates a proper wire junction.
 - **Reference length:** $0.2375\lambda$ total (¼λ with 0.95 end-effect); the horizontal section provides the electrical length the mast height falls short of.
 
