@@ -180,3 +180,6 @@
 ## 2026-08-05 - Math.pow vs Math.exp / Multiplication
 **Learning:** In V8, `Math.pow(10, x)` is significantly slower than its natural exponential equivalent `Math.exp(x * Math.LN10)`. Additionally, `Math.pow(x, 2)` is generally slower than simple multiplication (`x * x`).
 **Action:** Replaced `Math.pow(10, ...)` with `Math.exp(...)` and `Math.pow(x, 2)` with `x * x` in math-heavy paths to reduce overhead.
+## 2024-08-13 - Math.pow and ** Overhead in V8
+**Learning:** In V8 JavaScript engines, exponentiation operations (`Math.pow` and `**`) incur measurable overhead compared to explicit multiplication (`x * x`), especially in hot loops or frequent calculations like computing 3D Euclidean distances in geometry generation.
+**Action:** Replace `x ** 2` or `Math.pow(x, 2)` with explicit multiplication (`x * x`) when micro-optimizing performance-sensitive paths involving math calculations. Always measure or understand the context before applying this to avoid premature optimization.
