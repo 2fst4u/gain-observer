@@ -1173,9 +1173,9 @@ describe("antennaStore actions", () => {
       const base = wires.find((w) => w.tag === DELTA_BASE_TAG)!;
 
       // Base width = side length (equilateral)
-      const baseWidth = Math.sqrt(
-        (base.start[0] - base.end[0]) ** 2 + (base.start[1] - base.end[1]) ** 2,
-      );
+      const bx = base.start[0] - base.end[0];
+      const by = base.start[1] - base.end[1];
+      const baseWidth = Math.sqrt(bx * bx + by * by);
       expect(baseWidth).toBeCloseTo(sideLen, 2);
 
       // Triangle height: apex z - base z
@@ -1192,11 +1192,17 @@ describe("antennaStore actions", () => {
       const rightLeg = wires.find((w) => w.tag === RIGHT_LEG_TAG)!;
       const base = wires.find((w) => w.tag === DELTA_BASE_TAG)!;
 
+      // ⚡ Bolt: Performance Optimization
+      // Explicit multiplication (x * x) avoids the overhead of Math.pow and ** operators in V8.
       const dist3d = (
         a: readonly [number, number, number],
         b: readonly [number, number, number],
-      ) =>
-        Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2);
+      ) => {
+        const dx = a[0] - b[0];
+        const dy = a[1] - b[1];
+        const dz = a[2] - b[2];
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+      };
 
       const leftLen = dist3d(leftLeg.start, leftLeg.end);
       const rightLen = dist3d(rightLeg.start, rightLeg.end);

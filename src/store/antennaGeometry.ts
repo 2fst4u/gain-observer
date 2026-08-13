@@ -1144,8 +1144,15 @@ export function buildDipoleWires(params: DipoleWiresParams): Wire[] {
   const leftTip: [number, number, number] = [cleanZero(-half * dx), cleanZero(-half * dy), h];
   const rightTip: [number, number, number] = [cleanZero(half * dx), cleanZero(half * dy), h];
 
-  const dist = (p1: [number, number, number], p2: [number, number, number]) =>
-    Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2 + (p1[2] - p2[2]) ** 2);
+  // ⚡ Bolt: Performance Optimization
+  // Explicit multiplication (x * x) avoids the overhead of Math.pow and ** operators in V8,
+  // making this distance calculation slightly faster when computing dense geometries.
+  const dist = (p1: [number, number, number], p2: [number, number, number]) => {
+    const dx = p1[0] - p2[0];
+    const dy = p1[1] - p2[1];
+    const dz = p1[2] - p2[2];
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+  };
 
   const leftLen = dist(leftTip, bridgeStart);
   const rightLen = dist(rightTip, bridgeEnd);
