@@ -241,6 +241,8 @@ function UtcHourInput() {
     }
   }
 
+  const isInvalid = HHmmToHour(localUtcHour) === null;
+
   return (
     <>
       <label htmlFor="utc-hour-input" style={{ marginTop: 10 }}>
@@ -255,7 +257,8 @@ function UtcHourInput() {
           value={localUtcHour}
           onFocus={() => setIsUtcHourFocused(true)}
           aria-label="UTC hour override"
-          aria-invalid={HHmmToHour(localUtcHour) === null}
+          aria-invalid={isInvalid}
+          aria-describedby={isInvalid ? "utc-error" : undefined}
           onChange={(e) => {
             const s = e.target.value;
             setLocalUtcHour(s);
@@ -279,6 +282,11 @@ function UtcHourInput() {
           Auto
         </button>
       </div>
+      {isInvalid && (
+        <div id="utc-error" role="alert" style={{ color: 'var(--danger)', fontSize: 11, marginTop: 4 }}>
+          Invalid time format. Use HH:mm (e.g., 14:30).
+        </div>
+      )}
     </>
   );
 }
