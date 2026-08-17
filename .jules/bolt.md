@@ -183,3 +183,6 @@
 ## 2024-08-13 - Math.pow and ** Overhead in V8
 **Learning:** In V8 JavaScript engines, exponentiation operations (`Math.pow` and `**`) incur measurable overhead compared to explicit multiplication (`x * x`), especially in hot loops or frequent calculations like computing 3D Euclidean distances in geometry generation.
 **Action:** Replace `x ** 2` or `Math.pow(x, 2)` with explicit multiplication (`x * x`) when micro-optimizing performance-sensitive paths involving math calculations. Always measure or understand the context before applying this to avoid premature optimization.
+## 2024-05-24 - React Array Map Optimization
+**Learning:** In performance-critical React components, rendering lists using `Array.prototype.map()` inside JSX incurs overhead from dynamic array resizing and callback function allocation.
+**Action:** Replace `array.map()` with a pre-allocated array (`new Array(len)`) populated via a standard `for` loop before returning the JSX, especially when array lengths are known.
