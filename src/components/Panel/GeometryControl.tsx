@@ -1,13 +1,12 @@
 import { GeometryStatus } from './GeometryStatus';
 import { useState } from 'react';
-import { useAntennaStore, legMultipleFromLength, recommendedTerminatingResistor } from '../../store/antennaStore';
+import { useAntennaStore, legMultipleFromLength, recommendedTerminatingResistor, type AntennaType } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
   toDisplayLength,
   fromDisplayLength,
   displayLengthUnit,
 } from '../../physics/units';
-import { type AntennaType } from '../../store/antennaStore';
 import { type OrientationPreset } from '../../store/antennaGeometry';
 import { FOLDED_DIPOLE_MAX_APERTURE_M, FOLDED_DIPOLE_FEED_R_OHMS } from '../../physics/constants';
 import { TransformerControl } from './TransformerControl';
