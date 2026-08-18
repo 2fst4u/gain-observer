@@ -2,11 +2,11 @@
 // the whole tab doesn't go blank when something throws. We also log the
 // error to the console so it's visible during development.
 
-import { Component, type ErrorInfo } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {
-  children: React.ReactNode;
-  fallback?: (error: Error, reset: () => void) => React.ReactNode;
+  children: ReactNode;
+  fallback?: (error: Error, reset: () => void) => ReactNode;
 }
 
 interface State {
@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   reset = (): void => this.setState({ error: null });
 
-  override render(): React.ReactNode {
+  override render(): ReactNode {
     if (this.state.error) {
       if (this.props.fallback) return this.props.fallback(this.state.error, this.reset);
       return (
