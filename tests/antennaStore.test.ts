@@ -257,10 +257,10 @@ describe("antennaStore selectors", () => {
       });
 
       expect(config).toBeDefined();
-      expect(config?.frequencyMHz).toBe(7.1);
-      expect(config?.preset).toEqual(findFeedlinePreset("rg213"));
-      expect(config?.upmastLengthM).toBe(15);
-      expect(config?.mainLengthM).toBe(30);
+      const preset = findFeedlinePreset("rg213");
+      expect(config?.z0).toBe(preset.z0);
+      expect(config?.upmastMatchedLossDb).toBeGreaterThan(0);
+      expect(config?.mainMatchedLossDb).toBeGreaterThan(0);
       expect(config?.componentQ).toBe(ATU_COMPONENT_Q);
     });
   });

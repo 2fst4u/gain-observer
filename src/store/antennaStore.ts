@@ -31,6 +31,7 @@ import {
   DEFAULT_WIRE_RADIUS_M,
   SLOPING_V_MIN_TIP_Z_M,
   findFeedlinePreset,
+  feedlineLossDb,
   findGroundPreset,
   referenceLength,
   halfWaveLength,
@@ -1418,11 +1419,11 @@ export function selectAtuConfig(args: {
   atuMainFeedlineLength: number;
 }): AtuMatchConfig | undefined {
   if (!args.atuEnabled) return undefined;
+  const preset = findFeedlinePreset(args.feedlineId);
   return {
-    frequencyMHz: args.frequency,
-    preset: findFeedlinePreset(args.feedlineId),
-    upmastLengthM: args.feedlineLength,
-    mainLengthM: args.atuMainFeedlineLength,
+    z0: preset.z0,
+    upmastMatchedLossDb: feedlineLossDb(preset, args.frequency, args.feedlineLength),
+    mainMatchedLossDb: feedlineLossDb(preset, args.frequency, args.atuMainFeedlineLength),
     componentQ: ATU_COMPONENT_Q,
   };
 }
