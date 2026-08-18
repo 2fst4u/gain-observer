@@ -10,8 +10,6 @@ import {
   recommendedTerminatingResistor,
   SLOPING_V_DEFAULT_TERMINATION_OHMS,
   TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS,
-  SWR_VIEW_F_MIN_MHZ,
-  SWR_VIEW_F_MAX_MHZ,
   LEFT_LEG_TAG,
   RIGHT_LEG_TAG,
   DELTA_BASE_TAG,
@@ -20,6 +18,8 @@ import {
   type AntennaState,
 } from "../src/store/antennaStore";
 import {
+  SWEEP_F_MIN_MHZ,
+  SWEEP_F_MAX_MHZ,
   ATU_COMPONENT_Q,
   findFeedlinePreset,
   DEFAULT_WHIP_LENGTH_M,
@@ -1603,12 +1603,12 @@ describe("antennaStore actions", () => {
       // Pan hard against the low edge.
       store.panSwrView(-100);
       const win = selectSwrWindow(useAntennaStore.getState());
-      expect(win.startMHz).toBeGreaterThanOrEqual(SWR_VIEW_F_MIN_MHZ - 1e-9);
+      expect(win.startMHz).toBeGreaterThanOrEqual(SWEEP_F_MIN_MHZ - 1e-9);
       // Zoom way out — the span saturates at the full HF range.
       store.zoomSwrView(1000);
       const full = selectSwrWindow(useAntennaStore.getState());
-      expect(full.startMHz).toBeCloseTo(SWR_VIEW_F_MIN_MHZ, 6);
-      expect(full.endMHz).toBeCloseTo(SWR_VIEW_F_MAX_MHZ, 6);
+      expect(full.startMHz).toBeCloseTo(SWEEP_F_MIN_MHZ, 6);
+      expect(full.endMHz).toBeCloseTo(SWEEP_F_MAX_MHZ, 6);
     });
 
     it("re-centres on the operating frequency when the band changes", () => {

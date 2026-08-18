@@ -22,6 +22,8 @@ import type {
   AntennaType,
 } from '../physics/types';
 import {
+  SWEEP_F_MIN_MHZ,
+  SWEEP_F_MAX_MHZ,
   TRANSFORMER_CHOKE_OHMS,
   ATU_COMPONENT_Q,
   DEFAULT_FEEDLINE_ID,
@@ -406,8 +408,6 @@ const INITIAL_LENGTH = referenceLength(INITIAL_TYPE, INITIAL_FREQ); // resonant 
 
 // SWR sweep view-window bounds (MHz). The window is always clamped inside this
 // range, which matches the engine's sweep limits (Nec2Engine.F_MIN/F_MAX_MHZ).
-export const SWR_VIEW_F_MIN_MHZ = 1.0;
-export const SWR_VIEW_F_MAX_MHZ = 30;
 // Tightest span the user can zoom to (kHz-scale detail) and the default span as
 // a fraction of the operating frequency (the "logical default zoom").
 const SWR_VIEW_MIN_SPAN_MHZ = 0.05;
@@ -415,10 +415,10 @@ const DEFAULT_SWR_VIEW_SPAN_FRACTION = 0.2;
 
 /** Clamp a (centre, span) pair so the whole window stays within the HF limits. */
 function clampSwrView(centerMHz: number, spanMHz: number): { center: number; span: number } {
-  const fullSpan = SWR_VIEW_F_MAX_MHZ - SWR_VIEW_F_MIN_MHZ;
+  const fullSpan = SWEEP_F_MAX_MHZ - SWEEP_F_MIN_MHZ;
   const span = Math.min(fullSpan, Math.max(SWR_VIEW_MIN_SPAN_MHZ, spanMHz));
   const half = span / 2;
-  const center = Math.min(SWR_VIEW_F_MAX_MHZ - half, Math.max(SWR_VIEW_F_MIN_MHZ + half, centerMHz));
+  const center = Math.min(SWEEP_F_MAX_MHZ - half, Math.max(SWEEP_F_MIN_MHZ + half, centerMHz));
   return { center, span };
 }
 
