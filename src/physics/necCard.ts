@@ -41,14 +41,6 @@ export interface BuildNecCardsOptions {
   readonly sweepStartFreq?: number;
 }
 
-/** Round to fixed digits without introducing trailing zeros drift. */
-function n(v: number, digits = 6): string {
-  if (!Number.isFinite(v)) {
-    throw new Error(`Non-finite numeric value in NEC card: ${v}`);
-  }
-  return v.toFixed(digits);
-}
-
 /** Geometry cards (GW): one per wire, auto-numbering untagged wires. */
 function buildGeometryCards(lines: string[], wires: readonly Wire[]): void {
   let tagCounter = 1;
