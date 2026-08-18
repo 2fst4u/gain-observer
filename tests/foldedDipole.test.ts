@@ -1,17 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import {
-  useAntennaStore,
-  buildWires,
-  selectSimulationInput,
-  LEFT_LEG_TAG,
-  RIGHT_LEG_TAG,
-  FEED_BRIDGE_TAG,
-  FOLDED_DIPOLE_OPPOSITE_TAG,
-  FOLDED_DIPOLE_CONNECTOR_TAG,
-  FOLDED_DIPOLE_TERM_BRIDGE_TAG,
-  type AntennaState,
-} from '../src/store/antennaStore';
-import { FEED_BRIDGE_LENGTH_M, FEEDLINE_SHIELD_TAG } from '../src/physics/constants';
+import { useAntennaStore, buildWires, selectSimulationInput, type AntennaState } from '../src/store/antennaStore';
+import { FEED_BRIDGE_LENGTH_M } from '../src/physics/constants';
+import { LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG, FOLDED_DIPOLE_TERM_BRIDGE_TAG } from '../src/physics/tags';
+import { FEEDLINE_SHIELD_TAG } from '../src/physics/tags';
 
 const FREQ = 7.1;
 const APERTURE = 0.5;

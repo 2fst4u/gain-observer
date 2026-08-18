@@ -1,17 +1,8 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import {
-  buildWires,
-  MAIN_WIRE_TAG,
-  FEED_BRIDGE_TAG,
-  FEEDLINE_SHIELD_TAG,
-  TERMINATED_DELTA_LEFT_BASE_TAG,
-  TERMINATED_DELTA_RIGHT_BASE_TAG,
-  VERTICAL_WHIP_TAG,
-  INVERTED_L_VERTICAL_TAG,
-  type Orientation,
-} from '../../store/antennaStore';
+import { buildWires, type Orientation } from '../../store/antennaStore';
 import type { AntennaType } from '../../physics/types';
+import { MAIN_WIRE_TAG, LEFT_LEG_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, INVERTED_L_VERTICAL_TAG } from '../../physics/tags';
 
 export interface AntennaWireProps {
   readonly type: AntennaType;
@@ -152,7 +143,7 @@ function useFeedpointAndShield(byTag: Map<number, RenderedWire>, type: AntennaTy
     const bridge = byTag.get(FEED_BRIDGE_TAG);
     const shieldWire = byTag.get(FEEDLINE_SHIELD_TAG);
     const mainWireSingle = byTag.get(MAIN_WIRE_TAG);
-    const apexFedLeft = isDelta ? byTag.get(MAIN_WIRE_TAG) : undefined;
+    const apexFedLeft = isDelta ? byTag.get(LEFT_LEG_TAG) : undefined;
     const verticalWhip = isWhip ? byTag.get(VERTICAL_WHIP_TAG) : undefined;
     const invertedLVertical = isInvertedL ? byTag.get(INVERTED_L_VERTICAL_TAG) : undefined;
 

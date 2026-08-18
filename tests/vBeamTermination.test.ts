@@ -7,14 +7,8 @@ import {
   expectNoGroundTouchingWires,
   expectExcitation,
 } from './necInspect';
-import {
-  LEFT_LEG_TAG,
-  RIGHT_LEG_TAG,
-  FEED_BRIDGE_TAG,
-  SLOPING_V_LEFT_STUB_TAG,
-  SLOPING_V_RIGHT_STUB_TAG,
-  SLOPING_V_STUB_BOTTOM_Z_M,
-} from '../src/physics/constants';
+import { SLOPING_V_STUB_BOTTOM_Z_M } from '../src/physics/constants';
+import { LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, SLOPING_V_LEFT_STUB_TAG, SLOPING_V_RIGHT_STUB_TAG } from '../src/physics/tags';
 
 function setupSlopingV(terminatingResistor?: number) {
   const store = useAntennaStore.getState();

@@ -1,11 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  useAntennaStore,
-  selectSimulationInput,
-  TERMINATED_DELTA_LEFT_BASE_TAG,
-  TERMINATED_DELTA_RIGHT_BASE_TAG,
-  TERMINATED_DELTA_BRIDGE_TAG,
-} from '../src/store/antennaStore';
+import { useAntennaStore, selectSimulationInput } from '../src/store/antennaStore';
 import { buildNecCards } from '../src/physics/necCard';
 import {
   getNecLines,
@@ -14,15 +8,9 @@ import {
   expectExcitation,
   expectNoGroundTouchingWires,
 } from './necInspect';
-import {
-  LEFT_LEG_TAG,
-  RIGHT_LEG_TAG,
-  FEED_BRIDGE_TAG,
-  FEEDLINE_SHIELD_TAG,
-  SLOPING_V_MIN_TIP_Z_M,
-  FEED_BRIDGE_LENGTH_M,
-  wavelengthMeters,
-} from '../src/physics/constants';
+import { SLOPING_V_MIN_TIP_Z_M, FEED_BRIDGE_LENGTH_M, wavelengthMeters } from '../src/physics/constants';
+import { TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, TERMINATED_DELTA_BRIDGE_TAG } from '../src/physics/tags';
+import { LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG } from '../src/physics/tags';
 
 function setupTerminatedDelta(terminatingResistor?: number) {
   const store = useAntennaStore.getState();

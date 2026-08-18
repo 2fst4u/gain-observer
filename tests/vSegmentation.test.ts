@@ -6,8 +6,9 @@ import {
   MIN_SEGS_PER_LEG,
   MAX_SEGS_PER_LEG,
 } from '../src/store/antennaGeometry';
-import { wavelengthMeters, FEED_BRIDGE_LENGTH_M, FEED_BRIDGE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../src/physics/constants';
+import { wavelengthMeters, FEED_BRIDGE_LENGTH_M } from '../src/physics/constants';
 import type { Wire } from '../src/physics/types';
+import { FEED_BRIDGE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../src/physics/tags';
 
 const BASE_PARAMS = {
   height: 15,

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useAntennaStore, selectAtuConfig, LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../../store/antennaStore';
+import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { displayedFeedMetrics } from '../../physics/impedance';
 import { phiToBearingDeg } from '../../physics/angles';
@@ -7,6 +7,7 @@ import type { AtuMatchConfig } from '../../physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 import type { TerminationDiagnostics } from '../../physics/types';
 import { StatRow } from '../UI/StatRow';
+import { LEFT_LEG_TAG, RIGHT_LEG_TAG } from '../../physics/tags';
 
 export function StatsReadout() {
   // ⚡ Bolt: Performance Optimization
@@ -187,7 +188,6 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
     </section>
   );
 }
-
 
 function getImpedanceTitle(
   atu: AtuMatchConfig | undefined,
