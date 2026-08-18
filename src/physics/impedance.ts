@@ -1,7 +1,6 @@
 // Impedance/SWR helpers.
 
-import { Z0_SYSTEM, TRANSFORMER_INSERTION_LOSS_DB, feedlineLossDb } from './constants';
-import type { FeedlinePreset } from './constants';
+import { Z0_SYSTEM, TRANSFORMER_INSERTION_LOSS_DB } from './constants';
 import type { ImpedanceResult, SimulationResult } from './types';
 
 /**
@@ -100,13 +99,12 @@ export function atuLossDb(z: ImpedanceResult, componentQ: number, z0: number = Z
  * shack at ~1:1. Both runs are assumed to be the same cable type.
  */
 export interface AtuMatchConfig {
-  readonly frequencyMHz: number;
-  /** Cable type shared by both runs (the up-mast run and the main run). */
-  readonly preset: FeedlinePreset;
-  /** Up-mast run, feedpoint → ATU: runs at the antenna's native SWR. */
-  readonly upmastLengthM: number;
-  /** Main run, ATU → shack: runs matched (~1:1). */
-  readonly mainLengthM: number;
+  /** The characteristic impedance of the upmast cable. */
+  readonly z0: number;
+  /** The matched loss (dB) of the up-mast run (feedpoint → ATU). */
+  readonly upmastMatchedLossDb: number;
+  /** The matched loss (dB) of the main run (ATU → shack). */
+  readonly mainMatchedLossDb: number;
   /** Unloaded Q of the tuner's reactive components. */
   readonly componentQ: number;
 }
@@ -168,12 +166,9 @@ export function displayedFeedMetrics(
     //   • main feedline loss (matched, ~1:1),
     //   • the tuner's own Q-based loss.
     const z = result.impedance;
-    const gammaUpmast = atu.preset.z0 > 0 ? reflectionCoefficientMag(z, atu.preset.z0) : 0;
-    const upmastDb = feedlineLossUnderSwrDb(
-      feedlineLossDb(atu.preset, atu.frequencyMHz, atu.upmastLengthM),
-      gammaUpmast,
-    );
-    const mainDb = feedlineLossDb(atu.preset, atu.frequencyMHz, atu.mainLengthM);
+    const gammaUpmast = atu.z0 > 0 ? reflectionCoefficientMag(z, atu.z0) : 0;
+    const upmastDb = feedlineLossUnderSwrDb(atu.upmastMatchedLossDb, gammaUpmast);
+    const mainDb = atu.mainMatchedLossDb;
     const tunerDb = atuLossDb(z, atu.componentQ);
     return {
       displayedZ: { R: Z0_SYSTEM, X: 0 },
