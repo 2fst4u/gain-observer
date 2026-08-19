@@ -55,28 +55,7 @@ export function pickTable(name: ColormapName): readonly RGB[] {
 }
 
 /**
- * Look up an RGB triplet from a colormap at a 0..1 position.
- * Clamps the input and lerps between adjacent stops.
- */
-export function sampleColormap(name: ColormapName, t: number): RGB {
-  const table = pickTable(name);
-  if (!Number.isFinite(t)) return table[0]!;
-  const clamped = Math.min(1, Math.max(0, t));
-  const f = clamped * (table.length - 1);
-  const i = Math.floor(f);
-  const j = Math.min(i + 1, table.length - 1);
-  const a = table[i]!;
-  const b = table[j]!;
-  const w = f - i;
-  return [
-    a[0] + (b[0] - a[0]) * w,
-    a[1] + (b[1] - a[1]) * w,
-    a[2] + (b[2] - a[2]) * w,
-  ];
-}
-
-/**
- * Hot-path optimized version of sampleColormap that writes directly into an output array.
+ * Hot-path optimized version of a colormap sampler that writes directly into an output array.
  * Uses bitwise operations and avoids creating intermediate array allocations.
  */
 export function sampleColormapFast(table: readonly RGB[], t: number, out: Float32Array, offset: number): void {
