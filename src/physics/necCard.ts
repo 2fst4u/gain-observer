@@ -41,40 +41,56 @@ export interface BuildNecCardsOptions {
   readonly sweepStartFreq?: number;
 }
 
-/** Round to fixed digits without introducing trailing zeros drift. */
-function n(v: number, digits = 6): string {
-  if (!Number.isFinite(v)) {
-    throw new Error(`Non-finite numeric value in NEC card: ${v}`);
-  }
-  return v.toFixed(digits);
-}
-
 /** Geometry cards (GW): one per wire, auto-numbering untagged wires. */
 function buildGeometryCards(lines: string[], wires: readonly Wire[]): void {
   let tagCounter = 1;
-  for (const w of wires) {
+  const len = wires.length;
+  for (let i = 0; i < len; i++) {
+    const w = wires[i];
     const tag = w.tag ?? tagCounter++;
-    const [x1, y1, z1] = w.start;
-    const [x2, y2, z2] = w.end;
+    const start = w.start;
+    const end = w.end;
+    const x1 = start[0];
+    const y1 = start[1];
+    const z1 = start[2];
+    const x2 = end[0];
+    const y2 = end[1];
+    const z2 = end[2];
+    const r = w.radius;
+
+    if (!Number.isFinite(x1)) throw new Error(`Non-finite numeric value in NEC card: ${x1}`);
+    if (!Number.isFinite(y1)) throw new Error(`Non-finite numeric value in NEC card: ${y1}`);
+    if (!Number.isFinite(z1)) throw new Error(`Non-finite numeric value in NEC card: ${z1}`);
+    if (!Number.isFinite(x2)) throw new Error(`Non-finite numeric value in NEC card: ${x2}`);
+    if (!Number.isFinite(y2)) throw new Error(`Non-finite numeric value in NEC card: ${y2}`);
+    if (!Number.isFinite(z2)) throw new Error(`Non-finite numeric value in NEC card: ${z2}`);
+    if (!Number.isFinite(r)) throw new Error(`Non-finite numeric value in NEC card: ${r}`);
     lines.push(
-      `GW ${tag} ${w.segments} ${n(x1, 5)} ${n(y1, 5)} ${n(z1, 5)} ${n(x2, 5)} ${n(y2, 5)} ${n(z2, 5)} ${n(w.radius, 5)}`,
+      'GW ' + tag + ' ' + w.segments + ' ' + x1.toFixed(5) + ' ' + y1.toFixed(5) + ' ' + z1.toFixed(5) + ' ' + x2.toFixed(5) + ' ' + y2.toFixed(5) + ' ' + z2.toFixed(5) + ' ' + r.toFixed(5)
     );
   }
 }
 
 /** Loading cards (LD): segment loads such as a choke balun. */
 function buildLoadingCards(lines: string[], loads?: readonly SegmentLoad[]): void {
-  for (const ld of loads ?? []) {
+  if (!loads) return;
+  for (let i = 0; i < loads.length; i++) {
+    const ld = loads[i];
     if (ld.type === 0) {
       // Series RLC: P1=R Ω, P2=L H, P3=C F.
       const p3 = ld.param3 ?? 0;
+      if (!Number.isFinite(ld.param1)) throw new Error(`Non-finite numeric value in NEC card: ${ld.param1}`);
+      if (!Number.isFinite(ld.param2)) throw new Error(`Non-finite numeric value in NEC card: ${ld.param2}`);
+      if (!Number.isFinite(p3)) throw new Error(`Non-finite numeric value in NEC card: ${p3}`);
       lines.push(
-        `LD 0 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 8)} ${n(p3, 12)}`,
+        'LD 0 ' + ld.wireTag + ' ' + ld.segmentStart + ' ' + ld.segmentEnd + ' ' + ld.param1.toFixed(5) + ' ' + ld.param2.toFixed(8) + ' ' + p3.toFixed(12)
       );
     } else {
       // Impedance load: P1=R Ω, P2=X Ω.
+      if (!Number.isFinite(ld.param1)) throw new Error(`Non-finite numeric value in NEC card: ${ld.param1}`);
+      if (!Number.isFinite(ld.param2)) throw new Error(`Non-finite numeric value in NEC card: ${ld.param2}`);
       lines.push(
-        `LD 4 ${ld.wireTag} ${ld.segmentStart} ${ld.segmentEnd} ${n(ld.param1, 5)} ${n(ld.param2, 5)}`,
+        'LD 4 ' + ld.wireTag + ' ' + ld.segmentStart + ' ' + ld.segmentEnd + ' ' + ld.param1.toFixed(5) + ' ' + ld.param2.toFixed(5)
       );
     }
   }
@@ -82,12 +98,20 @@ function buildLoadingCards(lines: string[], loads?: readonly SegmentLoad[]): voi
 
 /** Network cards (NT): non-radiating two-port networks. */
 function buildNetworkCards(lines: string[], networks?: readonly NetworkLoad[]): void {
-  for (const nt of networks ?? []) {
+  if (!networks) return;
+  for (let i = 0; i < networks.length; i++) {
+    const nt = networks[i];
     const y11i = nt.y11Imag ?? 0;
     const y12i = nt.y12Imag ?? 0;
     const y22i = nt.y22Imag ?? 0;
+    if (!Number.isFinite(nt.y11Real)) throw new Error(`Non-finite numeric value in NEC card: ${nt.y11Real}`);
+    if (!Number.isFinite(y11i)) throw new Error(`Non-finite numeric value in NEC card: ${y11i}`);
+    if (!Number.isFinite(nt.y12Real)) throw new Error(`Non-finite numeric value in NEC card: ${nt.y12Real}`);
+    if (!Number.isFinite(y12i)) throw new Error(`Non-finite numeric value in NEC card: ${y12i}`);
+    if (!Number.isFinite(nt.y22Real)) throw new Error(`Non-finite numeric value in NEC card: ${nt.y22Real}`);
+    if (!Number.isFinite(y22i)) throw new Error(`Non-finite numeric value in NEC card: ${y22i}`);
     lines.push(
-      `NT ${nt.fromTag} ${nt.fromSegment} ${nt.toTag} ${nt.toSegment} ${n(nt.y11Real, 6)} ${n(y11i, 6)} ${n(nt.y12Real, 6)} ${n(y12i, 6)} ${n(nt.y22Real, 6)} ${n(y22i, 6)}`,
+      'NT ' + nt.fromTag + ' ' + nt.fromSegment + ' ' + nt.toTag + ' ' + nt.toSegment + ' ' + nt.y11Real.toFixed(6) + ' ' + y11i.toFixed(6) + ' ' + nt.y12Real.toFixed(6) + ' ' + y12i.toFixed(6) + ' ' + nt.y22Real.toFixed(6) + ' ' + y22i.toFixed(6)
     );
   }
 }
@@ -97,13 +121,21 @@ function buildNetworkCards(lines: string[], networks?: readonly NetworkLoad[]): 
  * NEC's TL card is lossless and non-radiating by definition.
  */
 function buildTransmissionLineCards(lines: string[], transmissionLines?: readonly TransmissionLine[]): void {
-  for (const tl of transmissionLines ?? []) {
+  if (!transmissionLines) return;
+  for (let i = 0; i < transmissionLines.length; i++) {
+    const tl = transmissionLines[i];
     const y1r = tl.shuntAdmEnd1Real ?? 0;
     const y1i = tl.shuntAdmEnd1Imag ?? 0;
     const y2r = tl.shuntAdmEnd2Real ?? 0;
     const y2i = tl.shuntAdmEnd2Imag ?? 0;
+    if (!Number.isFinite(tl.z0)) throw new Error(`Non-finite numeric value in NEC card: ${tl.z0}`);
+    if (!Number.isFinite(tl.lengthM)) throw new Error(`Non-finite numeric value in NEC card: ${tl.lengthM}`);
+    if (!Number.isFinite(y1r)) throw new Error(`Non-finite numeric value in NEC card: ${y1r}`);
+    if (!Number.isFinite(y1i)) throw new Error(`Non-finite numeric value in NEC card: ${y1i}`);
+    if (!Number.isFinite(y2r)) throw new Error(`Non-finite numeric value in NEC card: ${y2r}`);
+    if (!Number.isFinite(y2i)) throw new Error(`Non-finite numeric value in NEC card: ${y2i}`);
     lines.push(
-      `TL ${tl.fromTag} ${tl.fromSegment} ${tl.toTag} ${tl.toSegment} ${n(tl.z0, 4)} ${n(tl.lengthM, 5)} ${n(y1r, 6)} ${n(y1i, 6)} ${n(y2r, 6)} ${n(y2i, 6)}`,
+      'TL ' + tl.fromTag + ' ' + tl.fromSegment + ' ' + tl.toTag + ' ' + tl.toSegment + ' ' + tl.z0.toFixed(4) + ' ' + tl.lengthM.toFixed(5) + ' ' + y1r.toFixed(6) + ' ' + y1i.toFixed(6) + ' ' + y2r.toFixed(6) + ' ' + y2i.toFixed(6)
     );
   }
 }
@@ -129,8 +161,10 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
   const sweepStep = opts.sweepStep ?? 0;
   const freqStart = opts.sweepStartFreq ?? input.frequencyMHz;
   // If not sweeping, keep step as strictly "0" for exact fixture match.
-  const stepStr = sweepPoints > 1 ? n(sweepStep, 6) : '0';
-  lines.push(`FR 0 ${sweepPoints} 0 0 ${n(freqStart, 6)} ${stepStr}`);
+  const stepStr = sweepPoints > 1 ? sweepStep.toFixed(6) : '0';
+  if (!Number.isFinite(freqStart)) throw new Error(`Non-finite numeric value in NEC card: ${freqStart}`);
+  if (sweepPoints > 1 && !Number.isFinite(sweepStep)) throw new Error(`Non-finite numeric value in NEC card: ${sweepStep}`);
+  lines.push('FR 0 ' + sweepPoints + ' 0 0 ' + freqStart.toFixed(6) + ' ' + stepStr);
 
   // Ground card (before EX per NEC-2 convention for static model).
   if (input.ground.type === 'perfect') {
@@ -139,9 +173,11 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
   } else if (input.ground.type === 'real') {
     const eps = input.ground.epsilon ?? 13;
     const sig = input.ground.sigma ?? 0.005;
+    if (!Number.isFinite(eps)) throw new Error(`Non-finite numeric value in NEC card: ${eps}`);
+    if (!Number.isFinite(sig)) throw new Error(`Non-finite numeric value in NEC card: ${sig}`);
     // GN 2 uses Sommerfeld-Norton (more accurate, slower).
     // Params: type, _, _, _, epsilon_r, sigma
-    lines.push(`GN 2 0 0 0 ${n(eps, 3)} ${n(sig, 5)}`);
+    lines.push('GN 2 0 0 0 ' + eps.toFixed(3) + ' ' + sig.toFixed(5));
   }
 
   // Loading cards (LD): segment loads such as a choke balun.
@@ -158,7 +194,9 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
   const ex = input.excitation;
   const vr = ex.real ?? 1;
   const vi = ex.imag ?? 0;
-  lines.push(`EX 0 ${ex.wireTag} ${ex.segment} 0 ${n(vr, 4)} ${n(vi, 4)}`);
+  if (!Number.isFinite(vr)) throw new Error(`Non-finite numeric value in NEC card: ${vr}`);
+  if (!Number.isFinite(vi)) throw new Error(`Non-finite numeric value in NEC card: ${vi}`);
+  lines.push('EX 0 ' + ex.wireTag + ' ' + ex.segment + ' 0 ' + vr.toFixed(4) + ' ' + vi.toFixed(4));
 
   // Radiation pattern card.
   // NEC-2 RP 0 computes far-field in normal mode.
@@ -168,8 +206,10 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
     const { thetaSteps, phiSteps } = input.patternResolution;
     const dTheta = 180 / (thetaSteps - 1);
     const dPhi = 360 / phiSteps; // phi wraps, so do not subtract 1
+    if (!Number.isFinite(dTheta)) throw new Error(`Non-finite numeric value in NEC card: ${dTheta}`);
+    if (!Number.isFinite(dPhi)) throw new Error(`Non-finite numeric value in NEC card: ${dPhi}`);
     lines.push(
-      `RP 0 ${thetaSteps} ${phiSteps} 1000 0 0 ${n(dTheta, 4)} ${n(dPhi, 4)}`,
+      'RP 0 ' + thetaSteps + ' ' + phiSteps + ' 1000 0 0 ' + dTheta.toFixed(4) + ' ' + dPhi.toFixed(4)
     );
   } else {
     // Without an RP/XQ card NEC-2 never runs the matrix solve, so the
