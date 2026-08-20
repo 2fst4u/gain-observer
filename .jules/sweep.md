@@ -115,3 +115,4 @@
 ## 2026-08-09 - Sweep: Remove unused gainToColorT function
 **Learning:** `gainToColorT` was unused dead code in `src/utils/colormap.ts` and successfully removed alongside its tests to improve maintainability.
 **Action:** Removed unused `gainToColorT` from `src/utils/colormap.ts` and `tests/colormap.test.ts`.
+## 2026-08-19 - Sweep: Remove unused sampleColormap function\n**Learning:** `sampleColormap` was unused dead code in `src/utils/colormap.ts` (having been replaced by `sampleColormapFast`) and successfully removed alongside its tests to improve maintainability.\n**Action:** Removed unused `sampleColormap` from `src/utils/colormap.ts` and its associated tests in `tests/colormap.test.ts`.
