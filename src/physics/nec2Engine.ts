@@ -61,6 +61,26 @@ interface EmscriptenFactory {
  *
  * Keep this helper separate so tests can stub it out with a file:// URL.
  */
+
+function validateUrlOrigin(parsedUrl: URL): void {
+  if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
+    throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
+  }
+
+  if (parsedUrl.protocol === 'file:') return;
+
+  const currentOrigin =
+    typeof self !== 'undefined' && typeof self.location !== 'undefined' && self.location.origin !== 'null'
+      ? self.location.origin
+      : 'http://localhost';
+
+  const expectedOrigin = new URL(currentOrigin === 'http://localhost' ? 'http://localhost/' : currentOrigin).origin;
+
+  if (parsedUrl.origin !== expectedOrigin && parsedUrl.hostname !== 'localhost' && parsedUrl.hostname !== '127.0.0.1') {
+    throw new Error(`Untrusted origin: ${parsedUrl.origin}`);
+  }
+}
+
 async function loadNec2Factory(baseUrl: string): Promise<EmscriptenFactory> {
   let url: string;
   if (/^https?:|^file:/.test(baseUrl)) {
@@ -76,9 +96,7 @@ async function loadNec2Factory(baseUrl: string): Promise<EmscriptenFactory> {
     url = new URL(`${baseUrl}nec2.js`, origin || 'http://localhost/').href;
   }
   const parsedUrl = new URL(url, 'http://localhost/');
-  if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
-    throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
-  }
+  validateUrlOrigin(parsedUrl);
   const mod = (await import(/* @vite-ignore */ parsedUrl.href)) as { default: EmscriptenFactory };
   return mod.default;
 }
@@ -251,9 +269,7 @@ export class Nec2Engine implements Engine {
       url = new URL(`${this.baseUrl}${path}`, origin).href;
     }
     const parsedUrl = new URL(url, 'http://localhost/');
-    if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
-      throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
-    }
+    validateUrlOrigin(parsedUrl);
     return parsedUrl.href;
   }
 
