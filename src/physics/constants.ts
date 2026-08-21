@@ -100,14 +100,6 @@ export function referenceLength(type: AntennaType, frequencyMHz: number, endEffe
   return strategy(lambda, endEffect);
 }
 
-// --- Geometry Tags ---
-export const MAIN_WIRE_TAG = 1; // single-wire dipole (no feedline)
-export const LEFT_LEG_TAG = 1; // left leg of split antenna
-export const RIGHT_LEG_TAG = 2; // right leg of split antenna
-export const FEED_BRIDGE_TAG = 3; // 1-segment source bridge
-export const FEEDLINE_SHIELD_TAG = 4; // coax shield (radiating outer surface)
-export const DELTA_BASE_TAG = 6; // base wire of delta loop (left corner to right corner)
-
 /**
  * Length of the source bridge segment for apex-fed or split-fed antennas (metres).
  * Chosen to be small enough to not affect pattern, but large enough to
@@ -165,8 +157,6 @@ export const SLOPING_V_MIN_TIP_Z_M = 0.5;
  * tip to near-ground, modelling the physical tip-to-earth terminating
  * resistor (a current path from the wire tip down to a ground rod).
  */
-export const SLOPING_V_LEFT_STUB_TAG = 7;
-export const SLOPING_V_RIGHT_STUB_TAG = 8;
 
 /**
  * Wire tags for the Terminated Delta antenna.
@@ -186,16 +176,12 @@ export const SLOPING_V_RIGHT_STUB_TAG = 8;
  * feedpoint impedance broadband, at the cost of efficiency on the
  * fundamental — exactly the trade a broadband loop is for.
  */
-export const TERMINATED_DELTA_LEFT_BASE_TAG = 9;
-export const TERMINATED_DELTA_RIGHT_BASE_TAG = 10;
-export const TERMINATED_DELTA_BRIDGE_TAG = 11;
 
 /**
  * Wire tag for the vertical whip (single-wire monopole).
  * Distinct from MAIN_WIRE_TAG so the renderer can place the feedpoint marker
  * at the base of the whip rather than at its midpoint.
  */
-export const VERTICAL_WHIP_TAG = 12;
 
 /**
  * Default whip length in metres = 32 ft (32 × 0.3048).
@@ -221,26 +207,22 @@ export const VERTICAL_WHIP_BASE_GAP_M = 0.01;
  * radials share the same tag so they group cleanly in NEC current /
  * ripple diagnostics.
  */
-export const VERTICAL_WHIP_RADIAL_TAG = 13;
 
 /**
  * Wire tag for the vertical section of an Inverted-L antenna.
  * The base of this wire carries the NEC excitation (segment 1).
  */
-export const INVERTED_L_VERTICAL_TAG = 14;
 
 /**
  * Wire tag for the horizontal top-loading section of an Inverted-L.
  * Shares the bend-point junction with INVERTED_L_VERTICAL_TAG.
  */
-export const INVERTED_L_HORIZONTAL_TAG = 15;
 
 /**
  * Wire tag for the optional counterpoise radials at the base of an
  * Inverted-L. Kept separate from VERTICAL_WHIP_RADIAL_TAG so that
  * current-ripple diagnostics can distinguish the two antenna types.
  */
-export const INVERTED_L_RADIAL_TAG = 16;
 
 /**
  * Wire tags for the Folded Dipole antenna.
@@ -263,8 +245,6 @@ export const INVERTED_L_RADIAL_TAG = 16;
  *   FOLDED_DIPOLE_CONNECTOR_TAG  (18) — both end connectors across the aperture
  *   FOLDED_DIPOLE_TERM_BRIDGE_TAG (19) — termination bridge (TFD only); LD-4 carries R
  */
-export const FOLDED_DIPOLE_OPPOSITE_TAG = 17;
-export const FOLDED_DIPOLE_CONNECTOR_TAG = 18;
 /**
  * Termination bridge wire for the TFD (Terminated Folded Dipole).
  *
@@ -276,7 +256,6 @@ export const FOLDED_DIPOLE_CONNECTOR_TAG = 18;
  * for a traveling-wave TFD, dissipating the wave that would otherwise reflect.
  * This mirrors the terminated-delta's centre-gap bridge.
  */
-export const FOLDED_DIPOLE_TERM_BRIDGE_TAG = 19;
 
 /**
  * Default conductor spacing (aperture) of the folded dipole, metres.

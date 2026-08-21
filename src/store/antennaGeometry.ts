@@ -1,29 +1,7 @@
 import { cleanZero } from "../utils/math";
-import {
-  SLOPING_V_MIN_TIP_Z_M,
-  wavelengthMeters,
-  MAIN_WIRE_TAG,
-  LEFT_LEG_TAG,
-  RIGHT_LEG_TAG,
-  FEED_BRIDGE_TAG,
-  FEED_BRIDGE_LENGTH_M,
-  DELTA_BASE_TAG,
-  FEEDLINE_SHIELD_TAG,
-  TERMINATED_DELTA_LEFT_BASE_TAG,
-  TERMINATED_DELTA_RIGHT_BASE_TAG,
-  VERTICAL_WHIP_TAG,
-  VERTICAL_WHIP_BASE_GAP_M,
-  VERTICAL_WHIP_RADIAL_TAG,
-  VERTICAL_WHIP_RADIAL_COUNT,
-  INVERTED_L_VERTICAL_TAG,
-  INVERTED_L_HORIZONTAL_TAG,
-  INVERTED_L_RADIAL_TAG,
-  FOLDED_DIPOLE_OPPOSITE_TAG,
-  FOLDED_DIPOLE_CONNECTOR_TAG,
-  // FOLDED_DIPOLE_TERM_BRIDGE_TAG is used only in antennaStore (buildTerminationElements).
-  // Imported here so geometry tests can locate the constant from the geometry module if needed.
-} from '../physics/constants';
+import { SLOPING_V_MIN_TIP_Z_M, wavelengthMeters, FEED_BRIDGE_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT } from '../physics/constants';
 import type { Wire } from '../physics/types';
+import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, DELTA_BASE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../physics/tags';
 
 /** Minimum number of NEC segments per wavelength along each V leg. */
 export const SEGS_PER_WAVELENGTH = 20;
@@ -249,7 +227,6 @@ export interface SlopingVWiresParams {
  *             tail-end at the tip; its `.end` is the tip).
  */
 
-
 function createSlopingVLegPointCalculator(params: SlopingVWiresParams, effectiveSlopeRad: number) {
   const h = params.height;
   const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
@@ -415,7 +392,6 @@ export interface DeltaLoopWiresParams {
   feedlineShield?: FeedlineShield | null;
 }
 
-
 function calcSegs(length: number, lambda: number, userSegments: number, overrideMinSegs?: number): number {
   const minLegSegs = Math.ceil((SEGS_PER_WAVELENGTH * length) / lambda);
   return Math.min(
@@ -569,7 +545,6 @@ export interface TerminatedDeltaWiresParams {
   frequency: number;
   feedlineShield?: FeedlineShield | null;
 }
-
 
 function calcTerminatedDeltaPoints(halfBase: number, dx: number, dy: number, bottomZ: number) {
   const leftCorner: [number, number, number] = [-halfBase * dx, -halfBase * dy, bottomZ];

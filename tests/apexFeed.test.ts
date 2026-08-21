@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { useAntennaStore, selectSimulationInput } from '../src/store/antennaStore';
 import { buildNecCards } from '../src/physics/necCard';
 import { parseGwLine, getNecLines, expectExcitation } from './necInspect';
-import { FEED_BRIDGE_TAG, LEFT_LEG_TAG, DELTA_BASE_TAG } from '../src/physics/constants';
+import { FEED_BRIDGE_TAG, LEFT_LEG_TAG, DELTA_BASE_TAG } from '../src/physics/tags';
 
 describe('Apex Feed and Geometry', () => {
   it('should generate a balanced bridge for Inverted V', () => {

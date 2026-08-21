@@ -1,24 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
-import {
-  INVERTED_L_VERTICAL_TAG,
-  INVERTED_L_HORIZONTAL_TAG,
-  INVERTED_L_RADIAL_TAG,
-  VERTICAL_WHIP_RADIAL_COUNT,
-  VERTICAL_WHIP_TAG,
-  VERTICAL_WHIP_RADIAL_TAG,
-  LEFT_LEG_TAG,
-  RIGHT_LEG_TAG,
-  DELTA_BASE_TAG,
-  TERMINATED_DELTA_LEFT_BASE_TAG,
-  TERMINATED_DELTA_RIGHT_BASE_TAG,
-  FEED_BRIDGE_TAG,
-  FEEDLINE_SHIELD_TAG,
-  FEED_BRIDGE_LENGTH_M,
-  FOLDED_DIPOLE_OPPOSITE_TAG,
-  FOLDED_DIPOLE_CONNECTOR_TAG,
-  SLOPING_V_MIN_TIP_Z_M
-} from '../src/physics/constants';
+import { VERTICAL_WHIP_RADIAL_COUNT, FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../src/physics/constants';
+import { INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../src/physics/tags';
 
 describe('gradedSegmentPlan', () => {
   it('returns empty plan for zero or negative length', () => {
@@ -616,7 +599,6 @@ describe('buildVerticalWhipWires', () => {
     expect(vertical.segments).toBeGreaterThan(5); // Forced up by minSegs
   });
 });
-
 
 describe('buildInvertedVWires', () => {
   const baseParams = {

@@ -1,3 +1,4 @@
+import { MAIN_WIRE_TAG } from '../src/physics/tags';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useAntennaGeometry } from '../src/components/Scene/useAntennaGeometry';
@@ -35,7 +36,7 @@ describe('useAntennaGeometry', () => {
     }));
 
     expect(result.current.rendered.length).toBeGreaterThan(0);
-    expect(result.current.rendered[0].tag).toBe(1); // MAIN_WIRE_TAG
+    expect(result.current.rendered[0].tag).toBe(MAIN_WIRE_TAG);
     expect(result.current.shield).toBeUndefined();
     expect(result.current.feedpoint).toBeDefined();
     expect(result.current.terminatedDeltaSplit).toBeNull();
