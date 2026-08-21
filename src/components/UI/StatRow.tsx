@@ -21,7 +21,7 @@ export const StatRow: React.FC<StatRowProps> = ({
 }) => {
   return (
     <div className="stat" style={style}>
-      <span className="stat-label" title={title} style={{ ...labelStyle, ...(title ? { cursor: 'help', textDecoration: 'underline dotted', textDecorationThickness: '1px', textUnderlineOffset: '2px' } : {}) }}>
+      <span className="stat-label" title={title} style={labelStyle}>
         {label}
       </span>
       <span className={`stat-value ${valueClassName}`.trim()} style={valueStyle}>
