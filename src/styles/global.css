@@ -209,6 +209,15 @@ label {
   color: var(--text-dim);
 }
 
+/* Rows carrying a native `title` tooltip advertise it, so the extra
+   explanation isn't discoverable only by accidental hover. */
+.stat-label[title]:not([title='']) {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
 .stat-value {
   color: var(--text);
   font-weight: 600;
