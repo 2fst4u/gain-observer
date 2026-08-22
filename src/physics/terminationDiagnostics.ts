@@ -27,7 +27,8 @@ import type {
  */
 export function computeCurrentRippleByTag(currents: SegmentCurrent[]): CurrentRipple[] {
   const byTag = new Map<number, number[]>();
-  for (const c of currents) {
+  for (let i = 0; i < currents.length; i++) {
+    const c = currents[i]!;
     let mags = byTag.get(c.tagNo);
     if (!mags) {
       mags = [];
