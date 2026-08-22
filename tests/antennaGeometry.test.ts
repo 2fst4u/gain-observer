@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
+import { buildDipoleWires, gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
 import { VERTICAL_WHIP_RADIAL_COUNT, FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../src/physics/constants';
-import { INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../src/physics/tags';
+import { MAIN_WIRE_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../src/physics/tags';
 
 describe('gradedSegmentPlan', () => {
   it('returns empty plan for zero or negative length', () => {
@@ -664,5 +664,76 @@ describe('buildInvertedVWires', () => {
 
     // Higher frequency -> smaller lambda -> more segments needed for same length
     expect(highSegs).toBeGreaterThan(lowSegs);
+  });
+});
+
+describe('buildDipoleWires', () => {
+  const baseParams = {
+    length: 20,
+    height: 10,
+    orientation: 'NS' as const,
+    wireRadius: 0.001,
+    segments: 51,
+    layout: null,
+  };
+
+  it('generates a single wire when no layout is provided', () => {
+    const wires = buildDipoleWires(baseParams);
+    expect(wires).toHaveLength(1);
+
+    const wire = wires[0];
+    expect(wire.tag).toBe(MAIN_WIRE_TAG);
+    expect(wire.segments).toBe(51);
+    expect(wire.radius).toBe(0.001);
+
+    // NS orientation means length is along Y axis, dx=0, dy=1
+    // half length = 10. start = [0, -10, 10], end = [0, 10, 10]
+    expect(wire.start[0]).toBeCloseTo(0); expect(wire.start[1]).toBeCloseTo(-10); expect(wire.start[2]).toBeCloseTo(10);
+    expect(wire.end[0]).toBeCloseTo(0); expect(wire.end[1]).toBeCloseTo(10); expect(wire.end[2]).toBeCloseTo(10);
+  });
+
+  it('generates three wires (legs + feed bridge) when layout is provided', () => {
+    const params = {
+      ...baseParams,
+      layout: { offset: 2, shield: null },
+    };
+
+    const wires = buildDipoleWires(params);
+    expect(wires).toHaveLength(3);
+
+    const leftLeg = wires.find(w => w.tag === LEFT_LEG_TAG);
+    const rightLeg = wires.find(w => w.tag === RIGHT_LEG_TAG);
+    const feedBridge = wires.find(w => w.tag === FEED_BRIDGE_TAG);
+
+    expect(leftLeg).toBeDefined();
+    expect(rightLeg).toBeDefined();
+    expect(feedBridge).toBeDefined();
+
+    // bridge is FEED_BRIDGE_LENGTH_M long (which is 0.1m based on constants).
+    // offset = 2. So bridge starts at y = 1.95, ends at y = 2.05
+    expect(feedBridge!.start[0]).toBeCloseTo(0); expect(feedBridge!.start[1]).toBeCloseTo(1.95); expect(feedBridge!.start[2]).toBeCloseTo(10);
+    expect(feedBridge!.end[0]).toBeCloseTo(0); expect(feedBridge!.end[1]).toBeCloseTo(2.05); expect(feedBridge!.end[2]).toBeCloseTo(10);
+    expect(feedBridge!.segments).toBe(1);
+
+    // Left leg from tip to bridge
+    expect(leftLeg!.start[0]).toBeCloseTo(0); expect(leftLeg!.start[1]).toBeCloseTo(-10); expect(leftLeg!.start[2]).toBeCloseTo(10);
+    expect(leftLeg!.end[0]).toBeCloseTo(0); expect(leftLeg!.end[1]).toBeCloseTo(1.95); expect(leftLeg!.end[2]).toBeCloseTo(10);
+
+    // Right leg from bridge to tip
+    expect(rightLeg!.start[0]).toBeCloseTo(0); expect(rightLeg!.start[1]).toBeCloseTo(2.05); expect(rightLeg!.start[2]).toBeCloseTo(10);
+    expect(rightLeg!.end[0]).toBeCloseTo(0); expect(rightLeg!.end[1]).toBeCloseTo(10); expect(rightLeg!.end[2]).toBeCloseTo(10);
+  });
+
+  it('respects EW orientation', () => {
+    const params = {
+      ...baseParams,
+      orientation: 'EW' as const,
+    };
+    const wires = buildDipoleWires(params);
+    expect(wires).toHaveLength(1);
+
+    // EW orientation means length is along X axis, dx=1, dy=0
+    expect(wires[0].start).toEqual([-10, 0, 10]);
+    expect(wires[0].end).toEqual([10, 0, 10]);
   });
 });
