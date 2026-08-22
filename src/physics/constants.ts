@@ -313,9 +313,11 @@ export const VERTICAL_WHIP_RADIAL_COUNT = 4;
  */
 export const SLOPING_V_STUB_BOTTOM_Z_M = 0.01;
 
-export const GROUND_PRESET_MAP = new Map<string, GroundPreset>(
-  GROUND_PRESETS.map((p) => [p.id, p])
-);
+export const GROUND_PRESET_MAP = new Map<string, GroundPreset>();
+for (let i = 0; i < GROUND_PRESETS.length; i++) {
+  const p = GROUND_PRESETS[i];
+  GROUND_PRESET_MAP.set(p.id, p);
+}
 
 export function findGroundPreset(id: string): GroundPreset {
   const preset = GROUND_PRESET_MAP.get(id);
