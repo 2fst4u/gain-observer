@@ -37,7 +37,10 @@ export function computeCurrentRippleByTag(currents: SegmentCurrent[]): CurrentRi
   }
 
   const result: CurrentRipple[] = [];
-  for (const [tagNo, mags] of byTag) {
+  for (let it = byTag.entries(), res = it.next(); !res.done; res = it.next()) {
+    const entry = res.value;
+    const tagNo = entry[0];
+    const mags = entry[1];
     if (mags.length < 2) continue;
     let maxMag = mags[0]!;
     let minMag = mags[0]!;
