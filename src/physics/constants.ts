@@ -424,9 +424,11 @@ export const FEEDLINE_PRESETS: ReadonlyArray<FeedlinePreset> = [
 export const DEFAULT_FEEDLINE_ID = 'rg58';
 export const DEFAULT_FEEDLINE_LENGTH_M = 10;
 
-const FEEDLINE_PRESET_MAP = new Map<string, FeedlinePreset>(
-  FEEDLINE_PRESETS.map((p) => [p.id, p])
-);
+const FEEDLINE_PRESET_MAP = new Map<string, FeedlinePreset>();
+for (let i = 0; i < FEEDLINE_PRESETS.length; i++) {
+  const p = FEEDLINE_PRESETS[i];
+  FEEDLINE_PRESET_MAP.set(p.id, p);
+}
 
 export function findFeedlinePreset(id: string): FeedlinePreset {
   return FEEDLINE_PRESET_MAP.get(id) ?? FEEDLINE_PRESETS[0];
