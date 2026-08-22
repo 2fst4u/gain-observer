@@ -260,16 +260,18 @@ function createSlopingVLegPointCalculator(params: SlopingVWiresParams, effective
 function resolveGradedSegmentBreakpoints(plan: GradedSegmentPlan, legLen: number) {
   const breakpoints: number[] = [0];
   let pos = 0;
-  for (const pl of plan.prefixLens) {
-    pos += pl;
+  const prefixLens = plan.prefixLens;
+  const len = prefixLens.length;
+  for (let i = 0; i < len; i++) {
+    pos += prefixLens[i];
     breakpoints.push(pos);
   }
   const prefixEnd = pos;
 
   let tailCount = plan.tailCount;
-  const naturalTotal = plan.prefixLens.length + tailCount;
+  const naturalTotal = len + tailCount;
   if (naturalTotal < MIN_SEGS_PER_LEG && legLen > prefixEnd + 1e-9) {
-    tailCount = Math.max(1, MIN_SEGS_PER_LEG - plan.prefixLens.length);
+    tailCount = Math.max(1, MIN_SEGS_PER_LEG - len);
   }
 
   return { breakpoints, prefixEnd, tailCount };
