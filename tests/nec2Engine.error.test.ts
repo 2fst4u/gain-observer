@@ -287,4 +287,36 @@ describe('Nec2Engine error handling', () => {
     await expect((engine as any).solveImpedanceSweep(dummyInput, 1, 14, 0)).rejects.toThrow('Cards sweep generation failed');
     expect(lockReleased).toBe(true);
   });
+
+  it('releases lock when buildNecCards throws an error in sweepImpedance', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).factory = {}; // bypass factory check
+
+    vi.spyOn(necCard, 'buildNecCards').mockImplementationOnce(() => {
+      throw new Error('Cards sweep generation failed');
+    });
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    await expect(engine.sweepImpedance(dummyInput, { points: 1, window: { startMHz: 14, endMHz: 14 } })).rejects.toThrow('Cards sweep generation failed');
+
+    // Restore mock to return valid string for subsequent simulation
+    vi.spyOn(necCard, 'buildNecCards').mockReturnValue('mock cards');
+
+    // intercept runJob and return a valid pattern
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'runJob').mockResolvedValue('Dummy output\nRUN TIME=0.001\n                                 - - - RADIATION PATTERNS - - -\n  THETA    PHI    VERT    HORIZ    TOTAL\n    0.00    0.00   -1.00   -2.00   10.00\n                                 - - - ANTENNA INPUT PARAMETERS - - -\n  TAG   SEG       VOLTAGE (VOLTS)         CURRENT (AMPS)         IMPEDANCE (OHMS)        ADMITTANCE (MHOS)     POWER\n  NO.   NO.     REAL      IMAG.         REAL      IMAG.         REAL      IMAG.         REAL      IMAG.       (WATTS)\n    1     6  1.000E+00  0.000E+00    1.00E-02  2.00E-02    1.00E+01  2.00E+01    1.00E-03  2.00E-03    1.00E+00\n');
+
+    await expect(engine.simulate(dummyInput)).resolves.toBeDefined();
+  });
 });
