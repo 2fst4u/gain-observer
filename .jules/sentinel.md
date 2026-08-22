@@ -42,3 +42,6 @@
 **Vulnerability:** Worker-side error and unhandledrejection handlers blindly invoked `console.error` in all environments, potentially leaking internal stack traces or configuration paths to the production browser console.
 **Learning:** Web workers typically run outside the main application bundle but are still client-facing. They must respect the same environmental error-masking rules (like `import.meta.env.DEV`) as the main UI to prevent inadvertent information disclosure.
 **Prevention:** Always wrap `console.error` and `console.warn` calls inside worker event listeners or hooks managing worker lifecycle with `if (import.meta.env.DEV)` to silence them in production.
+## 2026-08-22 - Verification Only, No Findings
+**Learning:** Confirmed that core security patterns (e.g., CSP, wrapping `console.error` in `import.meta.env.DEV`, checking origin in workers) are established and intact in the current state of the repository.
+**Action:** When a security task is requested but the codebase already correctly implements the required patterns, explicitly treat it as a false positive. Do not introduce redundant code or unnecessary modifications.
