@@ -187,6 +187,24 @@ describe('useAdaptiveLOD', () => {
       });
       expect(detectLODLevel()).toBe('medium');
     });
+
+    it('returns medium on desktop when deviceMemory is explicitly undefined and cores < 8', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Windows',
+        hardwareConcurrency: 4,
+        deviceMemory: undefined,
+      });
+      expect(detectLODLevel()).toBe('medium');
+    });
+
+    it('returns medium on mobile when deviceMemory is explicitly undefined and cores >= 6', () => {
+      vi.stubGlobal('navigator', {
+        userAgent: 'Android',
+        hardwareConcurrency: 6,
+        deviceMemory: undefined,
+      });
+      expect(detectLODLevel()).toBe('medium');
+    });
   });
 
   describe('ultra-low', () => {
