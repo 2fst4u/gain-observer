@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useAdaptiveLOD, detectLODLevel } from '../src/hooks/useAdaptiveLOD';
+import { useAdaptiveLOD, detectLODLevel, LOD_TABLE } from '../src/hooks/useAdaptiveLOD';
 
 describe('useAdaptiveLOD', () => {
   afterEach(() => {
@@ -235,4 +235,59 @@ describe('useAdaptiveLOD', () => {
       expect(result.current.level).toBe('low');
     });
   });
+
+
+
+  describe('LOD_TABLE', () => {
+    it('defines all required LOD levels', () => {
+      expect(Object.keys(LOD_TABLE)).toEqual(['high', 'medium', 'low', 'ultra-low']);
+    });
+
+    it('has correct configurations for each level', () => {
+      expect(LOD_TABLE['high']).toEqual({
+        level: 'high',
+        thetaSegments: 72,
+        phiSegments: 144,
+        patternResolution: { thetaSteps: 37, phiSteps: 72 },
+        sweepPoints: 15,
+        charPoints: 11,
+        maxAdaptiveIter: 5,
+        skipBroadScan: false,
+      });
+
+      expect(LOD_TABLE['medium']).toEqual({
+        level: 'medium',
+        thetaSegments: 48,
+        phiSegments: 96,
+        patternResolution: { thetaSteps: 37, phiSteps: 72 },
+        sweepPoints: 15,
+        charPoints: 11,
+        maxAdaptiveIter: 5,
+        skipBroadScan: false,
+      });
+
+      expect(LOD_TABLE['low']).toEqual({
+        level: 'low',
+        thetaSegments: 32,
+        phiSegments: 64,
+        patternResolution: { thetaSteps: 19, phiSteps: 36 },
+        sweepPoints: 11,
+        charPoints: 7,
+        maxAdaptiveIter: 3,
+        skipBroadScan: false,
+      });
+
+      expect(LOD_TABLE['ultra-low']).toEqual({
+        level: 'ultra-low',
+        thetaSegments: 16,
+        phiSegments: 32,
+        patternResolution: { thetaSteps: 13, phiSteps: 24 },
+        sweepPoints: 9,
+        charPoints: 5,
+        maxAdaptiveIter: 2,
+        skipBroadScan: true,
+      });
+    });
+  });
+
 });
