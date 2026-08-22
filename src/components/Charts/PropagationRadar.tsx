@@ -67,7 +67,9 @@ function worseQuality(
 function calculateMaxRangeKm(prediction: PropagationPrediction): number {
   let maxRangeKm = prediction.hops[prediction.hops.length - 1]?.rangeKm ?? 1;
   if (prediction.azimuthalHops) {
-    for (const az of prediction.azimuthalHops) {
+    const len = prediction.azimuthalHops.length;
+    for (let i = 0; i < len; i++) {
+      const az = prediction.azimuthalHops[i]!;
       const lastRange = az.rangeKm[az.rangeKm.length - 1];
       if (lastRange && lastRange > maxRangeKm) {
         maxRangeKm = lastRange;
