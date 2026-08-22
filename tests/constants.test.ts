@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   FEEDLINE_PRESETS,
+  GROUND_PRESETS,
   feedlineLossDb,
   findFeedlinePreset,
   findGroundPreset,
@@ -93,6 +94,24 @@ describe('physics constants and helpers', () => {
 });
 
 describe('ground presets', () => {
+  it('contains expected standard ground presets', () => {
+    const ids = GROUND_PRESETS.map((p) => p.id);
+    expect(ids).toContain('free');
+    expect(ids).toContain('perfect');
+    expect(ids).toContain('sea');
+    expect(ids).toContain('fresh');
+    expect(ids).toContain('pastoral');
+  });
+
+  it('all presets have basic expected properties', () => {
+    for (const preset of GROUND_PRESETS) {
+      expect(preset.id).toBeDefined();
+      expect(typeof preset.id).toBe('string');
+      expect(preset.label).toBeDefined();
+      expect(typeof preset.label).toBe('string');
+    }
+  });
+
   it('findGroundPreset returns correct preset for valid id', () => {
     const preset = findGroundPreset('sea');
     expect(preset.id).toBe('sea');
