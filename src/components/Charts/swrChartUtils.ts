@@ -285,7 +285,8 @@ export function buildAnnotations(
     };
     // Edge markers for every ≤2:1 band. Clipped edges (band runs off the
     // swept range) are not marked — there's no real crossing to show.
-    stats.bands.forEach((band, i) => {
+    for (let i = 0; i < stats.bands.length; i++) {
+      const band = stats.bands[i];
       if (!band.lowClipped) {
         annotations[`band${i}Low`] = {
           type: 'line',
@@ -306,7 +307,7 @@ export function buildAnnotations(
           borderDash: [4, 4],
         };
       }
-    });
+    }
   }
 
   return annotations;

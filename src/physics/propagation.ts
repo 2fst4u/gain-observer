@@ -376,110 +376,9 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
   const hmF2 = estimateHmF2Km(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
   const chi = solarZenithDeg(input.latitudeDeg, lon, input.month, input.utcHour);
 
-  // Account for mismatch loss if SWR is provided.
-  const s = input.swr ?? 1;
-  const mismatchLossDb = Number.isFinite(s) && s > 1
-    // ⚡ Bolt: Performance Optimization
-    // Using simple multiplication (gamma * gamma) is faster than Math.pow(gamma, 2) in V8
-    ? -10 * Math.log10(1 - ((s - 1) / (s + 1)) * ((s - 1) / (s + 1)))
-    : 0;
+  const mismatchLossDb = calculateMismatchLossDb(input.swr);
   const luf = estimateLUFMHz(input.tIndex, input.month, input.utcHour, input.latitudeDeg, lon);
-
-  const azimuthalHops: PropagationPrediction['azimuthalHops'] = [];
-  if (input.pattern) {
-    const p = input.pattern;
-    // We sample at most 72 radials (5° steps) to keep radar rendering fast.
-    const phiStride = Math.max(1, Math.floor(p.phiSteps / 72));
-
-    // PRECOMPUTE invariant physics metrics over theta.
-    // MUF, range, and status only depend on elevation (theta), not azimuth (phi).
-    const baseRays = new Array<{
-      takeoffElevationDeg: number;
-      rangeKm: number;
-      status: HopStatus;
-      reason: string;
-      statusRankValue: number;
-    } | null>(p.thetaSteps);
-
-    for (let ti = 0; ti < p.thetaSteps; ti++) {
-      const elevationDeg = 90 - ti * p.dTheta;
-      if (elevationDeg < 0.5) {
-        baseRays[ti] = null;
-        continue;
-      }
-
-      const mufMHz = estimateMUFMHz(fof2, elevationDeg, hmF2);
-      const { status, reason } = classifyPath(input.frequencyMHz, mufMHz, luf);
-
-      baseRays[ti] = {
-        takeoffElevationDeg: clamp(elevationDeg, 0.5, 89.5),
-        rangeKm: hopRangeKm(elevationDeg, hmF2),
-        status,
-        reason,
-        statusRankValue: statusRank(status),
-      };
-    }
-
-    const bestTiArr = new Int32Array(p.phiSteps).fill(-1);
-    // Float64, not Float32: this holds `gainDbi - mismatchLossDb`, a float64
-    // result. Narrowing it to float32 would round the reported gain and could
-    // flip classifyLinkQuality() right at a threshold.
-    const bestEffectiveGainDbiArr = new Float64Array(p.phiSteps).fill(-Infinity);
-    const bestQualityRankArr = new Int32Array(p.phiSteps).fill(-1);
-
-    for (let ti = 0; ti < p.thetaSteps; ti++) {
-      const baseRay = baseRays[ti];
-      if (!baseRay) continue;
-
-      const rowOffset = ti * p.phiSteps;
-      const candidateStatusRank = baseRay.statusRankValue;
-      const candidateRangeKm = baseRay.rangeKm;
-
-      for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
-        const gainDbi = p.data[rowOffset + pi] ?? -Infinity;
-        const effectiveGainDbi = gainDbi - mismatchLossDb;
-        const linkQuality = classifyLinkQuality(effectiveGainDbi);
-        const actualQRank = qualityRank(linkQuality);
-
-        const bestTi = bestTiArr[pi];
-        if (
-          bestTi === -1 ||
-          isBetterRay(
-            candidateStatusRank,
-            baseRays[bestTi]!.statusRankValue,
-            actualQRank,
-            bestQualityRankArr[pi],
-            candidateRangeKm,
-            baseRays[bestTi]!.rangeKm
-          )
-        ) {
-          bestTiArr[pi] = ti;
-          bestEffectiveGainDbiArr[pi] = effectiveGainDbi;
-          bestQualityRankArr[pi] = actualQRank;
-        }
-      }
-    }
-
-    for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
-      const bestTi = bestTiArr[pi];
-      if (bestTi !== -1) {
-        const bestBase = baseRays[bestTi]!;
-        const effectiveGainDbi = bestEffectiveGainDbiArr[pi];
-        const linkQuality = classifyLinkQuality(effectiveGainDbi);
-
-        azimuthalHops.push({
-          phiDeg: pi * p.dPhi,
-          bearingDeg: phiToBearingDeg(pi * p.dPhi),
-          takeoffElevationDeg: bestBase.takeoffElevationDeg,
-          rangeKm: [bestBase.rangeKm, bestBase.rangeKm * 2, bestBase.rangeKm * 3],
-          status: bestBase.status,
-          reason: bestBase.reason,
-          linkQuality,
-          effectiveGainDbi,
-        });
-      }
-    }
-  }
+  const azimuthalHops = computeAzimuthalHops(input.pattern, fof2, hmF2, luf, input.frequencyMHz, mismatchLossDb);
 
   const selectedRay = azimuthalHops.length > 0
     ? selectBestAzimuthalRay(azimuthalHops)
@@ -665,4 +564,120 @@ function isBetterRay(
     return candidateQualityRank > bestQualityRank;
   }
   return candidateRangeKm > bestRangeKm;
+}
+
+
+function calculateMismatchLossDb(swr?: number): number {
+  const s = swr ?? 1;
+  if (!Number.isFinite(s) || s <= 1) return 0;
+  // ⚡ Bolt: Performance Optimization
+  // Using simple multiplication (gamma * gamma) is faster than Math.pow(gamma, 2) in V8
+  return -10 * Math.log10(1 - ((s - 1) / (s + 1)) * ((s - 1) / (s + 1)));
+}
+
+function computeAzimuthalHops(
+  pattern: GainPattern | undefined,
+  fof2: number,
+  hmF2: number,
+  luf: number,
+  frequencyMHz: number,
+  mismatchLossDb: number
+): NonNullable<PropagationPrediction['azimuthalHops']> {
+  const azimuthalHops: PropagationPrediction['azimuthalHops'] = [];
+  if (!pattern) return azimuthalHops;
+
+  const p = pattern;
+  // We sample at most 72 radials (5° steps) to keep radar rendering fast.
+  const phiStride = Math.max(1, Math.floor(p.phiSteps / 72));
+
+  // PRECOMPUTE invariant physics metrics over theta.
+  // MUF, range, and status only depend on elevation (theta), not azimuth (phi).
+  const baseRays = new Array<{
+    takeoffElevationDeg: number;
+    rangeKm: number;
+    status: HopStatus;
+    reason: string;
+    statusRankValue: number;
+  } | null>(p.thetaSteps);
+
+  for (let ti = 0; ti < p.thetaSteps; ti++) {
+    const elevationDeg = 90 - ti * p.dTheta;
+    if (elevationDeg < 0.5) {
+      baseRays[ti] = null;
+      continue;
+    }
+
+    const mufMHz = estimateMUFMHz(fof2, elevationDeg, hmF2);
+    const { status, reason } = classifyPath(frequencyMHz, mufMHz, luf);
+
+    baseRays[ti] = {
+      takeoffElevationDeg: clamp(elevationDeg, 0.5, 89.5),
+      rangeKm: hopRangeKm(elevationDeg, hmF2),
+      status,
+      reason,
+      statusRankValue: statusRank(status),
+    };
+  }
+
+  const bestTiArr = new Int32Array(p.phiSteps).fill(-1);
+  // Float64, not Float32: this holds `gainDbi - mismatchLossDb`, a float64
+  // result. Narrowing it to float32 would round the reported gain and could
+  // flip classifyLinkQuality() right at a threshold.
+  const bestEffectiveGainDbiArr = new Float64Array(p.phiSteps).fill(-Infinity);
+  const bestQualityRankArr = new Int32Array(p.phiSteps).fill(-1);
+
+  for (let ti = 0; ti < p.thetaSteps; ti++) {
+    const baseRay = baseRays[ti];
+    if (!baseRay) continue;
+
+    const rowOffset = ti * p.phiSteps;
+    const candidateStatusRank = baseRay.statusRankValue;
+    const candidateRangeKm = baseRay.rangeKm;
+
+    for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
+      const gainDbi = p.data[rowOffset + pi] ?? -Infinity;
+      const effectiveGainDbi = gainDbi - mismatchLossDb;
+      const linkQuality = classifyLinkQuality(effectiveGainDbi);
+      const actualQRank = qualityRank(linkQuality);
+
+      const bestTi = bestTiArr[pi];
+      if (
+        bestTi === -1 ||
+        isBetterRay(
+          candidateStatusRank,
+          baseRays[bestTi]!.statusRankValue,
+          actualQRank,
+          bestQualityRankArr[pi],
+          candidateRangeKm,
+          baseRays[bestTi]!.rangeKm
+        )
+      ) {
+        bestTiArr[pi] = ti;
+        bestEffectiveGainDbiArr[pi] = effectiveGainDbi;
+        bestQualityRankArr[pi] = actualQRank;
+      }
+    }
+  }
+
+  for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
+    const bestTi = bestTiArr[pi];
+    if (bestTi !== -1) {
+      const bestBase = baseRays[bestTi]!;
+      const effectiveGainDbi = bestEffectiveGainDbiArr[pi];
+      const linkQuality = classifyLinkQuality(effectiveGainDbi);
+
+      azimuthalHops.push({
+        phiDeg: pi * p.dPhi,
+        bearingDeg: phiToBearingDeg(pi * p.dPhi),
+        takeoffElevationDeg: bestBase.takeoffElevationDeg,
+        rangeKm: [bestBase.rangeKm, bestBase.rangeKm * 2, bestBase.rangeKm * 3],
+        status: bestBase.status,
+        reason: bestBase.reason,
+        linkQuality,
+        effectiveGainDbi,
+      });
+    }
+  }
+
+  return azimuthalHops;
 }
