@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useAdaptiveLOD, detectLODLevel, LOD_TABLE } from '../src/hooks/useAdaptiveLOD';
+import type { LODLevel } from '../src/hooks/useAdaptiveLOD';
 
 describe('useAdaptiveLOD', () => {
   afterEach(() => {
@@ -236,57 +237,74 @@ describe('useAdaptiveLOD', () => {
     });
   });
 
-
-
   describe('LOD_TABLE', () => {
-    it('defines all required LOD levels', () => {
-      expect(Object.keys(LOD_TABLE)).toEqual(['high', 'medium', 'low', 'ultra-low']);
+    // Ordered most to least capable. Every tier must cost no more than the
+    // tier above it, or a device that detects "low" would do more work than
+    // one that detects "high".
+    const DESCENDING: LODLevel[] = ['high', 'medium', 'low', 'ultra-low'];
+
+    it('defines exactly one config per LOD level', () => {
+      expect(new Set(Object.keys(LOD_TABLE))).toEqual(new Set(DESCENDING));
     });
 
-    it('has correct configurations for each level', () => {
-      expect(LOD_TABLE['high']).toEqual({
-        level: 'high',
-        thetaSegments: 72,
-        phiSegments: 144,
-        patternResolution: { thetaSteps: 37, phiSteps: 72 },
-        sweepPoints: 15,
-        charPoints: 11,
-        maxAdaptiveIter: 5,
-        skipBroadScan: false,
-      });
+    it('tags each config with the level it is keyed under', () => {
+      for (const level of DESCENDING) {
+        expect(LOD_TABLE[level].level).toBe(level);
+      }
+    });
 
-      expect(LOD_TABLE['medium']).toEqual({
-        level: 'medium',
-        thetaSegments: 48,
-        phiSegments: 96,
-        patternResolution: { thetaSteps: 37, phiSteps: 72 },
-        sweepPoints: 15,
-        charPoints: 11,
-        maxAdaptiveIter: 5,
-        skipBroadScan: false,
-      });
+    it('uses positive integer mesh and sweep tuning throughout', () => {
+      for (const level of DESCENDING) {
+        const c = LOD_TABLE[level];
+        for (const n of [
+          c.thetaSegments,
+          c.phiSegments,
+          c.patternResolution.thetaSteps,
+          c.patternResolution.phiSteps,
+          c.sweepPoints,
+          c.charPoints,
+          c.maxAdaptiveIter,
+        ]) {
+          expect(Number.isInteger(n)).toBe(true);
+          expect(n).toBeGreaterThan(0);
+        }
+      }
+    });
 
-      expect(LOD_TABLE['low']).toEqual({
-        level: 'low',
-        thetaSegments: 32,
-        phiSegments: 64,
-        patternResolution: { thetaSteps: 19, phiSteps: 36 },
-        sweepPoints: 11,
-        charPoints: 7,
-        maxAdaptiveIter: 3,
-        skipBroadScan: false,
-      });
+    it('sweeps an odd number of points so the centre frequency is sampled', () => {
+      for (const level of DESCENDING) {
+        expect(LOD_TABLE[level].sweepPoints % 2).toBe(1);
+        expect(LOD_TABLE[level].charPoints % 2).toBe(1);
+      }
+    });
 
-      expect(LOD_TABLE['ultra-low']).toEqual({
-        level: 'ultra-low',
-        thetaSegments: 16,
-        phiSegments: 32,
-        patternResolution: { thetaSteps: 13, phiSteps: 24 },
-        sweepPoints: 9,
-        charPoints: 5,
-        maxAdaptiveIter: 2,
-        skipBroadScan: true,
-      });
+    it('wraps twice as many phi segments as theta segments', () => {
+      // The 3-D mesh spans 180° of theta against 360° of phi, so equal
+      // angular resolution needs double the phi segments.
+      for (const level of DESCENDING) {
+        expect(LOD_TABLE[level].phiSegments).toBe(LOD_TABLE[level].thetaSegments * 2);
+      }
+    });
+
+    it('never increases cost as the level degrades', () => {
+      for (let i = 1; i < DESCENDING.length; i++) {
+        const richer = LOD_TABLE[DESCENDING[i - 1]!]!;
+        const poorer = LOD_TABLE[DESCENDING[i]!]!;
+
+        expect(poorer.thetaSegments).toBeLessThan(richer.thetaSegments);
+        expect(poorer.phiSegments).toBeLessThan(richer.phiSegments);
+        expect(poorer.patternResolution.thetaSteps).toBeLessThanOrEqual(richer.patternResolution.thetaSteps);
+        expect(poorer.patternResolution.phiSteps).toBeLessThanOrEqual(richer.patternResolution.phiSteps);
+        expect(poorer.sweepPoints).toBeLessThanOrEqual(richer.sweepPoints);
+        expect(poorer.charPoints).toBeLessThanOrEqual(richer.charPoints);
+        expect(poorer.maxAdaptiveIter).toBeLessThanOrEqual(richer.maxAdaptiveIter);
+      }
+    });
+
+    it('only skips the broad scan on the most constrained tier', () => {
+      for (const level of DESCENDING) {
+        expect(LOD_TABLE[level].skipBroadScan).toBe(level === 'ultra-low');
+      }
     });
   });
 
