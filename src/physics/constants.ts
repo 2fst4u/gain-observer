@@ -273,7 +273,7 @@ export const FOLDED_DIPOLE_DEFAULT_APERTURE_M = 0.3;
  * so quadrupling the impedance. Independent of conductor spacing.
  *
  * Doubles as the recommended T2FD termination — see
- * `FOLDED_DIPOLE_DEFAULT_TERMINATION_OHMS` — because a resistor in the unfed
+ * `FOLDED_DIPOLE_FEED_R_OHMS` — because a resistor in the unfed
  * conductor lands in series with this resistance almost 1:1.
  */
 export const FOLDED_DIPOLE_FEED_R_OHMS = 300;
