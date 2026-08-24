@@ -23,23 +23,6 @@ import type {
 } from '../physics/types';
 import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ, TRANSFORMER_CHOKE_OHMS, ATU_COMPONENT_Q, DEFAULT_FEEDLINE_ID, DEFAULT_FEEDLINE_LENGTH_M, DEFAULT_ATU_MAIN_FEEDLINE_LENGTH_M, DEFAULT_GROUND_ID, DEFAULT_WIRE_RADIUS_M, SLOPING_V_MIN_TIP_Z_M, findFeedlinePreset, feedlineLossDb, findGroundPreset, referenceLength, halfWaveLength, FEED_BRIDGE_LENGTH_M, SLOPING_V_STUB_BOTTOM_Z_M, DEFAULT_WHIP_LENGTH_M, FOLDED_DIPOLE_DEFAULT_APERTURE_M, FOLDED_DIPOLE_MAX_APERTURE_M, FOLDED_DIPOLE_FEED_R_OHMS } from '../physics/constants';
 
-// Re-export geometry tags for UI and tests.
-export {
-  MAIN_WIRE_TAG,
-  LEFT_LEG_TAG,
-  RIGHT_LEG_TAG,
-  FEED_BRIDGE_TAG,
-  FEEDLINE_SHIELD_TAG,
-  DELTA_BASE_TAG,
-  TERMINATED_DELTA_LEFT_BASE_TAG,
-  TERMINATED_DELTA_RIGHT_BASE_TAG,
-  TERMINATED_DELTA_BRIDGE_TAG,
-  VERTICAL_WHIP_TAG,
-  INVERTED_L_VERTICAL_TAG,
-  FOLDED_DIPOLE_OPPOSITE_TAG,
-  FOLDED_DIPOLE_CONNECTOR_TAG,
-  FOLDED_DIPOLE_TERM_BRIDGE_TAG
-} from '../physics/tags';
 import type { Theme } from '../utils/themeColors';
 import type { UnitSystem } from '../physics/units';
 import type { AtuMatchConfig } from '../physics/impedance';
