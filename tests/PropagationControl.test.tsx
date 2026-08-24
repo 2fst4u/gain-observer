@@ -123,7 +123,7 @@ describe('PropagationControl - time override visibility', () => {
     setupMockStore({ utcHourOverride: 10 });
     render(<PropagationControl />);
 
-    const autoButton = screen.getByRole('button', { name: 'Auto' });
+    const autoButton = screen.getByRole('button', { name: 'Reset to Auto (current UTC time)' });
     fireEvent.click(autoButton);
 
     expect(mockSetUtcHourOverride).toHaveBeenCalledWith(null);
@@ -133,7 +133,7 @@ describe('PropagationControl - time override visibility', () => {
     setupMockStore({ utcHourOverride: null });
     render(<PropagationControl />);
 
-    const autoButton = screen.getByRole('button', { name: 'Auto' }) as HTMLButtonElement;
+    const autoButton = screen.getByRole('button', { name: 'Reset to Auto (current UTC time)' }) as HTMLButtonElement;
     expect(autoButton.getAttribute('aria-disabled')).toBe('true');
   });
 });

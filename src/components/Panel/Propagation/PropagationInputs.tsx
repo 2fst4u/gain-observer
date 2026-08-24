@@ -278,6 +278,7 @@ function UtcHourInput() {
           aria-disabled={utcHourOverride === null}
           style={{ flex: '0 0 auto' }}
           title={utcHourOverride === null ? 'Already using current UTC time' : 'Reset to current UTC time'}
+          aria-label="Reset to Auto (current UTC time)"
         >
           Auto
         </button>
