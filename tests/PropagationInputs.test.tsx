@@ -136,7 +136,7 @@ describe('PropagationInputs UI component', () => {
     useAntennaStore.setState({ utcHourOverride: 12.5 });
     render(<PropagationInputs />);
 
-    const button = screen.getByRole('button', { name: 'Auto' }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: 'Reset to Auto (current UTC time)' }) as HTMLButtonElement;
     expect(button.getAttribute('aria-disabled')).toBe('false');
 
     fireEvent.click(button);
