@@ -313,9 +313,12 @@ export const VERTICAL_WHIP_RADIAL_COUNT = 4;
  */
 export const SLOPING_V_STUB_BOTTOM_Z_M = 0.01;
 
-export const GROUND_PRESET_MAP = new Map<string, GroundPreset>(
-  GROUND_PRESETS.map((p) => [p.id, p])
-);
+// ⚡ Bolt: Removed .map() callback array allocation for Map initialization
+export const GROUND_PRESET_MAP = new Map<string, GroundPreset>();
+for (let i = 0; i < GROUND_PRESETS.length; i++) {
+  const p = GROUND_PRESETS[i];
+  if (p) GROUND_PRESET_MAP.set(p.id, p);
+}
 
 export function findGroundPreset(id: string): GroundPreset {
   const preset = GROUND_PRESET_MAP.get(id);
@@ -424,9 +427,12 @@ export const FEEDLINE_PRESETS: ReadonlyArray<FeedlinePreset> = [
 export const DEFAULT_FEEDLINE_ID = 'rg58';
 export const DEFAULT_FEEDLINE_LENGTH_M = 10;
 
-const FEEDLINE_PRESET_MAP = new Map<string, FeedlinePreset>(
-  FEEDLINE_PRESETS.map((p) => [p.id, p])
-);
+// ⚡ Bolt: Removed .map() callback array allocation for Map initialization
+const FEEDLINE_PRESET_MAP = new Map<string, FeedlinePreset>();
+for (let i = 0; i < FEEDLINE_PRESETS.length; i++) {
+  const p = FEEDLINE_PRESETS[i];
+  if (p) FEEDLINE_PRESET_MAP.set(p.id, p);
+}
 
 export function findFeedlinePreset(id: string): FeedlinePreset {
   return FEEDLINE_PRESET_MAP.get(id) ?? FEEDLINE_PRESETS[0];
