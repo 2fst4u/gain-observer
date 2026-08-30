@@ -226,7 +226,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
       GND     GND
   ```
 - **NEC Model:** `LD 4` loads on short vertical stub wires extending from each tip down to near-ground (`SLOPING_V_STUB_BOTTOM_Z_M`).
-- **Value:** `terminatingResistor` is applied identically to both stubs.
+- **Value:** `terminatingResistor` is applied identically to both stubs. Default is 300 Ω.
 - **Return Path:** Explicit NEC current path from the wire tip toward the ground plane.
 
 ### 8.4 SWR Convention
