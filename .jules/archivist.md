@@ -154,3 +154,6 @@ The fix was not to sync the copy but to delete it. This is a hosted application;
 ## 2026-08-02 - Folded Dipole Tag Documentation Drift
 **Learning:** The documentation for the Folded Dipole claimed that the bottom (fed) conductor was split into two halves carrying `DIPOLE_LEFT_TAG` / `DIPOLE_RIGHT_TAG`. However, the codebase uses the standard split-fed convention tags `LEFT_LEG_TAG` / `RIGHT_LEG_TAG` for these halves, consistent with the standard dipole. The documentation drifted from the implemented physics constants.
 **Action:** Updated `docs/antenna-spec.md` to accurately reflect the use of `LEFT_LEG_TAG` and `RIGHT_LEG_TAG` for the fed conductor halves of the Folded Dipole.
+## 2026-08-30 - Sloping V Default Termination Documentation Drift
+**Learning:** The `docs/antenna-spec.md` detailed the `terminatingResistor` parameter for the Sloping V antenna but failed to state its default value, unlike other antenna sections (e.g., Terminated Delta). The codebase (`src/store/antennaStore.ts`) uses `SLOPING_V_DEFAULT_TERMINATION_OHMS` (300 Ω) as the default if `terminatingResistor` is not specified, but the documentation lacked this verifiable fact.
+**Action:** Updated `docs/antenna-spec.md` to append "Default is 300 Ω." to the `terminatingResistor` description for the Sloping V antenna, bringing it in line with the code's behavior.
