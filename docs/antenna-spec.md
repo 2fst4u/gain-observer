@@ -128,8 +128,8 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 ### 6.2 Feedpoint Definition
 
-- **NEC Excitation:** Single-segment voltage source (`EX`) on Tag 1.
-- **Segment:** Center segment of the wire (center-fed by default).
+- **NEC Excitation:** Single-segment voltage source (`EX`) on `MAIN_WIRE_TAG` (5) when no feedline/offset is present. When an offset or feedline is configured, the wire is split and the source is placed on a 1-segment `FEED_BRIDGE_TAG` (3).
+- **Segment:** Center segment of `MAIN_WIRE_TAG` (center-fed by default), or Segment 1 of `FEED_BRIDGE_TAG` when split.
 - **Feed Type:** Single-segment voltage source.
 - **Offset Feed:** Supports offset feedpoints (e.g., Off-Center Fed Dipole) by splitting the wire asymmetrically.
 - **Feedline Support:** Supported (Radiating shield + NEC `TL` card; offset feedpoints are supported via splitting the wire).
