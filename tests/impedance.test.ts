@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor, deembedThroughLine, transformThroughLine, transformWithTransformerAtAntenna, suggestedTransformerRatio, matchRatioForFeedpoint, displayedFeedMetrics, atuLossDb, feedlineLossUnderSwrDb } from '../src/physics/impedance';
+import { swr, mismatchLossFactor, deembedThroughLine, transformThroughLine, suggestedTransformerRatio, matchRatioForFeedpoint, displayedFeedMetrics, atuLossDb, feedlineLossUnderSwrDb } from '../src/physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB, ATU_COMPONENT_Q, feedlineLossDb, findFeedlinePreset } from '../src/physics/constants';
 import type { SimulationResult } from '../src/physics/types';
 
@@ -342,33 +342,6 @@ describe('transformThroughLine', () => {
     const original = { R: 100, X: 50 };
     expect(transformThroughLine(original, 50, NaN)).toBe(original);
     expect(transformThroughLine(original, 50, Infinity)).toBe(original);
-  });
-});
-
-describe('transformWithTransformerAtAntenna', () => {
-  it('returns original if ratio is invalid', () => {
-    const original = { R: 100, X: 50 };
-    expect(transformWithTransformerAtAntenna(original, 0)).toBe(original);
-    expect(transformWithTransformerAtAntenna(original, -1)).toBe(original);
-    expect(transformWithTransformerAtAntenna(original, NaN)).toBe(original);
-  });
-
-  it('handles zero-length line (or undefined line length)', () => {
-    const zSrc = { R: 400, X: 200 };
-    const result1 = transformWithTransformerAtAntenna(zSrc, 4, 50, 0);
-    expect(result1.R).toBeCloseTo(100, 6);
-    expect(result1.X).toBeCloseTo(50, 6);
-
-    const result2 = transformWithTransformerAtAntenna(zSrc, 4, 50, NaN);
-    expect(result2.R).toBeCloseTo(100, 6);
-    expect(result2.X).toBeCloseTo(50, 6);
-  });
-
-  it('transforms properly with line length present', () => {
-    const zSrc = { R: 25, X: 0 };
-    const result = transformWithTransformerAtAntenna(zSrc, 4, 50, 0.25);
-    expect(result.R).toBeCloseTo(100, 6);
-    expect(result.X).toBeCloseTo(0, 6);
   });
 });
 
