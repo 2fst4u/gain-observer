@@ -251,37 +251,6 @@ export function transformThroughLine(
 }
 
 /**
- * Computes the impedance the radio sees when an ideal `n²`-ratio transformer
- * is fitted at the antenna terminals (between antenna and feedline).
- *
- * If `lineLengthLambdas` is 0 or undefined (no feedline), this is just the
- * antenna impedance divided by the ratio. With a feedline present, the
- * antenna feedpoint is de-embedded from the NEC-reported source-side Z,
- * divided by the ratio (the transformer's effect on the load presented to
- * the cable), then re-embedded through the cable to get what the radio
- * sees.
- *
- * De-embedding accuracy depends on the absence of significant common-mode
- * current on the cable shield — which is guaranteed in the simulation
- * because enabling a transformer also engages a choke on the shield.
- */
-export function transformWithTransformerAtAntenna(
-  zSrcReportedByNec: ImpedanceResult,
-  ratio: number,
-  z0Line: number = Z0_SYSTEM,
-  lineLengthLambdas: number = 0,
-): ImpedanceResult {
-  if (!Number.isFinite(ratio) || ratio <= 0) return zSrcReportedByNec;
-  if (lineLengthLambdas === 0 || !Number.isFinite(lineLengthLambdas)) {
-    // No feedline → NEC's reported Z is the antenna feedpoint directly.
-    return { R: zSrcReportedByNec.R / ratio, X: zSrcReportedByNec.X / ratio };
-  }
-  const zAntenna = deembedThroughLine(zSrcReportedByNec, z0Line, lineLengthLambdas);
-  const zXfmrPrimary = { R: zAntenna.R / ratio, X: zAntenna.X / ratio };
-  return transformThroughLine(zXfmrPrimary, z0Line, lineLengthLambdas);
-}
-
-/**
  * De-embeds an impedance reading taken at the source end of a lossless
  * transmission line: given Z measured at the source, returns the load-side
  * impedance at the far end of the line.
