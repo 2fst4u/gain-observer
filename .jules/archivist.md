@@ -162,3 +162,6 @@ The fix was not to sync the copy but to delete it. This is a hosted application;
 ## 2026-09-01 - Dipole Excitation Tag Documentation Drift
 **Learning:** The documentation for the Center-Fed Dipole in `docs/antenna-spec.md` falsely claimed the NEC excitation was on Tag 1. In reality, the codebase (`src/store/antennaGeometry.ts` and `src/physics/tags.ts`) uses `MAIN_WIRE_TAG` (Tag 5) for single-wire dipoles, and `FEED_BRIDGE_TAG` (Tag 3) when the dipole is split for offset or feedline support. The documentation drifted from the implemented physics model.
 **Action:** Updated `docs/antenna-spec.md` to accurately document the Dipole excitation tag logic.
+## 2026-09-02 - Terminated Delta UI Hint Documentation Drift
+**Learning:** The UI hint for the Terminated Delta in `GeometryControl.tsx` drifted from the documentation (`docs/antenna-spec.md`) and the actual core physics engine. The UI claimed the termination consisted of "resistors at each inner half-base end (to ground via short stubs)" (which is the Sloping V's topology), whereas the code explicitly implements it as a single resistor on a short bridge wire spanning the base centre gap (the proper aperiodic-loop/T2FD topology).
+**Action:** Updated the `getTerminationHint` string in `src/components/Panel/GeometryControl.tsx` to accurately describe the single-resistor bridge topology.
