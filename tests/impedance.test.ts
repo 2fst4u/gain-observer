@@ -1,8 +1,40 @@
 import { vi } from "vitest";
 import { describe, expect, it } from 'vitest';
-import { swr, mismatchLossFactor, deembedThroughLine, transformThroughLine, suggestedTransformerRatio, matchRatioForFeedpoint, displayedFeedMetrics, atuLossDb, feedlineLossUnderSwrDb } from '../src/physics/impedance';
+import { swr, mismatchLossFactor, deembedThroughLine, suggestedTransformerRatio, matchRatioForFeedpoint, displayedFeedMetrics, atuLossDb, feedlineLossUnderSwrDb } from '../src/physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB, ATU_COMPONENT_Q, feedlineLossDb, findFeedlinePreset } from '../src/physics/constants';
-import type { SimulationResult } from '../src/physics/types';
+import type { SimulationResult, ImpedanceResult } from '../src/physics/types';
+
+/** Helper function moved from src/physics/impedance.ts for testing purposes */
+function transformThroughLine(
+  zLoad: ImpedanceResult,
+  z0Line: number,
+  lengthLambdas: number,
+): ImpedanceResult {
+  if (!Number.isFinite(lengthLambdas) || !Number.isFinite(z0Line) || z0Line <= 0) {
+    return zLoad;
+  }
+  const betaL = 2 * Math.PI * lengthLambdas;
+  const t = Math.tan(betaL);
+  if (!Number.isFinite(t)) {
+    const denMag2 = zLoad.R * zLoad.R + zLoad.X * zLoad.X;
+    if (denMag2 === 0) return zLoad;
+    return {
+      R: (z0Line * z0Line * zLoad.R) / denMag2,
+      X: -(z0Line * z0Line * zLoad.X) / denMag2,
+    };
+  }
+  const numR = zLoad.R;
+  const numI = zLoad.X + z0Line * t;
+  const denR = z0Line - zLoad.X * t;
+  const denI = zLoad.R * t;
+  const denMag2 = denR * denR + denI * denI;
+  if (denMag2 === 0) return zLoad;
+  return {
+    R: (z0Line * (numR * denR + numI * denI)) / denMag2,
+    X: (z0Line * (numI * denR - numR * denI)) / denMag2,
+  };
+}
+
 
 // Minimal result stub carrying only the fields displayedFeedMetrics reads.
 function stubResult(over: Partial<Pick<SimulationResult, 'impedance' | 'swr' | 'maxGainDbi' | 'maxRealizedGainDbi'>>) {
