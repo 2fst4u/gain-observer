@@ -211,46 +211,6 @@ export function displayedFeedMetrics(
 }
 
 /**
- * Forward propagation through a lossless transmission line: given the load
- * (far-end) impedance, returns the input (near-end) impedance seen looking
- * into a line of characteristic impedance `z0Line` and electrical length
- * `lengthLambdas` (cable length / cable wavelength).
- *
- *   Z_in = Z0 · (Z_load + j·Z0·tan(βd)) / (Z0 + j·Z_load·tan(βd))
- */
-export function transformThroughLine(
-  zLoad: ImpedanceResult,
-  z0Line: number,
-  lengthLambdas: number,
-): ImpedanceResult {
-  if (!Number.isFinite(lengthLambdas) || !Number.isFinite(z0Line) || z0Line <= 0) {
-    return zLoad;
-  }
-  const betaL = 2 * Math.PI * lengthLambdas;
-  const t = Math.tan(betaL);
-  if (!Number.isFinite(t)) {
-    const denMag2 = zLoad.R * zLoad.R + zLoad.X * zLoad.X;
-    if (denMag2 === 0) return zLoad;
-    return {
-      R: (z0Line * z0Line * zLoad.R) / denMag2,
-      X: -(z0Line * z0Line * zLoad.X) / denMag2,
-    };
-  }
-  // numerator = Z_load + j·Z0·t = zLoad.R + j·(zLoad.X + Z0·t)
-  const numR = zLoad.R;
-  const numI = zLoad.X + z0Line * t;
-  // denominator = Z0 + j·Z_load·t = (Z0 − zLoad.X·t) + j·(zLoad.R·t)
-  const denR = z0Line - zLoad.X * t;
-  const denI = zLoad.R * t;
-  const denMag2 = denR * denR + denI * denI;
-  if (denMag2 === 0) return zLoad;
-  return {
-    R: (z0Line * (numR * denR + numI * denI)) / denMag2,
-    X: (z0Line * (numI * denR - numR * denI)) / denMag2,
-  };
-}
-
-/**
  * De-embeds an impedance reading taken at the source end of a lossless
  * transmission line: given Z measured at the source, returns the load-side
  * impedance at the far end of the line.
