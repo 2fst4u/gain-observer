@@ -1,6 +1,5 @@
 import { useShallow } from 'zustand/react/shallow';
-import { useAntennaStore } from '../../store/antennaStore';
-import type { Mode } from '../../store/antennaStore';
+import { useAntennaStore, type Mode } from '../../store/antennaStore';
 
 const MODES: Array<{ id: Mode; label: string; hint: string; shortcut?: string }> = [
   { id: 'normal', label: 'Normal', hint: 'Standard DX pattern view', shortcut: 'm' },
