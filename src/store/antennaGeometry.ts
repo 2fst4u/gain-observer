@@ -555,7 +555,7 @@ function calcTerminatedDeltaPoints(halfBase: number, dx: number, dy: number, bot
   // Inner ends of the two half-base wires. They sit slightly to the left
   // and right of the geometric centre with a gap of FEED_BRIDGE_LENGTH_M
   // between them — the gap is electrically open in the unterminated case
-  // and is bridged by the stub+resistor pair to ground when terminated.
+  // and is closed by the terminating resistor's bridge wire when terminated.
   const innerOffset = Math.max(0, FEED_BRIDGE_LENGTH_M / 2);
   const innerHalfBase = Math.max(0.01, halfBase - innerOffset);
   const centreLeft: [number, number, number] = [-innerOffset * dx, -innerOffset * dy, bottomZ];
@@ -571,11 +571,19 @@ function calcTerminatedDeltaPoints(halfBase: number, dx: number, dy: number, bot
  * perimeter-preserving leg/base math, same equilateral-when-possible
  * shape, same apex feed convention. The only structural difference is
  * that the base is **split in the middle** into two independent
- * half-base wires separated by `FEED_BRIDGE_LENGTH_M`. Each
- * half-base ends near the centre and the termination network (vertical
- * stub + LD-4 resistor) is added in selectSimulationInput when the user
- * specifies a non-zero terminating resistance — mirroring the
- * physically-correct sloping-V tip-to-earth shunt termination.
+ * half-base wires separated by `FEED_BRIDGE_LENGTH_M`. Each half-base ends
+ * near the centre, and when the user specifies a non-zero terminating
+ * resistance selectSimulationInput bridges that gap with a single short
+ * wire carrying one LD-4 resistor.
+ *
+ * The resistor is a link in the loop conductor, not a path to earth: it is
+ * the only thing joining the two half-bases, so the loop current has to pass
+ * through it. That point is half a wavelength from the apex feed, i.e. the
+ * loop's current maximum and voltage null, which is precisely where a series
+ * resistor absorbs the travelling wave and a shunt to ground would not.
+ * Nothing in this antenna connects to earth — deliberately, and unlike the
+ * sloping V, whose legs work against ground as a transmission line. See
+ * §3.2 and §10.3 of `docs/antenna-spec.md`.
  *
  * Tags:
  *   LEFT_LEG_TAG               (1)  — top-left leg:  leftCorner → apex

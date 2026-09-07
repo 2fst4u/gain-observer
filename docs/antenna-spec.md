@@ -301,7 +301,20 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 ### 10.3 Termination Definition
 
+**How it is built, in plain terms.** Put up an ordinary delta loop — one triangle of wire, apex at the top of the mast, bottom corners out to stakes. Feed the apex, balanced. Then cut the *bottom* wire at its exact midpoint, pull the two ends ~100 mm apart on a small insulator, and connect the terminating resistor **across that gap**: one lead to the left half of the bottom wire, one lead to the right half. The resistor is a link in the wire, in line with it, hanging in the air.
+
+Nothing goes to earth — no ground rod, no wire to the ground, nowhere. The antenna is entirely floating.
+
+The picture to keep is *a bead threaded onto the loop, not a drain to earth*. Current circulates round the triangle, and the resistor sits in that current path at the point furthest from the feed, where the current is strongest, absorbing the wave before it can reflect. Earth plays no part.
+
+Resistor: non-inductive (carbon composition or a bank of them; never wirewound), and rated for real power — at 7 MHz the model puts ~65 % of transmit power into it, so 100 W out wants a 100 W-plus resistor.
+
 - **Topology:** A single horizontal _bridge wire_ spans the gap between the two half-base inner ends. The terminating resistor sits on that bridge. This is an aperiodic-loop topology (the triangular cousin to the T2FD).
+- **Why the resistor goes there, and not to ground.** On a 1 λ loop fed at one point, the point diametrically opposite the feed is a **current maximum and voltage null**. A resistor in series across the gap sits in the full circulating current and absorbs it ($P = I^2R$). Two resistors shunted to earth sit at a voltage null, so there is little voltage to drive current through them — and worse, they break the loop, so the circulating mode cannot exist at all. The structure stops being a loop and becomes two wires fed in series against earth, with the return current going through the ground.
+
+  Measured (42 m perimeter, 15 m apex, pastoral ground), grounded stubs against the bridge: at 7.1 MHz the stub version leaves **14.2 dB** of leg ripple against 16.5 dB unterminated — it barely terminates anything — while still burning ~62 % of the power, and feedpoint reactance is **−1755 Ω** against −260 Ω for the bridge. After a 9:1 unun the bridge holds **1.4–2.1:1 from 7 to 28 MHz**; the grounded version blows out to **9:1** at 7.1 MHz. It only begins working above ~14 MHz, where the stubs are electrically long enough to couple to ground — and by then they are radiating verticals in their own right, so the pattern is no longer a delta loop's. Worst of both: full termination loss, none of the broadband flatness.
+
+  This is also what the published designs do. The ground-independent terminated loops — Flag, Pennant, Kaz, and the K6SE/EA3VY **Delta** whose name this antenna borrows — all put a single resistor *in* the loop opposite the feed, with no earth connection; ground-independence is the selling point. The terminated loops that *do* run a resistor to earth (K9AY, Ewe) are asymmetric, need a ground rod, and are receive-only: they are lossy enough to need ~15 dB of gain to match a Beverage.
 - **NEC Model:** One `LD 4` load on the single segment of `TERMINATED_DELTA_BRIDGE_TAG`. No vertical stubs, no ground shunts.
 - **Value:** `terminatingResistor` should be close to the loop wire's characteristic impedance over real ground, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$. Default is 600 Ω.
 - **What this is NOT:** Not a unidirectional travelling-wave antenna. The geometry is bilaterally symmetric, so by symmetry the pattern is bidirectional/broadside (delta-loop-like). The termination buys broadband flat impedance, not directionality. For a unidirectional cardioid you need an asymmetric topology (e.g. corner-fed/corner-terminated K9AY-style), which this app does not currently model.
