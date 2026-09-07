@@ -225,9 +225,17 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
        |       |
       GND     GND
   ```
-- **NEC Model:** `LD 4` loads on short vertical stub wires extending from each tip down to near-ground (`SLOPING_V_STUB_BOTTOM_Z_M`).
-- **Value:** `terminatingResistor` is applied identically to both stubs. Default is 300 Ω.
-- **Return Path:** Explicit NEC current path from the wire tip toward the ground plane.
+- **NEC Model:** `LD 4` loads on short vertical stub wires extending from each tip down to a hub just above ground, plus a radial screen at each hub. The hub sits at `slopingVTerminationHubZ()` — 0.001 λ above ground (the lowest the Sommerfeld-Norton ground is documented to represent faithfully), floored at `SLOPING_V_STUB_BOTTOM_Z_M`.
+- **Value:** `terminatingResistor` is applied identically to both stubs. Default is 300 Ω; the modelled ripple optimum sits nearer 500 Ω (see below).
+- **Return Path — and why the screen exists.** This is the one place in the model where a wire stands in for something that is not wire. **NEC-2 cannot bond a conductor to a Sommerfeld-Norton ground**: wires must stay above `z = 0`, and a wire that merely *ends* near the earth is an open circuit, not an earth connection. A resistor terminating into one is in series with its own sub-picofarad end capacitance and passes almost no current.
+
+  That is not a theoretical worry — it is what this model used to do. Measured against the solver at 7.1 MHz (84 m legs, 90°, 15 m apex): the stub-only termination dissipated **0.9 %** of input power and left **18 dB** of leg current ripple, a full standing wave. Deleting the resistor altogether moved the answer less than the ripple's own rounding, and *raising* R from 300 Ω to 5000 Ω made it dissipate **more** — the signature of a series capacitance setting the current, which is the opposite of how a termination behaves.
+
+  `SLOPING_V_COUNTERPOISE_RADIALS` (8) radials of `SLOPING_V_COUNTERPOISE_LENGTH_WL` (0.10 λ) at each hub give the termination current the return path the real antenna's earth stake provides. With the screen fitted the same resistor takes **~68 %** of the power and ripple falls to **~2.4 dB**.
+
+  The check that this is now physics rather than a fudge: the ripple minimum lands at **R ≈ 500 Ω**, on the leg's characteristic impedance against ground, and degrades either side of it (100 Ω → 12.5 dB, 500 Ω → 2.4 dB, 1200 Ω → 7.1 dB). A decorative resistor shows no optimum at all. `tests/slopingVTermination.integration.test.ts` pins this; a structural test over the deck cannot, which is exactly how the defect survived.
+- **Radial sizing.** 0.10 λ rather than the marginally better-terminating 0.25 λ because the deck is built once at the design frequency and re-used across the whole 1.8–30 MHz SWR sweep. Quarter-wave radials pass through resonance mid-sweep and put a step in the efficiency curve that belongs to the model, not the antenna. At 0.10 λ the screen stays electrically small across the sweep. Radial length is additionally capped at 40 % of the tip separation so the two screens can never overlap, which would be a NEC geometry error.
+- **Not rendered.** The counterpoise is simulation-only: `buildWires` does not emit it, so the 3D scene shows the stub and resistor a builder actually installs and not the solver's stand-in for the dirt underneath. In the real antenna there is an earth stake there, not eight radials.
 
 ### 8.4 SWR Convention
 

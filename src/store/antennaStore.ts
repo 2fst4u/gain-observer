@@ -21,12 +21,12 @@ import type {
   NetworkLoad,
   AntennaType,
 } from '../physics/types';
-import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ, TRANSFORMER_CHOKE_OHMS, ATU_COMPONENT_Q, DEFAULT_FEEDLINE_ID, DEFAULT_FEEDLINE_LENGTH_M, DEFAULT_ATU_MAIN_FEEDLINE_LENGTH_M, DEFAULT_GROUND_ID, DEFAULT_WIRE_RADIUS_M, SLOPING_V_MIN_TIP_Z_M, findFeedlinePreset, feedlineLossDb, findGroundPreset, referenceLength, halfWaveLength, FEED_BRIDGE_LENGTH_M, SLOPING_V_STUB_BOTTOM_Z_M, DEFAULT_WHIP_LENGTH_M, FOLDED_DIPOLE_DEFAULT_APERTURE_M, FOLDED_DIPOLE_MAX_APERTURE_M, FOLDED_DIPOLE_FEED_R_OHMS } from '../physics/constants';
+import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ, TRANSFORMER_CHOKE_OHMS, ATU_COMPONENT_Q, DEFAULT_FEEDLINE_ID, DEFAULT_FEEDLINE_LENGTH_M, DEFAULT_ATU_MAIN_FEEDLINE_LENGTH_M, DEFAULT_GROUND_ID, DEFAULT_WIRE_RADIUS_M, SLOPING_V_MIN_TIP_Z_M, findFeedlinePreset, feedlineLossDb, findGroundPreset, referenceLength, halfWaveLength, FEED_BRIDGE_LENGTH_M, SLOPING_V_COUNTERPOISE_RADIALS, SLOPING_V_COUNTERPOISE_LENGTH_WL, slopingVTerminationHubZ, wavelengthMeters, DEFAULT_WHIP_LENGTH_M, FOLDED_DIPOLE_DEFAULT_APERTURE_M, FOLDED_DIPOLE_MAX_APERTURE_M, FOLDED_DIPOLE_FEED_R_OHMS } from '../physics/constants';
 
 import type { Theme } from '../utils/themeColors';
 import type { UnitSystem } from '../physics/units';
 import type { AtuMatchConfig } from '../physics/impedance';
-import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, SLOPING_V_LEFT_STUB_TAG, SLOPING_V_RIGHT_STUB_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, TERMINATED_DELTA_BRIDGE_TAG, VERTICAL_WHIP_TAG, INVERTED_L_VERTICAL_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_TERM_BRIDGE_TAG } from '../physics/tags';
+import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, SLOPING_V_LEFT_STUB_TAG, SLOPING_V_RIGHT_STUB_TAG, SLOPING_V_LEFT_COUNTERPOISE_TAG, SLOPING_V_RIGHT_COUNTERPOISE_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, TERMINATED_DELTA_BRIDGE_TAG, VERTICAL_WHIP_TAG, INVERTED_L_VERTICAL_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_TERM_BRIDGE_TAG } from '../physics/tags';
 import {
   buildInvertedVWires,
   buildSlopingVWires,
@@ -36,6 +36,7 @@ import {
   buildInvertedLWires,
   buildFoldedAntennaWires,
   buildDipoleWires,
+  SEGS_PER_WAVELENGTH,
   type Orientation,
 } from './antennaGeometry';
 
@@ -1172,17 +1173,31 @@ function buildFeedlineElements(state: AntennaState, feedlineActive: boolean, has
   return { transmissionLines, loads, networks };
 }
 
-function buildSlopingVTermination(R: number, radius: number, wires: Wire[]) {
+function buildSlopingVTermination(R: number, radius: number, frequency: number, wires: Wire[]) {
   const extraWires: Wire[] = [];
   const loads: SegmentLoad[] = [];
-  // Model the physical tip-to-earth terminating resistor correctly:
-  // add a short vertical stub wire from each tip down to near-ground
-  // (SLOPING_V_STUB_BOTTOM_Z_M), then place the resistance in that stub.
+  // Model the physical tip-to-earth terminating resistor: a short vertical
+  // stub from each leg tip down to a hub just above ground, the resistance
+  // in that stub, and a small radial screen at the hub standing in for the
+  // earth stake the real resistor is bonded to.
   //
-  // This creates an explicit NEC current path from the wire tip toward
-  // the ground plane, matching the real antenna where the resistor
-  // connects the wire end to a driven ground rod. A series LD on the
-  // leg end alone does not create this shunt-to-earth current path.
+  // The radial screen is not decoration and not hardware — it is what makes
+  // the resistor conduct at all. NEC-2 cannot bond a wire to a
+  // Sommerfeld-Norton ground, so a stub that merely ends near the earth is
+  // an open circuit: the resistor sits in series with a sub-picofarad end
+  // capacitance, passes almost no current, and terminates nothing. Measured
+  // against the solver, the stub-only model dissipated 0.9 % of input power
+  // and left 18 dB of leg current ripple — a full standing wave, i.e. an
+  // unterminated antenna wearing a resistor. Removing the resistor entirely
+  // changed the answer by less than the ripple's own rounding. With the
+  // screen fitted the same resistor takes ~68 % of the power, ripple falls
+  // to ~2.4 dB, and the ripple minimum lands at R ≈ 500 Ω — the leg's
+  // characteristic impedance against ground, which is where the optimum
+  // belongs.
+  //
+  // The screen is simulation-only: `buildWires` does not emit it, so the 3D
+  // scene shows the stub and resistor a builder actually installs and not
+  // the solver's stand-in for the dirt underneath it.
   //
   // With graded segmentation each leg may be emitted as multiple sub-wires
   // sharing the leg's tag. By convention `buildSlopingVWires` emits the
@@ -1198,17 +1213,22 @@ function buildSlopingVTermination(R: number, radius: number, wires: Wire[]) {
   const leftTip  = firstLeft!.start;
   const rightTip = lastRight!.end;
 
+  // Hub height is frequency-scaled (0.001 λ, the lowest the S-N ground model
+  // is documented to represent faithfully) and clamped so it always stays
+  // below the tip it hangs from.
+  const hubZ = slopingVTerminationHubZ(frequency, Math.min(leftTip[2], rightTip[2]));
+
   extraWires.push(
     {
       start: leftTip,
-      end: [leftTip[0], leftTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
+      end: [leftTip[0], leftTip[1], hubZ],
       radius: radius,
       segments: 1,
       tag: SLOPING_V_LEFT_STUB_TAG,
     },
     {
       start: rightTip,
-      end: [rightTip[0], rightTip[1], SLOPING_V_STUB_BOTTOM_Z_M],
+      end: [rightTip[0], rightTip[1], hubZ],
       radius: radius,
       segments: 1,
       tag: SLOPING_V_RIGHT_STUB_TAG,
@@ -1218,6 +1238,44 @@ function buildSlopingVTermination(R: number, radius: number, wires: Wire[]) {
     { type: 4, wireTag: SLOPING_V_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
     { type: 4, wireTag: SLOPING_V_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
   );
+
+  // Radial length is capped at 40 % of the tip separation so the two screens
+  // can never grow into one another: opposing radials then reach at most
+  // 80 % of the gap between the hubs, leaving them disjoint. Overlapping or
+  // coincident wires are a NEC geometry error, and a narrow V at a low
+  // frequency is exactly the case that would produce them.
+  const lambda = wavelengthMeters(frequency);
+  const tipSeparation = Math.hypot(leftTip[0] - rightTip[0], leftTip[1] - rightTip[1]);
+  const radialLength = Math.min(
+    lambda * SLOPING_V_COUNTERPOISE_LENGTH_WL,
+    Math.max(0.1, tipSeparation * 0.4),
+  );
+  const radialSegments = Math.max(1, Math.ceil(radialLength / (lambda / SEGS_PER_WAVELENGTH)));
+
+  const hubs: Array<[[number, number, number], number]> = [
+    [[leftTip[0], leftTip[1], hubZ], SLOPING_V_LEFT_COUNTERPOISE_TAG],
+    [[rightTip[0], rightTip[1], hubZ], SLOPING_V_RIGHT_COUNTERPOISE_TAG],
+  ];
+  for (let h = 0; h < hubs.length; h++) {
+    const hub = hubs[h]![0];
+    const tag = hubs[h]![1];
+    for (let i = 0; i < SLOPING_V_COUNTERPOISE_RADIALS; i++) {
+      // Offset by half a step so no radial lies along the tip-to-tip axis,
+      // which is where the two screens come closest to each other.
+      const angle = (2 * Math.PI * i) / SLOPING_V_COUNTERPOISE_RADIALS + Math.PI / SLOPING_V_COUNTERPOISE_RADIALS;
+      extraWires.push({
+        start: hub,
+        end: [
+          hub[0] + radialLength * Math.cos(angle),
+          hub[1] + radialLength * Math.sin(angle),
+          hubZ,
+        ],
+        radius: radius,
+        segments: radialSegments,
+        tag: tag,
+      });
+    }
+  }
 
   return { extraWires, loads };
 }
@@ -1325,7 +1383,7 @@ function buildTerminationElements(state: AntennaState, wires: Wire[]) {
   if (state.terminatingResistor > 0) {
     switch (state.antennaType) {
       case 'sloping-v': {
-        const { extraWires: ew, loads: l } = buildSlopingVTermination(state.terminatingResistor, state.wireRadius, wires);
+        const { extraWires: ew, loads: l } = buildSlopingVTermination(state.terminatingResistor, state.wireRadius, state.frequency, wires);
         extraWires.push(...ew);
         loads.push(...l);
         break;
