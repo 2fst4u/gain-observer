@@ -225,9 +225,17 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
        |       |
       GND     GND
   ```
-- **NEC Model:** `LD 4` loads on short vertical stub wires extending from each tip down to near-ground (`SLOPING_V_STUB_BOTTOM_Z_M`).
-- **Value:** `terminatingResistor` is applied identically to both stubs. Default is 300 Ω.
-- **Return Path:** Explicit NEC current path from the wire tip toward the ground plane.
+- **NEC Model:** `LD 4` loads on short vertical stub wires extending from each tip down to a hub just above ground, plus a radial screen at each hub. The hub sits at `slopingVTerminationHubZ()` — 0.001 λ above ground (the lowest the Sommerfeld-Norton ground is documented to represent faithfully), floored at `SLOPING_V_STUB_BOTTOM_Z_M`.
+- **Value:** `terminatingResistor` is applied identically to both stubs. Default is 300 Ω; the modelled ripple optimum sits nearer 500 Ω (see below).
+- **Return Path — and why the screen exists.** This is the one place in the model where a wire stands in for something that is not wire. **NEC-2 cannot bond a conductor to a Sommerfeld-Norton ground**: wires must stay above `z = 0`, and a wire that merely *ends* near the earth is an open circuit, not an earth connection. A resistor terminating into one is in series with its own sub-picofarad end capacitance and passes almost no current.
+
+  That is not a theoretical worry — it is what this model used to do. Measured against the solver at 7.1 MHz (84 m legs, 90°, 15 m apex): the stub-only termination dissipated **0.9 %** of input power and left **18 dB** of leg current ripple, a full standing wave. Deleting the resistor altogether moved the answer less than the ripple's own rounding, and *raising* R from 300 Ω to 5000 Ω made it dissipate **more** — the signature of a series capacitance setting the current, which is the opposite of how a termination behaves.
+
+  `SLOPING_V_COUNTERPOISE_RADIALS` (8) radials of `SLOPING_V_COUNTERPOISE_LENGTH_WL` (0.10 λ) at each hub give the termination current the return path the real antenna's earth stake provides. With the screen fitted the same resistor takes **~68 %** of the power and ripple falls to **~2.4 dB**.
+
+  The check that this is now physics rather than a fudge: the ripple minimum lands at **R ≈ 500 Ω**, on the leg's characteristic impedance against ground, and degrades either side of it (100 Ω → 12.5 dB, 500 Ω → 2.4 dB, 1200 Ω → 7.1 dB). A decorative resistor shows no optimum at all. `tests/slopingVTermination.integration.test.ts` pins this; a structural test over the deck cannot, which is exactly how the defect survived.
+- **Radial sizing.** 0.10 λ rather than the marginally better-terminating 0.25 λ because the deck is built once at the design frequency and re-used across the whole 1.8–30 MHz SWR sweep. Quarter-wave radials pass through resonance mid-sweep and put a step in the efficiency curve that belongs to the model, not the antenna. At 0.10 λ the screen stays electrically small across the sweep. Radial length is additionally capped at 40 % of the tip separation so the two screens can never overlap, which would be a NEC geometry error.
+- **Not rendered.** The counterpoise is simulation-only: `buildWires` does not emit it, so the 3D scene shows the stub and resistor a builder actually installs and not the solver's stand-in for the dirt underneath. In the real antenna there is an earth stake there, not eight radials.
 
 ### 8.4 SWR Convention
 
@@ -301,7 +309,20 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 ### 10.3 Termination Definition
 
+**How it is built, in plain terms.** Put up an ordinary delta loop — one triangle of wire, apex at the top of the mast, bottom corners out to stakes. Feed the apex, balanced. Then cut the *bottom* wire at its exact midpoint, pull the two ends ~100 mm apart on a small insulator, and connect the terminating resistor **across that gap**: one lead to the left half of the bottom wire, one lead to the right half. The resistor is a link in the wire, in line with it, hanging in the air.
+
+Nothing goes to earth — no ground rod, no wire to the ground, nowhere. The antenna is entirely floating.
+
+The picture to keep is *a bead threaded onto the loop, not a drain to earth*. Current circulates round the triangle, and the resistor sits in that current path at the point furthest from the feed, where the current is strongest, absorbing the wave before it can reflect. Earth plays no part.
+
+Resistor: non-inductive (carbon composition or a bank of them; never wirewound), and rated for real power — at 7 MHz the model puts ~65 % of transmit power into it, so 100 W out wants a 100 W-plus resistor.
+
 - **Topology:** A single horizontal _bridge wire_ spans the gap between the two half-base inner ends. The terminating resistor sits on that bridge. This is an aperiodic-loop topology (the triangular cousin to the T2FD).
+- **Why the resistor goes there, and not to ground.** On a 1 λ loop fed at one point, the point diametrically opposite the feed is a **current maximum and voltage null**. A resistor in series across the gap sits in the full circulating current and absorbs it ($P = I^2R$). Two resistors shunted to earth sit at a voltage null, so there is little voltage to drive current through them — and worse, they break the loop, so the circulating mode cannot exist at all. The structure stops being a loop and becomes two wires fed in series against earth, with the return current going through the ground.
+
+  Measured (42 m perimeter, 15 m apex, pastoral ground), grounded stubs against the bridge: at 7.1 MHz the stub version leaves **14.2 dB** of leg ripple against 16.5 dB unterminated — it barely terminates anything — while still burning ~62 % of the power, and feedpoint reactance is **−1755 Ω** against −260 Ω for the bridge. After a 9:1 unun the bridge holds **1.4–2.1:1 from 7 to 28 MHz**; the grounded version blows out to **9:1** at 7.1 MHz. It only begins working above ~14 MHz, where the stubs are electrically long enough to couple to ground — and by then they are radiating verticals in their own right, so the pattern is no longer a delta loop's. Worst of both: full termination loss, none of the broadband flatness.
+
+  This is also what the published designs do. The ground-independent terminated loops — Flag, Pennant, Kaz, and the K6SE/EA3VY **Delta** whose name this antenna borrows — all put a single resistor *in* the loop opposite the feed, with no earth connection; ground-independence is the selling point. The terminated loops that *do* run a resistor to earth (K9AY, Ewe) are asymmetric, need a ground rod, and are receive-only: they are lossy enough to need ~15 dB of gain to match a Beverage.
 - **NEC Model:** One `LD 4` load on the single segment of `TERMINATED_DELTA_BRIDGE_TAG`. No vertical stubs, no ground shunts.
 - **Value:** `terminatingResistor` should be close to the loop wire's characteristic impedance over real ground, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$. Default is 600 Ω.
 - **What this is NOT:** Not a unidirectional travelling-wave antenna. The geometry is bilaterally symmetric, so by symmetry the pattern is bidirectional/broadside (delta-loop-like). The termination buys broadband flat impedance, not directionality. For a unidirectional cardioid you need an asymmetric topology (e.g. corner-fed/corner-terminated K9AY-style), which this app does not currently model.

@@ -41,3 +41,22 @@ export const FOLDED_DIPOLE_CONNECTOR_TAG = 18;
  * This mirrors the terminated-delta's centre-gap bridge.
  */
 export const FOLDED_DIPOLE_TERM_BRIDGE_TAG = 19;
+
+/**
+ * Earth-connection counterpoise for the sloping-V termination.
+ *
+ * These wires model the *earth stake* the physical antenna's terminating
+ * resistor connects to — they are not hardware the builder erects, and the
+ * 3D scene deliberately does not draw them (see §7.3 of `antenna-spec.md`).
+ *
+ * NEC-2 cannot bond a wire to a Sommerfeld-Norton ground: wires must stay
+ * above z = 0, and a wire that simply ends near the ground is an *open
+ * circuit*, not an earth connection. Terminating into one leaves the
+ * resistor in series with a sub-picofarad end capacitance, so almost no
+ * current flows through it and the termination does nothing. A small
+ * elevated radial screen under each tip is the standard NEC-2 stand-in: it
+ * gives the termination current the return path the earth stake provides in
+ * the real antenna.
+ */
+export const SLOPING_V_LEFT_COUNTERPOISE_TAG = 20;
+export const SLOPING_V_RIGHT_COUNTERPOISE_TAG = 21;

@@ -147,7 +147,7 @@ function getTerminationHint(antennaType: AntennaType, terminatingResistor: numbe
     return `${terminatingResistor} Ω resistor at the centre of the conductor opposite the feed. It sits at that conductor's current maximum, so it lands at the feedpoint almost 1:1 — raw feedpoint ≈ ${terminatingResistor + FOLDED_DIPOLE_FEED_R_OHMS} Ω — and costs about ${lossDb} dB of gain (10·log10(1 + R/${FOLDED_DIPOLE_FEED_R_OHMS})). The pattern shape is unchanged; watch Directivity hold still while Gain drops. Use the Match button in the Transformer section below to apply the optimal ratio (the transformer is never changed automatically). Raising R toward the two-wire line's Z₀ (≈ ${tfdZ0} Ω here) flattens SWR further at a steep price in gain; lowering it keeps gain but narrows the usable range. Click Off to restore the plain folded dipole.`;
   }
 
-  return `${terminatingResistor} Ω resistors at each inner half-base end (to ground via short stubs). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`;
+  return `${terminatingResistor} Ω resistor on a short bridge wire spanning the gap at the centre of the base (not to ground). Click Off to remove termination and inspect resonance. Affects gain, directivity, front/back ratio, feedpoint impedance, realized gain, and termination loss. Lower SWR alone does not indicate the best design point.`;
 }
 
 function TravelingWaveLegControl() {

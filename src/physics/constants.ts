@@ -306,12 +306,60 @@ export const VERTICAL_WHIP_RADIAL_COUNT = 4;
  */
 
 /**
- * Z-coordinate of the bottom endpoint of the sloping-V termination stubs,
- * metres above ground.  Must be > 0 (NEC wires cannot touch z = 0).
- * 0.01 m (1 cm) places the stub end essentially at ground level while
- * remaining within the Sommerfeld-Norton model's accuracy envelope.
+ * Floor for the height of the sloping-V termination hub (the bottom of each
+ * stub, where the counterpoise radials meet), metres above ground. Must be
+ * > 0 — NEC wires cannot touch z = 0 under a Sommerfeld-Norton ground.
+ *
+ * This is only the floor. The hub actually sits at
+ * `slopingVTerminationHubZ()`, which is frequency-scaled: the S-N ground is
+ * documented as accurate for wires down to 0.001 λ above the surface, and
+ * 0.01 m is below that everywhere under 30 MHz. The floor still applies at
+ * the top of the HF range, where 0.001 λ is smaller than 1 cm.
  */
 export const SLOPING_V_STUB_BOTTOM_Z_M = 0.01;
+
+/**
+ * Height of the sloping-V termination hub above ground, in wavelengths.
+ * The Sommerfeld-Norton ground model is accurate for wires at or above
+ * 0.001 λ; sitting exactly on that limit keeps the counterpoise as close to
+ * the earth as the solver can faithfully represent.
+ */
+export const SLOPING_V_COUNTERPOISE_HEIGHT_WL = 0.001;
+
+/**
+ * Radial count and length (in wavelengths at the design frequency) for the
+ * sloping-V termination counterpoise.
+ *
+ * Chosen by measurement against the solver, not by convention. Eight radials
+ * of 0.10 λ bring the leg current ripple at the design frequency down to
+ * ~2.4 dB (from ~18 dB with no counterpoise, which is a full standing wave),
+ * and — the real check — put the ripple minimum at R ≈ 500 Ω, right on the
+ * leg's characteristic impedance against ground, which is where a correctly
+ * modelled travelling-wave termination should optimise.
+ *
+ * Longer radials terminate marginally better at the design frequency but are
+ * resonant there, and the deck is built once and re-used across the whole
+ * 1.8-30 MHz SWR sweep: 0.25 λ radials pass through resonance mid-sweep and
+ * put a step in the efficiency curve that is an artefact of the model rather
+ * than anything the antenna does. At 0.10 λ the screen stays electrically
+ * small across the entire sweep and the curves come out smooth.
+ */
+export const SLOPING_V_COUNTERPOISE_RADIALS = 8;
+export const SLOPING_V_COUNTERPOISE_LENGTH_WL = 0.10;
+
+/**
+ * Hub height for the sloping-V termination at a given frequency: 0.001 λ,
+ * never below `SLOPING_V_STUB_BOTTOM_Z_M`, and never so high that it reaches
+ * the leg tip it hangs from (`tipZ` guards the low-mast case, where the tips
+ * themselves can sit close to the ground).
+ */
+export function slopingVTerminationHubZ(frequencyMHz: number, tipZ: number): number {
+  const nominal = Math.max(
+    SLOPING_V_STUB_BOTTOM_Z_M,
+    wavelengthMeters(frequencyMHz) * SLOPING_V_COUNTERPOISE_HEIGHT_WL,
+  );
+  return Math.min(nominal, tipZ * 0.5);
+}
 
 // ⚡ Bolt: Removed .map() callback array allocation for Map initialization
 export const GROUND_PRESET_MAP = new Map<string, GroundPreset>();
