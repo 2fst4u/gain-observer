@@ -22,15 +22,7 @@ function qualityLabel(quality: 'useful' | 'weak' | 'unusable'): string {
   return 'very weak signal';
 }
 
-interface ConditionsReadoutProps {
-  prediction: PropagationPrediction;
-  haveTakeoff: boolean;
-  units: 'metric' | 'imperial';
-}
-
-export function ConditionsReadout({ prediction, haveTakeoff, units }: ConditionsReadoutProps) {
-  const [showAssumptions, setShowAssumptions] = useState(false);
-
+function ConditionsStats({ prediction }: { prediction: PropagationPrediction }) {
   return (
     <>
       {/* Conditions readout */}
@@ -63,38 +55,34 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: Conditions
         </span>
         <span className="stat-value">{prediction.lufMHz.toFixed(2)} MHz</span>
       </div>
+    </>
+  );
+}
 
-      {/* Radar plot */}
-      <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
-      {haveTakeoff ? (
-        <PropagationRadar
-          prediction={prediction}
-          units={units}
-        />
-      ) : (
-        <div role="status" aria-live="polite" style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 0' }}>
-          <div className="spinner" aria-hidden="true" /> Computing antenna pattern…
+function HopStatusText({ hops, units }: { hops: readonly HopPrediction[]; units: 'metric' | 'imperial' }) {
+  return (
+    <div style={{ marginTop: 10 }}>
+      {hops.map((h: HopPrediction) => (
+        <div key={h.n} className="stat">
+          <span className="stat-label">{h.n}× hop</span>
+          <span
+            className="stat-value"
+            style={{ color: hopColor(h.status) }}
+            title={h.reason}
+          >
+            {formatRange(h.rangeKm, units)} · {h.status} · {qualityLabel(h.linkQuality)}
+          </span>
         </div>
-      )}
+      ))}
+    </div>
+  );
+}
 
-      {/* Per-hop status text (machine-readable for screen readers and a
-          quick textual summary alongside the radar) */}
-      <div style={{ marginTop: 10 }}>
-        {prediction.hops.map((h: HopPrediction) => (
-          <div key={h.n} className="stat">
-            <span className="stat-label">{h.n}× hop</span>
-            <span
-              className="stat-value"
-              style={{ color: hopColor(h.status) }}
-              title={h.reason}
-            >
-              {formatRange(h.rangeKm, units)} · {h.status} · {qualityLabel(h.linkQuality)}
-            </span>
-          </div>
-        ))}
-      </div>
+function AssumptionsDisclosure() {
+  const [showAssumptions, setShowAssumptions] = useState(false);
 
-      {/* Assumptions disclosure */}
+  return (
+    <>
       <button
         type="button"
         onClick={() => setShowAssumptions((v) => !v)}
@@ -140,6 +128,40 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: Conditions
           <li>No sporadic-E, auroral, or polar effects.</li>
         </ul>
       </div>
+    </>
+  );
+}
+
+interface ConditionsReadoutProps {
+  prediction: PropagationPrediction;
+  haveTakeoff: boolean;
+  units: 'metric' | 'imperial';
+}
+
+export function ConditionsReadout({ prediction, haveTakeoff, units }: ConditionsReadoutProps) {
+  return (
+    <>
+      <ConditionsStats prediction={prediction} />
+
+      {/* Radar plot */}
+      <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
+      {haveTakeoff ? (
+        <PropagationRadar
+          prediction={prediction}
+          units={units}
+        />
+      ) : (
+        <div role="status" aria-live="polite" style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 0' }}>
+          <div className="spinner" aria-hidden="true" /> Computing antenna pattern…
+        </div>
+      )}
+
+      {/* Per-hop status text (machine-readable for screen readers and a
+          quick textual summary alongside the radar) */}
+      <HopStatusText hops={prediction.hops} units={units} />
+
+      {/* Assumptions disclosure */}
+      <AssumptionsDisclosure />
     </>
   );
 }
