@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { displayedFeedMetrics } from '../../physics/impedance';
+import { displayedFeedMetrics, type AtuMatchConfig } from '../../physics/impedance';
 import { phiToBearingDeg } from '../../physics/angles';
-import type { AtuMatchConfig } from '../../physics/impedance';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 import type { TerminationDiagnostics } from '../../physics/types';
 import { StatRow } from '../UI/StatRow';
