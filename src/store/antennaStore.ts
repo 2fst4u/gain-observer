@@ -1297,13 +1297,18 @@ function buildTerminatedDeltaTermination(R: number, radius: number, wires: Wire[
   // centreRight → rightCorner so the inner end is the wire's `.start`.
   // The bridge runs leftInner → rightInner, joining the two halves
   // electrically through the resistor.
+  // Each half-base is graded into the centre gap, so it is emitted as several
+  // sub-wires sharing one tag. The LEFT half runs leftCorner -> centreLeft, so
+  // its inner end is the LAST sub-wire's `.end`; the RIGHT half runs
+  // centreRight -> rightCorner, so its inner end is the FIRST sub-wire's
+  // `.start`. Taking the first of both would put the bridge partway along the
+  // left half-base instead of across the gap.
   let leftHalfBase: Wire | undefined;
   let rightHalfBase: Wire | undefined;
   for (let i = 0; i < wires.length; i++) {
     const w = wires[i];
-    if (w.tag === TERMINATED_DELTA_LEFT_BASE_TAG && !leftHalfBase) leftHalfBase = w;
+    if (w.tag === TERMINATED_DELTA_LEFT_BASE_TAG) leftHalfBase = w;
     else if (w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG && !rightHalfBase) rightHalfBase = w;
-    if (leftHalfBase && rightHalfBase) break;
   }
   const leftInner  = leftHalfBase!.end;
   const rightInner = rightHalfBase!.start;

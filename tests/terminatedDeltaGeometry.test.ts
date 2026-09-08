@@ -1,3 +1,4 @@
+import type { Wire } from '../src/physics/types';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useAntennaStore, selectSimulationInput } from '../src/store/antennaStore';
 import { buildNecCards } from '../src/physics/necCard';
@@ -23,6 +24,20 @@ function setupTerminatedDelta(terminatingResistor?: number) {
   if (terminatingResistor !== undefined) {
     store.setTerminatingResistor(terminatingResistor);
   }
+}
+
+/**
+ * The logical span of a half-base, across its graded sub-wires.
+ *
+ * Each half-base is graded into the centre gap (NEC's adjacent-segment ratio
+ * rule — see §14.1 of `docs/antenna-spec.md`), so a tag covers several wires.
+ * LEFT runs leftCorner -> centreLeft and RIGHT runs centreRight -> rightCorner,
+ * so the span is the first sub-wire's start to the last one's end either way.
+ */
+function halfBaseSpan(wires: readonly Wire[], tag: number) {
+  const subWires = wires.filter((w) => w.tag === tag);
+  if (subWires.length === 0) return undefined;
+  return { start: subWires[0]!.start, end: subWires[subWires.length - 1]!.end };
 }
 
 function getTermLdLines(deck: string): string[] {
@@ -171,8 +186,8 @@ describe('Terminated Delta — base geometry', () => {
     const input = selectSimulationInput(useAntennaStore.getState());
     const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG);
     const rightLeg = input.wires.find((w) => w.tag === RIGHT_LEG_TAG);
-    const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
-    const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG);
+    const leftHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_LEFT_BASE_TAG);
+    const rightHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_RIGHT_BASE_TAG);
     expect(leftLeg).toBeDefined();
     expect(rightLeg).toBeDefined();
     expect(leftHalfBase).toBeDefined();
@@ -196,8 +211,8 @@ describe('Terminated Delta — base geometry', () => {
   it('the two half-base wires sit at the same bottomZ', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
-    const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
+    const leftHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_LEFT_BASE_TAG)!;
+    const rightHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_RIGHT_BASE_TAG)!;
     expect(leftHalfBase.start[2]).toBeCloseTo(leftHalfBase.end[2], 6);
     expect(rightHalfBase.start[2]).toBeCloseTo(rightHalfBase.end[2], 6);
     expect(leftHalfBase.start[2]).toBeCloseTo(rightHalfBase.start[2], 6);
@@ -206,8 +221,8 @@ describe('Terminated Delta — base geometry', () => {
   it('the two half-base inner ends are separated by FEED_BRIDGE_LENGTH_M', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
-    const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
+    const leftHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_LEFT_BASE_TAG)!;
+    const rightHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_RIGHT_BASE_TAG)!;
     // Left half-base is leftCorner → centreLeft, so its .end is the inner end.
     // Right half-base is centreRight → rightCorner, so its .start is the inner end.
     const leftInner = leftHalfBase.end;
@@ -223,8 +238,8 @@ describe('Terminated Delta — base geometry', () => {
   it('the half-base inner ends straddle the geometric centre symmetrically', () => {
     setupTerminatedDelta(0);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
-    const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
+    const leftHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_LEFT_BASE_TAG)!;
+    const rightHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_RIGHT_BASE_TAG)!;
     const midX = (leftHalfBase.end[0] + rightHalfBase.start[0]) / 2;
     const midY = (leftHalfBase.end[1] + rightHalfBase.start[1]) / 2;
     expect(midX).toBeCloseTo(0, 6);
@@ -236,8 +251,8 @@ describe('Terminated Delta — base geometry', () => {
     const input = selectSimulationInput(useAntennaStore.getState());
     const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
     const rightLeg = input.wires.find((w) => w.tag === RIGHT_LEG_TAG)!;
-    const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
-    const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
+    const leftHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_LEFT_BASE_TAG)!;
+    const rightHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_RIGHT_BASE_TAG)!;
     // Left leg goes leftCorner → apex, so .start is the left corner.
     // Left half-base goes leftCorner → centreLeft, so .start is also the left corner.
     expect(leftLeg.start[0]).toBeCloseTo(leftHalfBase.start[0], 6);
@@ -276,8 +291,8 @@ describe('Terminated Delta — base geometry', () => {
     store.setHeight(5); // less than equilateral height (~12.12 m)
     const input = selectSimulationInput(useAntennaStore.getState());
     const leftLeg = input.wires.find((w) => w.tag === LEFT_LEG_TAG)!;
-    const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
-    const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
+    const leftHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_LEFT_BASE_TAG)!;
+    const rightHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_RIGHT_BASE_TAG)!;
     const legLen = Math.hypot(
       leftLeg.end[0] - leftLeg.start[0],
       leftLeg.end[1] - leftLeg.start[1],
@@ -344,8 +359,8 @@ describe('Terminated Delta — terminated (T2FD-style bridge resistor)', () => {
   it('bridge is horizontal at bottomZ, spans the two inner half-base ends', () => {
     setupTerminatedDelta(600);
     const input = selectSimulationInput(useAntennaStore.getState());
-    const leftHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG)!;
-    const rightHalfBase = input.wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG)!;
+    const leftHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_LEFT_BASE_TAG)!;
+    const rightHalfBase = halfBaseSpan(input.wires, TERMINATED_DELTA_RIGHT_BASE_TAG)!;
     const bridge = input.wires.find((w) => w.tag === TERMINATED_DELTA_BRIDGE_TAG)!;
 
     // Bridge starts at the LEFT half-base's inner end (.end).

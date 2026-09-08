@@ -467,3 +467,42 @@ $$\eta \approx \frac{R_{feed}}{R_{feed} + R} \qquad \Delta G \approx -10\log_{10
 - **Wide aperture:** As the spacing grows toward a notable fraction of a wavelength, the two in-phase conductors begin to act as a broadside two-element array and the pattern departs from a simple dipole.
 - **Terminated:** Lower than a plain dipole by $10\log_{10}(1 + R/R_{feed})$ dB — 3.0 dB at the recommended 300 Ω (§13.3). The *pattern* is untouched: directivity holds at 7.7 dBi across the whole range of R, so every dB is dissipation, not a change in radiation.
 - **Harmonic dips:** At even multiples of the design frequency the transmission-line mode presents a short across the feed (each side becomes a half-wave shorted stub), collapsing the feedpoint resistance. Terminated, nearly all the power then goes into the resistor: measured −0.3 dBi at 2× against +3.2 dBi at the design frequency. This is inherent to the folded topology and is why a T2FD is specified from its design frequency upward rather than at its harmonics.
+
+## 14. Model validity: the average-gain test
+
+### 14.1 Feed-bridge segmentation
+
+Integrating NEC's power gain over the whole sphere recovers the fraction of the source's input power that actually left as a far field:
+
+$$\langle G \rangle = \frac{1}{4\pi} \oint G(\theta,\phi)\, d\Omega = \frac{P_{far}}{P_{in}}$$
+
+Over a **perfect** ground nothing absorbs power except the deck's own `LD` cards, so $\langle G \rangle$ must land on the power budget's efficiency. Above it is physically impossible — the deck radiating more than it is fed — and always means the model is wrong.
+
+Several antennas failed this badly. A wire fed through a bridge is split around a 1-segment `FEED_BRIDGE_LENGTH_M` (0.1 m) wire carrying the source; if the halves either side keep their bulk segment length, that bridge segment butts against neighbours 10–20× its length. NEC-2's thin-wire kernel assumes adjacent segments are comparable — the usual guidance is to stay inside about 2:1 — and beyond that the solved current at the source is wrong. Because NEC normalises the entire radiation pattern by the source's input power, that error scales every gain figure in the deck.
+
+Measured on a split half-wave dipole over perfect ground, where the answer must equal the unsplit 8.43 dBi and $\langle G \rangle$ must be 1.000:
+
+| Segment ratio at bridge | 9.7:1 | 5.1:1 | 2.6:1 | 1.3:1 | 1.0:1 |
+|---|---|---|---|---|---|
+| Gain error | +1.05 dB | +0.68 | +0.35 | +0.09 | 0.00 |
+| $\langle G \rangle$ | 127 % | 117 % | 108 % | 102 % | 100 % |
+
+The fix is `buildGradedStraightWires`: the segment touching the bridge matches the bridge's own length and doubles outward until it reaches the bulk density, which still governs the rest of the wire. Cost is a handful of extra segments per leg — logarithmic in the ratio, never a bulk density change. The sloping V had always done this for its legs; every other feed bridge now does too.
+
+Corrections applied (perfect ground, 7 MHz, 20 m):
+
+| | Before | After |
+|---|---|---|
+| Inverted-V, no feedline | 8.09 dBi, $\langle G \rangle$ 125 % | 7.16 dBi, 101 % |
+| Dipole, feedline | 8.50 dBi, 115 % | 7.89 dBi, 100 % |
+| Delta loop, feedline | 7.44 dBi, 118 % | 6.85 dBi, 103 % |
+
+`tests/averageGainTest.integration.test.ts` holds this. Note what it catches that nothing else can: every deck above had its wires in the right places, its tags correct and its cards well-formed, and every structural test passed throughout. Only asking the solver whether the energy balances finds this class of defect.
+
+### 14.2 Known remaining deviations
+
+Three separate issues survive, none of them the segmentation problem above, all documented rather than papered over:
+
+- **Vertical whip and inverted-L: +0.28 to +0.35 dB.** Their source segment sits `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above the ground plane, which over a perfect conductor is nearly a short to the wire's own image. The error does **not** converge with refinement — it grows slightly, from 0.28 dB at 11 segments to 0.39 dB at 100 — so this is not a segment-ratio problem and grading will not help it. It needs a decision about how an "ungrounded" base should be modelled at all, given NEC-2 cannot bond a wire to a Sommerfeld-Norton ground (§8.3 covers the same constraint on the sloping-V termination).
+- **Terminated delta with a feedline: −0.43 dB.** The deficit direction: power vanishing rather than appearing. It does not respond to feed-bridge grading, and the shield's endpoints were checked and are not coincident with the half-base inner ends. Cause not yet established.
+- **Directivity carries up to ~0.3 dB of quadrature error at the display resolution.** The gain figure is unaffected — it is NEC's own pattern maximum — but directivity is derived from $\langle G \rangle$, and the default 5° pattern grid does not resolve a sharply structured pattern well enough to integrate it. The terminated delta reads 0.32 dB of apparent error at 5°, 0.09 dB at 2° and 0.004 dB at 1°, with the gain unmoved throughout. The integration test therefore evaluates on a 1° grid: it is a statement about the deck, not about the display grid.

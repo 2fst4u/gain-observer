@@ -104,16 +104,21 @@ describe("antennaStore selectors", () => {
         feedlineOffset: 0,
       });
 
-      // Expect 4 wires: left half, right half, source bridge, shield.
-      expect(wires).toHaveLength(4);
-      const tags = wires.map((w) => w.tag).sort();
+      // Four distinct tags: left half, right half, source bridge, shield.
+      // Each half is graded into the bridge, so a tag spans several wires.
+      const tags = [...new Set(wires.map((w) => w.tag))].sort();
       expect(tags).toEqual([1, 2, 3, 4]);
 
       const bridge = wires.find((w) => w.tag === 3)!;
       expect(bridge.segments).toBe(1);
 
-      const left = wires.find((w) => w.tag === 1)!;
-      const right = wires.find((w) => w.tag === 2)!;
+      // The halves are graded into the bridge, and emitted tip -> bridge on
+      // the left and bridge -> tip on the right, so the wires touching the
+      // bridge are the last left sub-wire and the first right sub-wire.
+      const leftSubWires = wires.filter((w) => w.tag === 1);
+      const rightSubWires = wires.filter((w) => w.tag === 2);
+      const left = leftSubWires[leftSubWires.length - 1]!;
+      const right = rightSubWires[0]!;
       // The two halves should meet at the bridge endpoints.
       expect(left.end).toEqual(bridge.start);
       expect(right.start).toEqual(bridge.end);
@@ -287,10 +292,10 @@ describe("antennaStore selectors", () => {
 
       const input = selectSimulationInput(testState);
 
-      // Four wires: left dipole (1), right dipole (2), source bridge (3),
-      // coax shield (4).
-      expect(input.wires).toHaveLength(4);
-      const tags = input.wires.map((w) => w.tag).sort();
+      // Four distinct tags: left dipole (1), right dipole (2), source bridge
+      // (3), coax shield (4). The halves are graded into the bridge, so each
+      // leg tag spans several wires.
+      const tags = [...new Set(input.wires.map((w) => w.tag))].sort();
       expect(tags).toEqual([1, 2, 3, 4]);
       const shield = input.wires.find((w) => w.tag === 4)!;
       expect(shield.start[2]).toBe(10);
@@ -1040,7 +1045,11 @@ describe("antennaStore actions", () => {
         9,
         Math.ceil((20 * (state.length / 2)) / lambda),
       );
-      expect(wires[0].segments).toBeGreaterThanOrEqual(expected);
+      // A leg is graded into the feed bridge and so spans several wires under
+      // one tag; the density claim is about the leg, so sum over the tag.
+      const legSegments = (ws: typeof wires, tag: number) =>
+        ws.filter((w) => w.tag === tag).reduce((n, w) => n + w.segments, 0);
+      expect(legSegments(wires, 1)).toBeGreaterThanOrEqual(expected);
 
       // Try a longer wire: 2 lambda per leg.
       // Expected segments = ceil(20 * 2) = 40.
@@ -1054,7 +1063,7 @@ describe("antennaStore actions", () => {
       const longWires = buildWires(
         longState as Parameters<typeof buildWires>[0],
       );
-      expect(longWires[0].segments).toBeGreaterThanOrEqual(40);
+      expect(legSegments(longWires, 1)).toBeGreaterThanOrEqual(40);
     });
 
     it("emits no transmission lines or loads for Inverted V without feedline", () => {
@@ -1080,9 +1089,9 @@ describe("antennaStore actions", () => {
         transformerEnabled: false,
       };
       const input = selectSimulationInput(state as AntennaState);
-      // 4 wires: left leg (1), right leg (2), bridge (3), shield (4)
-      expect(input.wires).toHaveLength(4);
-      const tags = input.wires.map((w) => w.tag).sort();
+      // 4 distinct tags: left leg (1), right leg (2), bridge (3), shield (4).
+      // Legs are graded into the bridge, so a leg tag spans several wires.
+      const tags = [...new Set(input.wires.map((w) => w.tag))].sort();
       expect(tags).toEqual([1, 2, 3, 4]);
       // Excitation moves to the shield bottom
       expect(input.excitation.wireTag).toBe(4);
@@ -1229,9 +1238,10 @@ describe("antennaStore actions", () => {
         transformerEnabled: false,
       };
       const input = selectSimulationInput(state as AntennaState);
-      // 5 wires: left leg (1), right leg (2), bridge (3), shield (4), base (6)
-      expect(input.wires).toHaveLength(5);
-      const tags = input.wires.map((w) => w.tag!).sort((a, b) => a - b);
+      // 5 distinct tags: left leg (1), right leg (2), bridge (3), shield (4),
+      // base (6). Legs are graded into the apex bridge, so a leg tag spans
+      // several wires.
+      const tags = [...new Set(input.wires.map((w) => w.tag!))].sort((a, b) => a - b);
       expect(tags).toEqual([1, 2, 3, 4, 6]);
       // Excitation moves to shield bottom
       expect(input.excitation.wireTag).toBe(4);
