@@ -14,6 +14,8 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 import { useAntennaStore, selectSwrWindow } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ComparisonSnapshot } from '../../store/antennaStore';
+import { type SweepPoint } from '../../physics/types';
 import {
   computeChartData,
   computeStats,
@@ -32,6 +34,98 @@ ChartJS.register(
   Filler,
   annotationPlugin,
 );
+
+function useChartTheme(theme: string) {
+  const chartText = getCssVar('--chart-text') || '#aaa';
+  const chartGrid = getCssVar('--chart-grid') || 'rgba(255,255,255,0.1)';
+  const accent = getCssVar('--accent') || '#4fb3ff';
+  const currentFill = theme === 'dark' ? 'rgba(79, 179, 255, 0.14)' : 'rgba(31, 123, 214, 0.12)';
+  const referenceFill = theme === 'dark' ? 'rgba(255, 179, 71, 0.12)' : 'rgba(230, 126, 34, 0.12)';
+  return { chartText, chartGrid, accent, currentFill, referenceFill };
+}
+
+function useChartBounds(swrViewCenterMHz: number, swrViewSpanMHz: number) {
+  return useMemo(
+    () => {
+      const { startMHz, endMHz } = selectSwrWindow({ swrViewCenterMHz, swrViewSpanMHz });
+      return { min: startMHz, max: endMHz };
+    },
+    [swrViewCenterMHz, swrViewSpanMHz]
+  );
+}
+
+function useChartData(
+  comparisonActive: boolean,
+  reference: ComparisonSnapshot | null,
+  referenceFill: string,
+  transformerInDisplay: boolean,
+  transformerRatio: number,
+  sweep: readonly SweepPoint[],
+  accent: string,
+  currentFill: string
+) {
+  return useMemo(
+    () =>
+      computeChartData({
+        comparisonActive,
+        reference,
+        referenceFill,
+        transformerInDisplay,
+        transformerRatio,
+        sweep,
+        accent,
+        currentFill,
+      }),
+    [accent, comparisonActive, currentFill, reference, referenceFill, sweep, transformerInDisplay, transformerRatio]
+  );
+}
+
+function useChartStats(sweep: readonly SweepPoint[], transformerInDisplay: boolean, transformerRatio: number) {
+  return useMemo(
+    () => computeStats({ sweep, transformerInDisplay, transformerRatio }),
+    [sweep, transformerInDisplay, transformerRatio]
+  );
+}
+
+function useChartYMax(sweep: readonly SweepPoint[], comparisonActive: boolean, reference: ComparisonSnapshot | null, transformerInDisplay: boolean, transformerRatio: number) {
+  return useMemo(
+    () =>
+      computeYMax({
+        sweep,
+        comparisonActive,
+        reference,
+        transformerInDisplay,
+        transformerRatio,
+      }),
+    [comparisonActive, reference, sweep, transformerInDisplay, transformerRatio]
+  );
+}
+
+function useChartOptions(
+  frequency: number,
+  accent: string,
+  stats: ReturnType<typeof computeStats>,
+  yMax: number,
+  xBounds: { min: number; max: number },
+  chartText: string,
+  chartGrid: string,
+  comparisonActive: boolean
+) {
+  return useMemo(
+    () =>
+      computeOptions({
+        frequency,
+        accent,
+        stats,
+        yMax,
+        xBounds,
+        chartText,
+        chartGrid,
+        comparisonActive,
+      }),
+    [accent, chartGrid, chartText, comparisonActive, frequency, xBounds, yMax, stats]
+  );
+}
 
 function useSWRChartConfig() {
   // ⚡ Bolt: Performance Optimization
@@ -64,78 +158,27 @@ function useSWRChartConfig() {
     swrViewSpanMHz: s.swrViewSpanMHz,
   })));
 
-  // Transformer location:
-  //   • In the NEC model (feedline + ratio>1): swept Z already includes it.
-  //   • In display only (no feedline + ratio>1): swept Z is the raw antenna,
-  //     and we apply Z/ratio here.
-  //   • Otherwise: one line, no transform.
   const feedlineActive = feedlineId !== 'none';
   const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
-
-  const chartText = getCssVar('--chart-text') || '#aaa';
-  const chartGrid = getCssVar('--chart-grid') || 'rgba(255,255,255,0.1)';
-  const accent = getCssVar('--accent') || '#4fb3ff';
   const comparisonActive = mode === 'comparison' && Boolean(reference);
-  const currentFill = theme === 'dark' ? 'rgba(79, 179, 255, 0.14)' : 'rgba(31, 123, 214, 0.12)';
-  const referenceFill = theme === 'dark' ? 'rgba(255, 179, 71, 0.12)' : 'rgba(230, 126, 34, 0.12)';
 
-  const data = useMemo(
-    () =>
-      computeChartData({
-        comparisonActive,
-        reference,
-        referenceFill,
-        transformerInDisplay,
-        transformerRatio,
-        sweep,
-        accent,
-        currentFill,
-      }),
-    [accent, comparisonActive, currentFill, reference, referenceFill, sweep, transformerInDisplay, transformerRatio]
+  const { chartText, chartGrid, accent, currentFill, referenceFill } = useChartTheme(theme);
+
+  const data = useChartData(
+    comparisonActive,
+    reference,
+    referenceFill,
+    transformerInDisplay,
+    transformerRatio,
+    sweep,
+    accent,
+    currentFill
   );
 
-  // X bounds come straight from the user-controlled view window — there is no
-  // auto-zoom. The sweep is sampled across exactly this range, so the curve
-  // always fills the plot at the current zoom/pan.
-  const xBounds = useMemo(
-    () => {
-      const { startMHz, endMHz } = selectSwrWindow({ swrViewCenterMHz, swrViewSpanMHz });
-      return { min: startMHz, max: endMHz };
-    },
-    [swrViewCenterMHz, swrViewSpanMHz]
-  );
-
-  const stats = useMemo(
-    () => computeStats({ sweep, transformerInDisplay, transformerRatio }),
-    [sweep, transformerInDisplay, transformerRatio],
-  );
-
-  const yMax = useMemo(
-    () =>
-      computeYMax({
-        sweep,
-        comparisonActive,
-        reference,
-        transformerInDisplay,
-        transformerRatio,
-      }),
-    [comparisonActive, reference, sweep, transformerInDisplay, transformerRatio]
-  );
-
-  const options = useMemo(
-    () =>
-      computeOptions({
-        frequency,
-        accent,
-        stats,
-        yMax,
-        xBounds,
-        chartText,
-        chartGrid,
-        comparisonActive,
-      }),
-    [accent, chartGrid, chartText, comparisonActive, frequency, xBounds, yMax, stats]
-  );
+  const xBounds = useChartBounds(swrViewCenterMHz, swrViewSpanMHz);
+  const stats = useChartStats(sweep, transformerInDisplay, transformerRatio);
+  const yMax = useChartYMax(sweep, comparisonActive, reference, transformerInDisplay, transformerRatio);
+  const options = useChartOptions(frequency, accent, stats, yMax, xBounds, chartText, chartGrid, comparisonActive);
 
   return { result, sweep, data, options, stats };
 }
