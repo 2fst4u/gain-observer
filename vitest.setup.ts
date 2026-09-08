@@ -7,4 +7,8 @@ class ResizeObserver {
 globalThis.ResizeObserver = ResizeObserver;
 
 // Mock build ID
-(globalThis as any).__BUILD_ID__ = 'test-build-id';
+Object.defineProperty(globalThis, '__BUILD_ID__', {
+  value: 'test-build-id',
+  writable: true,
+  configurable: true,
+});
