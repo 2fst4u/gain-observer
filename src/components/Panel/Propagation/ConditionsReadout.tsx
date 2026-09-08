@@ -59,7 +59,7 @@ function ConditionsStats({ prediction }: { prediction: PropagationPrediction }) 
   );
 }
 
-function HopStatusText({ hops, units }: { hops: HopPrediction[]; units: 'metric' | 'imperial' }) {
+function HopStatusText({ hops, units }: { hops: readonly HopPrediction[]; units: 'metric' | 'imperial' }) {
   return (
     <div style={{ marginTop: 10 }}>
       {hops.map((h: HopPrediction) => (
