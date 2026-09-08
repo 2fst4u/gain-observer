@@ -139,6 +139,7 @@ function calcInvertedVPoints(
 
   return {
     legLen,
+    legPointAt,
     apexLeft: legPointAt(0, -1),
     apexRight: legPointAt(0, 1),
     tipLeft: legPointAt(legLen, -1),
@@ -150,7 +151,7 @@ function calcInvertedVPoints(
  * Builds the wires for an Inverted V antenna.
  */
 export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
-  const { legLen, apexLeft, apexRight, tipLeft, tipRight } = calcInvertedVPoints(
+  const { legLen, legPointAt, apexLeft, apexRight } = calcInvertedVPoints(
     params.orientation,
     params.height,
     params.vAngle,
@@ -164,29 +165,42 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
     Math.max(MIN_SEGS_PER_LEG, minSegPerLeg, Math.round(params.segments / 2)),
   );
 
-  return [
-    {
-      start: tipLeft,
-      end: apexLeft,
-      radius: params.wireRadius,
-      segments: segmentsPerLeg,
-      tag: LEFT_LEG_TAG,
-    },
-    {
-      start: apexRight,
-      end: tipRight,
-      radius: params.wireRadius,
-      segments: segmentsPerLeg,
-      tag: RIGHT_LEG_TAG,
-    },
-    {
-      start: apexLeft,
-      end: apexRight,
-      radius: params.wireRadius,
-      segments: 1,
-      tag: FEED_BRIDGE_TAG,
-    },
-  ];
+  // Grade the segment length up from the feed bridge, exactly as the sloping
+  // V does. A uniform leg puts a ~λ/20 segment hard against the 0.1 m bridge
+  // segment carrying the source, and NEC-2's thin-wire kernel needs adjacent
+  // segments within about 2:1 of each other. At the ~20:1 this produced, the
+  // solved current at the source is wrong enough to mis-normalise the whole
+  // pattern: the deck failed NEC's average-gain test by +0.97 dB, i.e. it
+  // radiated 125 % of the power put into it. See §14 of `antenna-spec.md`.
+  //
+  // `segmentsPerLeg` still sets the density over the bulk of the leg, so the
+  // segment-count control keeps working; grading only refines the few
+  // segments nearest the feed.
+  const maxSegLen = legLen / segmentsPerLeg;
+  const plan = gradedSegmentPlan(legLen, FEED_BRIDGE_LENGTH_M, maxSegLen);
+  const { breakpoints, prefixEnd, tailCount } = resolveGradedSegmentBreakpoints(plan, legLen);
+
+  const wires: Wire[] = [];
+
+  // LEFT leg: emit tip → apex, so the last segment is at the feed.
+  wires.push(...buildGradedLegWires(
+    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount, params.wireRadius, LEFT_LEG_TAG, -1, legPointAt, true
+  ));
+
+  // RIGHT leg: emit apex → tip.
+  wires.push(...buildGradedLegWires(
+    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount, params.wireRadius, RIGHT_LEG_TAG, 1, legPointAt, false
+  ));
+
+  wires.push({
+    start: apexLeft,
+    end: apexRight,
+    radius: params.wireRadius,
+    segments: 1,
+    tag: FEED_BRIDGE_TAG,
+  });
+
+  return wires;
 }
 
 export interface SlopingVWiresParams {
@@ -332,6 +346,64 @@ function buildGradedLegWires(
   }
 
   return wires;
+}
+
+/**
+ * Graded segmentation for a straight wire running away from a feed bridge.
+ *
+ * Same rule as the sloping V's legs, generalised: the segment touching the
+ * 1-segment feed bridge must be about the bridge's own length, growing
+ * geometrically out to `maxSegLen`. NEC-2's thin-wire kernel assumes adjacent
+ * segments are comparable in length — the usual guidance is to stay inside
+ * about 2:1 — and a uniform leg butted against the 0.1 m bridge breaks that
+ * badly (20:1 at λ/20 on 40 m).
+ *
+ * The consequence is not a small local error. The solved current at the
+ * source segment is wrong, and since NEC normalises the whole radiation
+ * pattern by the source's input power, every gain figure in the deck shifts
+ * with it. Measured on a split half-wave dipole over perfect ground, where
+ * the answer must equal the unsplit 8.43 dBi and the average-gain test must
+ * return 1.000:
+ *
+ *     ratio at bridge   9.7:1   5.1:1   2.6:1   1.3:1   1.0:1
+ *     gain error       +1.05   +0.68   +0.35   +0.09   0.00 dB
+ *     <G>               127 %   117 %   108 %   102 %    100 %
+ *
+ * A deck radiating 127 % of the power put into it is not a rounding error,
+ * and nothing downstream — gain, efficiency, the gain/directivity split —
+ * means anything while it does.
+ *
+ * `emitFromFarEnd` picks the emission order so callers keep their existing
+ * convention for which end of the tag is `.start`.
+ */
+function buildGradedStraightWires(
+  bridgeEnd: [number, number, number],
+  farEnd: [number, number, number],
+  wireRadius: number,
+  tag: number,
+  maxSegLen: number,
+  emitFromFarEnd: boolean,
+): Wire[] {
+  const vx = farEnd[0] - bridgeEnd[0];
+  const vy = farEnd[1] - bridgeEnd[1];
+  const vz = farEnd[2] - bridgeEnd[2];
+  const legLen = Math.sqrt(vx * vx + vy * vy + vz * vz);
+  if (legLen < 1e-9) return [];
+
+  const ux = vx / legLen, uy = vy / legLen, uz = vz / legLen;
+  const pointAt = (axis: number): [number, number, number] => [
+    cleanZero(bridgeEnd[0] + ux * axis),
+    cleanZero(bridgeEnd[1] + uy * axis),
+    cleanZero(bridgeEnd[2] + uz * axis),
+  ];
+
+  const plan = gradedSegmentPlan(legLen, FEED_BRIDGE_LENGTH_M, Math.max(maxSegLen, FEED_BRIDGE_LENGTH_M));
+  const { breakpoints, prefixEnd, tailCount } = resolveGradedSegmentBreakpoints(plan, legLen);
+
+  return buildGradedLegWires(
+    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount,
+    wireRadius, tag, 1, (axis) => pointAt(axis), emitFromFarEnd,
+  );
 }
 
 export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
@@ -509,21 +581,35 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   const rawBaseSegs = calcSegs(baseLength, lambda, params.segments / 3);
   const baseSegments = rawBaseSegs % 2 === 0 ? rawBaseSegs + 1 : rawBaseSegs;
 
+  // With a feedline the apex is split by a 1-segment bridge carrying the
+  // source, so the legs must be graded down to it (see
+  // buildGradedStraightWires). Without one the source sits on the last
+  // ordinary leg segment and there is no discontinuity to correct.
+  const legMaxSegLen = legLength / segmentsPerLeg;
+  const legWires: Wire[] = params.feedlineShield
+    ? [
+        ...buildGradedStraightWires(apexLeft, leftCorner, params.wireRadius, LEFT_LEG_TAG, legMaxSegLen, true),
+        ...buildGradedStraightWires(apexRight, rightCorner, params.wireRadius, RIGHT_LEG_TAG, legMaxSegLen, false),
+      ]
+    : [
+        {
+          start: leftCorner,
+          end: apexLeft,
+          radius: params.wireRadius,
+          segments: segmentsPerLeg,
+          tag: LEFT_LEG_TAG,
+        },
+        {
+          start: apexRight,
+          end: rightCorner,
+          radius: params.wireRadius,
+          segments: segmentsPerLeg,
+          tag: RIGHT_LEG_TAG,
+        },
+      ];
+
   const wires: Wire[] = [
-    {
-      start: leftCorner,
-      end: apexLeft,
-      radius: params.wireRadius,
-      segments: segmentsPerLeg,
-      tag: LEFT_LEG_TAG,
-    },
-    {
-      start: apexRight,
-      end: rightCorner,
-      radius: params.wireRadius,
-      segments: segmentsPerLeg,
-      tag: RIGHT_LEG_TAG,
-    },
+    ...legWires,
     {
       start: leftCorner,
       end: rightCorner,
@@ -627,35 +713,52 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
   //   RIGHT half-base:  centreRight → rightCorner  (first seg = inner end)
   // We keep the right-leg ordering "outward" for symmetry with the
   // delta-loop's right-leg convention (apex → rightCorner).
+  // As for the delta loop: grade the legs into the apex bridge when a
+  // feedline splits the apex (see buildGradedStraightWires).
+  const legMaxSegLen = legLength / segmentsPerLeg;
+  const legWires: Wire[] = params.feedlineShield
+    ? [
+        ...buildGradedStraightWires(apexLeft, leftCorner, params.wireRadius, LEFT_LEG_TAG, legMaxSegLen, true),
+        ...buildGradedStraightWires(apexRight, rightCorner, params.wireRadius, RIGHT_LEG_TAG, legMaxSegLen, false),
+      ]
+    : [
+        {
+          start: leftCorner,
+          end: apexLeft,
+          radius: params.wireRadius,
+          segments: segmentsPerLeg,
+          tag: LEFT_LEG_TAG,
+        },
+        {
+          start: apexRight,
+          end: rightCorner,
+          radius: params.wireRadius,
+          segments: segmentsPerLeg,
+          tag: RIGHT_LEG_TAG,
+        },
+      ];
+
+  // The half-bases need the same treatment at the *other* end. They stop
+  // FEED_BRIDGE_LENGTH_M apart at the centre, and when terminated that gap
+  // holds the resistor on a 1-segment bridge. Uniform half-bases put ~0.8 m
+  // segments either side of a 0.1 m gap — an 8:1 ratio across the very
+  // segments whose current the termination diagnostics read. Unterminated it
+  // is the open gap that is mismodelled instead: the deck radiated 107.6 % of
+  // its input power before this was graded.
+  const halfBaseMaxSegLen = innerHalfBase / halfBaseSegments;
+
   const wires: Wire[] = [
-    {
-      start: leftCorner,
-      end: apexLeft,
-      radius: params.wireRadius,
-      segments: segmentsPerLeg,
-      tag: LEFT_LEG_TAG,
-    },
-    {
-      start: apexRight,
-      end: rightCorner,
-      radius: params.wireRadius,
-      segments: segmentsPerLeg,
-      tag: RIGHT_LEG_TAG,
-    },
-    {
-      start: leftCorner,
-      end: centreLeft,
-      radius: params.wireRadius,
-      segments: halfBaseSegments,
-      tag: TERMINATED_DELTA_LEFT_BASE_TAG,
-    },
-    {
-      start: centreRight,
-      end: rightCorner,
-      radius: params.wireRadius,
-      segments: halfBaseSegments,
-      tag: TERMINATED_DELTA_RIGHT_BASE_TAG,
-    },
+    ...legWires,
+    // Emitted leftCorner -> centreLeft, so the inner end is the LAST
+    // sub-wire's `.end` (buildTerminatedDeltaTermination relies on this).
+    ...buildGradedStraightWires(
+      centreLeft, leftCorner, params.wireRadius, TERMINATED_DELTA_LEFT_BASE_TAG, halfBaseMaxSegLen, true,
+    ),
+    // Emitted centreRight -> rightCorner, so the inner end is the FIRST
+    // sub-wire's `.start`.
+    ...buildGradedStraightWires(
+      centreRight, rightCorner, params.wireRadius, TERMINATED_DELTA_RIGHT_BASE_TAG, halfBaseMaxSegLen, false,
+    ),
   ];
 
   appendFeedlineShieldWires(wires, params.feedlineShield, apexLeft, apexRight, params.wireRadius, bottomZ);
@@ -1147,19 +1250,14 @@ export function buildDipoleWires(params: DipoleWiresParams): Wire[] {
   const leftSeg = Math.max(3, oddRound(leftLen * segDensity));
   const rightSeg = Math.max(3, oddRound(rightLen * segDensity));
 
+  // Grade both halves down to the bridge length at the feed (see
+  // buildGradedStraightWires). `segDensity` still sets the density over the
+  // bulk of each half, so the segment-count control is unaffected.
+  const maxSegLen = 1 / segDensity;
+
   return [
-    {
-      start: leftTip, end: bridgeStart,
-      radius: wireRadius,
-      segments: leftSeg,
-      tag: LEFT_LEG_TAG,
-    },
-    {
-      start: bridgeEnd, end: rightTip,
-      radius: wireRadius,
-      segments: rightSeg,
-      tag: RIGHT_LEG_TAG,
-    },
+    ...buildGradedStraightWires(bridgeStart, leftTip, wireRadius, LEFT_LEG_TAG, Math.min(maxSegLen, leftLen / Math.max(1, leftSeg)), true),
+    ...buildGradedStraightWires(bridgeEnd, rightTip, wireRadius, RIGHT_LEG_TAG, Math.min(maxSegLen, rightLen / Math.max(1, rightSeg)), false),
     {
       start: bridgeStart, end: bridgeEnd,
       radius: wireRadius,

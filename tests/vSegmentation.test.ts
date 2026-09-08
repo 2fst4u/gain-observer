@@ -117,14 +117,23 @@ describe('V-antenna wavelength-based segmentation', () => {
       expect(legSegs(wires)).toBeGreaterThan(MAX_SEGS_PER_LEG);
     });
 
-    it('very long inverted-V is capped at MAX_SEGS_PER_LEG per leg', () => {
-      // Inverted-V still uses uniform segmentation, so its cap still applies.
+    it('very long inverted-V stays at MAX_SEGS_PER_LEG plus its graded prefix', () => {
+      // The inverted-V's legs are now graded into the feed bridge, so the cap
+      // governs the uniform tail and a handful of short segments are added
+      // next to the source on top of it. The bulk density is unchanged: the
+      // grading only refines the few segments nearest the feed, where NEC's
+      // adjacent-segment ratio rule would otherwise be violated ~20:1.
       const freq = 28.5;
       const lambda = wavelengthMeters(freq);
       const total = 12 * lambda + FEED_BRIDGE_LENGTH_M;
       const wires = buildInvertedVWires({ ...BASE_PARAMS, frequency: freq, length: total, vAngle: 120 });
 
-      expect(legSegs(wires)).toBeLessThanOrEqual(MAX_SEGS_PER_LEG);
+      // The prefix doubles from FEED_BRIDGE_LENGTH_M up to the tail segment
+      // length, so it is logarithmic in that ratio — a handful, never a bulk
+      // density change.
+      const GRADED_PREFIX_ALLOWANCE = 12;
+      expect(legSegs(wires)).toBeGreaterThan(MAX_SEGS_PER_LEG);
+      expect(legSegs(wires)).toBeLessThanOrEqual(MAX_SEGS_PER_LEG + GRADED_PREFIX_ALLOWANCE);
     });
   });
 

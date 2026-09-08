@@ -1,7 +1,19 @@
+import type { Wire } from '../src/physics/types';
 import { describe, it, expect } from 'vitest';
 import { buildDipoleWires, gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
 import { VERTICAL_WHIP_RADIAL_COUNT, FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../src/physics/constants';
 import { MAIN_WIRE_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../src/physics/tags';
+
+/**
+ * Logical span of a graded tag: first sub-wire's start to the last one's end.
+ * Half-bases and bridge-adjacent legs are emitted as several wires sharing a
+ * tag (§14.1 of `docs/antenna-spec.md`), so endpoints must be read this way.
+ */
+function tagSpan(wires: readonly Wire[], tag: number) {
+  const subWires = wires.filter((w) => w.tag === tag);
+  if (subWires.length === 0) return undefined;
+  return { start: subWires[0]!.start, end: subWires[subWires.length - 1]!.end };
+}
 
 describe('gradedSegmentPlan', () => {
   it('returns empty plan for zero or negative length', () => {
@@ -56,12 +68,14 @@ describe('buildTerminatedDeltaWires', () => {
 
   it('creates 4 primary wires for an unterminated/no-feedline delta', () => {
     const wires = buildTerminatedDeltaWires(baseParams);
-    expect(wires).toHaveLength(4);
+    // Four distinct tags. The half-bases are graded into the centre gap, so
+    // each spans several wires under one tag.
+    expect(new Set(wires.map((w) => w.tag)).size).toBe(4);
 
-    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG);
-    const rightLeg = wires.find((w) => w.tag === RIGHT_LEG_TAG);
-    const leftBase = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
-    const rightBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG);
+    const leftLeg = tagSpan(wires, LEFT_LEG_TAG);
+    const rightLeg = tagSpan(wires, RIGHT_LEG_TAG);
+    const leftBase = tagSpan(wires, TERMINATED_DELTA_LEFT_BASE_TAG);
+    const rightBase = tagSpan(wires, TERMINATED_DELTA_RIGHT_BASE_TAG);
 
     expect(leftLeg).toBeDefined();
     expect(rightLeg).toBeDefined();
@@ -78,8 +92,8 @@ describe('buildTerminatedDeltaWires', () => {
   it('maintains the specified central gap between the two half-base wires', () => {
     const wires = buildTerminatedDeltaWires(baseParams);
 
-    const leftBase = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
-    const rightBase = wires.find((w) => w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG);
+    const leftBase = tagSpan(wires, TERMINATED_DELTA_LEFT_BASE_TAG);
+    const rightBase = tagSpan(wires, TERMINATED_DELTA_RIGHT_BASE_TAG);
 
     expect(leftBase).toBeDefined();
     expect(rightBase).toBeDefined();
@@ -105,7 +119,9 @@ describe('buildTerminatedDeltaWires', () => {
     };
 
     const wires = buildTerminatedDeltaWires(paramsWithFeedline);
-    expect(wires).toHaveLength(6);
+    // Legs are graded into the apex bridge when a feedline splits the apex,
+    // so they are several sub-wires per tag. Six distinct tags.
+    expect(new Set(wires.map(w => w.tag)).size).toBe(6);
 
     const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
     const shield = wires.find((w) => w.tag === FEEDLINE_SHIELD_TAG);
@@ -269,7 +285,9 @@ describe('buildDeltaLoopWires', () => {
       },
     };
     const wires = buildDeltaLoopWires(params);
-    expect(wires).toHaveLength(5);
+    // Legs are graded into the apex bridge when a feedline splits the apex,
+    // so they are several sub-wires per tag. Five distinct tags.
+    expect(new Set(wires.map(w => w.tag)).size).toBe(5);
 
     const feedBridge = wires.find(w => w.tag === FEED_BRIDGE_TAG);
     const feedlineShield = wires.find(w => w.tag === FEEDLINE_SHIELD_TAG);
@@ -613,10 +631,16 @@ describe('buildInvertedVWires', () => {
 
   it('constructs basic inverted V geometry correctly', () => {
     const wires = buildInvertedVWires(baseParams);
-    expect(wires).toHaveLength(3); // left leg, right leg, bridge
+    // Each leg is graded into the feed bridge, so it is emitted as several
+    // sub-wires sharing one tag (as the sloping V's legs already were).
+    // Three distinct tags, not three wires.
+    expect(new Set(wires.map(w => w.tag))).toEqual(
+      new Set([LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG]),
+    );
 
     const left = wires.find(w => w.tag === LEFT_LEG_TAG);
-    const right = wires.find(w => w.tag === RIGHT_LEG_TAG);
+    const rightSubWires = wires.filter(w => w.tag === RIGHT_LEG_TAG);
+    const right = rightSubWires[rightSubWires.length - 1];
     const bridge = wires.find(w => w.tag === FEED_BRIDGE_TAG);
 
     expect(left).toBeDefined();
@@ -645,8 +669,11 @@ describe('buildInvertedVWires', () => {
     // The physics engine should clamp the tips to SLOPING_V_MIN_TIP_Z_M (0.5m).
 
     const wires = buildInvertedVWires(params);
+    // LEFT is emitted tip -> apex, RIGHT apex -> tip, so the tips are the
+    // first LEFT sub-wire's start and the last RIGHT sub-wire's end.
     const left = wires.find(w => w.tag === LEFT_LEG_TAG);
-    const right = wires.find(w => w.tag === RIGHT_LEG_TAG);
+    const rightSubWires = wires.filter(w => w.tag === RIGHT_LEG_TAG);
+    const right = rightSubWires[rightSubWires.length - 1];
 
     expect(left!.start[2]).toBeCloseTo(0.5, 2);
     expect(right!.end[2]).toBeCloseTo(0.5, 2);
@@ -699,7 +726,11 @@ describe('buildDipoleWires', () => {
     };
 
     const wires = buildDipoleWires(params);
-    expect(wires).toHaveLength(3);
+    // Halves are graded into the feed bridge, so each is several sub-wires
+    // under one tag. Three distinct tags, not three wires.
+    expect(new Set(wires.map(w => w.tag))).toEqual(
+      new Set([LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG]),
+    );
 
     const leftLeg = wires.find(w => w.tag === LEFT_LEG_TAG);
     const rightLeg = wires.find(w => w.tag === RIGHT_LEG_TAG);
@@ -715,13 +746,36 @@ describe('buildDipoleWires', () => {
     expect(feedBridge!.end[0]).toBeCloseTo(0); expect(feedBridge!.end[1]).toBeCloseTo(2.05); expect(feedBridge!.end[2]).toBeCloseTo(10);
     expect(feedBridge!.segments).toBe(1);
 
-    // Left leg from tip to bridge
-    expect(leftLeg!.start[0]).toBeCloseTo(0); expect(leftLeg!.start[1]).toBeCloseTo(-10); expect(leftLeg!.start[2]).toBeCloseTo(10);
-    expect(leftLeg!.end[0]).toBeCloseTo(0); expect(leftLeg!.end[1]).toBeCloseTo(1.95); expect(leftLeg!.end[2]).toBeCloseTo(10);
+    // Each half spans tip -> bridge across its graded sub-wires: the first
+    // sub-wire starts at the tip, the last ends on the bridge. Emission order
+    // is tip -> bridge for LEFT and bridge -> tip for RIGHT.
+    const leftSubWires = wires.filter(w => w.tag === LEFT_LEG_TAG);
+    const rightSubWires = wires.filter(w => w.tag === RIGHT_LEG_TAG);
+    const leftFirst = leftSubWires[0]!;
+    const leftLast = leftSubWires[leftSubWires.length - 1]!;
+    const rightFirst = rightSubWires[0]!;
+    const rightLast = rightSubWires[rightSubWires.length - 1]!;
 
-    // Right leg from bridge to tip
-    expect(rightLeg!.start[0]).toBeCloseTo(0); expect(rightLeg!.start[1]).toBeCloseTo(2.05); expect(rightLeg!.start[2]).toBeCloseTo(10);
-    expect(rightLeg!.end[0]).toBeCloseTo(0); expect(rightLeg!.end[1]).toBeCloseTo(10); expect(rightLeg!.end[2]).toBeCloseTo(10);
+    // Left half from tip to bridge
+    expect(leftFirst.start[0]).toBeCloseTo(0); expect(leftFirst.start[1]).toBeCloseTo(-10); expect(leftFirst.start[2]).toBeCloseTo(10);
+    expect(leftLast.end[0]).toBeCloseTo(0); expect(leftLast.end[1]).toBeCloseTo(1.95); expect(leftLast.end[2]).toBeCloseTo(10);
+
+    // Right half from bridge to tip
+    expect(rightFirst.start[0]).toBeCloseTo(0); expect(rightFirst.start[1]).toBeCloseTo(2.05); expect(rightFirst.start[2]).toBeCloseTo(10);
+    expect(rightLast.end[0]).toBeCloseTo(0); expect(rightLast.end[1]).toBeCloseTo(10); expect(rightLast.end[2]).toBeCloseTo(10);
+
+    // ...and the sub-wires join end-to-start with no gaps.
+    for (const sub of [leftSubWires, rightSubWires]) {
+      for (let i = 1; i < sub.length; i++) {
+        expect(sub[i]!.start[1]).toBeCloseTo(sub[i - 1]!.end[1], 6);
+      }
+    }
+
+    // The segment touching the bridge is about the bridge's own length --
+    // the whole point of grading (NEC's adjacent-segment ratio rule).
+    const atBridge = leftLast;
+    const atBridgeLen = Math.abs(atBridge.end[1] - atBridge.start[1]) / atBridge.segments;
+    expect(atBridgeLen).toBeLessThan(0.25);
   });
 
   it('respects EW orientation', () => {
