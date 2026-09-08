@@ -1,6 +1,6 @@
 import { NumericInput } from '../UI/NumericInput';
 import { GeometryStatus } from './GeometryStatus';
-import { useState } from 'react';
+
 import { useAntennaStore, legMultipleFromLength, recommendedTerminatingResistor, type AntennaType } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
