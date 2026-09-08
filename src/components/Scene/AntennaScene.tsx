@@ -15,11 +15,51 @@ import { useAntennaStore, selectAtuConfig, type ComparisonSnapshot } from '../..
 import { useShallow } from 'zustand/react/shallow';
 import { displayedFeedMetrics } from '../../physics/impedance';
 import { THEME_COLORS } from '../../utils/themeColors';
+import { type SimulationResult } from '../../physics/types';
 
 interface AntennaSceneProps {
   readonly snapshot?: ComparisonSnapshot | null;
 }
 
+
+function useRealizedGainOffset(
+  result: SimulationResult | null,
+  snapshot: ComparisonSnapshot | null,
+  frequency: number,
+  feedlineId: string,
+  feedlineLength: number,
+  storeLiveTransformerEnabled: boolean,
+  storeLiveTransformerRatio: number,
+  storeLiveAtuEnabled: boolean,
+  storeLiveAtuMainFeedlineLength: number
+) {
+  return useMemo(() => {
+    if (!result || result.maxRealizedGainDbi == null) return 0;
+    const { displayedRealizedGainDbi } = displayedFeedMetrics(result, {
+      transformerEnabled: snapshot ? false : storeLiveTransformerEnabled,
+      transformerRatio: snapshot ? 1 : storeLiveTransformerRatio,
+      feedlineActive: feedlineId !== 'none',
+      atu: snapshot ? undefined : selectAtuConfig({
+        atuEnabled: storeLiveAtuEnabled,
+        frequency,
+        feedlineId,
+        feedlineLength,
+        atuMainFeedlineLength: storeLiveAtuMainFeedlineLength,
+      }),
+    });
+    return displayedRealizedGainDbi != null ? displayedRealizedGainDbi - result.maxGainDbi : 0;
+  }, [
+    result,
+    snapshot,
+    storeLiveTransformerEnabled,
+    storeLiveTransformerRatio,
+    feedlineId,
+    feedlineLength,
+    storeLiveAtuEnabled,
+    frequency,
+    storeLiveAtuMainFeedlineLength,
+  ]);
+}
 
 function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
   const store = useAntennaStore(useShallow((s) => ({
@@ -74,32 +114,17 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
   // − gain, the same constant the stats readout applies. Comparison snapshots
   // don't capture transformer/ATU settings, so they fall back to plain realized
   // gain.
-  const realizedGainOffsetDb = useMemo(() => {
-    if (!result || result.maxRealizedGainDbi == null) return 0;
-    const { displayedRealizedGainDbi } = displayedFeedMetrics(result, {
-      transformerEnabled: snapshot ? false : store.liveTransformerEnabled,
-      transformerRatio: snapshot ? 1 : store.liveTransformerRatio,
-      feedlineActive: feedlineId !== 'none',
-      atu: snapshot ? undefined : selectAtuConfig({
-        atuEnabled: store.liveAtuEnabled,
-        frequency,
-        feedlineId,
-        feedlineLength,
-        atuMainFeedlineLength: store.liveAtuMainFeedlineLength,
-      }),
-    });
-    return displayedRealizedGainDbi != null ? displayedRealizedGainDbi - result.maxGainDbi : 0;
-  }, [
+  const realizedGainOffsetDb = useRealizedGainOffset(
     result,
     snapshot,
-    store.liveTransformerEnabled,
-    store.liveTransformerRatio,
+    frequency,
     feedlineId,
     feedlineLength,
+    store.liveTransformerEnabled,
+    store.liveTransformerRatio,
     store.liveAtuEnabled,
-    frequency,
-    store.liveAtuMainFeedlineLength,
-  ]);
+    store.liveAtuMainFeedlineLength
+  );
 
   return {
     type,
