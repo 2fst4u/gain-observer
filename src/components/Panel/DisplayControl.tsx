@@ -1,5 +1,4 @@
-import { useAntennaStore } from '../../store/antennaStore';
-import type { Colormap } from '../../store/antennaStore';
+import { useAntennaStore, type Colormap } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 
 const COLORMAPS: Colormap[] = ['viridis', 'turbo', 'jet'];
