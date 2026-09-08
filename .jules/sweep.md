@@ -116,3 +116,6 @@
 **Learning:** `gainToColorT` was unused dead code in `src/utils/colormap.ts` and successfully removed alongside its tests to improve maintainability.
 **Action:** Removed unused `gainToColorT` from `src/utils/colormap.ts` and `tests/colormap.test.ts`.
 ## 2026-08-19 - Sweep: Remove unused sampleColormap function\n**Learning:** `sampleColormap` was unused dead code in `src/utils/colormap.ts` (having been replaced by `sampleColormapFast`) and successfully removed alongside its tests to improve maintainability.\n**Action:** Removed unused `sampleColormap` from `src/utils/colormap.ts` and its associated tests in `tests/colormap.test.ts`.
+## 2026-08-19 - Sweep: Un-exported strictly internal types
+**Learning:** `ts-prune` flags types and functions with `(used in module)` when they are exported but only used within their defining file. While some might be imported by tests (which app tsconfigs miss), those not imported by tests should be un-exported to reduce the public API surface area.
+**Action:** Un-exported `ComputeChartDataArgs`, `SWRStats`, `ComputeStatsArgs`, `ComputeYMaxArgs`, and `ComputeOptionsArgs` in `src/components/Charts/swrChartUtils.ts` since they were only used internally. Left `buildAnnotations` and `buildScales` exported because the test suite imports them explicitly.

@@ -15,7 +15,7 @@ export function formatBandwidth(widthMHz: number): string {
   return `${widthMHz.toFixed(2)} MHz`;
 }
 
-export interface ComputeChartDataArgs {
+interface ComputeChartDataArgs {
   comparisonActive: boolean;
   reference: ComparisonSnapshot | null;
   referenceFill: string;
@@ -123,14 +123,14 @@ export function computeChartData({
   return { datasets };
 }
 
-export interface SWRStats {
+interface SWRStats {
   minSWR: number;
   minFreq: number;
   /** Every contiguous ≤2:1 band in the sweep, ascending by frequency. */
   bands: SwrBand[];
 }
 
-export interface ComputeStatsArgs {
+interface ComputeStatsArgs {
   sweep: readonly SweepPoint[];
   /** When true, evaluate min SWR and 2:1 bandwidth on the post-balun impedance. */
   transformerInDisplay?: boolean;
@@ -178,7 +178,7 @@ export function computeStats({
   };
 }
 
-export interface ComputeYMaxArgs {
+interface ComputeYMaxArgs {
   sweep: readonly SweepPoint[];
   comparisonActive: boolean;
   reference: ComparisonSnapshot | null;
@@ -239,7 +239,7 @@ export function computeYMax({
   return Math.min(scaled, SWR_CAP);
 }
 
-export interface ComputeOptionsArgs {
+interface ComputeOptionsArgs {
   frequency: number;
   accent: string;
   stats: SWRStats | null;
