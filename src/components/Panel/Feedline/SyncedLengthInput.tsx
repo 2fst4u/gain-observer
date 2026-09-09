@@ -4,7 +4,7 @@ import {
   fromDisplayLength,
 } from '../../../physics/units';
 
-export interface SyncedLengthInputProps {
+interface SyncedLengthInputProps {
   id: string;
   label: React.ReactNode;
   value: number;

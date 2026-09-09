@@ -1,6 +1,6 @@
 import { SyncedLengthInput } from './SyncedLengthInput';
 
-export interface AtuSectionProps {
+interface AtuSectionProps {
   units: 'metric' | 'imperial';
   unit: string;
   mainRunLossDb: number;

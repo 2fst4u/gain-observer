@@ -1,6 +1,6 @@
 import type { RenderedWire } from './useAntennaGeometry';
 
-export interface ShieldElementProps {
+interface ShieldElementProps {
   shield: RenderedWire;
   transformerEnabled: boolean;
 }
