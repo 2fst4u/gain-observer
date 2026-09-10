@@ -1,5 +1,6 @@
+import { NumericInput } from '../UI/NumericInput';
 import { GeometryStatus } from './GeometryStatus';
-import { useState } from 'react';
+
 import { useAntennaStore, legMultipleFromLength, recommendedTerminatingResistor, type AntennaType } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
@@ -48,16 +49,7 @@ function LengthControl() {
   const unit = displayLengthUnit(units);
   const dispLen = toDisplayLength(length, units);
 
-  const [localLen, setLocalLen] = useState(dispLen.toFixed(2));
-  const [isFocused, setIsFocused] = useState(false);
 
-  const [prevDispLen, setPrevDispLen] = useState(dispLen);
-  if (dispLen !== prevDispLen) {
-    setPrevDispLen(dispLen);
-    if (!isFocused) {
-      setLocalLen(dispLen.toFixed(2));
-    }
-  }
 
   const lambda = 299.792458 / frequency;
 
@@ -88,24 +80,13 @@ function LengthControl() {
     <>
       <label htmlFor="dipole-length" style={{ marginTop: 10 }}>{lengthLabel}</label>
       <div className="row">
-        <input
+        <NumericInput
           id="dipole-length"
-          type="number"
           min={0.1}
           step={0.1}
-          value={localLen}
-          onFocus={() => setIsFocused(true)}
-          onChange={(e) => {
-            const s = e.target.value;
-            setLocalLen(s);
-            const val = parseFloat(s);
-            if (isNaN(val)) return;
-            setLength(fromDisplayLength(val, units));
-          }}
-          onBlur={() => {
-            setIsFocused(false);
-            setLocalLen(dispLen.toFixed(2));
-          }}
+          value={dispLen}
+          onChange={(val) => setLength(fromDisplayLength(val, units))}
+          formatValue={(v) => v.toFixed(2)}
         />
         {antennaType !== 'sloping-v' && (
           <button
@@ -201,16 +182,7 @@ function TerminationControl() {
     }))
   );
 
-  const [localResistor, setLocalResistor] = useState(terminatingResistor.toString());
-  const [isResistorFocused, setIsResistorFocused] = useState(false);
 
-  const [prevResistor, setPrevResistor] = useState(terminatingResistor);
-  if (terminatingResistor !== prevResistor) {
-    setPrevResistor(terminatingResistor);
-    if (!isResistorFocused) {
-      setLocalResistor(terminatingResistor.toString());
-    }
-  }
 
   if (antennaType !== 'sloping-v' && antennaType !== 'terminated-delta' && antennaType !== 'folded-dipole') {
     return null;
@@ -234,25 +206,13 @@ function TerminationControl() {
         Termination resistance (Ω)
       </label>
       <div className="row">
-        <input
+        <NumericInput
           id="terminating-resistor"
-          type="number"
           min={0}
           step={10}
-          value={localResistor}
+          value={terminatingResistor}
           aria-describedby="terminating-resistor-hint"
-          onFocus={() => setIsResistorFocused(true)}
-          onChange={(e) => {
-            const s = e.target.value;
-            setLocalResistor(s);
-            const val = parseFloat(s);
-            if (isNaN(val)) return;
-            setTerminatingResistor(val);
-          }}
-          onBlur={() => {
-            setIsResistorFocused(false);
-            setLocalResistor(terminatingResistor.toString());
-          }}
+          onChange={setTerminatingResistor}
         />
         {recommended > 0 && (
           <button
@@ -305,16 +265,7 @@ function OrientationControl() {
 
   const currentDegrees = typeof orientation === 'number' ? orientation : PRESET_DEGREES[orientation];
 
-  const [localOrient, setLocalOrient] = useState(currentDegrees.toString());
-  const [isOrientFocused, setIsOrientFocused] = useState(false);
 
-  const [prevOrient, setPrevOrient] = useState(orientation);
-  if (orientation !== prevOrient) {
-    setPrevOrient(orientation);
-    if (!isOrientFocused) {
-      setLocalOrient(currentDegrees.toString());
-    }
-  }
 
   const isVerticalWhip = antennaType === 'vertical-whip';
   const isInvertedL = antennaType === 'inverted-l';
@@ -328,25 +279,13 @@ function OrientationControl() {
         {isInvertedL ? "Horizontal section direction (°)" : "Orientation (°)"}
       </label>
       <div className="row">
-        <input
+        <NumericInput
           id={isInvertedL ? "inverted-l-orientation" : "dipole-orientation"}
-          type="number"
           min={0}
           max={359}
           step={1}
-          value={localOrient}
-          onFocus={() => setIsOrientFocused(true)}
-          onChange={(e) => {
-            const s = e.target.value;
-            setLocalOrient(s);
-            const val = parseFloat(s);
-            if (isNaN(val)) return;
-            setOrientation(val);
-          }}
-          onBlur={() => {
-            setIsOrientFocused(false);
-            setLocalOrient(currentDegrees.toString());
-          }}
+          value={currentDegrees}
+          onChange={setOrientation}
         />
       </div>
 
