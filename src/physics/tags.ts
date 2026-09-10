@@ -47,7 +47,7 @@ export const FOLDED_DIPOLE_TERM_BRIDGE_TAG = 19;
  *
  * These wires model the *earth stake* the physical antenna's terminating
  * resistor connects to — they are not hardware the builder erects, and the
- * 3D scene deliberately does not draw them (see §7.3 of `antenna-spec.md`).
+ * 3D scene deliberately does not draw them (see §8.3 of `antenna-spec.md`).
  *
  * NEC-2 cannot bond a wire to a Sommerfeld-Norton ground: wires must stay
  * above z = 0, and a wire that simply ends near the ground is an *open
