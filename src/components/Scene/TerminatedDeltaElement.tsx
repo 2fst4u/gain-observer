@@ -1,6 +1,6 @@
 import type { TerminatedDeltaSplitResult } from './useAntennaGeometry';
 
-export interface TerminatedDeltaElementProps {
+interface TerminatedDeltaElementProps {
   split: TerminatedDeltaSplitResult;
   color: string;
   terminatingResistor: number;

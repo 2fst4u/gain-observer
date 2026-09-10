@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface StatRowProps {
+interface StatRowProps {
   label: React.ReactNode;
   value: React.ReactNode;
   title?: string;

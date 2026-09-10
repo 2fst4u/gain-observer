@@ -3,7 +3,7 @@ import {
   fromDisplayLength,
 } from '../../../physics/units';
 
-export interface DipoleOffsetControlProps {
+interface DipoleOffsetControlProps {
   units: 'metric' | 'imperial';
   unit: string;
   dipoleLength: number;
