@@ -169,3 +169,7 @@ Two process lessons, both worth more than the fix. First: an earlier version of 
 
 Measured evidence for the topology itself now lives in `docs/antenna-spec.md` §10.3: the grounded-stub variant leaves 14.2 dB of leg ripple at 7.1 MHz against the bridge's 4.5 dB, and blows SWR out to 9:1 after a 9:1 unun where the bridge holds 2.1:1.
 **Action:** Corrected the `GeometryControl.tsx` UI string, removed the scratch files, fixed the two stale comments in `antennaGeometry.ts` that still described the stub topology, and wrote the plain-language build description and the measurements into `docs/antenna-spec.md` §10.3 so the next reader does not have to re-derive it.
+
+## 2026-09-10 - Sloping V Termination Reference Drift
+**Learning:** Section numbers in markdown documentation (e.g., `docs/antenna-spec.md`) often drift when new sections are inserted or reordered. References to these sections in source code comments (like in `src/physics/tags.ts`) will become outdated and misleading because they aren't automatically updated by refactoring tools.
+**Action:** Updated the comment in `src/physics/tags.ts` for the Sloping V counterpoise to point to the correct §8.3 of `antenna-spec.md`.
