@@ -202,6 +202,19 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Angle/Slope:** Included angle $\alpha$ (between legs). The downward slope of the legs is automatically calculated so that the tips rest at the ground floor (`SLOPING_V_MIN_TIP_Z_M` or $0.5$ m) to ensure consistent termination to ground.
 - **Tips:** Endpoints at ground-ward end of legs.
 - **Min Height:** Tip height must be $\ge 0.5$ m.
+- **Apex feed gap.** Each leg end is set back **along its own leg** from the geometric apex, leaving a gap of `FEED_BRIDGE_LENGTH_M` between the two ends that the 1-segment feed bridge spans. Because the legs diverge at $\alpha$, the setback is $(\text{bridge}/2)/\sin(\alpha/2)$ — a narrow V must be trimmed further back to open the same gap, which is what the real antenna looks like. It is capped at 5 % of the leg so a short antenna cannot have its legs eaten, and floored at half a bridge.
+
+  This matters more than it looks. The setback used to be applied along the **orientation axis** instead of along each leg, which left the bridge at $\alpha/2$ to both legs — fully perpendicular at $\alpha = 180°$, where the two legs became a pair of parallel lines one bridge-width apart rather than a single straight wire. At $\alpha = 180°$ the sloping V *is* an inverted V (opposed legs, tips on the same floor), so the two must agree; they were 0.17–0.20 dB and ~160 Ω of reactance apart, unchanged across four levels of segment refinement. They now agree to 0.000 dB and ~2 Ω. Holding the *gap* constant rather than the *setback* also measurably beats the simpler alternative — average-gain error over perfect ground by $\alpha$:
+
+  | $\alpha$ | 10° | 30° | 45° | 60° | ≥90° |
+  |---|---|---|---|---|---|
+  | offset along orientation axis (old) | −0.264 dB | −0.232 | −0.217 | −0.201 | −0.15 to −0.18 |
+  | constant setback along each leg | −0.313 | −0.154 | −0.103 | −0.070 | ~0.02 |
+  | **constant gap (current)** | **−0.170** | **−0.117** | **−0.088** | **−0.063** | **~0.02** |
+
+  The residual at narrow $\alpha$ is not this: there the two legs run within about one segment length of each other for their whole length, which NEC-2's thin-wire kernel cannot represent well. `tests/slopingVInvertedVEquivalence.integration.test.ts` pins the equivalence.
+- **Orientation convention.** A sloping V's `orientation` is its **boresight** — the direction the V points — so at $\alpha = 180°$ its legs run *across* that axis. An inverted V's `orientation` is the leg axis itself. The same setting therefore puts the two patterns 90° apart in azimuth: sloping V NS corresponds to inverted V EW. This is per-antenna convention rather than a defect, but it is the usual reason the two look unrelated when compared directly.
+- **`vAngle` is not the same quantity as the inverted V's.** Here it is the included angle **in azimuth** (how far the legs splay horizontally); for the inverted V it is the included angle **in the vertical plane**. Setting both to 180° gives a drooping V with its tips at 0.5 m in one case and a *flat dipole at full apex height* in the other — around 5.4 dB apart at 15 m, almost all of it height over ground. To compare them, match the tip heights, not the angle.
 
 ### 8.2 Feedpoint Definition
 

@@ -241,13 +241,54 @@ export interface SlopingVWiresParams {
  *             tail-end at the tip; its `.end` is the tip).
  */
 
+/**
+ * How far back along its own leg each sloping-V leg end is set from the
+ * geometric apex, leaving the feed gap between the two ends.
+ *
+ * The two legs diverge at vAngle, so to leave a gap of FEED_BRIDGE_LENGTH_M
+ * between their ends each must be cut back by (bridge/2)/sin(vAngle/2). That
+ * is what the real antenna looks like: a narrow V has to be trimmed a long
+ * way back to open a hand-sized gap at the apex, an opposed one (vAngle 180,
+ * where this *is* an inverted V) only half a bridge.
+ *
+ * Holding the gap constant rather than the setback measurably beats the
+ * simpler alternative. Against the solver's average-gain test over perfect
+ * ground, by vAngle:
+ *
+ *     vAngle          10°     30°     45°     60°    >=90°
+ *     constant gap  -0.170  -0.117  -0.088  -0.063   ~0.02
+ *     fixed setback -0.313  -0.154  -0.103  -0.070   ~0.02
+ *
+ * The setback is capped at 5 % of the leg so it cannot eat a short antenna,
+ * and floored at half a bridge so it never drops below the opposed-leg case.
+ * At the 10° minimum vAngle on a normal HF V the cap is not reached.
+ */
+export function slopingVFeedSetback(vAngleDeg: number, legLen: number): number {
+  const halfV = ((vAngleDeg / 2) * Math.PI) / 180;
+  const sinV = Math.sin(halfV);
+  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
+  const ideal = sinV > 1e-6 ? bridgeHalf / sinV : Infinity;
+  return Math.min(ideal, Math.max(bridgeHalf, legLen * 0.05));
+}
+
+/** Resulting gap between the two leg ends — the feed bridge wire's length. */
+export function slopingVBridgeLength(vAngleDeg: number, legLen: number): number {
+  const halfV = ((vAngleDeg / 2) * Math.PI) / 180;
+  return 2 * slopingVFeedSetback(vAngleDeg, legLen) * Math.sin(halfV);
+}
+
+/** Leg length implied by a sloping V's total conductor length. */
+export function slopingVLegLength(totalLength: number): number {
+  return Math.max(0.1, (totalLength - FEED_BRIDGE_LENGTH_M) / 2);
+}
+
 function createSlopingVLegPointCalculator(params: SlopingVWiresParams, effectiveSlopeRad: number) {
   const h = params.height;
-  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
   const [dx, dy] = orientationVector(params.orientation);
   const [px, py] = [-dy, dx];
 
   const halfV = ((params.vAngle / 2) * Math.PI) / 180;
+  const setback = slopingVFeedSetback(params.vAngle, slopingVLegLength(params.length));
   const cosS = Math.cos(effectiveSlopeRad);
   const sinS = Math.sin(effectiveSlopeRad);
   const cosV = Math.cos(halfV);
@@ -260,8 +301,20 @@ function createSlopingVLegPointCalculator(params: SlopingVWiresParams, effective
     const la = horizontalDistFromApex * cosV;
     const lp = horizontalDistFromApex * sinV * side;
 
-    const bridgeOffsetX = side * bridgeHalf * dx;
-    const bridgeOffsetY = side * bridgeHalf * dy;
+    // Set each leg end back along ITS OWN leg, so the feed bridge spans the
+    // two ends. The old behaviour offset both ends along the orientation axis
+    // instead, which left the bridge at halfV degrees to each leg — fully
+    // perpendicular at vAngle = 180, where the two legs became a pair of
+    // parallel lines FEED_BRIDGE_LENGTH_M apart rather than one straight
+    // wire. At that angle the sloping V *is* an inverted V (same wires, same
+    // droop), so the two must agree; they did not. Isolated at matched graded
+    // segmentation the perpendicular bridge cost a steady 0.17-0.20 dB of
+    // gain and ~160 Ω of reactance at every refinement level, and left the
+    // deck failing NEC's average-gain test at ~96 %.
+    const legDirX = dx * cosV + px * sinV * side;
+    const legDirY = dy * cosV + py * sinV * side;
+    const bridgeOffsetX = setback * legDirX;
+    const bridgeOffsetY = setback * legDirY;
 
     const wx = dx * la + px * lp + bridgeOffsetX;
     const wy = dy * la + py * lp + bridgeOffsetY;
@@ -411,7 +464,7 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
 
   // Tips always at the ground floor: slope = arcsin((h − tipMinZ) / legLen).
   // Total radiating length is params.length. Each leg is (params.length - bridge) / 2.
-  const legLen = Math.max(0.1, (params.length - FEED_BRIDGE_LENGTH_M) / 2);
+  const legLen = slopingVLegLength(params.length);
   const sinSlope = legLen > 0 ? Math.max(0, h - SLOPING_V_MIN_TIP_Z_M) / legLen : 0;
   const effectiveSlopeRad = Math.asin(Math.min(1, sinSlope));
 
@@ -419,7 +472,14 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
 
   const lambda = wavelengthMeters(params.frequency);
   const maxSegLen = lambda / SEGS_PER_WAVELENGTH;
-  const plan = gradedSegmentPlan(legLen, FEED_BRIDGE_LENGTH_M, maxSegLen);
+  // With both ends set back along their own legs, the gap between them —
+  // and so the bridge wire — is FEED_BRIDGE_LENGTH_M·sin(halfV): the full
+  // 0.1 m at vAngle 180, narrowing as the legs close up. Grade from that
+  // actual length, not the constant, or the graded prefix would start an
+  // order of magnitude longer than the bridge segment it abuts on a narrow
+  // V and reintroduce the adjacent-segment-ratio error (§14.1).
+  const bridgeLen = slopingVBridgeLength(params.vAngle, legLen);
+  const plan = gradedSegmentPlan(legLen, bridgeLen, maxSegLen);
 
   const { breakpoints, prefixEnd, tailCount } = resolveGradedSegmentBreakpoints(plan, legLen);
 
