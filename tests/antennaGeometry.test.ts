@@ -525,26 +525,35 @@ describe('buildSlopingVWires', () => {
   it('respects NS orientation', () => {
     const wires = buildSlopingVWires({ ...baseParams, orientation: 'NS' });
 
-    // Based on createSlopingVLegPointCalculator implementation:
-    // orientation NS -> dx=0, dy=1.
-    // feedBridgeOffsetX = side * bridgeHalf * dx -> 0
-    // feedBridgeOffsetY = side * bridgeHalf * dy -> side * bridgeHalf
-    // So the feed bridge should span across the Y axis in NS orientation.
+    // The two leg ends are mirror images about the boresight, so the gap
+    // between them — the feed bridge — lies ACROSS the boresight. NS means
+    // the V points along Y, so the bridge spans X at constant Y.
+    //
+    // This used to be the other way round: both ends were offset along the
+    // boresight itself, which put the bridge fore-and-aft. At vAngle 180 that
+    // left the legs as parallel lines either side of it instead of one
+    // straight wire, and cost 0.17-0.20 dB. See
+    // `slopingVInvertedVEquivalence.integration.test.ts`.
     const feedBridge = wires.find(w => w.tag === FEED_BRIDGE_TAG)!;
-    expect(Math.abs(feedBridge.start[1] - feedBridge.end[1])).toBeGreaterThan(0);
-    expect(feedBridge.start[0]).toBeCloseTo(feedBridge.end[0]);
+    expect(Math.abs(feedBridge.start[0] - feedBridge.end[0])).toBeGreaterThan(0);
+    expect(feedBridge.start[1]).toBeCloseTo(feedBridge.end[1]);
+    expect(feedBridge.start[2]).toBeCloseTo(feedBridge.end[2]);
+
+    // ...and the legs splay symmetrically either side of the Y boresight.
+    const leftInner = wires.filter(w => w.tag === LEFT_LEG_TAG).at(-1)!.end;
+    const rightInner = wires.filter(w => w.tag === RIGHT_LEG_TAG)[0]!.start;
+    expect(leftInner[0]).toBeCloseTo(-rightInner[0], 6);
   });
 
   it('respects EW orientation', () => {
     const wires = buildSlopingVWires({ ...baseParams, orientation: 'EW' });
 
-    // orientation EW -> dx=1, dy=0.
-    // feedBridgeOffsetX = side * bridgeHalf * dx -> side * bridgeHalf
-    // feedBridgeOffsetY = side * bridgeHalf * dy -> 0
-    // So the feed bridge should span across the X axis in EW orientation.
+    // EW means the V points along X, so by the same argument the bridge
+    // spans Y at constant X.
     const feedBridge = wires.find(w => w.tag === FEED_BRIDGE_TAG)!;
-    expect(Math.abs(feedBridge.start[0] - feedBridge.end[0])).toBeGreaterThan(0);
-    expect(feedBridge.start[1]).toBeCloseTo(feedBridge.end[1]);
+    expect(Math.abs(feedBridge.start[1] - feedBridge.end[1])).toBeGreaterThan(0);
+    expect(feedBridge.start[0]).toBeCloseTo(feedBridge.end[0]);
+    expect(feedBridge.start[2]).toBeCloseTo(feedBridge.end[2]);
   });
 });
 
