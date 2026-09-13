@@ -173,3 +173,6 @@ Measured evidence for the topology itself now lives in `docs/antenna-spec.md` §
 ## 2026-09-10 - Sloping V Termination Reference Drift
 **Learning:** Section numbers in markdown documentation (e.g., `docs/antenna-spec.md`) often drift when new sections are inserted or reordered. References to these sections in source code comments (like in `src/physics/tags.ts`) will become outdated and misleading because they aren't automatically updated by refactoring tools.
 **Action:** Updated the comment in `src/physics/tags.ts` for the Sloping V counterpoise to point to the correct §8.3 of `antenna-spec.md`.
+## 2026-09-11 - Folded Dipole Default Termination Documentation Drift
+**Learning:** The `docs/antenna-spec.md` detailed the `terminatingResistor` parameter for the Folded Dipole antenna, including its recommended value of 300 Ω, but failed to state its default value, unlike other antenna sections (e.g., Sloping V, Terminated Delta). The codebase (`src/store/antennaStore.ts`) initializes `terminatingResistor` to 0 (unterminated) for the Folded Dipole. The documentation lacked this explicit baseline.
+**Action:** Updated `docs/antenna-spec.md` to append "Default is 0 Ω (unterminated)." to the `terminatingResistor` description for the Folded Dipole, ensuring parity with code implementation and documentation consistency.
