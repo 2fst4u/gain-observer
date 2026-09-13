@@ -121,7 +121,7 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 - **Structure:** A single straight horizontal wire (or two collinear wires).
 - **Apex Location:** Geometric center of the wire at $(0, 0, \text{height})$.
 - **Leg Count & Length:** 1 wire, total end-to-end length $L$.
-- **Reference Length:** $0.475\lambda$ (Resonance).
+- **Reference Length:** $0.475\lambda$ (Resonance). The UI also provides a $1.25\lambda$ 'Extended Double Zepp' preset length, yielding 3–4 dB more gain than ½λ via a longer wire aperture and narrower broadside lobes, at the cost of a very high feedpoint impedance (~1000 Ω) requiring a wide-range ATU or open-wire feedline.
 - **Conventions:** Straight wire aligned with orientation vector.
 - **Tips:** Symmetric endpoints at $\pm L/2$ relative to apex.
 - **Min Height:** Fully supports `height = 0` (or `height <= 0`), which seamlessly switches the model to a free space environment without ground, preventing NEC-2 `GE 1` instability.
