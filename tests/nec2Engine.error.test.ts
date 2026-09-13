@@ -100,11 +100,11 @@ describe('Nec2Engine error handling', () => {
     try {
       // Test with empty notices: parsed.notices = [] -> '(none)'
       spy.mockReturnValueOnce({
-        impedance: { r: 50, x: 0, swr: 1 },
+        impedance: { R: 50, X: 0 },
         pattern: null,
         currents: [],
         powerBudget: null,
-        power: null,
+        excitationPowerW: null,
         notices: [],
       });
 
@@ -114,11 +114,11 @@ describe('Nec2Engine error handling', () => {
 
       // Test with custom notices
       spy.mockReturnValueOnce({
-        impedance: { r: 50, x: 0, swr: 1 },
+        impedance: { R: 50, X: 0 },
         pattern: null,
         currents: [],
         powerBudget: null,
-        power: null,
+        excitationPowerW: null,
         notices: ['Notice 1', 'Notice 2'],
       });
 
