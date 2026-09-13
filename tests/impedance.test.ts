@@ -171,8 +171,13 @@ describe('displayedFeedMetrics — mast-base ATU', () => {
 });
 
 describe('reflection coefficient and SWR', () => {
-  it('perfect match => |Γ|=0, SWR=1', () => {
+  it('perfect match => |Γ|=0, SWR=1 using default z0 parameter', () => {
     expect(swr({ R: 50, X: 0 })).toBeCloseTo(1, 10);
+  });
+
+  it('calculates SWR with explicit z0 parameter', () => {
+    expect(swr({ R: 75, X: 0 }, 75)).toBeCloseTo(1, 10);
+    expect(swr({ R: 150, X: 0 }, 50)).toBeCloseTo(3, 10);
   });
 
   it('open circuit => |Γ|=1, SWR at display cap', () => {
