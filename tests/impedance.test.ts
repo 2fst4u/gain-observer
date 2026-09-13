@@ -82,8 +82,16 @@ describe('feedlineLossUnderSwrDb', () => {
     expect(feedlineLossUnderSwrDb(0, 0.9)).toBe(0);
   });
 
+  it('negative matched loss → zero total loss', () => {
+    expect(feedlineLossUnderSwrDb(-1.5, 0.8)).toBe(0);
+  });
+
   it('matched (|Γ|=0) → equals the matched loss', () => {
     expect(feedlineLossUnderSwrDb(1, 0)).toBeCloseTo(1, 10);
+  });
+
+  it('negative gammaMag treats magnitude as absolute (squared)', () => {
+    expect(feedlineLossUnderSwrDb(1, -0.5)).toBeCloseTo(feedlineLossUnderSwrDb(1, 0.5), 10);
   });
 
   it('standing wave inflates loss above the matched value', () => {
@@ -94,6 +102,21 @@ describe('feedlineLossUnderSwrDb', () => {
 
   it('total reflection stays finite (clamped)', () => {
     expect(Number.isFinite(feedlineLossUnderSwrDb(0.5, 1))).toBe(true);
+    expect(Number.isFinite(feedlineLossUnderSwrDb(1, 1.5))).toBe(true);
+    expect(Number.isFinite(feedlineLossUnderSwrDb(2, Infinity))).toBe(true);
+    // Over-unity reflection clamps g2 to 0.999999, matching gammaMag = 1 behavior
+    expect(feedlineLossUnderSwrDb(1, 1.5)).toBe(feedlineLossUnderSwrDb(1, 1));
+  });
+
+  it('extreme gammaMag values near 1 produce finite high loss', () => {
+    const lossNearOne = feedlineLossUnderSwrDb(1, 0.999999);
+    expect(Number.isFinite(lossNearOne)).toBe(true);
+    expect(lossNearOne).toBeGreaterThan(50);
+  });
+
+  it('handles NaN inputs predictably', () => {
+    expect(feedlineLossUnderSwrDb(NaN, 0.5)).toBeNaN();
+    expect(feedlineLossUnderSwrDb(1, NaN)).toBeNaN();
   });
 });
 
