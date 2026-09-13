@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useAntennaStore, type Colormap } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -36,20 +37,22 @@ export function DisplayControl() {
     setShowPolarCuts: s.setShowPolarCuts,
   })));
 
+  const colormapButtons = useMemo(() => COLORMAPS.map((c) => (
+    <button
+      key={c}
+      className={colormap === c ? 'active' : ''}
+      onClick={() => setColormap(c)}
+      aria-pressed={colormap === c}
+    >{c}</button>
+  )), [colormap, setColormap]);
+
   return (
     <section className="panel-section">
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>Display</h2>
       <div id="colormap-label" className="stat-label">Colormap</div>
       <div className="button-group" role="group" aria-labelledby="colormap-label">
-        {COLORMAPS.map((c) => (
-          <button
-            key={c}
-            className={colormap === c ? 'active' : ''}
-            onClick={() => setColormap(c)}
-            aria-pressed={colormap === c}
-          >{c}</button>
-        ))}
+        {colormapButtons}
       </div>
 
       <label htmlFor="dynamic-range" style={{ marginTop: 10 }}>Dynamic range — {dbRange} dB</label>
