@@ -102,9 +102,13 @@ describe('atuLossDb', () => {
     expect(atuLossDb({ R: 50, X: 0 }, 150)).toBeCloseTo(0, 10);
   });
 
-  it('non-passive R or non-positive Q → no loss', () => {
+  it('non-passive R or non-positive Q or non-positive z0 → no loss (zero or division by zero guards)', () => {
     expect(atuLossDb({ R: -5, X: 0 }, 150)).toBe(0);
+    expect(atuLossDb({ R: 0, X: 10 }, 150)).toBe(0);
     expect(atuLossDb({ R: 50, X: 0 }, 0)).toBe(0);
+    expect(atuLossDb({ R: 50, X: 0 }, -10)).toBe(0);
+    expect(atuLossDb({ R: 50, X: 0 }, 150, 0)).toBe(0);
+    expect(atuLossDb({ R: 50, X: 0 }, 150, -50)).toBe(0);
   });
 
   it('folded-dipole 300 Ω is a gentle match (~0.06 dB at Q=150)', () => {
