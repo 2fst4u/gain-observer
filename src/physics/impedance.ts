@@ -86,7 +86,7 @@ export function feedlineLossUnderSwrDb(matchedLossDb: number, gammaMag: number):
  * approach this minimum, so it is an optimistic-but-fair estimate.
  */
 export function atuLossDb(z: ImpedanceResult, componentQ: number, z0: number = Z0_SYSTEM): number {
-  if (componentQ <= 0 || z.R <= 0) return 0;
+  if (componentQ <= 0 || z.R <= 0 || z0 <= 0) return 0;
   const qNet = (Math.abs(z.R - z0) + Math.abs(z.X)) / Math.sqrt(z.R * z0);
   const efficiency = componentQ / (componentQ + qNet);
   return -10 * Math.log10(efficiency);
