@@ -899,107 +899,102 @@ export function buildWires(
   return wires;
 }
 
+function computeFeedlineShield(
+  state: Parameters<typeof computeFeedlineLayout>[0],
+) {
+  const layout = computeFeedlineLayout(state);
+  return layout?.shield
+    ? { ...layout.shield, segments: FEEDLINE_SHIELD_SEGMENTS }
+    : null;
+}
+
 function buildWiresInternal(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
 ): Wire[] {
-  const antennaType = state.antennaType;
   const h = state.height;
 
-  if (antennaType === 'inverted-v') {
-    return buildInvertedVWires({
-      length: state.length,
-      height: h,
-      orientation: state.orientation,
-      wireRadius: state.wireRadius,
-      segments: state.segments,
-      frequency: state.frequency,
-      vAngle: state.vAngle,
-    });
+  switch (state.antennaType) {
+    case 'inverted-v':
+      return buildInvertedVWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        vAngle: state.vAngle,
+      });
+
+    case 'sloping-v':
+      return buildSlopingVWires(state);
+
+    case 'delta-loop':
+      return buildDeltaLoopWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        feedlineShield: computeFeedlineShield(state),
+      });
+
+    case 'terminated-delta':
+      return buildTerminatedDeltaWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        feedlineShield: computeFeedlineShield(state),
+      });
+
+    case 'vertical-whip':
+      return buildVerticalWhipWires({
+        length: state.length,
+        height: h,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        counterpoise: state.whipCounterpoise ?? false,
+      });
+
+    case 'inverted-l':
+      return buildInvertedLWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        counterpoise: state.whipCounterpoise ?? false,
+      });
+
+    case 'folded-dipole':
+      return buildFoldedAntennaWires({
+        length: state.length,
+        height: h,
+        aperture: state.foldedDipoleAperture ?? FOLDED_DIPOLE_DEFAULT_APERTURE_M,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        terminatingResistor: state.terminatingResistor ?? 0,
+      });
+
+    case 'dipole':
+    default:
+      return buildDipoleWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        layout: computeFeedlineLayout(state),
+      });
   }
-
-  if (antennaType === 'sloping-v') {
-    return buildSlopingVWires(state);
-  }
-
-  if (antennaType === 'delta-loop') {
-    const layout = computeFeedlineLayout(state);
-    const feedlineShield = layout?.shield
-      ? { ...layout.shield, segments: FEEDLINE_SHIELD_SEGMENTS }
-      : null;
-    return buildDeltaLoopWires({
-      length: state.length,
-      height: h,
-      orientation: state.orientation,
-      wireRadius: state.wireRadius,
-      segments: state.segments,
-      frequency: state.frequency,
-      feedlineShield,
-    });
-  }
-
-  if (antennaType === 'terminated-delta') {
-    const layout = computeFeedlineLayout(state);
-    const feedlineShield = layout?.shield
-      ? { ...layout.shield, segments: FEEDLINE_SHIELD_SEGMENTS }
-      : null;
-    return buildTerminatedDeltaWires({
-      length: state.length,
-      height: h,
-      orientation: state.orientation,
-      wireRadius: state.wireRadius,
-      segments: state.segments,
-      frequency: state.frequency,
-      feedlineShield,
-    });
-  }
-
-  if (antennaType === 'vertical-whip') {
-    return buildVerticalWhipWires({
-      length: state.length,
-      height: h,
-      wireRadius: state.wireRadius,
-      segments: state.segments,
-      frequency: state.frequency,
-      counterpoise: state.whipCounterpoise ?? false,
-    });
-  }
-
-  if (antennaType === 'inverted-l') {
-    return buildInvertedLWires({
-      length: state.length,
-      height: h,
-      orientation: state.orientation,
-      wireRadius: state.wireRadius,
-      segments: state.segments,
-      frequency: state.frequency,
-      counterpoise: state.whipCounterpoise ?? false,
-    });
-  }
-
-  if (antennaType === 'folded-dipole') {
-    return buildFoldedAntennaWires({
-      length: state.length,
-      height: h,
-      aperture: state.foldedDipoleAperture ?? FOLDED_DIPOLE_DEFAULT_APERTURE_M,
-      orientation: state.orientation,
-      wireRadius: state.wireRadius,
-      segments: state.segments,
-      frequency: state.frequency,
-      terminatingResistor: state.terminatingResistor ?? 0,
-    });
-  }
-
-  const layout = computeFeedlineLayout(state);
-
-  return buildDipoleWires({
-    length: state.length,
-    height: h,
-    orientation: state.orientation,
-    wireRadius: state.wireRadius,
-    segments: state.segments,
-    layout,
-  });
 }
 
 interface FeedlineLayout {
