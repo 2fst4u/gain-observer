@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as necCard from '../src/physics/necCard';
+import * as necParser from '../src/physics/necParser';
 import { Nec2Engine } from '../src/physics/nec2Engine';
 import type { SimulationInput } from '../src/physics/types';
 
@@ -73,6 +74,60 @@ describe('Nec2Engine error handling', () => {
     await expect(engine.simulate(dummyInput)).rejects.toThrow(
       'NEC-2 did not produce a radiation pattern. Notices: Impedance block not found in NEC output.; Radiation pattern block not found in NEC output.'
     );
+  });
+
+  it('throws an error when parseNecOutput returns a null pattern with empty or custom notices', async () => {
+    const engine = new Nec2Engine({ baseUrl: '/' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).ready = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (engine as any).factory = {}; // bypass factory check
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.spyOn(engine as any, 'runJob').mockResolvedValue('Dummy output');
+
+    const dummyInput: SimulationInput = {
+      wires: [{ start: [0, 0, 1], end: [0, 0, 2], radius: 0.001, segments: 11, tag: 1 }],
+      frequencyMHz: 14,
+      ground: { type: 'free' },
+      excitation: { wireTag: 1, segment: 6 },
+      patternResolution: { thetaSteps: 5, phiSteps: 8 },
+    };
+
+    const spy = vi.spyOn(necParser, 'parseNecOutput');
+
+    try {
+      // Test with empty notices: parsed.notices = [] -> '(none)'
+      spy.mockReturnValueOnce({
+        impedance: { R: 50, X: 0 },
+        pattern: null,
+        currents: [],
+        powerBudget: null,
+        excitationPowerW: null,
+        notices: [],
+      });
+
+      await expect(engine.simulate(dummyInput)).rejects.toThrow(
+        'NEC-2 did not produce a radiation pattern. Notices: (none)'
+      );
+
+      // Test with custom notices
+      spy.mockReturnValueOnce({
+        impedance: { R: 50, X: 0 },
+        pattern: null,
+        currents: [],
+        powerBudget: null,
+        excitationPowerW: null,
+        notices: ['Notice 1', 'Notice 2'],
+      });
+
+      await expect(engine.simulate(dummyInput)).rejects.toThrow(
+        'NEC-2 did not produce a radiation pattern. Notices: Notice 1; Notice 2'
+      );
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('throws an error if NEC-2 output does not contain an impedance result', async () => {
