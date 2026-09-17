@@ -57,9 +57,10 @@ export function parseNecImpedance(text: string): { impedance: ImpedanceResult | 
   const m = impedanceRowRe.exec(blockText);
 
   if (m) {
-    const zR = parseFloat(m[5]!);
-    const zX = parseFloat(m[6]!);
-    const power = parseFloat(m[9]!);
+    // ⚡ Bolt: Use unary + instead of parseFloat for much faster string-to-number coercion in V8
+    const zR = +(m[5]!);
+    const zX = +(m[6]!);
+    const power = +(m[9]!);
     return { impedance: { R: zR, X: zX }, power };
   }
 
@@ -88,9 +89,10 @@ export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResu
     const m = impedanceRowReSweep.exec(blockText);
 
     if (m) {
-      const zR = parseFloat(m[5]!);
-      const zX = parseFloat(m[6]!);
-      const power = parseFloat(m[9]!);
+      // ⚡ Bolt: Use unary + instead of parseFloat for faster parsing
+      const zR = +(m[5]!);
+      const zX = +(m[6]!);
+      const power = +(m[9]!);
       results.push({ impedance: { R: zR, X: zX }, power });
     } else {
       results.push({ impedance: null, power: null });
@@ -129,9 +131,10 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
   patternRowRe.lastIndex = blockStart;
   let m: RegExpExecArray | null;
   while ((m = patternRowRe.exec(text)) !== null) {
-    const theta = parseFloat(m[1]!);
-    const phi = parseFloat(m[2]!);
-    const totalRaw = parseFloat(m[5]!);
+    // ⚡ Bolt: Performance Optimization - Unary + is significantly faster than parseFloat
+    const theta = +(m[1]!);
+    const phi = +(m[2]!);
+    const totalRaw = +(m[5]!);
     const total = totalRaw <= NO_HORIZ_SENTINEL + 1 ? -100 : totalRaw;
 
     // Compute row index from theta and phi (both quantised by NEC's step).
@@ -183,11 +186,12 @@ export function parseNecCurrents(text: string): SegmentCurrent[] {
     results.push({
       segNo: parseInt(m[1]!, 10),
       tagNo: parseInt(m[2]!, 10),
-      x: parseFloat(m[3]!),
-      y: parseFloat(m[4]!),
-      z: parseFloat(m[5]!),
-      magnitude: parseFloat(m[8]!),
-      phase: parseFloat(m[9]!),
+      // ⚡ Bolt: Unary + operator for faster parsing of float values
+      x: +(m[3]!),
+      y: +(m[4]!),
+      z: +(m[5]!),
+      magnitude: +(m[8]!),
+      phase: +(m[9]!),
     });
   }
   return results;
@@ -224,11 +228,12 @@ export function parseNecPowerBudget(text: string): PowerBudget | null {
   if (!inputM || !radiatedM) return null;
 
   return {
-    inputW: parseFloat(inputM[1]!),
-    radiatedW: parseFloat(radiatedM[1]!),
-    structureLossW: structM ? parseFloat(structM[1]!) : 0,
-    networkLossW: netM ? parseFloat(netM[1]!) : 0,
-    efficiencyPct: effM ? parseFloat(effM[1]!) : 0,
+    // ⚡ Bolt: Unary + instead of parseFloat to avoid function call overhead
+    inputW: +(inputM[1]!),
+    radiatedW: +(radiatedM[1]!),
+    structureLossW: structM ? +(structM[1]!) : 0,
+    networkLossW: netM ? +(netM[1]!) : 0,
+    efficiencyPct: effM ? +(effM[1]!) : 0,
   };
 }
 
