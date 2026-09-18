@@ -2,7 +2,6 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { GroundPlane } from '../src/components/Scene/GroundPlane';
 import { mockAntennaStore } from './helpers/mockStore';
-import React from 'react';
 
 // Mock the store
 vi.mock('../src/store/antennaStore', () => ({

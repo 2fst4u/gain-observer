@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen} from '@testing-library/react';
 import { ErrorBoundary } from '../src/components/UI/ErrorBoundary';
-import React from 'react';
 
 const Bomb = ({ shouldThrow }: { shouldThrow?: boolean }) => {
   if (shouldThrow) {
