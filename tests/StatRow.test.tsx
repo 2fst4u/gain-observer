@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { StatRow } from '../src/components/UI/StatRow';
-import React from 'react';
 
 describe('StatRow', () => {
   it('renders label and value', () => {

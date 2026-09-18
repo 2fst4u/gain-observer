@@ -3,7 +3,6 @@ import { render, cleanup } from '@testing-library/react';
 import { AntennaElement } from '../src/components/Scene/AntennaElement';
 import { THEME_COLORS } from '../src/utils/themeColors';
 import * as THREE from 'three';
-import React from 'react';
 
 // Mock specific three.js components to avoid jsdom warnings
 vi.mock('@react-three/fiber', () => ({
