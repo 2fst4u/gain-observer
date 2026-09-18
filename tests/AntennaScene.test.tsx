@@ -3,7 +3,6 @@ import { render, cleanup } from '@testing-library/react';
 import { AntennaScene } from '../src/components/Scene/AntennaScene';
 import { mockAntennaStore } from './helpers/mockStore';
 import { makeSimulationResult } from './helpers/factories';
-import React from 'react';
 
 // Mock specific three.js components to avoid jsdom warnings
 vi.mock('@react-three/fiber', () => ({
