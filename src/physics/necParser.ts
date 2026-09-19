@@ -184,8 +184,8 @@ export function parseNecCurrents(text: string): SegmentCurrent[] {
   while ((m = currentsRowRe.exec(text)) !== null) {
     if (m.index > blockEnd) break;
     results.push({
-      segNo: parseInt(m[1]!, 10),
-      tagNo: parseInt(m[2]!, 10),
+      segNo: +(m[1]!),
+      tagNo: +(m[2]!),
       // ⚡ Bolt: Unary + operator for faster parsing of float values
       x: +(m[3]!),
       y: +(m[4]!),
