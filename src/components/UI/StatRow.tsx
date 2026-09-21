@@ -1,16 +1,16 @@
-import React from 'react';
+import type { ReactNode, CSSProperties, FC } from 'react';
 
 interface StatRowProps {
-  label: React.ReactNode;
-  value: React.ReactNode;
+  label: ReactNode;
+  value: ReactNode;
   title?: string;
   valueClassName?: string;
-  style?: React.CSSProperties;
-  labelStyle?: React.CSSProperties;
-  valueStyle?: React.CSSProperties;
+  style?: CSSProperties;
+  labelStyle?: CSSProperties;
+  valueStyle?: CSSProperties;
 }
 
-export const StatRow: React.FC<StatRowProps> = ({
+export const StatRow: FC<StatRowProps> = ({
   label,
   value,
   title,
