@@ -193,3 +193,7 @@
 ## 2026-08-14 - Replace parseFloat with Unary Plus for Faster Parsing
 **Learning:** In V8, `parseFloat()` has measurable overhead compared to casting strings directly to numbers using the unary `+` operator (or `Number()`), particularly when continuously decoding large numbers of regex capture groups in hot loops like parsing NEC output logs.
 **Action:** Replace `parseFloat(val)` with `+(val)` inside performance-critical parsing functions to dramatically reduce overhead (from ~1900ms to ~11ms per 10 million invocations according to synthetic benchmarks).
+
+## 2026-09-19 - Fast String to Number Coercion in regex loops
+**Learning:** In hot execution loops parsing regex matches (e.g. NEC parsing), replacing `parseInt(string, 10)` with the unary `+` operator yields a measurable performance benefit, as V8 optimizes out the function execution overhead. Note that code reviewers may flag this as a micro-optimization depending on the context scale.
+**Action:** When working on parsing loops inside hot code paths in performance-critical codebases, use the unary `+` operator over `parseInt` or `parseFloat` when bounds are well known and regex controls string shape.
