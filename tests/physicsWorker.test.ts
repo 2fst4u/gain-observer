@@ -149,8 +149,10 @@ describe('physicsWorker error path test', () => {
     await import('../src/workers/physicsWorker');
 
     // Simulate an error event
-    errorHandler({ message: 'worker error', error: new Error('test') });
+    const preventDefaultSpy = vi.fn();
+    errorHandler({ message: 'worker error', error: new Error('test'), preventDefault: preventDefaultSpy });
 
+    expect(preventDefaultSpy).toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledWith('[worker error]', 'worker error', expect.any(Error));
   });
 
@@ -164,9 +166,11 @@ describe('physicsWorker error path test', () => {
     await import('../src/workers/physicsWorker');
 
     // Simulate an unhandledrejection event
-    rejectionHandler({ reason: 'promise rejected' });
+    const preventDefaultSpy = vi.fn();
+    rejectionHandler({ reason: 'test rejection', preventDefault: preventDefaultSpy });
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('[worker unhandledrejection]', 'promise rejected');
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[worker unhandledrejection]', 'test rejection');
   });
 
   it('ignores messages with unknown types', async () => {

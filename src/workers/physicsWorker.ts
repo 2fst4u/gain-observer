@@ -63,11 +63,13 @@ const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
 // Surface worker-side errors explicitly so they don't vanish silently.
 self.addEventListener('error', (ev) => {
+  ev.preventDefault();
   if (import.meta.env.DEV) {
     console.error('[worker error]', ev.message, ev.error);
   }
 });
 self.addEventListener('unhandledrejection', (ev: PromiseRejectionEvent) => {
+  ev.preventDefault();
   if (import.meta.env.DEV) {
     console.error('[worker unhandledrejection]', ev.reason);
   }
