@@ -89,7 +89,7 @@ function LengthControl() {
           formatValue={(v) => v.toFixed(2)}
         />
         {antennaType !== 'sloping-v' && (
-          <button
+          <button type="button"
             onClick={setHalfWaveLength}
             title={resonateTitles[antennaType]}
             aria-label={`${resonateLabels[antennaType]} (Resonate antenna length)`}
@@ -98,7 +98,7 @@ function LengthControl() {
           </button>
         )}
         {antennaType === 'dipole' && (
-          <button
+          <button type="button"
             onClick={() => setLength(lambda * 1.25)}
             title="Extended Double Zepp length: 3–4 dB more gain than ½λ by using a longer wire aperture — narrower broadside lobes. Trade-off: feedpoint rises to ~1000 Ω, requiring a wide-range ATU or open-wire feedline. Very low heights can push the impedance toward zero, making matching harder."
             aria-label="1.25λ Extended Double Zepp preset length"
@@ -151,7 +151,7 @@ function TravelingWaveLegControl() {
   return (
     <div className="button-group" role="group" aria-label="Leg length in wavelengths">
       {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map((n) => (
-        <button
+        <button type="button"
           key={n}
           className={currentLegMultiple === n ? 'active' : ''}
           onClick={() => setLegLengthMultiple(n)}
@@ -215,7 +215,7 @@ function TerminationControl() {
           onChange={setTerminatingResistor}
         />
         {recommended > 0 && (
-          <button
+          <button type="button"
             onClick={() => { if (terminatingResistor !== recommended) setTerminatingResistor(recommended); }}
             aria-disabled={terminatingResistor === recommended}
             title={terminatingResistor === recommended
@@ -229,7 +229,7 @@ function TerminationControl() {
             {`${recommended} Ω`}
           </button>
         )}
-        <button
+        <button type="button"
           onClick={() => { if (terminatingResistor !== 0) setTerminatingResistor(0); }}
           aria-disabled={terminatingResistor === 0}
           title={terminatingResistor === 0 ? 'Termination is already off' : 'Remove termination (unterminated antenna)'}
@@ -291,7 +291,7 @@ function OrientationControl() {
 
       <div className="button-group" role="group" aria-label={isInvertedL ? "Horizontal section direction presets" : "Orientation presets"}>
         {orientations.map((o) => (
-          <button
+          <button type="button"
             key={o}
             className={orientation === o ? 'active' : ''}
             onClick={() => setOrientation(o)}

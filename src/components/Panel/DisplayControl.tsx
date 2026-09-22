@@ -38,7 +38,7 @@ export function DisplayControl() {
   })));
 
   const colormapButtons = useMemo(() => COLORMAPS.map((c) => (
-    <button
+    <button type="button"
       key={c}
       className={colormap === c ? 'active' : ''}
       onClick={() => setColormap(c)}

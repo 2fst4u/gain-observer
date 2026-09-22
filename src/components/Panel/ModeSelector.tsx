@@ -23,7 +23,7 @@ export function ModeSelector() {
       <h2 id="mode-selector-heading">Mode</h2>
       <div className="button-group" role="group" aria-labelledby="mode-selector-heading" aria-describedby="mode-hint">
         {MODES.map((m) => (
-          <button
+          <button type="button"
             key={m.id}
             className={mode === m.id ? 'active' : ''}
             onClick={() => setMode(m.id)}

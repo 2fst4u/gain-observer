@@ -60,7 +60,7 @@ function TransformerRatioInput({
           }}
         />
         {optimalRatio !== null && (
-          <button
+          <button type="button"
             onClick={() => { if (optimalRatio !== transformerRatio) setTransformerRatio(optimalRatio); }}
             aria-disabled={optimalRatio === transformerRatio}
             title={optimalRatio === transformerRatio

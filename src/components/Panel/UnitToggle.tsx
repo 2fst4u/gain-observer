@@ -9,7 +9,7 @@ export function UnitToggle() {
   })));
   return (
     <div className="button-group" role="group" aria-label="Unit system">
-      <button
+      <button type="button"
         className={units === 'metric' ? 'active' : ''}
         onClick={() => setUnits('metric')}
         aria-pressed={units === 'metric'}
@@ -17,7 +17,7 @@ export function UnitToggle() {
         aria-keyshortcuts="u"
         aria-label="m (Meters)"
       >m</button>
-      <button
+      <button type="button"
         className={units === 'imperial' ? 'active' : ''}
         onClick={() => setUnits('imperial')}
         aria-pressed={units === 'imperial'}

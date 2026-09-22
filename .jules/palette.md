@@ -37,3 +37,6 @@
 ## 2026-08-09 - Comparison Empty State Accessibility
 **Learning:** When a component conditionally renders an empty state message (e.g., after clearing a reference), screen readers do not automatically announce the transition back to the empty state unless the container has an explicit ARIA live region.
 **Action:** Add `role="status" aria-live="polite"` to conditionally rendered empty state containers to ensure screen readers announce the state change.
+## 2026-09-22 - Explicit button type
+**Learning:** Buttons without an explicit `type="button"` attribute inside or near form-like structures can cause unexpected behaviors or fail strict CI checks, as they default to `type="submit"`.
+**Action:** Always include `type="button"` on generic buttons to explicitly define their behavior and satisfy CI requirements.

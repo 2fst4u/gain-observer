@@ -40,7 +40,7 @@ export function ComparisonControl() {
         Freeze the current antenna as the left-hand reference, then change the live controls to compare against it.
       </div>
       <div className="button-group" role="group" aria-label="Comparison Actions" style={{ marginTop: 10 }}>
-        <button
+        <button type="button"
           className="primary"
           onClick={() => { if (canCapture) captureReference(); }}
           aria-disabled={!canCapture}
@@ -48,7 +48,7 @@ export function ComparisonControl() {
         >
           Use current as reference
         </button>
-        <button
+        <button type="button"
           onClick={() => { if (reference) clearReference(); }}
           aria-disabled={!reference}
           title={!reference ? 'No reference captured' : 'Clear the captured reference'}

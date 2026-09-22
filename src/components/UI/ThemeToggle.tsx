@@ -8,7 +8,7 @@ export function ThemeToggle() {
     toggleTheme: s.toggleTheme,
   })));
   return (
-    <button
+    <button type="button"
       onClick={toggle}
       title={theme === 'dark' ? 'Switch to light (T)' : 'Switch to dark (T)'}
       aria-keyshortcuts="t"

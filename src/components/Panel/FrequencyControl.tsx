@@ -69,7 +69,7 @@ export function FrequencyControl() {
       </div>
       <div style={{ marginTop: 8 }} className="button-group" role="group" aria-label="Amateur Radio Bands">
         {HF_BAND_PRESETS.map((b) => (
-          <button
+          <button type="button"
             key={b.name}
             className={Math.abs(b.mhz - frequency) < 0.05 ? 'active' : ''}
             onClick={() => {

@@ -104,7 +104,7 @@ export function GroundControl() {
       {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
       <h2>
         <label htmlFor="ground-preset" style={{ display: 'inline-block' }}>Ground</label>
-        <button
+        <button type="button"
           style={{
             padding: '2px 8px', fontSize: 11, marginLeft: 8,
             display: 'inline-flex', alignItems: 'center', gap: 4

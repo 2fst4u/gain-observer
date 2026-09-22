@@ -44,7 +44,7 @@ export function DipoleOffsetControl({
             setFeedlineOffset(fromDisplayLength(val, units));
           }}
         />
-        <button
+        <button type="button"
           onClick={() => { if (Math.abs(feedlineOffset) >= 1e-6) setFeedlineOffset(0); }}
           aria-disabled={Math.abs(feedlineOffset) < 1e-6}
           title={Math.abs(feedlineOffset) < 1e-6 ? 'Feedpoint is already centred' : 'Centre feedpoint'}
