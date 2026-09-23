@@ -1,7 +1,14 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useAntennaStore, type Mode } from '../../store/antennaStore';
 
-const MODES: Array<{ id: Mode; label: string; hint: string; shortcut?: string }> = [
+interface ModeOption {
+  id: Mode;
+  label: string;
+  hint: string;
+  shortcut?: string;
+}
+
+const MODES: ModeOption[] = [
   { id: 'normal', label: 'Normal', hint: 'Standard DX pattern view', shortcut: 'm' },
   { id: 'comparison', label: 'Compare', hint: 'Side-by-side two configs', shortcut: 'm' },
 ];
@@ -9,7 +16,7 @@ const MODES: Array<{ id: Mode; label: string; hint: string; shortcut?: string }>
 const MODE_MAP = MODES.reduce((acc, m) => {
   acc[m.id] = m;
   return acc;
-}, {} as Record<Mode, (typeof MODES)[0]>);
+}, {} as Record<Mode, ModeOption>);
 
 export function ModeSelector() {
   // ⚡ Bolt: Group multiple store selections into a single useShallow block
