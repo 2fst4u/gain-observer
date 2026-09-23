@@ -1,6 +1,6 @@
 import type { Wire } from '../src/physics/types';
 import { describe, it, expect } from 'vitest';
-import { buildDipoleWires, gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
+import { buildDipoleWires, gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, slopingVBridgeLength, slopingVFeedSetback, slopingVLegLength, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
 import { VERTICAL_WHIP_RADIAL_COUNT, FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../src/physics/constants';
 import { MAIN_WIRE_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../src/physics/tags';
 
@@ -14,6 +14,63 @@ function tagSpan(wires: readonly Wire[], tag: number) {
   if (subWires.length === 0) return undefined;
   return { start: subWires[0]!.start, end: subWires[subWires.length - 1]!.end };
 }
+
+describe('sloping V geometry helpers', () => {
+  describe('slopingVLegLength', () => {
+    it('calculates leg length by subtracting feed bridge and dividing by 2', () => {
+      expect(slopingVLegLength(20)).toBeCloseTo(9.95);
+    });
+
+    it('floors leg length at 0.1m for very short or non-positive total lengths', () => {
+      expect(slopingVLegLength(0.1)).toBe(0.1);
+      expect(slopingVLegLength(0)).toBe(0.1);
+      expect(slopingVLegLength(-5)).toBe(0.1);
+    });
+  });
+
+  describe('slopingVFeedSetback', () => {
+    it('calculates setback as bridgeHalf / sin(halfV) for moderate angles', () => {
+      const legLen = 10;
+      const setback = slopingVFeedSetback(90, legLen);
+      expect(setback).toBeCloseTo(0.05 * Math.SQRT2, 6);
+    });
+
+    it('caps setback at 5% of leg length for very acute angles on long legs', () => {
+      const legLen = 100;
+      const setback = slopingVFeedSetback(0.1, legLen);
+      expect(setback).toBeCloseTo(5.0);
+    });
+
+    it('floors setback at half the bridge length (FEED_BRIDGE_LENGTH_M / 2)', () => {
+      const legLen = 10;
+      const setback = slopingVFeedSetback(180, legLen);
+      expect(setback).toBeCloseTo(FEED_BRIDGE_LENGTH_M / 2, 6);
+    });
+  });
+
+  describe('slopingVBridgeLength', () => {
+    it('equals FEED_BRIDGE_LENGTH_M when vAngle is 180 degrees (inverted V equivalence)', () => {
+      const legLen = 10;
+      expect(slopingVBridgeLength(180, legLen)).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
+    });
+
+    it('calculates bridge length using setback and sin(halfV) for normal angles', () => {
+      const legLen = 10;
+      const vAngle = 60;
+      expect(slopingVBridgeLength(vAngle, legLen)).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
+    });
+
+    it('returns smaller bridge length when setback is capped at 5% of leg length for acute angles', () => {
+      const legLen = 10;
+      const vAngle = 5;
+      const bridgeLen = slopingVBridgeLength(vAngle, legLen);
+      const halfV = ((vAngle / 2) * Math.PI) / 180;
+      const expectedBridge = 2 * (legLen * 0.05) * Math.sin(halfV);
+      expect(bridgeLen).toBeCloseTo(expectedBridge, 6);
+      expect(bridgeLen).toBeLessThan(FEED_BRIDGE_LENGTH_M);
+    });
+  });
+});
 
 describe('gradedSegmentPlan', () => {
   it('returns empty plan for zero or negative length', () => {
