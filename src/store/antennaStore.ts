@@ -882,10 +882,9 @@ export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
 ): Wire[] {
-  const wires = buildWiresInternal(state);
+  const { wires, bridge } = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
   if (layout?.shield && state.antennaType !== 'delta-loop' && state.antennaType !== 'terminated-delta') {
-    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
     if (bridge) {
       wires.push({
         start: bridge.end,
@@ -911,12 +910,14 @@ function computeFeedlineShield(
 function buildWiresInternal(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
     Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
-): Wire[] {
+): { wires: Wire[]; bridge?: Wire } {
   const h = state.height;
+  let wires: Wire[];
+  let bridge: Wire | undefined;
 
   switch (state.antennaType) {
     case 'inverted-v':
-      return buildInvertedVWires({
+      wires = buildInvertedVWires({
         length: state.length,
         height: h,
         orientation: state.orientation,
@@ -925,12 +926,20 @@ function buildWiresInternal(
         frequency: state.frequency,
         vAngle: state.vAngle,
       });
+      if (wires.length > 0 && wires[wires.length - 1].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[wires.length - 1];
+      }
+      break;
 
     case 'sloping-v':
-      return buildSlopingVWires(state);
+      wires = buildSlopingVWires(state);
+      if (wires.length > 0 && wires[wires.length - 1].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[wires.length - 1];
+      }
+      break;
 
     case 'delta-loop':
-      return buildDeltaLoopWires({
+      wires = buildDeltaLoopWires({
         length: state.length,
         height: h,
         orientation: state.orientation,
@@ -939,9 +948,13 @@ function buildWiresInternal(
         frequency: state.frequency,
         feedlineShield: computeFeedlineShield(state),
       });
+      if (wires.length > 0 && wires[wires.length - 1].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[wires.length - 1];
+      }
+      break;
 
     case 'terminated-delta':
-      return buildTerminatedDeltaWires({
+      wires = buildTerminatedDeltaWires({
         length: state.length,
         height: h,
         orientation: state.orientation,
@@ -950,9 +963,13 @@ function buildWiresInternal(
         frequency: state.frequency,
         feedlineShield: computeFeedlineShield(state),
       });
+      if (wires.length > 0 && wires[wires.length - 1].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[wires.length - 1];
+      }
+      break;
 
     case 'vertical-whip':
-      return buildVerticalWhipWires({
+      wires = buildVerticalWhipWires({
         length: state.length,
         height: h,
         wireRadius: state.wireRadius,
@@ -960,9 +977,10 @@ function buildWiresInternal(
         frequency: state.frequency,
         counterpoise: state.whipCounterpoise ?? false,
       });
+      break;
 
     case 'inverted-l':
-      return buildInvertedLWires({
+      wires = buildInvertedLWires({
         length: state.length,
         height: h,
         orientation: state.orientation,
@@ -971,9 +989,10 @@ function buildWiresInternal(
         frequency: state.frequency,
         counterpoise: state.whipCounterpoise ?? false,
       });
+      break;
 
     case 'folded-dipole':
-      return buildFoldedAntennaWires({
+      wires = buildFoldedAntennaWires({
         length: state.length,
         height: h,
         aperture: state.foldedDipoleAperture ?? FOLDED_DIPOLE_DEFAULT_APERTURE_M,
@@ -983,10 +1002,14 @@ function buildWiresInternal(
         frequency: state.frequency,
         terminatingResistor: state.terminatingResistor ?? 0,
       });
+      if (wires.length > 1 && wires[1].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[1];
+      }
+      break;
 
     case 'dipole':
     default:
-      return buildDipoleWires({
+      wires = buildDipoleWires({
         length: state.length,
         height: h,
         orientation: state.orientation,
@@ -994,7 +1017,13 @@ function buildWiresInternal(
         segments: state.segments,
         layout: computeFeedlineLayout(state),
       });
+      if (wires.length > 0 && wires[wires.length - 1].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[wires.length - 1];
+      }
+      break;
   }
+
+  return { wires, bridge };
 }
 
 interface FeedlineLayout {
