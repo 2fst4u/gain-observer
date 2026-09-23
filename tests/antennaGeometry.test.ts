@@ -1,6 +1,6 @@
 import type { Wire } from '../src/physics/types';
 import { describe, it, expect } from 'vitest';
-import { buildDipoleWires, gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
+import { buildDipoleWires, gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, slopingVFeedSetback, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
 import { VERTICAL_WHIP_RADIAL_COUNT, FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../src/physics/constants';
 import { MAIN_WIRE_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../src/physics/tags';
 
@@ -53,6 +53,52 @@ describe('gradedSegmentPlan', () => {
     expect(plan.prefixLens).toEqual([]);
     expect(plan.tailCount).toBe(1000000000);
     expect(plan.tailLen).toBeCloseTo(1e-9);
+  });
+});
+
+describe('slopingVFeedSetback', () => {
+  it('calculates ideal setback when ideal is below the cap', () => {
+    // vAngle = 180 deg (straight dipole / opposed legs):
+    // halfV = 90 deg, sin(90) = 1
+    // bridgeHalf = 0.1 / 2 = 0.05
+    // ideal = 0.05 / 1 = 0.05
+    // legLen = 10 => cap = max(0.05, 0.5) = 0.5
+    // result = min(0.05, 0.5) = 0.05
+    expect(slopingVFeedSetback(180, 10)).toBeCloseTo(0.05, 6);
+
+    // vAngle = 90 deg:
+    // halfV = 45 deg, sin(45) = 1 / sqrt(2) ≈ 0.70710678
+    // ideal = 0.05 * sqrt(2) ≈ 0.070710678
+    // legLen = 10 => cap = 0.5
+    // result ≈ 0.070710678
+    expect(slopingVFeedSetback(90, 10)).toBeCloseTo(0.05 * Math.SQRT2, 6);
+  });
+
+  it('caps setback at 5% of leg length when ideal exceeds the cap', () => {
+    // vAngle = 10 deg:
+    // halfV = 5 deg, sin(5 deg) ≈ 0.0871557
+    // ideal = 0.05 / 0.0871557 ≈ 0.57368
+    // legLen = 10 => cap = max(0.05, 10 * 0.05) = 0.5
+    // ideal (0.57368) > 0.5, so capped at 0.5
+    expect(slopingVFeedSetback(10, 10)).toBeCloseTo(0.5, 6);
+  });
+
+  it('floors cap at half bridge length (bridgeHalf) for short leg lengths', () => {
+    // vAngle = 180 deg, legLen = 0.1
+    // ideal = 0.05
+    // cap = max(0.05, 0.1 * 0.05) = max(0.05, 0.005) = 0.05
+    // result = min(0.05, 0.05) = 0.05
+    expect(slopingVFeedSetback(180, 0.1)).toBeCloseTo(0.05, 6);
+  });
+
+  it('handles zero or near-zero V angles safely by capping to 5% leg length', () => {
+    // vAngle = 0 => sinV <= 1e-6 => ideal = Infinity
+    // legLen = 10 => cap = 0.5
+    // result = min(Infinity, 0.5) = 0.5
+    expect(slopingVFeedSetback(0, 10)).toBeCloseTo(0.5, 6);
+
+    // Negative angle edge case
+    expect(slopingVFeedSetback(-10, 10)).toBeCloseTo(0.5, 6);
   });
 });
 
