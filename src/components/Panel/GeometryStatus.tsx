@@ -3,7 +3,18 @@ import { useAntennaStore } from '../../store/antennaStore';
 import { type UnitSystem, displayLengthUnit, toDisplayLength } from '../../physics/units';
 import { FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../../physics/constants';
 
-function SlopingVStatus({ length, height, units, unit }: { length: number; height: number; units: UnitSystem; unit: string }) {
+interface BaseGeometryStatusProps {
+  length: number;
+  height: number;
+  units: UnitSystem;
+  unit: string;
+}
+
+interface InvertedVStatusProps extends BaseGeometryStatusProps {
+  vAngle: number;
+}
+
+function SlopingVStatus({ length, height, units, unit }: BaseGeometryStatusProps) {
   // Sloping V: tips always at the ground floor; slope is fully determined
   // by mast height and leg length.
   const legLen = Math.max(0.01, (length - FEED_BRIDGE_LENGTH_M) / 2);
@@ -35,7 +46,7 @@ function SlopingVStatus({ length, height, units, unit }: { length: number; heigh
   );
 }
 
-function InvertedVStatus({ length, height, vAngle, units, unit }: { length: number; height: number; vAngle: number; units: UnitSystem; unit: string }) {
+function InvertedVStatus({ length, height, vAngle, units, unit }: InvertedVStatusProps) {
   // Inverted V: the per-leg slope is derived from the V opening angle and may
   // be clamped by mast height. Surface everything in terms of the opening angle
   // so it lines up with the "V opening angle" control the user adjusts.
