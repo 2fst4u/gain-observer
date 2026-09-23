@@ -11,10 +11,9 @@ import {
   Filler,
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
-import { useAntennaStore, selectSwrWindow } from '../../store/antennaStore';
+import { useAntennaStore, selectSwrWindow, type ComparisonSnapshot } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { type ComparisonSnapshot } from '../../store/antennaStore';
 import { type SweepPoint } from '../../physics/types';
 import {
   computeChartData,
