@@ -200,15 +200,16 @@ export function computeYMax({
   let maxVal = -Infinity;
 
   for (let i = 0; i < sweep.length; i++) {
+    const pt = sweep[i]!;
     // When the transformer is active we only render the post-balun curve,
     // so only consider those values for the y-axis range. Including the raw
     // SWR (which can be ~6:1 for a folded dipole) would compress the
     // post-balun curve to an unreadable sliver at the bottom of the chart.
     if (transformerInDisplay) {
-      const v2 = computeSwr({ R: sweep[i].R / transformerRatio, X: sweep[i].X / transformerRatio });
+      const v2 = computeSwr({ R: pt.R / transformerRatio, X: pt.X / transformerRatio });
       if (v2 > maxVal) maxVal = v2;
     } else {
-      const v = sweep[i].swr;
+      const v = pt.swr;
       if (v > maxVal) maxVal = v;
     }
   }
