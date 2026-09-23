@@ -132,23 +132,23 @@ export interface Nec2EngineOptions {
  * is both the useful HF take-off angle and the direction whose azimuth cut
  * actually carries the pattern's shape. Remaining ties keep the lowest φ.
  */
-function findMaxGainDirection(pattern: GainPattern): { maxGain: number; elevationDeg: number; phiDeg: number } {
-  // NEC prints gains to 0.01 dB, so tied directions arrive as bit-identical
-  // Float32s. This epsilon only absorbs float noise — it deliberately does not
-  // merge directions NEC itself distinguishes.
-  const TIE_EPSILON_DB = 1e-6;
-
+/** Finds the maximum gain across all data points in a pattern grid. */
+function findMaxGain(data: ArrayLike<number>): number {
   let maxGain = -Infinity;
-  for (let i = 0; i < pattern.data.length; i++) {
-    const v = pattern.data[i]!;
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i]!;
     if (v > maxGain) maxGain = v;
   }
+  return maxGain;
+}
 
-  // Walk theta rows from the horizon back up to the zenith so the first row
-  // holding a tied peak is the lowest-elevation one. θ > 90° (below the
-  // horizon) is only ever populated in free space, so it is searched last.
-  const threshold = maxGain - TIE_EPSILON_DB;
+/**
+ * Finds the theta and phi grid indices corresponding to the maximum gain direction,
+ * applying tie-breaking logic (lowest elevation above horizon, then below horizon, then lowest phi).
+ */
+function findPeakIndices(pattern: GainPattern, threshold: number): { bestTi: number; bestPi: number } {
   const horizonTi = Math.min(pattern.thetaSteps - 1, Math.round(90 / pattern.dTheta));
+
   const firstPeakPi = (ti: number): number => {
     const row = ti * pattern.phiSteps;
     for (let pi = 0; pi < pattern.phiSteps; pi++) {
@@ -157,26 +157,35 @@ function findMaxGainDirection(pattern: GainPattern): { maxGain: number; elevatio
     return -1;
   };
 
-  let bestTi = 0;
-  let bestPi = 0;
-  let found = false;
-  for (let ti = horizonTi; ti >= 0 && !found; ti--) {
+  // Walk theta rows from the horizon back up to the zenith so the first row
+  // holding a tied peak is the lowest-elevation one.
+  for (let ti = horizonTi; ti >= 0; ti--) {
     const pi = firstPeakPi(ti);
     if (pi >= 0) {
-      bestTi = ti;
-      bestPi = pi;
-      found = true;
+      return { bestTi: ti, bestPi: pi };
     }
   }
-  // Peak lies below the horizon (only reachable in free space).
-  for (let ti = horizonTi + 1; ti < pattern.thetaSteps && !found; ti++) {
+
+  // Peak lies below the horizon (θ > 90°, only reachable in free space).
+  for (let ti = horizonTi + 1; ti < pattern.thetaSteps; ti++) {
     const pi = firstPeakPi(ti);
     if (pi >= 0) {
-      bestTi = ti;
-      bestPi = pi;
-      found = true;
+      return { bestTi: ti, bestPi: pi };
     }
   }
+
+  return { bestTi: 0, bestPi: 0 };
+}
+
+export function findMaxGainDirection(pattern: GainPattern): { maxGain: number; elevationDeg: number; phiDeg: number } {
+  // NEC prints gains to 0.01 dB, so tied directions arrive as bit-identical
+  // Float32s. This epsilon only absorbs float noise — it deliberately does not
+  // merge directions NEC itself distinguishes.
+  const TIE_EPSILON_DB = 1e-6;
+
+  const maxGain = findMaxGain(pattern.data);
+  const threshold = maxGain - TIE_EPSILON_DB;
+  const { bestTi, bestPi } = findPeakIndices(pattern, threshold);
 
   const thetaDeg = bestTi * pattern.dTheta;
   const phiDeg = bestPi * pattern.dPhi;
