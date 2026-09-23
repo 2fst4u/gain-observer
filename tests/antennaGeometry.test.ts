@@ -1,6 +1,6 @@
 import type { Wire } from '../src/physics/types';
 import { describe, it, expect } from 'vitest';
-import { buildDipoleWires, gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
+import { buildDipoleWires, gradedSegmentPlan, orientationVector, buildInvertedLWires, buildVerticalWhipWires, buildTerminatedDeltaWires, buildFoldedAntennaWires, buildDeltaLoopWires, buildInvertedVWires, buildSlopingVWires, slopingVLegLength, MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG } from '../src/store/antennaGeometry';
 import { VERTICAL_WHIP_RADIAL_COUNT, FEED_BRIDGE_LENGTH_M, SLOPING_V_MIN_TIP_Z_M } from '../src/physics/constants';
 import { MAIN_WIRE_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../src/physics/tags';
 
@@ -14,6 +14,19 @@ function tagSpan(wires: readonly Wire[], tag: number) {
   if (subWires.length === 0) return undefined;
   return { start: subWires[0]!.start, end: subWires[subWires.length - 1]!.end };
 }
+
+describe('slopingVLegLength', () => {
+  it('calculates the leg length correctly for given total lengths', () => {
+    // For 20m total length: (20 - 0.1) / 2 = 9.95m
+    expect(slopingVLegLength(20)).toBeCloseTo((20 - FEED_BRIDGE_LENGTH_M) / 2);
+    // For 10m total length: (10 - 0.1) / 2 = 4.95m
+    expect(slopingVLegLength(10)).toBeCloseTo((10 - FEED_BRIDGE_LENGTH_M) / 2);
+  });
+
+  it('ensures leg length is at least 0.1m', () => {
+    expect(slopingVLegLength(0.3)).toBeGreaterThanOrEqual(0.1);
+  });
+});
 
 describe('gradedSegmentPlan', () => {
   it('returns empty plan for zero or negative length', () => {
