@@ -1,7 +1,8 @@
 import { NumericInput } from '../UI/NumericInput';
 import { GeometryStatus } from './GeometryStatus';
 
-import { useAntennaStore, legMultipleFromLength, recommendedTerminatingResistor, type AntennaType } from '../../store/antennaStore';
+import { useAntennaStore, legMultipleFromLength, recommendedTerminatingResistor } from '../../store/antennaStore';
+import { type AntennaType } from '../../physics/types';
 import { useShallow } from 'zustand/react/shallow';
 import {
   toDisplayLength,
@@ -48,9 +49,6 @@ function LengthControl() {
 
   const unit = displayLengthUnit(units);
   const dispLen = toDisplayLength(length, units);
-
-
-
   const lambda = 299.792458 / frequency;
 
   const resonateLabels: Record<AntennaType, string> = {
@@ -265,11 +263,8 @@ function OrientationControl() {
 
   const currentDegrees = typeof orientation === 'number' ? orientation : PRESET_DEGREES[orientation];
 
-
-
   const isVerticalWhip = antennaType === 'vertical-whip';
   const isInvertedL = antennaType === 'inverted-l';
-
 
   if (isVerticalWhip) return null; // No orientation for a vertical monopole
 
