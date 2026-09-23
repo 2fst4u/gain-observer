@@ -77,6 +77,17 @@ export const TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS = 600;
  * can still type Z₀ in; the hint text quotes it.
  */
 
+const RECOMMENDED_TERMINATING_RESISTORS: Record<AntennaType, number> = {
+  'sloping-v': SLOPING_V_DEFAULT_TERMINATION_OHMS,
+  'terminated-delta': TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS,
+  'folded-dipole': FOLDED_DIPOLE_FEED_R_OHMS,
+  'dipole': 0,
+  'inverted-v': 0,
+  'delta-loop': 0,
+  'vertical-whip': 0,
+  'inverted-l': 0,
+};
+
 /**
  * The recommended terminating resistance for an antenna type, in ohms, or 0 for
  * types that do not support a terminating resistor. This is the single source of
@@ -89,16 +100,7 @@ export const TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS = 600;
  *     independent of the conductor spacing.
  */
 export function recommendedTerminatingResistor(antennaType: AntennaType): number {
-  switch (antennaType) {
-    case 'sloping-v':
-      return SLOPING_V_DEFAULT_TERMINATION_OHMS;
-    case 'terminated-delta':
-      return TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS;
-    case 'folded-dipole':
-      return FOLDED_DIPOLE_FEED_R_OHMS;
-    default:
-      return 0;
-  }
+  return RECOMMENDED_TERMINATING_RESISTORS[antennaType] ?? 0;
 }
 
 /**
