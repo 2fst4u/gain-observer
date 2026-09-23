@@ -1072,8 +1072,12 @@ function buildExcitation(
   } else if (state.antennaType === 'delta-loop' || state.antennaType === 'terminated-delta') {
     // Apex-fed: excitation lives on the last segment of the left leg
     // (whose .end is the apex by convention in build*Wires).
-    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
-    return { wireTag: LEFT_LEG_TAG, segment: leftLeg.segments };
+    for (let i = 0; i < wires.length; i++) {
+      if (wires[i].tag === LEFT_LEG_TAG) {
+        return { wireTag: LEFT_LEG_TAG, segment: wires[i].segments };
+      }
+    }
+    return { wireTag: LEFT_LEG_TAG, segment: 1 };
   } else if (state.antennaType === 'vertical-whip') {
     // Base-fed monopole: excitation on the first (lowest) segment.
     return { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
