@@ -11,7 +11,7 @@ import {
 } from 'chart.js';
 import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import React, { useMemo, type ComponentProps } from 'react';
+import { memo, useMemo, type ComponentProps } from 'react';
 import { displayedFeedMetrics } from '../../physics/impedance';
 import { bearingToPhiDeg, normalizeDeg } from '../../physics/angles';
 import type { GainPattern, SimulationResult } from '../../physics/types';
@@ -131,7 +131,7 @@ interface PolarPlotPanelProps {
   options: ComponentProps<typeof Radar>['options'];
 }
 
-const PolarPlotPanel = React.memo(function PolarPlotPanel({ title, labels, data, options }: PolarPlotPanelProps) {
+const PolarPlotPanel = memo(function PolarPlotPanel({ title, labels, data, options }: PolarPlotPanelProps) {
   return (
     <div style={{ minWidth: 0 }}>
       <h3 style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: 0, fontWeight: 'normal' }}>
