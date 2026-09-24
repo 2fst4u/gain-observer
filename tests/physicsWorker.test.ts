@@ -164,7 +164,7 @@ describe('physicsWorker error path test', () => {
     await import('../src/workers/physicsWorker');
 
     // Simulate an unhandledrejection event
-    rejectionHandler({ reason: 'promise rejected' });
+    rejectionHandler({ reason: 'promise rejected', preventDefault: vi.fn() });
 
     expect(consoleErrorSpy).toHaveBeenCalledWith('[worker unhandledrejection]', 'promise rejected');
   });

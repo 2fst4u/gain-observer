@@ -68,6 +68,7 @@ self.addEventListener('error', (ev) => {
   }
 });
 self.addEventListener('unhandledrejection', (ev: PromiseRejectionEvent) => {
+  ev.preventDefault();
   if (import.meta.env.DEV) {
     console.error('[worker unhandledrejection]', ev.reason);
   }
