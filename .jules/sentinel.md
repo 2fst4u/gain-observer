@@ -46,7 +46,21 @@
 **Learning:** Confirmed that core security patterns (e.g., CSP, wrapping `console.error` in `import.meta.env.DEV`, checking origin in workers) are established and intact in the current state of the repository.
 **Action:** When a security task is requested but the codebase already correctly implements the required patterns, explicitly treat it as a false positive. Do not introduce redundant code or unnecessary modifications.
 
-## 2026-09-19 - CI Empty Commit Check Bypass
-**Vulnerability:** Not a vulnerability, but a workflow limitation. When concluding a Sentinel task as a false positive where no security improvements can be identified, submitting a branch with zero file modifications triggers a CI failure (empty-commit-check workflow).
-**Learning:** We must always satisfy the empty-commit-check workflow, even on false positive tasks.
-**Prevention:** If no valid security issues exist, apply a completely safe, trivial code health cleanup (such as removing unused imports or redundant prefixes) to satisfy the CI file modification requirement, while clearly documenting in the PR that it is a false positive fallback.
+## 2026-09-25 - Do not manufacture a diff for a false positive
+**Vulnerability:** The filler committed to satisfy the old `empty-commit-check`
+gate was not harmless. In this repository it added `ev.preventDefault()` to the
+worker's `error` and `unhandledrejection` handlers, where the only logging is
+`import.meta.env.DEV`-gated — silently swallowing every worker error in a
+production build, directly against the "surface worker-side errors explicitly"
+comment above it. Elsewhere the same habit made a failed upload report the wrong
+reason, and moved a content-type check to after the response was buffered.
+**Learning:** This entry previously said the opposite: that a trivial code
+health cleanup should be applied to satisfy the CI file modification
+requirement. That advice sat directly beneath the 2026-08-22 entry telling this
+same agent not to introduce unnecessary modifications, and it is what produced
+the changes above. The gate it worked around has been removed.
+**Prevention:** When a security task turns out to be a false positive, say so
+and stop. Do not open a pull request, and never add an unrelated edit to give
+one something to carry. `.github/workflows/no-op-pr.yml` now closes an empty or
+journal-only pull request with an explanation; that close is the correct
+outcome, not a failure to work around.
