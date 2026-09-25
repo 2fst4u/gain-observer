@@ -1240,8 +1240,6 @@ function createSlopingVCounterpoises(
   const lambda = wavelengthMeters(frequency);
   const dx = leftTip[0] - rightTip[0];
   const dy = leftTip[1] - rightTip[1];
-  // ⚡ Bolt: Math.hypot is notoriously slow in V8 due to overflow/underflow checks.
-  // We use Math.sqrt directly since these values are safe from float limits.
   const tipSeparation = Math.sqrt(dx * dx + dy * dy);
   const radialLength = Math.min(
     lambda * SLOPING_V_COUNTERPOISE_LENGTH_WL,
