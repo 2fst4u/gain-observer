@@ -1238,7 +1238,9 @@ function createSlopingVCounterpoises(
   // coincident wires are a NEC geometry error, and a narrow V at a low
   // frequency is exactly the case that would produce them.
   const lambda = wavelengthMeters(frequency);
-  const tipSeparation = Math.hypot(leftTip[0] - rightTip[0], leftTip[1] - rightTip[1]);
+  const dx = leftTip[0] - rightTip[0];
+  const dy = leftTip[1] - rightTip[1];
+  const tipSeparation = Math.sqrt(dx * dx + dy * dy);
   const radialLength = Math.min(
     lambda * SLOPING_V_COUNTERPOISE_LENGTH_WL,
     Math.max(0.1, tipSeparation * 0.4),
