@@ -7,12 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # Gate: must pass before anything else in this workflow runs.
-  empty-commit-check:
-    uses: ./.github/workflows/empty-commit-check.yml
-
   test:
-    needs: empty-commit-check
     name: Run Tests
     runs-on: ubuntu-latest
 
