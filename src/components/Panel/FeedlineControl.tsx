@@ -1,13 +1,13 @@
 import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
-  FEEDLINE_PRESETS,
   feedlineLossDb,
   findFeedlinePreset,
 } from '../../physics/constants';
 import { displayLengthUnit } from '../../physics/units';
 import type { AntennaType } from '../../physics/types';
-import { StatRow } from '../UI/StatRow';
+import { FeedlinePresetSelect } from './Feedline/FeedlinePresetSelect';
+import { FeedlineStats } from './Feedline/FeedlineStats';
 import { SyncedLengthInput } from './Feedline/SyncedLengthInput';
 import { DipoleOffsetControl } from './Feedline/DipoleOffsetControl';
 import { AtuSection } from './Feedline/AtuSection';
@@ -21,7 +21,6 @@ const SUPPORTED_ANTENNA_TYPES: ReadonlySet<AntennaType> = new Set([
   'terminated-delta',
   'folded-dipole',
 ]);
-
 
 export function FeedlineControl() {
   // ⚡ Bolt: Performance Optimization
@@ -71,21 +70,11 @@ export function FeedlineControl() {
 
   return (
     <section className="panel-section">
-      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2><label htmlFor="feedline-preset">Feedline</label></h2>
-      <select
-        id="feedline-preset"
-        value={feedlineId}
-        onChange={(e) => setFeedline(e.target.value)}
-        aria-describedby="feedline-hint"
-      >
-        {FEEDLINE_PRESETS.map((f) => (
-          <option key={f.id} value={f.id}>{f.label}</option>
-        ))}
-      </select>
-      <div id="feedline-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-        {preset.hint}
-      </div>
+      <FeedlinePresetSelect
+        feedlineId={feedlineId}
+        presetHint={preset.hint}
+        onChangeFeedline={setFeedline}
+      />
 
       {enabled && (
         <>
@@ -109,14 +98,11 @@ export function FeedlineControl() {
             />
           )}
 
-          <StatRow
-            style={{ marginTop: 10 }}
-            label="Z₀ / VF"
-            value={`${preset.z0.toFixed(0)} Ω · ${preset.velocityFactor.toFixed(2)}`}
-          />
-          <StatRow
-            label={`Cable loss @ ${frequency.toFixed(2)} MHz`}
-            value={`${lossDb.toFixed(2)} dB`}
+          <FeedlineStats
+            z0={preset.z0}
+            velocityFactor={preset.velocityFactor}
+            frequency={frequency}
+            lossDb={lossDb}
           />
 
           <AtuSection
