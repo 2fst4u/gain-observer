@@ -47,16 +47,21 @@ export function averageGainLinear(pattern: GainPattern): number {
   const dbToLinear = Math.LN10 / 10;
 
   let sum = 0;
+  let idx = 0;
   for (let ti = 0; ti < thetaSteps; ti++) {
-    const sinTheta = Math.sin(ti * dTheta * DEG);
-    if (sinTheta === 0) continue;
-    const weight = ti === 0 || ti === thetaSteps - 1 ? 0.5 : 1;
-    const row = ti * phiSteps;
-    let rowSum = 0;
-    for (let pi = 0; pi < phiSteps; pi++) {
-      rowSum += Math.exp(data[row + pi]! * dbToLinear);
+    const sinTheta = Math.sin(ti * dThetaRad);
+    if (sinTheta === 0) {
+      idx += phiSteps;
+      continue;
     }
-    sum += rowSum * sinTheta * weight;
+    const weight = ti === 0 || ti === thetaSteps - 1 ? 0.5 : 1;
+    const sinWeight = sinTheta * weight;
+    let rowSum = 0;
+    const end = idx + phiSteps;
+    for (; idx < end; idx++) {
+      rowSum += Math.exp(data[idx]! * dbToLinear);
+    }
+    sum += rowSum * sinWeight;
   }
 
   return (sum * dThetaRad * dPhiRad) / (4 * Math.PI);
