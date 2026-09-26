@@ -1,7 +1,67 @@
-import { useAntennaStore } from '../../store/antennaStore';
+import { useAntennaStore, type ComparisonSnapshot } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { displayLengthUnit, formatLength } from '../../physics/units';
+import { displayLengthUnit, formatLength, type UnitSystem } from '../../physics/units';
 import { findGroundPreset } from '../../physics/constants';
+
+interface ComparisonSummaryProps {
+  readonly reference: ComparisonSnapshot;
+  readonly units: UnitSystem;
+}
+
+function ComparisonSummary({ reference, units }: ComparisonSummaryProps) {
+  const unit = displayLengthUnit(units);
+  return (
+    <div className="compare-summary">
+      <div className="stat">
+        <span className="stat-label">Captured</span>
+        <span className="stat-value">{formatCapturedAt(reference.capturedAt)}</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Frequency</span>
+        <span className="stat-value">{reference.frequency.toFixed(3)} MHz</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Length ({unit})</span>
+        <span className="stat-value">{formatLength(reference.length, units, 2)}</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Height ({unit})</span>
+        <span className="stat-value">{formatLength(reference.height, units, 1)}</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Orientation</span>
+        <span className="stat-value">
+          {typeof reference.orientation === 'number'
+            ? `${reference.orientation.toFixed(0)}°`
+            : reference.orientation}
+        </span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Ground</span>
+        <span className="stat-value">{formatGround(reference.groundId)}</span>
+      </div>
+      <div className="stat">
+        <span
+          className="stat-label"
+          title="Antenna gain (dBi): NEC total power gain, normalised to accepted input power. Includes all ohmic and termination losses."
+        >Gain</span>
+        <span className="stat-value accent">{reference.result.maxGainDbi.toFixed(2)} dBi</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">SWR (50 Ω)</span>
+        <span className="stat-value">{reference.result.swr.toFixed(2)}:1</span>
+      </div>
+    </div>
+  );
+}
+
+function ComparisonEmptyState() {
+  return (
+    <div className="compare-empty" role="status" aria-live="polite">
+      Capture a solved configuration to enable side-by-side comparison.
+    </div>
+  );
+}
 
 export function ComparisonControl() {
   // ⚡ Bolt: Performance Optimization
@@ -29,7 +89,6 @@ export function ComparisonControl() {
   if (mode !== 'comparison') return null;
 
   const canCapture = Boolean(result && sweep.length > 0);
-  const unit = displayLengthUnit(units);
 
   return (
     /* SEO: Upgrade generic div wrapper to semantic section tag to improve document outlining for search engines */
@@ -57,49 +116,9 @@ export function ComparisonControl() {
         </button>
       </div>
       {reference ? (
-        <div className="compare-summary">
-          <div className="stat">
-            <span className="stat-label">Captured</span>
-            <span className="stat-value">{formatCapturedAt(reference.capturedAt)}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Frequency</span>
-            <span className="stat-value">{reference.frequency.toFixed(3)} MHz</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Length ({unit})</span>
-            <span className="stat-value">{formatLength(reference.length, units, 2)}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Height ({unit})</span>
-            <span className="stat-value">{formatLength(reference.height, units, 1)}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Orientation</span>
-            <span className="stat-value">
-              {typeof reference.orientation === 'number'
-                ? `${reference.orientation.toFixed(0)}°`
-                : reference.orientation}
-            </span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Ground</span>
-            <span className="stat-value">{formatGround(reference.groundId)}</span>
-          </div>
-          <div className="stat">
-            <span
-              className="stat-label"
-              title="Antenna gain (dBi): NEC total power gain, normalised to accepted input power. Includes all ohmic and termination losses."
-            >Gain</span>
-            <span className="stat-value accent">{reference.result.maxGainDbi.toFixed(2)} dBi</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">SWR (50 Ω)</span>
-            <span className="stat-value">{reference.result.swr.toFixed(2)}:1</span>
-          </div>
-        </div>
+        <ComparisonSummary reference={reference} units={units} />
       ) : (
-        <div className="compare-empty" role="status" aria-live="polite">Capture a solved configuration to enable side-by-side comparison.</div>
+        <ComparisonEmptyState />
       )}
     </section>
   );
