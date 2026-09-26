@@ -9,6 +9,9 @@ import {
   wavelengthMeters,
   referenceLength,
   HF_BAND_PRESETS,
+  slopingVTerminationHubZ,
+  SLOPING_V_STUB_BOTTOM_Z_M,
+  SLOPING_V_COUNTERPOISE_HEIGHT_WL,
 } from '../src/physics/constants';
 import { type AntennaType } from '../src/physics/types';
 
@@ -89,6 +92,30 @@ describe('physics constants and helpers', () => {
 
     it('allows custom end effect factor', () => {
       expect(referenceLength('dipole', 14.150, 1.0)).toBeCloseTo(lambda * 0.5, 4);
+    });
+  });
+
+  describe('slopingVTerminationHubZ', () => {
+    it('calculates nominal height based on wavelength at standard HF frequency', () => {
+      const freq = 7.1; // 40m band
+      const tipZ = 10;
+      const expectedNominal = wavelengthMeters(freq) * SLOPING_V_COUNTERPOISE_HEIGHT_WL;
+      expect(slopingVTerminationHubZ(freq, tipZ)).toBeCloseTo(expectedNominal, 6);
+    });
+
+    it('clamps to SLOPING_V_STUB_BOTTOM_Z_M when calculated height is smaller than floor', () => {
+      // At very high frequencies (e.g. 50 MHz or higher), 0.001 * lambda is smaller than 0.01m
+      const freq = 100; // wavelength ~3m, 0.001 * 3 = 0.003m < 0.01m
+      const tipZ = 10;
+      expect(slopingVTerminationHubZ(freq, tipZ)).toBe(SLOPING_V_STUB_BOTTOM_Z_M);
+    });
+
+    it('caps height at tipZ * 0.5 for low tips', () => {
+      // High wavelength / low freq (e.g. 1.8 MHz, lambda ~166.5m, 0.001 * 166.5 = 0.1665m)
+      // If tipZ is very low (e.g. 0.1m), tipZ * 0.5 = 0.05m < 0.1665m
+      const freq = 1.8;
+      const tipZ = 0.1;
+      expect(slopingVTerminationHubZ(freq, tipZ)).toBeCloseTo(0.05, 6);
     });
   });
 });
