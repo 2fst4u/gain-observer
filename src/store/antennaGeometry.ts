@@ -401,6 +401,15 @@ function buildGradedLegWires(
   return wires;
 }
 
+interface GradedStraightWireParams {
+  bridgeEnd: [number, number, number];
+  farEnd: [number, number, number];
+  wireRadius: number;
+  tag: number;
+  maxSegLen: number;
+  emitFromFarEnd: boolean;
+}
+
 /**
  * Graded segmentation for a straight wire running away from a feed bridge.
  *
@@ -429,15 +438,6 @@ function buildGradedLegWires(
  * `emitFromFarEnd` picks the emission order so callers keep their existing
  * convention for which end of the tag is `.start`.
  */
-interface GradedStraightWireParams {
-  bridgeEnd: [number, number, number];
-  farEnd: [number, number, number];
-  wireRadius: number;
-  tag: number;
-  maxSegLen: number;
-  emitFromFarEnd: boolean;
-}
-
 function buildGradedStraightWires(params: GradedStraightWireParams): Wire[] {
   const { bridgeEnd, farEnd, wireRadius, tag, maxSegLen, emitFromFarEnd } = params;
   const vx = farEnd[0] - bridgeEnd[0];
