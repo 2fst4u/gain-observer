@@ -89,6 +89,20 @@ describe('estimateHmF2Km', () => {
       }
     }
   });
+  it('clamps extreme T-index values properly when estimating height', () => {
+    const hNormalMin = estimateHmF2Km(-100, 6, 12, 30, 0);
+    const hExtremeMin = estimateHmF2Km(-500, 6, 12, 30, 0);
+    expect(hExtremeMin).toBe(hNormalMin);
+
+    const hNormalMax = estimateHmF2Km(250, 6, 12, 30, 0);
+    const hExtremeMax = estimateHmF2Km(1000, 6, 12, 30, 0);
+    expect(hExtremeMax).toBe(hNormalMax);
+  });
+  it('uses default Greenwich longitude when optional longitude argument is omitted', () => {
+    const withExplicitZero = estimateHmF2Km(50, 6, 12, 30, 0);
+    const withDefault = estimateHmF2Km(50, 6, 12, 30);
+    expect(withDefault).toBe(withExplicitZero);
+  });
 });
 
 describe('hopRangeKm', () => {
@@ -342,5 +356,37 @@ describe('predictPropagation', () => {
     const pTerrible = predictPropagation({ ...baseInput, pattern, swr: 20 });
     expect(pTerrible.hops[0].rangeKm).toBeCloseTo(pGood.hops[0].rangeKm);
     expect(pTerrible.hops[0].linkQuality).toBe('weak');
+  });
+
+  it('selects the ray with higher link quality or range when status ranks are equal', () => {
+    const pattern = {
+      data: new Float32Array(37 * 72).fill(-20),
+      thetaSteps: 37,
+      phiSteps: 72,
+      dTheta: 5,
+      dPhi: 5,
+    };
+    // At theta index 12 (elevation 30 deg), set gain = -2 dB (useful quality)
+    // At theta index 6 (elevation 60 deg), set gain = -10 dB (weak quality)
+    for (let pi = 0; pi < 72; pi++) {
+      pattern.data[12 * 72 + pi] = -2;
+      pattern.data[6 * 72 + pi] = -10;
+    }
+
+    const p = predictPropagation({ ...baseInput, frequencyMHz: 14.15, pattern });
+    expect(p.azimuthalHops).toBeDefined();
+    // Useful signal (-2 dB) at 30 deg should be preferred over weak signal (-10 dB) at 60 deg
+    expect(p.azimuthalHops![0].linkQuality).toBe('useful');
+    expect(p.azimuthalHops![0].takeoffElevationDeg).toBeCloseTo(30);
+
+    // Now test tie-breaking by range when quality ranks are also equal:
+    // Make gain equal at both elevations (-2 dBi for both)
+    for (let pi = 0; pi < 72; pi++) {
+      pattern.data[6 * 72 + pi] = -2;
+    }
+
+    const pTie = predictPropagation({ ...baseInput, frequencyMHz: 14.15, pattern });
+    // Lower elevation (30 deg) yields longer ground range, so it should be selected over 60 deg
+    expect(pTie.azimuthalHops![0].takeoffElevationDeg).toBeCloseTo(30);
   });
 });
