@@ -247,4 +247,102 @@ describe('physicsWorker error path test', () => {
 
     consoleWarnSpy.mockRestore();
   });
+
+  it('posts sweep message when sweep succeeds', async () => {
+    mockEngineInstance.init.mockResolvedValue(undefined);
+
+    let messageHandler!: (msg: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
+    addEventListenerSpy.mockImplementation((type, handler) => {
+      if (type === 'message') messageHandler = handler;
+    });
+
+    await import('../src/workers/physicsWorker');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const mockSweepData = [{ frequencyMHz: 14, swr: 1.2, r: 50, x: 0 }];
+    mockEngineInstance.sweepImpedance.mockResolvedValue(mockSweepData);
+
+    messageHandler({
+      data: {
+        id: 200,
+        type: 'sweep',
+        input: { frequency: 14 },
+        window: { startMHz: 13, endMHz: 15 }
+      }
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(mockEngineInstance.sweepImpedance).toHaveBeenCalledWith(
+      { frequency: 14 },
+      { points: undefined, displayRatio: undefined, window: { startMHz: 13, endMHz: 15 } }
+    );
+    expect(postMessageSpy).toHaveBeenCalledWith({
+      id: 200,
+      type: 'sweep',
+      sweep: mockSweepData
+    });
+  });
+
+  it('posts error message when sweep fails with an Error', async () => {
+    mockEngineInstance.init.mockResolvedValue(undefined);
+
+    let messageHandler!: (msg: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
+    addEventListenerSpy.mockImplementation((type, handler) => {
+      if (type === 'message') messageHandler = handler;
+    });
+
+    await import('../src/workers/physicsWorker');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    mockEngineInstance.sweepImpedance.mockRejectedValue(new Error('Sweep computation failed'));
+
+    messageHandler({
+      data: {
+        id: 201,
+        type: 'sweep',
+        input: { frequency: 14 },
+        window: { startMHz: 13, endMHz: 15 }
+      }
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(postMessageSpy).toHaveBeenCalledWith({
+      id: 201,
+      type: 'error',
+      message: 'Sweep computation failed'
+    });
+  });
+
+  it('posts error message when sweep fails with a non-Error object', async () => {
+    mockEngineInstance.init.mockResolvedValue(undefined);
+
+    let messageHandler!: (msg: any) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
+    addEventListenerSpy.mockImplementation((type, handler) => {
+      if (type === 'message') messageHandler = handler;
+    });
+
+    await import('../src/workers/physicsWorker');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    mockEngineInstance.sweepImpedance.mockRejectedValue('String Sweep Error');
+
+    messageHandler({
+      data: {
+        id: 202,
+        type: 'sweep',
+        input: { frequency: 14 },
+        window: { startMHz: 13, endMHz: 15 }
+      }
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(postMessageSpy).toHaveBeenCalledWith({
+      id: 202,
+      type: 'error',
+      message: 'String Sweep Error'
+    });
+  });
 });
