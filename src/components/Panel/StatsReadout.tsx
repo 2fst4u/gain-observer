@@ -144,9 +144,15 @@ function TerminationSection({ diagnostics }: { diagnostics: TerminationDiagnosti
 
   const legRipples = useMemo(() => {
     if (!diagnostics || !diagnostics.currentRippleByTag) return [];
-    return diagnostics.currentRippleByTag.filter(
-      (r) => r.tagNo === LEFT_LEG_TAG || r.tagNo === RIGHT_LEG_TAG,
-    );
+    const ripples = diagnostics.currentRippleByTag;
+    const result = [];
+    for (let i = 0; i < ripples.length; i++) {
+      const r = ripples[i]!;
+      if (r.tagNo === LEFT_LEG_TAG || r.tagNo === RIGHT_LEG_TAG) {
+        result.push(r);
+      }
+    }
+    return result;
   }, [diagnostics]);
 
   if (antennaType !== 'sloping-v' || !diagnostics) return null;
