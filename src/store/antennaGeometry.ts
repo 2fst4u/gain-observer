@@ -551,14 +551,17 @@ function calcApexSplit(
   return { apexLeft, apexRight };
 }
 
-function appendFeedlineShieldWires(
-  wires: Wire[],
-  feedlineShield: FeedlineShield | null | undefined,
-  apexLeft: [number, number, number],
-  apexRight: [number, number, number],
-  wireRadius: number,
-  bottomZ: number
-) {
+interface FeedlineShieldWireOptions {
+  wires: Wire[];
+  feedlineShield: FeedlineShield | null | undefined;
+  apexLeft: [number, number, number];
+  apexRight: [number, number, number];
+  wireRadius: number;
+  bottomZ: number;
+}
+
+function appendFeedlineShieldWires(options: FeedlineShieldWireOptions) {
+  const { wires, feedlineShield, apexLeft, apexRight, wireRadius, bottomZ } = options;
   if (feedlineShield) {
     wires.push({
       start: apexLeft,
@@ -679,7 +682,14 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
     },
   ];
 
-  appendFeedlineShieldWires(wires, params.feedlineShield, apexLeft, apexRight, params.wireRadius, bottomZ);
+  appendFeedlineShieldWires({
+    wires,
+    feedlineShield: params.feedlineShield,
+    apexLeft,
+    apexRight,
+    wireRadius: params.wireRadius,
+    bottomZ,
+  });
 
   return wires;
 }
@@ -821,7 +831,14 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
     ),
   ];
 
-  appendFeedlineShieldWires(wires, params.feedlineShield, apexLeft, apexRight, params.wireRadius, bottomZ);
+  appendFeedlineShieldWires({
+    wires,
+    feedlineShield: params.feedlineShield,
+    apexLeft,
+    apexRight,
+    wireRadius: params.wireRadius,
+    bottomZ,
+  });
 
   return wires;
 }
