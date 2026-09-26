@@ -183,14 +183,32 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
   const wires: Wire[] = [];
 
   // LEFT leg: emit tip → apex, so the last segment is at the feed.
-  wires.push(...buildGradedLegWires(
-    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount, params.wireRadius, LEFT_LEG_TAG, -1, legPointAt, true
-  ));
+  wires.push(...buildGradedLegWires({
+    legLen,
+    prefixEnd,
+    breakpoints,
+    prefixLens: plan.prefixLens,
+    tailCount,
+    wireRadius: params.wireRadius,
+    tag: LEFT_LEG_TAG,
+    side: -1,
+    legPointAt,
+    reverse: true,
+  }));
 
   // RIGHT leg: emit apex → tip.
-  wires.push(...buildGradedLegWires(
-    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount, params.wireRadius, RIGHT_LEG_TAG, 1, legPointAt, false
-  ));
+  wires.push(...buildGradedLegWires({
+    legLen,
+    prefixEnd,
+    breakpoints,
+    prefixLens: plan.prefixLens,
+    tailCount,
+    wireRadius: params.wireRadius,
+    tag: RIGHT_LEG_TAG,
+    side: 1,
+    legPointAt,
+    reverse: false,
+  }));
 
   wires.push({
     start: apexLeft,
@@ -344,18 +362,31 @@ function resolveGradedSegmentBreakpoints(plan: GradedSegmentPlan, legLen: number
   return { breakpoints, prefixEnd, tailCount };
 }
 
-function buildGradedLegWires(
-  legLen: number,
-  prefixEnd: number,
-  breakpoints: number[],
-  prefixLens: number[],
-  tailCount: number,
-  wireRadius: number,
-  tag: number,
-  side: number,
-  legPointAt: (axis: number, side: number) => [number, number, number],
-  reverse: boolean
-): Wire[] {
+interface BuildGradedLegWiresOptions {
+  legLen: number;
+  prefixEnd: number;
+  breakpoints: number[];
+  prefixLens: number[];
+  tailCount: number;
+  wireRadius: number;
+  tag: number;
+  side: number;
+  legPointAt: (axis: number, side: number) => [number, number, number];
+  reverse: boolean;
+}
+
+function buildGradedLegWires({
+  legLen,
+  prefixEnd,
+  breakpoints,
+  prefixLens,
+  tailCount,
+  wireRadius,
+  tag,
+  side,
+  legPointAt,
+  reverse,
+}: BuildGradedLegWiresOptions): Wire[] {
   const wires: Wire[] = [];
 
   if (reverse) {
@@ -453,10 +484,18 @@ function buildGradedStraightWires(
   const plan = gradedSegmentPlan(legLen, FEED_BRIDGE_LENGTH_M, Math.max(maxSegLen, FEED_BRIDGE_LENGTH_M));
   const { breakpoints, prefixEnd, tailCount } = resolveGradedSegmentBreakpoints(plan, legLen);
 
-  return buildGradedLegWires(
-    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount,
-    wireRadius, tag, 1, (axis) => pointAt(axis), emitFromFarEnd,
-  );
+  return buildGradedLegWires({
+    legLen,
+    prefixEnd,
+    breakpoints,
+    prefixLens: plan.prefixLens,
+    tailCount,
+    wireRadius,
+    tag,
+    side: 1,
+    legPointAt: (axis) => pointAt(axis),
+    reverse: emitFromFarEnd,
+  });
 }
 
 export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
@@ -489,14 +528,32 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   const wires: Wire[] = [];
 
   // LEFT leg: emit tip → apex.
-  wires.push(...buildGradedLegWires(
-    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount, params.wireRadius, LEFT_LEG_TAG, -1, legPointAt, true
-  ));
+  wires.push(...buildGradedLegWires({
+    legLen,
+    prefixEnd,
+    breakpoints,
+    prefixLens: plan.prefixLens,
+    tailCount,
+    wireRadius: params.wireRadius,
+    tag: LEFT_LEG_TAG,
+    side: -1,
+    legPointAt,
+    reverse: true,
+  }));
 
   // RIGHT leg: emit apex → tip.
-  wires.push(...buildGradedLegWires(
-    legLen, prefixEnd, breakpoints, plan.prefixLens, tailCount, params.wireRadius, RIGHT_LEG_TAG, 1, legPointAt, false
-  ));
+  wires.push(...buildGradedLegWires({
+    legLen,
+    prefixEnd,
+    breakpoints,
+    prefixLens: plan.prefixLens,
+    tailCount,
+    wireRadius: params.wireRadius,
+    tag: RIGHT_LEG_TAG,
+    side: 1,
+    legPointAt,
+    reverse: false,
+  }));
 
   // Apex feed bridge.
   wires.push({
