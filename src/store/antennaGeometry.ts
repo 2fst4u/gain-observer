@@ -429,14 +429,17 @@ function buildGradedLegWires(
  * `emitFromFarEnd` picks the emission order so callers keep their existing
  * convention for which end of the tag is `.start`.
  */
-function buildGradedStraightWires(
-  bridgeEnd: [number, number, number],
-  farEnd: [number, number, number],
-  wireRadius: number,
-  tag: number,
-  maxSegLen: number,
-  emitFromFarEnd: boolean,
-): Wire[] {
+interface GradedStraightWireParams {
+  bridgeEnd: [number, number, number];
+  farEnd: [number, number, number];
+  wireRadius: number;
+  tag: number;
+  maxSegLen: number;
+  emitFromFarEnd: boolean;
+}
+
+function buildGradedStraightWires(params: GradedStraightWireParams): Wire[] {
+  const { bridgeEnd, farEnd, wireRadius, tag, maxSegLen, emitFromFarEnd } = params;
   const vx = farEnd[0] - bridgeEnd[0];
   const vy = farEnd[1] - bridgeEnd[1];
   const vz = farEnd[2] - bridgeEnd[2];
@@ -648,8 +651,22 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   const legMaxSegLen = legLength / segmentsPerLeg;
   const legWires: Wire[] = params.feedlineShield
     ? [
-        ...buildGradedStraightWires(apexLeft, leftCorner, params.wireRadius, LEFT_LEG_TAG, legMaxSegLen, true),
-        ...buildGradedStraightWires(apexRight, rightCorner, params.wireRadius, RIGHT_LEG_TAG, legMaxSegLen, false),
+        ...buildGradedStraightWires({
+          bridgeEnd: apexLeft,
+          farEnd: leftCorner,
+          wireRadius: params.wireRadius,
+          tag: LEFT_LEG_TAG,
+          maxSegLen: legMaxSegLen,
+          emitFromFarEnd: true,
+        }),
+        ...buildGradedStraightWires({
+          bridgeEnd: apexRight,
+          farEnd: rightCorner,
+          wireRadius: params.wireRadius,
+          tag: RIGHT_LEG_TAG,
+          maxSegLen: legMaxSegLen,
+          emitFromFarEnd: false,
+        }),
       ]
     : [
         {
@@ -778,8 +795,22 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
   const legMaxSegLen = legLength / segmentsPerLeg;
   const legWires: Wire[] = params.feedlineShield
     ? [
-        ...buildGradedStraightWires(apexLeft, leftCorner, params.wireRadius, LEFT_LEG_TAG, legMaxSegLen, true),
-        ...buildGradedStraightWires(apexRight, rightCorner, params.wireRadius, RIGHT_LEG_TAG, legMaxSegLen, false),
+        ...buildGradedStraightWires({
+          bridgeEnd: apexLeft,
+          farEnd: leftCorner,
+          wireRadius: params.wireRadius,
+          tag: LEFT_LEG_TAG,
+          maxSegLen: legMaxSegLen,
+          emitFromFarEnd: true,
+        }),
+        ...buildGradedStraightWires({
+          bridgeEnd: apexRight,
+          farEnd: rightCorner,
+          wireRadius: params.wireRadius,
+          tag: RIGHT_LEG_TAG,
+          maxSegLen: legMaxSegLen,
+          emitFromFarEnd: false,
+        }),
       ]
     : [
         {
@@ -811,14 +842,24 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
     ...legWires,
     // Emitted leftCorner -> centreLeft, so the inner end is the LAST
     // sub-wire's `.end` (buildTerminatedDeltaTermination relies on this).
-    ...buildGradedStraightWires(
-      centreLeft, leftCorner, params.wireRadius, TERMINATED_DELTA_LEFT_BASE_TAG, halfBaseMaxSegLen, true,
-    ),
+    ...buildGradedStraightWires({
+      bridgeEnd: centreLeft,
+      farEnd: leftCorner,
+      wireRadius: params.wireRadius,
+      tag: TERMINATED_DELTA_LEFT_BASE_TAG,
+      maxSegLen: halfBaseMaxSegLen,
+      emitFromFarEnd: true,
+    }),
     // Emitted centreRight -> rightCorner, so the inner end is the FIRST
     // sub-wire's `.start`.
-    ...buildGradedStraightWires(
-      centreRight, rightCorner, params.wireRadius, TERMINATED_DELTA_RIGHT_BASE_TAG, halfBaseMaxSegLen, false,
-    ),
+    ...buildGradedStraightWires({
+      bridgeEnd: centreRight,
+      farEnd: rightCorner,
+      wireRadius: params.wireRadius,
+      tag: TERMINATED_DELTA_RIGHT_BASE_TAG,
+      maxSegLen: halfBaseMaxSegLen,
+      emitFromFarEnd: false,
+    }),
   ];
 
   appendFeedlineShieldWires(wires, params.feedlineShield, apexLeft, apexRight, params.wireRadius, bottomZ);
@@ -1316,8 +1357,22 @@ export function buildDipoleWires(params: DipoleWiresParams): Wire[] {
   const maxSegLen = 1 / segDensity;
 
   return [
-    ...buildGradedStraightWires(bridgeStart, leftTip, wireRadius, LEFT_LEG_TAG, Math.min(maxSegLen, leftLen / Math.max(1, leftSeg)), true),
-    ...buildGradedStraightWires(bridgeEnd, rightTip, wireRadius, RIGHT_LEG_TAG, Math.min(maxSegLen, rightLen / Math.max(1, rightSeg)), false),
+    ...buildGradedStraightWires({
+      bridgeEnd: bridgeStart,
+      farEnd: leftTip,
+      wireRadius,
+      tag: LEFT_LEG_TAG,
+      maxSegLen: Math.min(maxSegLen, leftLen / Math.max(1, leftSeg)),
+      emitFromFarEnd: true,
+    }),
+    ...buildGradedStraightWires({
+      bridgeEnd,
+      farEnd: rightTip,
+      wireRadius,
+      tag: RIGHT_LEG_TAG,
+      maxSegLen: Math.min(maxSegLen, rightLen / Math.max(1, rightSeg)),
+      emitFromFarEnd: false,
+    }),
     {
       start: bridgeStart, end: bridgeEnd,
       radius: wireRadius,
