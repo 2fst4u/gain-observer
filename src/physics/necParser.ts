@@ -179,10 +179,12 @@ export function parseNecCurrents(text: string): SegmentCurrent[] {
   let blockEnd = text.indexOf('POWER BUDGET', blockStart);
   if (blockEnd < 0) blockEnd = text.length;
 
-  currentsRowRe.lastIndex = blockStart;
+  // ⚡ Bolt: Slice target block and reset lastIndex to prevent unnecessary scanning of trailing content
+  const block = text.substring(blockStart, blockEnd);
+  currentsRowRe.lastIndex = 0;
+
   let m: RegExpExecArray | null;
-  while ((m = currentsRowRe.exec(text)) !== null) {
-    if (m.index > blockEnd) break;
+  while ((m = currentsRowRe.exec(block)) !== null) {
     results.push({
       segNo: +(m[1]!),
       tagNo: +(m[2]!),
