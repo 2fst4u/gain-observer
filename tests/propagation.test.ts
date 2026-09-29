@@ -103,6 +103,18 @@ describe('estimateHmF2Km', () => {
     const withDefault = estimateHmF2Km(50, 6, 12, 30);
     expect(withDefault).toBe(withExplicitZero);
   });
+  it('handles twilight and night solar zenith angle conditions', () => {
+    // Midnight at prime meridian (0,0) yields deep night zenith angle (chi > 108°) and height ~340km
+    const hmNight = estimateHmF2Km(0, 6, 0, 0, 0);
+    expect(hmNight).toBeGreaterThanOrEqual(335);
+  });
+  it('clamps final calculated height strictly within physical bounds [220, 420] km', () => {
+    const hLow = estimateHmF2Km(-100, 6, 12, 0, 0);
+    expect(hLow).toBeGreaterThanOrEqual(220);
+
+    const hHigh = estimateHmF2Km(250, 6, 0, 0, 0);
+    expect(hHigh).toBeLessThanOrEqual(420);
+  });
 });
 
 describe('hopRangeKm', () => {
@@ -127,6 +139,23 @@ describe('hopRangeKm', () => {
     expect(r).toBeGreaterThan(3500);
     expect(Number.isFinite(r)).toBe(true);
   });
+  it('clamps takeoff elevation and height to valid physics boundaries', () => {
+    const clampedLowElev = hopRangeKm(-10, 300);
+    const expectedLowElev = hopRangeKm(0.5, 300);
+    expect(clampedLowElev).toBeCloseTo(expectedLowElev);
+
+    const clampedHighElev = hopRangeKm(100, 300);
+    const expectedHighElev = hopRangeKm(89.5, 300);
+    expect(clampedHighElev).toBeCloseTo(expectedHighElev);
+
+    const clampedLowH = hopRangeKm(15, 20);
+    const expectedLowH = hopRangeKm(15, 50);
+    expect(clampedLowH).toBeCloseTo(expectedLowH);
+
+    const clampedHighH = hopRangeKm(15, 1200);
+    const expectedHighH = hopRangeKm(15, 1000);
+    expect(clampedHighH).toBeCloseTo(expectedHighH);
+  });
 });
 
 describe('estimateMUFMHz', () => {
@@ -146,6 +175,18 @@ describe('estimateMUFMHz', () => {
     const muf = estimateMUFMHz(fof2, 5, 300);
     // At 5° take-off and 300 km, phi_i is around 70° and sec is around 3.
     expect(muf).toBeGreaterThan(fof2 * 2.5);
+  });
+  it('handles zero foF2 gracefully', () => {
+    expect(estimateMUFMHz(0, 15, 300)).toBe(0);
+  });
+  it('clamps elevation angles and heights to physical bounds', () => {
+    const low = estimateMUFMHz(10, -5, 10);
+    const expectedLow = estimateMUFMHz(10, 0.5, 50);
+    expect(low).toBeCloseTo(expectedLow);
+
+    const high = estimateMUFMHz(10, 95, 1200);
+    const expectedHigh = estimateMUFMHz(10, 89.5, 1000);
+    expect(high).toBeCloseTo(expectedHigh);
   });
 });
 
@@ -388,5 +429,54 @@ describe('predictPropagation', () => {
     const pTie = predictPropagation({ ...baseInput, frequencyMHz: 14.15, pattern });
     // Lower elevation (30 deg) yields longer ground range, so it should be selected over 60 deg
     expect(pTie.azimuthalHops![0].takeoffElevationDeg).toBeCloseTo(30);
+  });
+
+  it('classifies marginal paths when frequency is within 10% threshold of MUF or LUF', () => {
+    const p = predictPropagation(baseInput);
+    // Frequency near MUF: 0.95 * MUF (within 10% margin of MUF)
+    const nearMufFreq = p.mufMHz * 0.95;
+    if (nearMufFreq > p.lufMHz * 1.1) {
+      const pMufMarginal = predictPropagation({ ...baseInput, frequencyMHz: nearMufFreq });
+      expect(pMufMarginal.hops[0].status).toBe('marginal');
+      expect(pMufMarginal.hops[0].reason).toMatch(/within 10% of MUF/);
+    }
+
+    // Frequency near LUF: 1.05 * LUF (within 10% margin of LUF)
+    const nearLufFreq = p.lufMHz * 1.05;
+    if (nearLufFreq < p.mufMHz * 0.9) {
+      const pLufMarginal = predictPropagation({ ...baseInput, frequencyMHz: nearLufFreq });
+      expect(pLufMarginal.hops[0].status).toBe('marginal');
+      expect(pLufMarginal.hops[0].reason).toMatch(/within 10% of LUF/);
+    }
+  });
+
+  it('handles undefined or non-finite SWR values without loss of functionality', () => {
+    const pDefault = predictPropagation({ ...baseInput, swr: undefined });
+    expect(pDefault.mismatchLossDb).toBe(0);
+
+    const pNan = predictPropagation({ ...baseInput, swr: NaN });
+    expect(pNan.mismatchLossDb).toBe(0);
+
+    const pOne = predictPropagation({ ...baseInput, swr: 1 });
+    expect(pOne.mismatchLossDb).toBe(0);
+
+    const pSubOne = predictPropagation({ ...baseInput, swr: 0.5 });
+    expect(pSubOne.mismatchLossDb).toBe(0);
+  });
+
+  it('computes effective gain for elevation when pattern is provided without azimuthal hops', () => {
+    const pattern = {
+      data: new Float32Array(37 * 72).fill(-20),
+      thetaSteps: 37,
+      phiSteps: 72,
+      dTheta: 5,
+      dPhi: 5,
+    };
+    // Theta index 15 corresponds to elevation 15 deg (90 - 15*5)
+    for (let pi = 0; pi < 72; pi++) {
+      pattern.data[15 * 72 + pi] = 5;
+    }
+    const p = predictPropagation({ ...baseInput, takeoffElevationDeg: 15, pattern });
+    expect(p.hops[0].effectiveGainDbi).toBeCloseTo(5);
   });
 });
