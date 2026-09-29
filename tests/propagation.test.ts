@@ -23,6 +23,11 @@ describe('solarDeclinationDeg', () => {
     expect(Math.abs(solarDeclinationDeg(3))).toBeLessThan(5);
     expect(Math.abs(solarDeclinationDeg(9))).toBeLessThan(5);
   });
+  it('clamps out-of-bounds month values to 1..12', () => {
+    expect(solarDeclinationDeg(0)).toBe(solarDeclinationDeg(1));
+    expect(solarDeclinationDeg(13)).toBe(solarDeclinationDeg(12));
+    expect(solarDeclinationDeg(-5)).toBe(solarDeclinationDeg(1));
+  });
 });
 
 describe('solarZenithDeg', () => {
@@ -39,6 +44,10 @@ describe('solarZenithDeg', () => {
     // 60°N, December noon → sun very low.
     const chi = solarZenithDeg(60, 0, 12, 12);
     expect(chi).toBeGreaterThan(75);
+  });
+  it('clamps out-of-bounds latitude values to -90..+90', () => {
+    expect(solarZenithDeg(120, 0, 6, 12)).toBe(solarZenithDeg(90, 0, 6, 12));
+    expect(solarZenithDeg(-120, 0, 6, 12)).toBe(solarZenithDeg(-90, 0, 6, 12));
   });
 });
 
@@ -103,6 +112,15 @@ describe('estimateHmF2Km', () => {
     const withDefault = estimateHmF2Km(50, 6, 12, 30);
     expect(withDefault).toBe(withExplicitZero);
   });
+  it('handles out-of-bounds latitude and month values when estimating height', () => {
+    const normal = estimateHmF2Km(50, 6, 12, 90, 0);
+    const outOfBoundsLat = estimateHmF2Km(50, 6, 12, 120, 0);
+    expect(outOfBoundsLat).toBe(normal);
+
+    const month12 = estimateHmF2Km(50, 12, 12, 30, 0);
+    const month13 = estimateHmF2Km(50, 13, 12, 30, 0);
+    expect(month13).toBe(month12);
+  });
 });
 
 describe('hopRangeKm', () => {
@@ -127,6 +145,16 @@ describe('hopRangeKm', () => {
     expect(r).toBeGreaterThan(3500);
     expect(Number.isFinite(r)).toBe(true);
   });
+  it('clamps takeoff elevation angles out of bounds (0.5..89.5 deg)', () => {
+    expect(hopRangeKm(0, 300)).toBe(hopRangeKm(0.5, 300));
+    expect(hopRangeKm(-10, 300)).toBe(hopRangeKm(0.5, 300));
+    expect(hopRangeKm(90, 300)).toBe(hopRangeKm(89.5, 300));
+    expect(hopRangeKm(100, 300)).toBe(hopRangeKm(89.5, 300));
+  });
+  it('clamps F2 reflection height out of bounds (50..1000 km)', () => {
+    expect(hopRangeKm(15, 10)).toBe(hopRangeKm(15, 50));
+    expect(hopRangeKm(15, 2000)).toBe(hopRangeKm(15, 1000));
+  });
 });
 
 describe('estimateMUFMHz', () => {
@@ -146,6 +174,18 @@ describe('estimateMUFMHz', () => {
     const muf = estimateMUFMHz(fof2, 5, 300);
     // At 5° take-off and 300 km, phi_i is around 70° and sec is around 3.
     expect(muf).toBeGreaterThan(fof2 * 2.5);
+  });
+  it('clamps takeoff elevation angles out of bounds (0.5..89.5 deg)', () => {
+    const fof2 = 8;
+    expect(estimateMUFMHz(fof2, 0, 300)).toBe(estimateMUFMHz(fof2, 0.5, 300));
+    expect(estimateMUFMHz(fof2, -10, 300)).toBe(estimateMUFMHz(fof2, 0.5, 300));
+    expect(estimateMUFMHz(fof2, 90, 300)).toBe(estimateMUFMHz(fof2, 89.5, 300));
+    expect(estimateMUFMHz(fof2, 100, 300)).toBe(estimateMUFMHz(fof2, 89.5, 300));
+  });
+  it('clamps F2 reflection height out of bounds (50..1000 km)', () => {
+    const fof2 = 8;
+    expect(estimateMUFMHz(fof2, 15, 10)).toBe(estimateMUFMHz(fof2, 15, 50));
+    expect(estimateMUFMHz(fof2, 15, 2000)).toBe(estimateMUFMHz(fof2, 15, 1000));
   });
 });
 
@@ -388,5 +428,35 @@ describe('predictPropagation', () => {
     const pTie = predictPropagation({ ...baseInput, frequencyMHz: 14.15, pattern });
     // Lower elevation (30 deg) yields longer ground range, so it should be selected over 60 deg
     expect(pTie.azimuthalHops![0].takeoffElevationDeg).toBeCloseTo(30);
+  });
+
+  it('handles invalid or boundary SWR values without loss errors', () => {
+    const p1 = predictPropagation({ ...baseInput, swr: 1 });
+    expect(p1.mismatchLossDb).toBe(0);
+
+    const pSub1 = predictPropagation({ ...baseInput, swr: 0.5 });
+    expect(pSub1.mismatchLossDb).toBe(0);
+
+    const pNaN = predictPropagation({ ...baseInput, swr: NaN });
+    expect(pNaN.mismatchLossDb).toBe(0);
+
+    const pInf = predictPropagation({ ...baseInput, swr: Infinity });
+    expect(pInf.mismatchLossDb).toBe(0);
+  });
+
+  it('classifies path as marginal when operating frequency is within 10% of MUF or LUF', () => {
+    const p = predictPropagation(baseInput);
+    const muf = p.mufMHz;
+    const luf = p.lufMHz;
+
+    // Operating frequency just under MUF (e.g. 95% of MUF)
+    const pMufMarginal = predictPropagation({ ...baseInput, frequencyMHz: muf * 0.95 });
+    expect(pMufMarginal.hops[0].status).toBe('marginal');
+    expect(pMufMarginal.hops[0].reason).toMatch(/within 10% of MUF/);
+
+    // Operating frequency just above LUF (e.g. 105% of LUF)
+    const pLufMarginal = predictPropagation({ ...baseInput, frequencyMHz: luf * 1.05 });
+    expect(pLufMarginal.hops[0].status).toBe('marginal');
+    expect(pLufMarginal.hops[0].reason).toMatch(/within 10% of LUF/);
   });
 });
