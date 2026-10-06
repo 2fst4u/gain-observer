@@ -278,9 +278,9 @@ Every type below uses the coordinate conventions of Part I §1 and the glossary 
 
 ### 9.2 Feedpoint Definition
 
-- **NEC Excitation:** Last segment of the left leg (Tag 1), nearest the apex.
-- **Segment:** Segment `segmentsPerLeg` of Tag 1.
-- **Feed Type:** Single-segment voltage source (or split bridge if feedline connected).
+- **NEC Excitation:** Last segment of the LEFT leg (Tag 1, nearest the apex) when no feedline is fitted; 1-segment apex bridge when a feedline is present.
+- **Segment:** Segment `segmentsPerLeg` of Tag 1 (no feedline), or Segment 1 of the apex bridge (with feedline).
+- **Feed Type:** Apex feed (balanced).
 - **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable).
 
 ### 9.3 Termination Definition
