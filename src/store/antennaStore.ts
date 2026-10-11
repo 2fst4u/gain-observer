@@ -887,7 +887,14 @@ export function buildWires(
   const wires = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
   if (layout?.shield && state.antennaType !== 'delta-loop' && state.antennaType !== 'terminated-delta') {
-    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
+    // ⚡ Bolt: Standard for loop avoids function allocation and callback overhead of Array.prototype.find
+    let bridge: Wire | undefined;
+    for (let i = 0; i < wires.length; i++) {
+      if (wires[i].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[i];
+        break;
+      }
+    }
     if (bridge) {
       wires.push({
         start: bridge.end,
