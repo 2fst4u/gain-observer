@@ -43,6 +43,7 @@ export function DisplayControl() {
       className={colormap === c ? 'active' : ''}
       onClick={() => setColormap(c)}
       aria-pressed={colormap === c}
+      aria-label={`Use ${c} colormap`}
     >{c}</button>
   )), [colormap, setColormap]);
 
