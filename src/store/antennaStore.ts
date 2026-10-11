@@ -887,13 +887,7 @@ export function buildWires(
   const wires = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
   if (layout?.shield && state.antennaType !== 'delta-loop' && state.antennaType !== 'terminated-delta') {
-    let bridge: Wire | undefined;
-    for (let i = 0; i < wires.length; i++) {
-      if (wires[i].tag === FEED_BRIDGE_TAG) {
-        bridge = wires[i];
-        break;
-      }
-    }
+    const bridge = wires.find((w) => w.tag === FEED_BRIDGE_TAG);
     if (bridge) {
       wires.push({
         start: bridge.end,
@@ -1080,11 +1074,14 @@ function buildExcitation(
   } else if (state.antennaType === 'delta-loop' || state.antennaType === 'terminated-delta') {
     // Apex-fed: excitation lives on the last segment of the left leg
     // (whose .end is the apex by convention in build*Wires).
-    // NOTE (Jules): keep Array.prototype.find here. Replacing it with a manual for loop (PR #857)
-    // was rejected: this runs once per build on a handful of wires, so the gain is unmeasurable
-    // and find() is clearer.
-    const leftLeg = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
-    return { wireTag: LEFT_LEG_TAG, segment: leftLeg.segments };
+    let leftLeg: Wire | undefined;
+    for (let i = 0; i < wires.length; i++) {
+      if (wires[i].tag === LEFT_LEG_TAG) {
+        leftLeg = wires[i];
+        break;
+      }
+    }
+    return { wireTag: LEFT_LEG_TAG, segment: leftLeg!.segments };
   } else if (state.antennaType === 'vertical-whip') {
     // Base-fed monopole: excitation on the first (lowest) segment.
     return { wireTag: VERTICAL_WHIP_TAG, segment: 1 };
