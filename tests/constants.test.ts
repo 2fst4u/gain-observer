@@ -110,12 +110,42 @@ describe('physics constants and helpers', () => {
       expect(slopingVTerminationHubZ(freq, tipZ)).toBe(SLOPING_V_STUB_BOTTOM_Z_M);
     });
 
+    it('handles exact boundary frequency where wavelength height equals floor', () => {
+      // Wavelength is 10m at freq = 29.9792458 MHz (speed of light / 10)
+      // 0.001 * 10m = 0.01m = SLOPING_V_STUB_BOTTOM_Z_M
+      const boundaryFreq = 29.9792458;
+      const tipZ = 10;
+      expect(slopingVTerminationHubZ(boundaryFreq, tipZ)).toBeCloseTo(SLOPING_V_STUB_BOTTOM_Z_M, 6);
+    });
+
     it('caps height at tipZ * 0.5 for low tips', () => {
       // High wavelength / low freq (e.g. 1.8 MHz, lambda ~166.5m, 0.001 * 166.5 = 0.1665m)
       // If tipZ is very low (e.g. 0.1m), tipZ * 0.5 = 0.05m < 0.1665m
       const freq = 1.8;
       const tipZ = 0.1;
       expect(slopingVTerminationHubZ(freq, tipZ)).toBeCloseTo(0.05, 6);
+    });
+
+    it('handles extreme low tipZ values such as zero', () => {
+      const freq = 14.15;
+      const tipZ = 0;
+      expect(slopingVTerminationHubZ(freq, tipZ)).toBe(0);
+    });
+
+    it('handles zero frequency by capping at tipZ * 0.5', () => {
+      // frequency = 0 results in wavelength = Infinity
+      // Math.max(floor, Infinity) = Infinity, then Math.min(Infinity, tipZ * 0.5) = tipZ * 0.5
+      const freq = 0;
+      const tipZ = 4;
+      expect(slopingVTerminationHubZ(freq, tipZ)).toBe(2);
+    });
+
+    it('operates correctly across standard HF band limits', () => {
+      const tipZ = 10;
+      // 1.8 MHz (160m): wavelength ~166.55m -> 0.001 * wl = 0.16655m < 5m
+      expect(slopingVTerminationHubZ(1.8, tipZ)).toBeCloseTo(0.16655, 4);
+      // 30 MHz (10m): wavelength ~9.993m -> 0.001 * wl = 0.009993m < 0.01m -> clamped to floor 0.01m
+      expect(slopingVTerminationHubZ(30.0, tipZ)).toBe(SLOPING_V_STUB_BOTTOM_Z_M);
     });
   });
 });
