@@ -887,7 +887,7 @@ export function buildWires(
   const wires = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
   if (layout?.shield && state.antennaType !== 'delta-loop' && state.antennaType !== 'terminated-delta') {
-    // ⚡ Bolt: Standard for loop avoids function allocation and callback overhead of Array.prototype.find
+    // NOTE (Jules): indexed loop is intentional (already adopted in #828); PR #856 duplicated it.
     let bridge: Wire | undefined;
     for (let i = 0; i < wires.length; i++) {
       if (wires[i].tag === FEED_BRIDGE_TAG) {
