@@ -342,4 +342,155 @@ describe('GeometryControl', () => {
 
     expect(lengthInput.value).toBe('42.00');
   });
+
+  it('renders termination hint for sloping-v with non-zero terminating resistor', () => {
+    mockAntennaStore(buildMockState({
+      antennaType: 'sloping-v',
+      terminatingResistor: 400,
+    }));
+
+    render(<GeometryControl />);
+
+    expect(screen.getByText(/400 Ω resistors at each tip \(to ground\)/i)).toBeTruthy();
+  });
+
+  it('renders termination hint for terminated-delta with non-zero terminating resistor', () => {
+    mockAntennaStore(buildMockState({
+      antennaType: 'terminated-delta',
+      terminatingResistor: 300,
+    }));
+
+    render(<GeometryControl />);
+
+    expect(screen.getByText(/300 Ω resistor on a short bridge wire/i)).toBeTruthy();
+  });
+
+  it('renders termination hint for folded-dipole with non-zero terminating resistor', () => {
+    mockAntennaStore(buildMockState({
+      antennaType: 'folded-dipole',
+      terminatingResistor: 300,
+      foldedDipoleAperture: 0.1,
+      wireRadius: 0.001,
+    }));
+
+    render(<GeometryControl />);
+
+    expect(screen.getByText(/300 Ω resistor at the centre of the conductor opposite the feed/i)).toBeTruthy();
+  });
+
+  it('handles height slider changes in imperial units and ignores NaN inputs', () => {
+    const setHeight = vi.fn();
+    mockAntennaStore(buildMockState({ units: 'imperial', height: 10, setHeight }));
+
+    render(<GeometryControl />);
+
+    const slider = screen.getByRole('slider', { name: 'Height above ground' }) as HTMLInputElement;
+    expect(slider.max).toBe('131');
+
+    Object.defineProperty(slider, 'value', { get: () => 'invalid', configurable: true });
+    fireEvent.change(slider);
+    expect(setHeight).not.toHaveBeenCalled();
+  });
+
+  it('ignores NaN inputs for V angle and aperture sliders', () => {
+    const setVAngle = vi.fn();
+    const setFoldedDipoleAperture = vi.fn();
+
+    // V angle NaN test
+    mockAntennaStore(buildMockState({ antennaType: 'sloping-v', vAngle: 120, setVAngle }));
+    const { unmount } = render(<GeometryControl />);
+    const vSlider = screen.getByRole('slider', { name: /V opening angle/i });
+    Object.defineProperty(vSlider, 'value', { get: () => 'invalid', configurable: true });
+    fireEvent.change(vSlider);
+    expect(setVAngle).not.toHaveBeenCalled();
+    unmount();
+
+    // Aperture NaN test
+    mockAntennaStore(buildMockState({
+      antennaType: 'folded-dipole',
+      foldedDipoleAperture: 0.1,
+      setFoldedDipoleAperture,
+    }));
+    render(<GeometryControl />);
+    const apSlider = screen.getByRole('slider', { name: /Folded dipole conductor spacing/i });
+    Object.defineProperty(apSlider, 'value', { get: () => 'invalid', configurable: true });
+    fireEvent.change(apSlider);
+    expect(setFoldedDipoleAperture).not.toHaveBeenCalled();
+  });
+
+  it('does not re-apply recommended or off termination if already active', () => {
+    const setTerminatingResistor = vi.fn();
+
+    // Recommended termination already active (for terminated-delta, recommended is 600)
+    mockAntennaStore(buildMockState({
+      antennaType: 'terminated-delta',
+      terminatingResistor: 600,
+      setTerminatingResistor,
+    }));
+
+    const { unmount } = render(<GeometryControl />);
+    const recButton = screen.getByRole('button', { name: /Set terminating resistor to recommended/i });
+    fireEvent.click(recButton);
+    expect(setTerminatingResistor).not.toHaveBeenCalled();
+    unmount();
+
+    // Termination already off (0)
+    mockAntennaStore(buildMockState({
+      antennaType: 'terminated-delta',
+      terminatingResistor: 0,
+      setTerminatingResistor,
+    }));
+    render(<GeometryControl />);
+    const offButton = screen.getByRole('button', { name: /Turn off termination resistor/i });
+    fireEvent.click(offButton);
+    expect(setTerminatingResistor).not.toHaveBeenCalled();
+  });
+
+  it('hides TransformerControl and OrientationControl for vertical whip antenna', () => {
+    mockAntennaStore(buildMockState({ antennaType: 'vertical-whip' }));
+
+    render(<GeometryControl />);
+
+    expect(screen.queryByText('Transformer at feedpoint')).toBeNull();
+    expect(screen.queryByLabelText(/Orientation/i)).toBeNull();
+    expect(screen.getByText(/Whip length \(m\)/i)).toBeTruthy();
+  });
+
+  it('renders correct length labels for inverted-l and folded-dipole', () => {
+    // Inverted-L
+    mockAntennaStore(buildMockState({ antennaType: 'inverted-l' }));
+    const { unmount } = render(<GeometryControl />);
+    expect(screen.getByText(/Total wire length — vertical \+ horizontal/i)).toBeTruthy();
+    unmount();
+
+    // Folded dipole
+    mockAntennaStore(buildMockState({ antennaType: 'folded-dipole' }));
+    render(<GeometryControl />);
+    expect(screen.getByText(/Conductor length — ½λ each/i)).toBeTruthy();
+  });
+
+  it('renders non-folded termination tooltip when resistor differs from recommended', () => {
+    mockAntennaStore(buildMockState({
+      antennaType: 'terminated-delta',
+      terminatingResistor: 0,
+    }));
+
+    render(<GeometryControl />);
+
+    const recButton = screen.getByRole('button', { name: /Set terminating resistor to recommended/i });
+    expect(recButton.getAttribute('title')).toContain("approximately the structure's characteristic impedance");
+  });
+
+  it('renders imperial step size for folded dipole aperture control', () => {
+    mockAntennaStore(buildMockState({
+      antennaType: 'folded-dipole',
+      units: 'imperial',
+      foldedDipoleAperture: 0.1,
+    }));
+
+    render(<GeometryControl />);
+
+    const slider = screen.getByRole('slider', { name: /Folded dipole conductor spacing/i }) as HTMLInputElement;
+    expect(slider.step).toBe('0.05');
+  });
 });
