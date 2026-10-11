@@ -129,28 +129,25 @@ function findPeakGain(data: ArrayLike<number>): number {
   return maxGain;
 }
 
-function findFirstPeakInThetaRow(pattern: GainPattern, ti: number, threshold: number): number {
-  const row = ti * pattern.phiSteps;
-  for (let pi = 0; pi < pattern.phiSteps; pi++) {
-    if (pattern.data[row + pi]! >= threshold) return pi;
-  }
-  return -1;
-}
-
 function findBestPeakGridIndex(pattern: GainPattern, threshold: number): { bestTi: number; bestPi: number } {
-  const horizonTi = Math.min(pattern.thetaSteps - 1, Math.round(90 / pattern.dTheta));
+  const { thetaSteps, phiSteps, dTheta, data } = pattern;
+  const horizonTi = Math.min(thetaSteps - 1, Math.round(90 / dTheta));
 
   // Walk theta rows from the horizon back up to the zenith so the first row
   // holding a tied peak is the lowest-elevation one.
   for (let ti = horizonTi; ti >= 0; ti--) {
-    const pi = findFirstPeakInThetaRow(pattern, ti, threshold);
-    if (pi >= 0) return { bestTi: ti, bestPi: pi };
+    const row = ti * phiSteps;
+    for (let pi = 0; pi < phiSteps; pi++) {
+      if (data[row + pi]! >= threshold) return { bestTi: ti, bestPi: pi };
+    }
   }
 
   // Peak lies below the horizon (θ > 90°, only reachable in free space).
-  for (let ti = horizonTi + 1; ti < pattern.thetaSteps; ti++) {
-    const pi = findFirstPeakInThetaRow(pattern, ti, threshold);
-    if (pi >= 0) return { bestTi: ti, bestPi: pi };
+  for (let ti = horizonTi + 1; ti < thetaSteps; ti++) {
+    const row = ti * phiSteps;
+    for (let pi = 0; pi < phiSteps; pi++) {
+      if (data[row + pi]! >= threshold) return { bestTi: ti, bestPi: pi };
+    }
   }
 
   return { bestTi: 0, bestPi: 0 };
