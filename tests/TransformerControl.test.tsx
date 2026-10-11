@@ -179,4 +179,27 @@ describe('TransformerControl', () => {
       expect(input.value).toBe('3'); // Local state preserved while focused
     });
   });
+
+  it('ignores input values less than 1 when changed', () => {
+    useAntennaStore.setState({ transformerEnabled: true, transformerRatio: 2 });
+    const { getByLabelText } = render(<TransformerControl />);
+    const input = getByLabelText(/Impedance ratio/i) as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: '0' } });
+    expect(useAntennaStore.getState().transformerRatio).toBe(2);
+  });
+
+  it('does not change transformer ratio if match button is clicked when already matched', () => {
+    useAntennaStore.setState({
+      transformerEnabled: true,
+      transformerRatio: 4,
+      feedlineId: 'none',
+      result: { impedance: { R: 200, X: 0 } } as unknown as SimulationResult
+    });
+    const { getByRole } = render(<TransformerControl />);
+    const button = getByRole('button', { name: /Match/i });
+
+    fireEvent.click(button);
+    expect(useAntennaStore.getState().transformerRatio).toBe(4);
+  });
 });
