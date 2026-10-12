@@ -38,4 +38,26 @@ describe('ControlPanel', () => {
     // Assert
     expect(footerLink.style.textDecoration).toBe('none');
   });
+
+  it('renders inside an aside container with app-controls class and shows NEC-2 subtitle', () => {
+    // Arrange
+    const { container } = render(<ControlPanel />);
+
+    // Assert
+    const aside = container.querySelector('aside.app-controls');
+    expect(aside).toBeTruthy();
+
+    const subtitle = screen.getByText(/NEC-2 · WebAssembly/i);
+    expect(subtitle).toBeTruthy();
+  });
+
+  it('renders integrated child control components', () => {
+    // Arrange
+    render(<ControlPanel />);
+
+    // Assert - check key subcomponent elements are rendered in the panel
+    expect(screen.getByLabelText(/Frequency in MHz/i)).toBeTruthy();
+    expect(screen.getByRole('group', { name: /Amateur Radio Bands/i })).toBeTruthy();
+    expect(screen.getByRole('group', { name: /Unit system/i })).toBeTruthy();
+  });
 });
