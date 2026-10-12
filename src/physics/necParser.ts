@@ -35,15 +35,14 @@ const impedanceRowRe = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+
 
 
 function findBlockEndIndex(text: string, startIdx: number, lines: number): number {
-  let blockEnd = startIdx;
+  let p = startIdx - 1;
   for (let i = 0; i < lines; i++) {
-    const p = text.indexOf('\n', blockEnd);
+    p = text.indexOf('\n', p + 1);
     if (p < 0) {
       return text.length;
     }
-    blockEnd = p + 1;
   }
-  return blockEnd;
+  return p + 1;
 }
 
 export function parseNecImpedance(text: string): { impedance: ImpedanceResult | null; power: number | null } {
