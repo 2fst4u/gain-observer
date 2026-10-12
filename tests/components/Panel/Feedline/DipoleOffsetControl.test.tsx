@@ -160,7 +160,8 @@ describe('DipoleOffsetControl', () => {
     );
 
     const slider = screen.getByRole('slider', { name: 'Feedline attachment offset' });
-    fireEvent.change(slider, { target: { value: 'invalid' } });
+    Object.defineProperty(slider, 'value', { get: () => 'invalid', configurable: true });
+    fireEvent.change(slider);
 
     expect(setFeedlineOffsetMock).not.toHaveBeenCalled();
   });
