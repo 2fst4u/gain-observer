@@ -575,30 +575,26 @@ function calculateMismatchLossDb(swr?: number): number {
   return -10 * Math.log10(1 - ((s - 1) / (s + 1)) * ((s - 1) / (s + 1)));
 }
 
-function computeAzimuthalHops(
-  pattern: GainPattern | undefined,
+interface BaseRay {
+  takeoffElevationDeg: number;
+  rangeKm: number;
+  status: HopStatus;
+  reason: string;
+  statusRankValue: number;
+}
+
+/**
+ * Precomputes invariant physics metrics over theta (elevation).
+ * MUF, range, and status only depend on elevation (theta), not azimuth (phi).
+ */
+function computeBaseRays(
+  p: GainPattern,
   fof2: number,
   hmF2: number,
   luf: number,
-  frequencyMHz: number,
-  mismatchLossDb: number
-): NonNullable<PropagationPrediction['azimuthalHops']> {
-  const azimuthalHops: PropagationPrediction['azimuthalHops'] = [];
-  if (!pattern) return azimuthalHops;
-
-  const p = pattern;
-  // We sample at most 72 radials (5° steps) to keep radar rendering fast.
-  const phiStride = Math.max(1, Math.floor(p.phiSteps / 72));
-
-  // PRECOMPUTE invariant physics metrics over theta.
-  // MUF, range, and status only depend on elevation (theta), not azimuth (phi).
-  const baseRays = new Array<{
-    takeoffElevationDeg: number;
-    rangeKm: number;
-    status: HopStatus;
-    reason: string;
-    statusRankValue: number;
-  } | null>(p.thetaSteps);
+  frequencyMHz: number
+): Array<BaseRay | null> {
+  const baseRays = new Array<BaseRay | null>(p.thetaSteps);
 
   for (let ti = 0; ti < p.thetaSteps; ti++) {
     const elevationDeg = 90 - ti * p.dTheta;
@@ -619,6 +615,23 @@ function computeAzimuthalHops(
     };
   }
 
+  return baseRays;
+}
+
+interface BestAzimuthRays {
+  bestTiArr: Int32Array;
+  bestEffectiveGainDbiArr: Float64Array;
+}
+
+/**
+ * Scans elevation rays across azimuth slices to find the best ray per azimuth.
+ */
+function findBestAzimuthRays(
+  p: GainPattern,
+  baseRays: Array<BaseRay | null>,
+  phiStride: number,
+  mismatchLossDb: number
+): BestAzimuthRays {
   const bestTiArr = new Int32Array(p.phiSteps).fill(-1);
   // Float64, not Float32: this holds `gainDbi - mismatchLossDb`, a float64
   // result. Narrowing it to float32 would round the reported gain and could
@@ -658,6 +671,32 @@ function computeAzimuthalHops(
       }
     }
   }
+
+  return { bestTiArr, bestEffectiveGainDbiArr };
+}
+
+function computeAzimuthalHops(
+  pattern: GainPattern | undefined,
+  fof2: number,
+  hmF2: number,
+  luf: number,
+  frequencyMHz: number,
+  mismatchLossDb: number
+): NonNullable<PropagationPrediction['azimuthalHops']> {
+  const azimuthalHops: PropagationPrediction['azimuthalHops'] = [];
+  if (!pattern) return azimuthalHops;
+
+  const p = pattern;
+  // We sample at most 72 radials (5° steps) to keep radar rendering fast.
+  const phiStride = Math.max(1, Math.floor(p.phiSteps / 72));
+
+  const baseRays = computeBaseRays(p, fof2, hmF2, luf, frequencyMHz);
+  const { bestTiArr, bestEffectiveGainDbiArr } = findBestAzimuthRays(
+    p,
+    baseRays,
+    phiStride,
+    mismatchLossDb
+  );
 
   for (let pi = 0; pi < p.phiSteps; pi += phiStride) {
     const bestTi = bestTiArr[pi];
