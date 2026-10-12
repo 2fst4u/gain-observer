@@ -827,7 +827,7 @@ function calcTerminatedDeltaPoints(halfBase: number, dx: number, dy: number, bot
  */
 
 interface TerminatedDeltaLegWiresOptions {
-  feedlineShield: FeedlineShieldOptions | undefined;
+  feedlineShield: FeedlineShield | null | undefined;
   wireRadius: number;
   apexLeft: [number, number, number];
   apexRight: [number, number, number];
