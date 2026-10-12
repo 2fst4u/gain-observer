@@ -826,6 +826,60 @@ function calcTerminatedDeltaPoints(halfBase: number, dx: number, dy: number, bot
  * exactly as for the delta loop.
  */
 
+interface TerminatedDeltaLegWiresOptions {
+  feedlineShield: FeedlineShieldOptions | undefined;
+  wireRadius: number;
+  apexLeft: [number, number, number];
+  apexRight: [number, number, number];
+  leftCorner: [number, number, number];
+  rightCorner: [number, number, number];
+  legLength: number;
+  segmentsPerLeg: number;
+}
+
+function buildTerminatedDeltaLegWires(opts: TerminatedDeltaLegWiresOptions): Wire[] {
+  // As for the delta loop: grade the legs into the apex bridge when a
+  // feedline splits the apex (see buildGradedStraightWires).
+  const legMaxSegLen = opts.legLength / opts.segmentsPerLeg;
+  if (opts.feedlineShield) {
+    return [
+      ...buildGradedStraightWires({
+        bridgeEnd: opts.apexLeft,
+        farEnd: opts.leftCorner,
+        wireRadius: opts.wireRadius,
+        tag: LEFT_LEG_TAG,
+        maxSegLen: legMaxSegLen,
+        emitFromFarEnd: true,
+      }),
+      ...buildGradedStraightWires({
+        bridgeEnd: opts.apexRight,
+        farEnd: opts.rightCorner,
+        wireRadius: opts.wireRadius,
+        tag: RIGHT_LEG_TAG,
+        maxSegLen: legMaxSegLen,
+        emitFromFarEnd: false,
+      }),
+    ];
+  }
+
+  return [
+    {
+      start: opts.leftCorner,
+      end: opts.apexLeft,
+      radius: opts.wireRadius,
+      segments: opts.segmentsPerLeg,
+      tag: LEFT_LEG_TAG,
+    },
+    {
+      start: opts.apexRight,
+      end: opts.rightCorner,
+      radius: opts.wireRadius,
+      segments: opts.segmentsPerLeg,
+      tag: RIGHT_LEG_TAG,
+    },
+  ];
+}
+
 export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): Wire[] {
   const perimeter = params.length;
   const h = params.height;
@@ -857,44 +911,16 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
   //   RIGHT half-base:  centreRight → rightCorner  (first seg = inner end)
   // We keep the right-leg ordering "outward" for symmetry with the
   // delta-loop's right-leg convention (apex → rightCorner).
-  // As for the delta loop: grade the legs into the apex bridge when a
-  // feedline splits the apex (see buildGradedStraightWires).
-  const legMaxSegLen = legLength / segmentsPerLeg;
-  const legWires: Wire[] = params.feedlineShield
-    ? [
-        ...buildGradedStraightWires({
-          bridgeEnd: apexLeft,
-          farEnd: leftCorner,
-          wireRadius: params.wireRadius,
-          tag: LEFT_LEG_TAG,
-          maxSegLen: legMaxSegLen,
-          emitFromFarEnd: true,
-        }),
-        ...buildGradedStraightWires({
-          bridgeEnd: apexRight,
-          farEnd: rightCorner,
-          wireRadius: params.wireRadius,
-          tag: RIGHT_LEG_TAG,
-          maxSegLen: legMaxSegLen,
-          emitFromFarEnd: false,
-        }),
-      ]
-    : [
-        {
-          start: leftCorner,
-          end: apexLeft,
-          radius: params.wireRadius,
-          segments: segmentsPerLeg,
-          tag: LEFT_LEG_TAG,
-        },
-        {
-          start: apexRight,
-          end: rightCorner,
-          radius: params.wireRadius,
-          segments: segmentsPerLeg,
-          tag: RIGHT_LEG_TAG,
-        },
-      ];
+  const legWires = buildTerminatedDeltaLegWires({
+    feedlineShield: params.feedlineShield,
+    wireRadius: params.wireRadius,
+    apexLeft,
+    apexRight,
+    leftCorner,
+    rightCorner,
+    legLength,
+    segmentsPerLeg,
+  });
 
   // The half-bases need the same treatment at the *other* end. They stop
   // FEED_BRIDGE_LENGTH_M apart at the centre, and when terminated that gap
