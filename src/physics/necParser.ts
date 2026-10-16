@@ -34,6 +34,10 @@ const NO_HORIZ_SENTINEL = -999.99;
 const impedanceRowRe = /^\s+\d+\s+\d+\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)\s+(-?\d\.\d+E[+-]\d+)/gm;
 
 
+// Intentionally written with a separate `blockEnd` cursor. A variant that seeds
+// the cursor with `startIdx - 1` and returns `p + 1` is behaviourally identical
+// (it only saves one assignment per line, which is unmeasurable against the NEC
+// output sizes parsed here) and is harder to read. Do not "optimise" this loop.
 function findBlockEndIndex(text: string, startIdx: number, lines: number): number {
   let blockEnd = startIdx;
   for (let i = 0; i < lines; i++) {
