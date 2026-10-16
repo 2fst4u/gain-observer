@@ -156,4 +156,40 @@ describe('GroundControl', () => {
 
     expect(screen.getByText('Custom ground parameters.')).toBeDefined();
   });
+
+  it('updates local sigma and epsilon when props change while unfocused', () => {
+    mockGround({ groundId: 'custom', groundSigma: 0.005, groundEpsilon: 13 });
+
+    const { rerender } = render(<GroundControl />);
+
+    const sigmaInput = screen.getByLabelText('Conductivity σ (S/m)') as HTMLInputElement;
+    const epsilonInput = screen.getByLabelText('Permittivity εr') as HTMLInputElement;
+
+    expect(sigmaInput.value).toBe('0.005');
+    expect(epsilonInput.value).toBe('13');
+
+    mockGround({ groundId: 'custom', groundSigma: 0.02, groundEpsilon: 25 });
+    rerender(<GroundControl />);
+
+    expect(sigmaInput.value).toBe('0.02');
+    expect(epsilonInput.value).toBe('25');
+  });
+
+  it('preserves local inputs when props change while inputs are focused', () => {
+    mockGround({ groundId: 'custom', groundSigma: 0.005, groundEpsilon: 13 });
+
+    const { rerender } = render(<GroundControl />);
+
+    const sigmaInput = screen.getByLabelText('Conductivity σ (S/m)') as HTMLInputElement;
+    const epsilonInput = screen.getByLabelText('Permittivity εr') as HTMLInputElement;
+
+    fireEvent.focus(sigmaInput);
+    fireEvent.focus(epsilonInput);
+
+    mockGround({ groundId: 'custom', groundSigma: 0.02, groundEpsilon: 25 });
+    rerender(<GroundControl />);
+
+    expect(sigmaInput.value).toBe('0.005');
+    expect(epsilonInput.value).toBe('13');
+  });
 });
