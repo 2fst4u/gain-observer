@@ -794,38 +794,6 @@ function calcTerminatedDeltaPoints(halfBase: number, dx: number, dy: number, bot
   return { leftCorner, rightCorner, centreLeft, centreRight, innerHalfBase };
 }
 
-/**
- * Builds the wires for a Terminated Delta antenna (apex-up, apex-fed).
- *
- * Geometry is identical to the Delta Loop's isosceles triangle: same
- * perimeter-preserving leg/base math, same equilateral-when-possible
- * shape, same apex feed convention. The only structural difference is
- * that the base is **split in the middle** into two independent
- * half-base wires separated by `FEED_BRIDGE_LENGTH_M`. Each half-base ends
- * near the centre, and when the user specifies a non-zero terminating
- * resistance selectSimulationInput bridges that gap with a single short
- * wire carrying one LD-4 resistor.
- *
- * The resistor is a link in the loop conductor, not a path to earth: it is
- * the only thing joining the two half-bases, so the loop current has to pass
- * through it. That point is half a wavelength from the apex feed, i.e. the
- * loop's current maximum and voltage null, which is precisely where a series
- * resistor absorbs the travelling wave and a shunt to ground would not.
- * Nothing in this antenna connects to earth — deliberately, and unlike the
- * sloping V, whose legs work against ground as a transmission line. See
- * §3.2 and §10.3 of `docs/antenna-spec.md`.
- *
- * Tags:
- *   LEFT_LEG_TAG               (1)  — top-left leg:  leftCorner → apex
- *   RIGHT_LEG_TAG              (2)  — top-right leg: apex → rightCorner
- *   TERMINATED_DELTA_LEFT_BASE_TAG  (9)  — left half-base:  leftCorner → centreLeft
- *   TERMINATED_DELTA_RIGHT_BASE_TAG (10) — right half-base: centreRight → rightCorner
- *
- * Excitation is placed on the last segment of LEFT_LEG_TAG (the apex
- * end), or on the feed bridge / shield when a feedline is active —
- * exactly as for the delta loop.
- */
-
 interface TerminatedDeltaLegWiresOptions {
   feedlineShield: FeedlineShield | null | undefined;
   wireRadius: number;
@@ -879,6 +847,38 @@ function buildTerminatedDeltaLegWires(opts: TerminatedDeltaLegWiresOptions): Wir
     },
   ];
 }
+
+/**
+ * Builds the wires for a Terminated Delta antenna (apex-up, apex-fed).
+ *
+ * Geometry is identical to the Delta Loop's isosceles triangle: same
+ * perimeter-preserving leg/base math, same equilateral-when-possible
+ * shape, same apex feed convention. The only structural difference is
+ * that the base is **split in the middle** into two independent
+ * half-base wires separated by `FEED_BRIDGE_LENGTH_M`. Each half-base ends
+ * near the centre, and when the user specifies a non-zero terminating
+ * resistance selectSimulationInput bridges that gap with a single short
+ * wire carrying one LD-4 resistor.
+ *
+ * The resistor is a link in the loop conductor, not a path to earth: it is
+ * the only thing joining the two half-bases, so the loop current has to pass
+ * through it. That point is half a wavelength from the apex feed, i.e. the
+ * loop's current maximum and voltage null, which is precisely where a series
+ * resistor absorbs the travelling wave and a shunt to ground would not.
+ * Nothing in this antenna connects to earth — deliberately, and unlike the
+ * sloping V, whose legs work against ground as a transmission line. See
+ * §3.2 and §10.3 of `docs/antenna-spec.md`.
+ *
+ * Tags:
+ *   LEFT_LEG_TAG               (1)  — top-left leg:  leftCorner → apex
+ *   RIGHT_LEG_TAG              (2)  — top-right leg: apex → rightCorner
+ *   TERMINATED_DELTA_LEFT_BASE_TAG  (9)  — left half-base:  leftCorner → centreLeft
+ *   TERMINATED_DELTA_RIGHT_BASE_TAG (10) — right half-base: centreRight → rightCorner
+ *
+ * Excitation is placed on the last segment of LEFT_LEG_TAG (the apex
+ * end), or on the feed bridge / shield when a feedline is active —
+ * exactly as for the delta loop.
+ */
 
 export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): Wire[] {
   const perimeter = params.length;
