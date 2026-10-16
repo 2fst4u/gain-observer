@@ -13,6 +13,9 @@ describe('StatsReadout', () => {
       result: null,
       mode: 'normal',
       comparisonReference: null,
+      atuEnabled: false,
+      transformerEnabled: false,
+      feedlineId: 'none',
     });
   });
 
@@ -344,5 +347,186 @@ describe('StatsReadout', () => {
     expect(container.textContent).toContain('Termination effectiveness');
     expect(container.textContent).toContain('∞ dB');
     expect(container.textContent).toContain('Left leg ripple');
+  });
+
+  it('applies correct SWR threshold colors and negative reactance formatting', () => {
+    // SWR > 2 -> danger color, negative reactance -> −jX
+    useAntennaStore.setState({
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 2.0,
+        takeoffElevationDeg: 30,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 50, X: -25.5 },
+        swr: 2.5,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { getByText, container } = render(<StatsReadout />);
+    const swrValue = getByText('2.50:1');
+    expect(swrValue.style.color).toBe('var(--danger)');
+    expect(container.textContent).toContain('50.0 −j25.5 Ω');
+    cleanup();
+
+    // SWR > 1.5 and <= 2 -> warning color
+    useAntennaStore.setState({
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 2.0,
+        takeoffElevationDeg: 30,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 50, X: 0 },
+        swr: 1.8,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { getByText: getByTextWarning } = render(<StatsReadout />);
+    const swrWarning = getByTextWarning('1.80:1');
+    expect(swrWarning.style.color).toBe('var(--warning)');
+    cleanup();
+
+    // SWR <= 1.5 -> success color
+    useAntennaStore.setState({
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 2.0,
+        takeoffElevationDeg: 30,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 50, X: 0 },
+        swr: 1.2,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { getByText: getByTextSuccess } = render(<StatsReadout />);
+    const swrSuccess = getByTextSuccess('1.20:1');
+    expect(swrSuccess.style.color).toBe('var(--success)');
+  });
+
+  it('renders title tooltips correctly when ATU is enabled', () => {
+    useAntennaStore.setState({
+      atuEnabled: true,
+      frequency: 14.1,
+      feedlineId: 'rg58',
+      feedlineLength: 10,
+      atuMainFeedlineLength: 15,
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 5.0,
+        takeoffElevationDeg: 20,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 50, X: 0 },
+        swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { container } = render(<StatsReadout />);
+    expect(container.textContent).toContain('Source impedance (R + jX)');
+    expect(container.innerHTML).toContain('Impedance the radio sees with the ATU at the mast base matched');
+    expect(container.innerHTML).toContain('Voltage SWR your radio sees with the mast-base ATU matched');
+    expect(container.innerHTML).toContain('Realized gain (dBi): antenna gain delivered through the mast-base ATU');
+  });
+
+  it('renders title tooltips correctly with feedline active and transformer enabled', () => {
+    useAntennaStore.setState({
+      feedlineId: 'rg58',
+      transformerEnabled: true,
+      transformerRatio: 4,
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 5.0,
+        takeoffElevationDeg: 20,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 50, X: 0 },
+        swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { container } = render(<StatsReadout />);
+    expect(container.innerHTML).toContain('with the 4:1 transformer fitted at the antenna terminals');
+    expect(container.innerHTML).toContain('Voltage SWR at the source end of the feedline against 50 Ω (with the transformer fitted at the antenna)');
+  });
+
+  it('renders title tooltips correctly when transformer is enabled without feedline', () => {
+    useAntennaStore.setState({
+      feedlineId: 'none',
+      transformerEnabled: true,
+      transformerRatio: 4,
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 5.0,
+        takeoffElevationDeg: 20,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 50, X: 0 },
+        swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { container } = render(<StatsReadout />);
+    expect(container.innerHTML).toContain('Impedance after the 4:1 transformer fitted at the antenna terminals.');
+    expect(container.innerHTML).toContain('Voltage SWR at the radio side of the antenna\'s 4:1 transformer against 50 Ω.');
+    expect(container.innerHTML).toContain('Realized gain (dBi): antenna gain after mismatch loss against 50 Ω with the 4:1 transformer fitted');
+  });
+
+  it('renders termination section ripple colors and leg labels correctly', () => {
+    const diagnostics: TerminationDiagnostics = {
+      currentRippleByTag: [
+        { tagNo: 1, magnitudes: [2e-3, 1e-3], ripple: 1.2, rippleDb: 2.0 }, // Left leg (<3 dB -> success)
+        { tagNo: 2, magnitudes: [2e-3, 1e-3], ripple: 2.0, rippleDb: 6.0 }, // Right leg (3-10 dB -> warning)
+        { tagNo: 3, magnitudes: [2e-3, 1e-3], ripple: 4.0, rippleDb: 12.0 }, // Custom tag (>=10 dB -> danger, ignored in filter though)
+      ],
+      powerBudget: null,
+      frontBackDb: null,
+    };
+    useAntennaStore.setState({
+      antennaType: 'sloping-v',
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 2,
+        takeoffElevationDeg: 15,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 50, X: 0 },
+        swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+        terminationDiagnostics: diagnostics,
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { getByText, container } = render(<StatsReadout />);
+    const leftRipple = getByText('2.0 dB');
+    const rightRipple = getByText('6.0 dB');
+    expect(leftRipple.style.color).toBe('var(--success)');
+    expect(rightRipple.style.color).toBe('var(--warning)');
+    expect(container.textContent).toContain('Left leg ripple');
+    expect(container.textContent).toContain('Right leg ripple');
+  });
+
+  it('returns null for TerminationSection when diagnostics has no content', () => {
+    const diagnostics: TerminationDiagnostics = {
+      currentRippleByTag: [],
+      powerBudget: null,
+      frontBackDb: null,
+    };
+    useAntennaStore.setState({
+      antennaType: 'sloping-v',
+      result: {
+        computeTimeMs: 10,
+        maxGainDbi: 2,
+        takeoffElevationDeg: 15,
+        takeoffAzimuthDeg: 0,
+        impedance: { R: 50, X: 0 },
+        swr: 1.0,
+        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
+        terminationDiagnostics: diagnostics,
+      } as unknown as import('../src/physics/types').SimulationResult,
+    });
+
+    const { container } = render(<StatsReadout />);
+    expect(container.textContent).not.toContain('Termination effectiveness');
   });
 });
