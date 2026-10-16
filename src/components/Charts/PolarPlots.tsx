@@ -9,7 +9,7 @@ import {
   Filler,
   Tooltip,
 } from 'chart.js';
-import { useAntennaStore, selectAtuConfig } from '../../store/antennaStore';
+import { useAntennaStore, selectAtuConfig, type Orientation } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo, memo, type ComponentProps } from 'react';
 import { displayedFeedMetrics } from '../../physics/impedance';
@@ -234,7 +234,31 @@ function ElevationPlot({ title, result, dbRange, bearingDeg, options }: { title:
   );
 }
 
-export function PolarPlots() {
+/**
+ * Computes broadside and end-on compass bearings from wire orientation.
+ * `orientation` is a compass heading of the wire axis (NS = 0°, EW = 90°),
+ * matching `orientationVector()` geometry.
+ */
+function computeWireBearings(orientation: Orientation): { broadsideBearing: number; endOnBearing: number } {
+  let heading = 0;
+  if (typeof orientation === 'number') {
+    heading = orientation;
+  } else {
+    switch (orientation) {
+      case 'NS': heading = 0; break;
+      case 'EW': heading = 90; break;
+      case 'NE-SW': heading = 45; break;
+      case 'NW-SE': heading = 315; break;
+    }
+  }
+  // "End-on" is along the wire axis; "broadside" is perpendicular to it.
+  return {
+    endOnBearing: normalizeDeg(heading),
+    broadsideBearing: normalizeDeg(heading + 90),
+  };
+}
+
+function usePolarPlotsState() {
   // ⚡ Bolt: Performance Optimization
   // Grouped multiple individual Zustand store selector subscriptions into a single useShallow block.
   // This reduces React hook allocation overhead and minimizes the number of store listeners,
@@ -284,29 +308,25 @@ export function PolarPlots() {
     return displayedRealizedGainDbi ?? result.maxGainDbi;
   }, [result, transformerEnabled, transformerRatio, feedlineId, atuEnabled, frequency, feedlineLength, atuMainFeedlineLength]);
 
-  // `orientation` is a compass heading of the wire axis (NS = 0°, EW = 90°),
-  // the same convention `orientationVector()` builds the geometry from. Both
-  // cuts stay in compass bearings; `cutElevation` converts to NEC φ.
-  const { broadsideBearing, endOnBearing } = useMemo(() => {
-    let heading = 0;
-    if (typeof orientation === 'number') {
-      heading = orientation;
-    } else {
-      switch (orientation) {
-        case 'NS': heading = 0; break;
-        case 'EW': heading = 90; break;
-        case 'NE-SW': heading = 45; break;
-        case 'NW-SE': heading = 315; break;
-      }
-    }
-    // "End-on" is along the wire axis; "broadside" is perpendicular to it.
-    return {
-      endOnBearing: normalizeDeg(heading),
-      broadsideBearing: normalizeDeg(heading + 90),
-    };
-  }, [orientation]);
+  const { broadsideBearing, endOnBearing } = useMemo(
+    () => computeWireBearings(orientation),
+    [orientation]
+  );
 
   const options = usePolarChartOptions(theme, dbRange, result, peakDbi);
+
+  return {
+    showPolarCuts,
+    result,
+    dbRange,
+    broadsideBearing,
+    endOnBearing,
+    options,
+  };
+}
+
+export function PolarPlots() {
+  const { showPolarCuts, result, dbRange, broadsideBearing, endOnBearing, options } = usePolarPlotsState();
 
   if (!showPolarCuts || !result) return null;
 
