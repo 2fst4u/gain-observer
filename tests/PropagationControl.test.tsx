@@ -217,3 +217,52 @@ describe('PropagationControl - T-index Input Bug', () => {
     expect(tInput.value).toBe('45');
   });
 });
+
+describe('PropagationControl - Component Rendering & Prediction Integration', () => {
+  beforeEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it('renders section heading and T-index badge formatted as integer', () => {
+    mockAntennaStore({
+      frequency: 14.2,
+      tIndex: 85.6,
+      latitudeDeg: 40,
+      longitudeDeg: -75,
+      monthOverride: 6,
+      utcHourOverride: 12,
+      units: 'imperial',
+      result: null,
+      geolocationStatus: 'idle',
+    });
+
+    render(<PropagationControl />);
+
+    expect(screen.getByRole('heading', { level: 2, name: /propagation/i })).toBeDefined();
+    expect(screen.getByText('T = 86')).toBeDefined();
+  });
+
+  it('handles simulation result with custom takeoff elevation angle in propagation calculation', () => {
+    mockAntennaStore({
+      frequency: 21.0,
+      tIndex: 50,
+      latitudeDeg: 51.5,
+      longitudeDeg: -0.12,
+      monthOverride: 7,
+      utcHourOverride: 18,
+      units: 'metric',
+      result: {
+        takeoffElevationDeg: 18,
+        pattern: [],
+        swr: [],
+      } as unknown as NonNullable<MockState['result']>,
+      geolocationStatus: 'idle',
+    });
+
+    render(<PropagationControl />);
+
+    expect(screen.getByRole('heading', { level: 2, name: /propagation/i })).toBeDefined();
+    expect(screen.getByText('T = 50')).toBeDefined();
+  });
+});
