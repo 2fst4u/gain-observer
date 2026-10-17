@@ -2,9 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { Nec2Engine } from '../src/physics/nec2Engine';
 
 describe('Nec2Engine untrusted protocol', () => {
-  it('throws untrusted protocol error on init', async () => {
+  it('throws untrusted protocol error on init for ftp:', async () => {
     const engine = new Nec2Engine({ baseUrl: 'ftp://localhost/' });
     await expect(engine.init()).rejects.toThrow('Untrusted protocol: ftp:');
+  });
+
+  it('throws untrusted protocol error on init for data:', async () => {
+    const engine = new Nec2Engine({ baseUrl: 'data:text/javascript,console.log("bad")' });
+    await expect(engine.init()).rejects.toThrow('Untrusted protocol: data:');
+  });
+
+  it('throws untrusted protocol error on init for blob:', async () => {
+    const engine = new Nec2Engine({ baseUrl: 'blob:http://localhost/uuid' });
+    await expect(engine.init()).rejects.toThrow('Untrusted protocol: blob:');
+  });
+
+  it('throws untrusted protocol error on init for javascript:', async () => {
+    const engine = new Nec2Engine({ baseUrl: 'javascript:alert(1)' });
+    await expect(engine.init()).rejects.toThrow('Untrusted protocol: javascript:');
   });
 
   it('throws untrusted protocol error on simulate', async () => {
