@@ -24,6 +24,11 @@ export const SWEEP_F_MIN_MHZ = 1.0;
 export const SWEEP_F_MAX_MHZ = 30;
 
 /**
+ * Normalizes floating point negative zero (-0) to positive zero (0).
+ */
+export const cleanZero = (v: number): number => (v === 0 ? 0 : v);
+
+/**
  * Convenience: wavelength in metres for a given frequency in MHz.
  */
 export function wavelengthMeters(frequencyMHz: number): number {
