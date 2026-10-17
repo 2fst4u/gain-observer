@@ -156,6 +156,19 @@ function findBestPeakGridIndex(pattern: GainPattern, threshold: number): { bestT
   return { bestTi: 0, bestPi: 0 };
 }
 
+function gridIndicesToAngles(
+  bestTi: number,
+  bestPi: number,
+  dTheta: number,
+  dPhi: number,
+): { elevationDeg: number; phiDeg: number } {
+  const thetaDeg = bestTi * dTheta;
+  const phiDeg = bestPi * dPhi;
+  // Convert NEC theta (0 = +z zenith) to elevation (0 = horizon).
+  const elevationDeg = 90 - thetaDeg;
+  return { elevationDeg, phiDeg };
+}
+
 /**
  * Locate the maximum-gain direction and report it as an elevation angle and a
  * NEC azimuth φ, both in degrees.
@@ -177,11 +190,7 @@ export function findMaxGainDirection(pattern: GainPattern): { maxGain: number; e
   const maxGain = findPeakGain(pattern.data);
   const threshold = maxGain - TIE_EPSILON_DB;
   const { bestTi, bestPi } = findBestPeakGridIndex(pattern, threshold);
-
-  const thetaDeg = bestTi * pattern.dTheta;
-  const phiDeg = bestPi * pattern.dPhi;
-  // Convert NEC theta (0 = +z zenith) to elevation (0 = horizon).
-  const elevationDeg = 90 - thetaDeg;
+  const { elevationDeg, phiDeg } = gridIndicesToAngles(bestTi, bestPi, pattern.dTheta, pattern.dPhi);
 
   return { maxGain, elevationDeg, phiDeg };
 }
