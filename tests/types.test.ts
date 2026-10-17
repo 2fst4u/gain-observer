@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type {
+  Vec3,
+  GroundType,
+  Excitation,
   AntennaType,
   Wire,
   GroundParams,
@@ -20,6 +23,15 @@ import type {
 
 describe('physics/types', () => {
   it('should allow valid type initialisations', () => {
+    const vec: Vec3 = [0, 0, 0];
+    expect(vec).toBeDefined();
+
+    const groundType: GroundType = 'real';
+    expect(groundType).toBeDefined();
+
+    const excitation: Excitation = { wireTag: 1, segment: 1 };
+    expect(excitation).toBeDefined();
+
     const antennaType: AntennaType = 'dipole';
     expect(antennaType).toBeDefined();
 
