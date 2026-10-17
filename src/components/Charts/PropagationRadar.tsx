@@ -148,6 +148,8 @@ function buildAzimuthalWedges(
   return wedges;
 }
 
+const GRIDLINE_FRACTIONS = [0.25, 0.5, 0.75];
+
 function RadarGrid({
   cx,
   cy,
@@ -173,7 +175,7 @@ function RadarGrid({
       />
 
       {/* Faint inner gridlines at 25/50/75% of max range */}
-      {[0.25, 0.5, 0.75].map((f) => (
+      {GRIDLINE_FRACTIONS.map((f) => (
         <circle
           key={f}
           cx={cx}
