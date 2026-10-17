@@ -1,7 +1,7 @@
 import { cleanZero } from "../utils/math";
-import { SLOPING_V_MIN_TIP_Z_M, wavelengthMeters, FEED_BRIDGE_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT } from '../physics/constants';
-import type { Wire } from '../physics/types';
-import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, DELTA_BASE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../physics/tags';
+import { SLOPING_V_MIN_TIP_Z_M, wavelengthMeters, FEED_BRIDGE_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT, findFeedlinePreset, FOLDED_DIPOLE_DEFAULT_APERTURE_M, SLOPING_V_COUNTERPOISE_RADIALS, SLOPING_V_COUNTERPOISE_LENGTH_WL, slopingVTerminationHubZ } from '../physics/constants';
+import type { Wire, AntennaType, SegmentLoad } from '../physics/types';
+import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, DELTA_BASE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, TERMINATED_DELTA_BRIDGE_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG, FOLDED_DIPOLE_TERM_BRIDGE_TAG, SLOPING_V_LEFT_STUB_TAG, SLOPING_V_RIGHT_STUB_TAG, SLOPING_V_LEFT_COUNTERPOISE_TAG, SLOPING_V_RIGHT_COUNTERPOISE_TAG } from '../physics/tags';
 
 /** Minimum number of NEC segments per wavelength along each V leg. */
 export const SEGS_PER_WAVELENGTH = 20;
@@ -1485,4 +1485,474 @@ export function buildDipoleWires(params: DipoleWiresParams): Wire[] {
 function oddRound(v: number): number {
   const n = Math.max(1, Math.round(v));
   return n % 2 === 0 ? n + 1 : n;
+}
+
+
+// --------------- Feedline & Wire Assembly ---------------
+
+const FEEDLINE_SUPPORTED_TYPES = new Set<string>(['dipole', 'inverted-v', 'delta-loop', 'sloping-v', 'terminated-delta', 'folded-dipole']);
+
+export const FEEDLINE_SHIELD_SEGMENTS = 11;
+const FEEDLINE_GROUND_GAP_M = 0.1;
+
+export interface BuildWiresState {
+  antennaType: AntennaType;
+  length: number;
+  height: number;
+  orientation: Orientation;
+  wireRadius: number;
+  segments: number;
+  frequency: number;
+  vAngle: number;
+  legSlope: number;
+  feedlineId?: string;
+  feedlineLength?: number;
+  feedlineOffset?: number;
+  whipCounterpoise?: boolean;
+  foldedDipoleAperture?: number;
+  terminatingResistor?: number;
+}
+
+export function buildWires(state: BuildWiresState): Wire[] {
+  const wires = buildWiresInternal(state);
+  const layout = computeFeedlineLayout(state);
+  if (layout?.shield && state.antennaType !== 'delta-loop' && state.antennaType !== 'terminated-delta') {
+    let bridge: Wire | undefined;
+    for (let i = 0; i < wires.length; i++) {
+      if (wires[i].tag === FEED_BRIDGE_TAG) {
+        bridge = wires[i];
+        break;
+      }
+    }
+    if (bridge) {
+      wires.push({
+        start: bridge.end,
+        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
+        radius: layout.shield.radius,
+        segments: FEEDLINE_SHIELD_SEGMENTS,
+        tag: FEEDLINE_SHIELD_TAG,
+      });
+    }
+  }
+  return wires;
+}
+
+function computeFeedlineShield(
+  state: Pick<{ length: number; height: number }, 'length' | 'height'> &
+    Partial<Pick<{ antennaType: AntennaType; feedlineId: string; feedlineLength: number; feedlineOffset: number }, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+) {
+  const layout = computeFeedlineLayout(state);
+  return layout?.shield
+    ? { ...layout.shield, segments: FEEDLINE_SHIELD_SEGMENTS }
+    : null;
+}
+
+function buildWiresInternal(state: BuildWiresState): Wire[] {
+  const h = state.height;
+
+  switch (state.antennaType) {
+    case 'inverted-v':
+      return buildInvertedVWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        vAngle: state.vAngle,
+      });
+
+    case 'sloping-v':
+      return buildSlopingVWires(state);
+
+    case 'delta-loop':
+      return buildDeltaLoopWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        feedlineShield: computeFeedlineShield(state),
+      });
+
+    case 'terminated-delta':
+      return buildTerminatedDeltaWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        feedlineShield: computeFeedlineShield(state),
+      });
+
+    case 'vertical-whip':
+      return buildVerticalWhipWires({
+        length: state.length,
+        height: h,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        counterpoise: state.whipCounterpoise ?? false,
+      });
+
+    case 'inverted-l':
+      return buildInvertedLWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        counterpoise: state.whipCounterpoise ?? false,
+      });
+
+    case 'folded-dipole':
+      return buildFoldedAntennaWires({
+        length: state.length,
+        height: h,
+        aperture: state.foldedDipoleAperture ?? FOLDED_DIPOLE_DEFAULT_APERTURE_M,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        frequency: state.frequency,
+        terminatingResistor: state.terminatingResistor ?? 0,
+      });
+
+    case 'dipole':
+    default:
+      return buildDipoleWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        layout: computeFeedlineLayout(state),
+      });
+  }
+}
+
+export interface FeedlineLayout {
+  readonly offset: number;
+  readonly shield: { readonly bottomZ: number; readonly radius: number } | null;
+}
+
+export function computeFeedlineLayout(
+  state: Pick<{ length: number; height: number }, 'length' | 'height'> &
+    Partial<Pick<{ antennaType: AntennaType; feedlineId: string; feedlineLength: number; feedlineOffset: number }, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+): FeedlineLayout | null {
+  if (!FEEDLINE_SUPPORTED_TYPES.has(state.antennaType ?? '')) return null;
+
+  const id = state.feedlineId;
+  if (!id || id === 'none') return null;
+  const preset = findFeedlinePreset(id);
+  if (preset.id === 'none' || preset.shieldOuterRadiusM <= 0) return null;
+
+  const len = state.feedlineLength;
+  if (typeof len !== 'number' || !Number.isFinite(len) || len <= 0) return null;
+
+  // Inverted-V and delta-loop are apex-fed: offset is meaningless, always 0.
+  const limit = state.antennaType === 'dipole'
+    ? Math.max(0, state.length / 2 - FEED_BRIDGE_LENGTH_M)
+    : 0;
+  const rawOffset = state.antennaType === 'dipole' ? (state.feedlineOffset ?? 0) : 0;
+  const offset = Math.max(-limit, Math.min(limit, rawOffset));
+
+  const topZ = state.height;
+  const minBottomZ = state.height > 0 ? FEEDLINE_GROUND_GAP_M : -len;
+  const desiredBottomZ = topZ - len;
+  const bottomZ = Math.max(minBottomZ, desiredBottomZ);
+  const drop = topZ - bottomZ;
+  if (drop < 0.05) {
+    return { offset, shield: null };
+  }
+
+  return {
+    offset,
+    shield: {
+      bottomZ,
+      radius: preset.shieldOuterRadiusM,
+    },
+  };
+}
+
+
+function findSlopingVLegTips(wires: Wire[]): {
+  leftTip: Wire['start'];
+  rightTip: Wire['end'];
+} {
+  // With graded segmentation each leg may be emitted as multiple sub-wires
+  // sharing the leg's tag. By convention `buildSlopingVWires` emits the
+  // LEFT leg tip→apex (so the first sub-wire's `.start` is the tip) and
+  // the RIGHT leg apex→tip (so the last sub-wire's `.end` is the tip).
+  let firstLeft: Wire | undefined;
+  let lastRight: Wire | undefined;
+  for (let i = 0; i < wires.length; i++) {
+    const w = wires[i]!;
+    if (w.tag === LEFT_LEG_TAG && !firstLeft) firstLeft = w;
+    if (w.tag === RIGHT_LEG_TAG) lastRight = w;
+  }
+  return {
+    leftTip: firstLeft!.start,
+    rightTip: lastRight!.end,
+  };
+}
+
+function createSlopingVStubsAndLoads(
+  leftTip: Wire['start'],
+  rightTip: Wire['end'],
+  hubZ: number,
+  radius: number,
+  R: number,
+) {
+  const stubWires: Wire[] = [
+    {
+      start: leftTip,
+      end: [leftTip[0], leftTip[1], hubZ],
+      radius,
+      segments: 1,
+      tag: SLOPING_V_LEFT_STUB_TAG,
+    },
+    {
+      start: rightTip,
+      end: [rightTip[0], rightTip[1], hubZ],
+      radius,
+      segments: 1,
+      tag: SLOPING_V_RIGHT_STUB_TAG,
+    },
+  ];
+
+  const stubLoads: SegmentLoad[] = [
+    { type: 4, wireTag: SLOPING_V_LEFT_STUB_TAG,  segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+    { type: 4, wireTag: SLOPING_V_RIGHT_STUB_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+  ];
+
+  return { stubWires, stubLoads };
+}
+
+function createSlopingVCounterpoises(
+  leftTip: Wire['start'],
+  rightTip: Wire['end'],
+  hubZ: number,
+  radius: number,
+  frequency: number,
+): Wire[] {
+  const counterpoiseWires: Wire[] = [];
+
+  // Radial length is capped at 40 % of the tip separation so the two screens
+  // can never grow into one another: opposing radials then reach at most
+  // 80 % of the gap between the hubs, leaving them disjoint. Overlapping or
+  // coincident wires are a NEC geometry error, and a narrow V at a low
+  // frequency is exactly the case that would produce them.
+  const lambda = wavelengthMeters(frequency);
+  const dx = leftTip[0] - rightTip[0];
+  const dy = leftTip[1] - rightTip[1];
+  const tipSeparation = Math.sqrt(dx * dx + dy * dy);
+  const radialLength = Math.min(
+    lambda * SLOPING_V_COUNTERPOISE_LENGTH_WL,
+    Math.max(0.1, tipSeparation * 0.4),
+  );
+  const radialSegments = Math.max(1, Math.ceil(radialLength / (lambda / SEGS_PER_WAVELENGTH)));
+
+  const hubs: Array<[[number, number, number], number]> = [
+    [[leftTip[0], leftTip[1], hubZ], SLOPING_V_LEFT_COUNTERPOISE_TAG],
+    [[rightTip[0], rightTip[1], hubZ], SLOPING_V_RIGHT_COUNTERPOISE_TAG],
+  ];
+
+  for (let h = 0; h < hubs.length; h++) {
+    const hub = hubs[h]![0];
+    const tag = hubs[h]![1];
+    for (let i = 0; i < SLOPING_V_COUNTERPOISE_RADIALS; i++) {
+      // Offset by half a step so no radial lies along the tip-to-tip axis,
+      // which is where the two screens come closest to each other.
+      const angle = (2 * Math.PI * i) / SLOPING_V_COUNTERPOISE_RADIALS + Math.PI / SLOPING_V_COUNTERPOISE_RADIALS;
+      counterpoiseWires.push({
+        start: hub,
+        end: [
+          hub[0] + radialLength * Math.cos(angle),
+          hub[1] + radialLength * Math.sin(angle),
+          hubZ,
+        ],
+        radius,
+        segments: radialSegments,
+        tag,
+      });
+    }
+  }
+
+  return counterpoiseWires;
+}
+
+function buildSlopingVTermination(R: number, radius: number, frequency: number, wires: Wire[]) {
+  // Model the physical tip-to-earth terminating resistor: a short vertical
+  // stub from each leg tip down to a hub just above ground, the resistance
+  // in that stub, and a small radial screen at the hub standing in for the
+  // earth stake the real resistor is bonded to.
+  //
+  // The radial screen is not decoration and not hardware — it is what makes
+  // the resistor conduct at all. NEC-2 cannot bond a wire to a
+  // Sommerfeld-Norton ground, so a stub that merely ends near the earth is
+  // an open circuit: the resistor sits in series with a sub-picofarad end
+  // capacitance, passes almost no current, and terminates nothing. Measured
+  // against the solver, the stub-only model dissipated 0.9 % of input power
+  // and left 18 dB of leg current ripple — a full standing wave, i.e. an
+  // unterminated antenna wearing a resistor. Removing the resistor entirely
+  // changed the answer by less than the ripple's own rounding. With the
+  // screen fitted the same resistor takes ~68 % of the power, ripple falls
+  // to ~2.4 dB, and the ripple minimum lands at R ≈ 500 Ω — the leg's
+  // characteristic impedance against ground, which is where the optimum
+  // belongs.
+  //
+  // The screen is simulation-only: `buildWires` does not emit it, so the 3D
+  // scene shows the stub and resistor a builder actually installs and not
+  // the solver's stand-in for the dirt underneath it.
+  const { leftTip, rightTip } = findSlopingVLegTips(wires);
+
+  // Hub height is frequency-scaled (0.001 λ, the lowest the S-N ground model
+  // is documented to represent faithfully) and clamped so it always stays
+  // below the tip it hangs from.
+  const hubZ = slopingVTerminationHubZ(frequency, Math.min(leftTip[2], rightTip[2]));
+
+  const { stubWires, stubLoads } = createSlopingVStubsAndLoads(leftTip, rightTip, hubZ, radius, R);
+  const counterpoiseWires = createSlopingVCounterpoises(leftTip, rightTip, hubZ, radius, frequency);
+
+  return {
+    extraWires: [...stubWires, ...counterpoiseWires],
+    loads: stubLoads,
+  };
+}
+
+function buildTerminatedDeltaTermination(R: number, radius: number, wires: Wire[]) {
+  const extraWires: Wire[] = [];
+  const loads: SegmentLoad[] = [];
+  // T2FD / aperiodic-loop termination: a single horizontal bridge wire
+  // spans the gap between the two half-base inner ends, and one LD-4
+  // card places R Ω on its single segment. The wave that propagates
+  // around the loop from the apex feed arrives at the bridge with
+  // ~equal-and-opposite drive from each side; matching R to the loop's
+  // characteristic impedance (~500–700 Ω over HF heights) flattens
+  // the feedpoint impedance across an octave or more, at the cost of
+  // efficiency on the fundamental.
+  //
+  // The LEFT half-base is emitted leftCorner → centreLeft so the
+  // inner end is the wire's `.end`. The RIGHT half-base is emitted
+  // centreRight → rightCorner so the inner end is the wire's `.start`.
+  // The bridge runs leftInner → rightInner, joining the two halves
+  // electrically through the resistor.
+  // Each half-base is graded into the centre gap, so it is emitted as several
+  // sub-wires sharing one tag. The LEFT half runs leftCorner -> centreLeft, so
+  // its inner end is the LAST sub-wire's `.end`; the RIGHT half runs
+  // centreRight -> rightCorner, so its inner end is the FIRST sub-wire's
+  // `.start`. Taking the first of both would put the bridge partway along the
+  // left half-base instead of across the gap.
+  let leftHalfBase: Wire | undefined;
+  let rightHalfBase: Wire | undefined;
+  for (let i = 0; i < wires.length; i++) {
+    const w = wires[i];
+    if (w.tag === TERMINATED_DELTA_LEFT_BASE_TAG) leftHalfBase = w;
+    else if (w.tag === TERMINATED_DELTA_RIGHT_BASE_TAG && !rightHalfBase) rightHalfBase = w;
+  }
+  const leftInner  = leftHalfBase!.end;
+  const rightInner = rightHalfBase!.start;
+
+  extraWires.push({
+    start: leftInner,
+    end: rightInner,
+    radius: radius,
+    segments: 1,
+    tag: TERMINATED_DELTA_BRIDGE_TAG,
+  });
+  loads.push(
+    { type: 4, wireTag: TERMINATED_DELTA_BRIDGE_TAG, segmentStart: 1, segmentEnd: 1, param1: R, param2: 0 },
+  );
+
+  return { extraWires, loads };
+}
+
+function buildFoldedDipoleTermination(R: number, radius: number, wires: Wire[]) {
+  const extraWires: Wire[] = [];
+  const loads: SegmentLoad[] = [];
+  // Terminated Folded Dipole (TFD) — correct travelling-wave gap-bridge topology.
+  //
+  // buildFoldedAntennaWires splits the top (un-fed) conductor into two halves
+  // with a gap of FEED_BRIDGE_LENGTH_M at the centre when a
+  // terminating resistor is non-zero. The gap inner ends are:
+  //   left-half  .end = topCenterLeft
+  //   right-half .start = topCenterRight
+  // We add a short horizontal bridge wire spanning that gap and place the
+  // LD-4 load on its single segment. Current flowing in the top conductor
+  // MUST pass through R to cross from one half to the other — exactly the
+  // series-in-the-top-wire termination of a T2FD.
+  //
+  // This is identical in pattern to the terminated-delta bridge: the base is
+  // split, the resistive bridge closes the gap, and wave energy is dissipated
+  // rather than reflected. The gap is electrically small (≈ 0.1 m ≪ λ) so
+  // it does not perturb the radiation pattern or the fundamental resonance.
+  let leftHalfOpp: Wire | undefined;
+  let rightHalfOpp: Wire | undefined;
+  for (let i = 0; i < wires.length; i++) {
+    const w = wires[i];
+    if (w.tag === FOLDED_DIPOLE_OPPOSITE_TAG) {
+      if (!leftHalfOpp) {
+        leftHalfOpp = w;
+      } else if (!rightHalfOpp) {
+        rightHalfOpp = w;
+      }
+    }
+    if (leftHalfOpp && rightHalfOpp) break;
+  }
+  const topCenterLeft  = leftHalfOpp!.end;   // inner end of left half
+  const topCenterRight = rightHalfOpp!.start; // inner end of right half
+
+  extraWires.push({
+    start: topCenterLeft,
+    end: topCenterRight,
+    radius: radius,
+    segments: 1,
+    tag: FOLDED_DIPOLE_TERM_BRIDGE_TAG,
+  });
+  loads.push({
+    type: 4,
+    wireTag: FOLDED_DIPOLE_TERM_BRIDGE_TAG,
+    segmentStart: 1,
+    segmentEnd: 1,
+    param1: R,
+    param2: 0,
+  });
+
+  return { extraWires, loads };
+}
+
+export function buildTerminationElements(
+  state: { terminatingResistor: number; wireRadius: number; frequency: number; antennaType: AntennaType },
+  wires: Wire[],
+) {
+  const extraWires: Wire[] = [];
+  const loads: SegmentLoad[] = [];
+
+  if (state.terminatingResistor > 0) {
+    switch (state.antennaType) {
+      case 'sloping-v': {
+        const { extraWires: ew, loads: l } = buildSlopingVTermination(state.terminatingResistor, state.wireRadius, state.frequency, wires);
+        extraWires.push(...ew);
+        loads.push(...l);
+        break;
+      }
+      case 'terminated-delta': {
+        const { extraWires: ew, loads: l } = buildTerminatedDeltaTermination(state.terminatingResistor, state.wireRadius, wires);
+        extraWires.push(...ew);
+        loads.push(...l);
+        break;
+      }
+      case 'folded-dipole': {
+        const { extraWires: ew, loads: l } = buildFoldedDipoleTermination(state.terminatingResistor, state.wireRadius, wires);
+        extraWires.push(...ew);
+        loads.push(...l);
+        break;
+      }
+    }
+  }
+
+  return { extraWires, loads };
 }
