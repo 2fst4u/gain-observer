@@ -23,6 +23,45 @@
 
 import type { GainPattern } from './types';
 
+const DB_TO_LINEAR_SCALE = Math.LN10 / 10;
+const DEG_TO_RAD = Math.PI / 180;
+
+/**
+ * Converts degrees to radians.
+ */
+export function degToRad(deg: number): number {
+  return deg * DEG_TO_RAD;
+}
+
+/**
+ * Converts dB power gain to a linear ratio.
+ */
+export function dbToLinear(db: number): number {
+  return Math.exp(db * DB_TO_LINEAR_SCALE);
+}
+
+/**
+ * Returns the trapezoidal rule integration weight for a given theta index.
+ */
+export function thetaWeight(ti: number, thetaSteps: number): number {
+  return ti === 0 || ti === thetaSteps - 1 ? 0.5 : 1;
+}
+
+/**
+ * Sums the linear power values across all phi steps for a given theta row.
+ */
+export function sumRowLinearPower(
+  data: ArrayLike<number>,
+  rowOffset: number,
+  phiSteps: number,
+): number {
+  let rowSum = 0;
+  for (let pi = 0; pi < phiSteps; pi++) {
+    rowSum += dbToLinear(data[rowOffset + pi]!);
+  }
+  return rowSum;
+}
+
 /**
  * Average of the power gain over the whole sphere, as a linear ratio.
  *
@@ -41,21 +80,18 @@ export function averageGainLinear(pattern: GainPattern): number {
   const { data, thetaSteps, phiSteps, dTheta, dPhi } = pattern;
   if (thetaSteps < 2 || phiSteps < 1 || data.length < thetaSteps * phiSteps) return 0;
 
-  const DEG = Math.PI / 180;
-  const dThetaRad = dTheta * DEG;
-  const dPhiRad = dPhi * DEG;
-  const dbToLinear = Math.LN10 / 10;
+  const dThetaRad = degToRad(dTheta);
+  const dPhiRad = degToRad(dPhi);
 
   let sum = 0;
   for (let ti = 0; ti < thetaSteps; ti++) {
-    const sinTheta = Math.sin(ti * dTheta * DEG);
+    const sinTheta = Math.sin(degToRad(ti * dTheta));
     if (sinTheta === 0) continue;
-    const weight = ti === 0 || ti === thetaSteps - 1 ? 0.5 : 1;
-    const row = ti * phiSteps;
-    let rowSum = 0;
-    for (let pi = 0; pi < phiSteps; pi++) {
-      rowSum += Math.exp(data[row + pi]! * dbToLinear);
-    }
+
+    const weight = thetaWeight(ti, thetaSteps);
+    const rowOffset = ti * phiSteps;
+    const rowSum = sumRowLinearPower(data, rowOffset, phiSteps);
+
     sum += rowSum * sinTheta * weight;
   }
 
