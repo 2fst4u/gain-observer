@@ -238,10 +238,7 @@ export async function adaptiveSweep(
 
       // Initialize merged array on first valid distant band
       if (merged === null) {
-        merged = [];
-        for (let j = 0; j < primaryBands.length; j++) {
-          merged.push(primaryBands[j]);
-        }
+        merged = primaryBands.slice();
       }
       merged.push(b);
     }
