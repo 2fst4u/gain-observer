@@ -23,83 +23,13 @@ import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
 import { computeTerminationDiagnostics } from './terminationDiagnostics';
 import { directivityDbi } from './patternIntegral';
 import { swr, mismatchLossFactor } from './impedance';
-import type { Engine, GainPattern, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
+import type { Engine, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ } from './constants';
 import { clampSpan, runScan, adaptiveSweep } from './sweep';
+import { validateUrlOrigin, loadNec2Factory, type EmscriptenFactory } from './nec2Loader';
+import { findMaxGainDirection } from './necPatternUtils';
 
-interface EmscriptenFS {
-  writeFile(path: string, data: string | Uint8Array): void;
-  readFile(path: string): Uint8Array;
-  readFile(path: string, opts: { encoding: 'utf8' }): string;
-  unlink?(path: string): void;
-}
-
-interface EmscriptenInstance {
-  FS: EmscriptenFS;
-  callMain(args: string[]): number;
-  ccall: (...args: unknown[]) => unknown;
-  HEAPF64: Float64Array;
-}
-
-interface EmscriptenFactory {
-  (opts?: {
-    print?: (s: string) => void;
-    printErr?: (s: string) => void;
-    noInitialRun?: boolean;
-    locateFile?: (path: string, prefix: string) => string;
-  }): Promise<EmscriptenInstance>;
-}
-
-/**
- * The glue loader exposes `Nec2Module` as an ES module default export.
- *
- * We must use a *fully-qualified* URL for the dynamic import(). If we pass
- * a bare path like "/nec2.js" Vite's dev server tries to resolve it as a
- * source module and errors with "This file is in /public and should not be
- * imported from source code". Constructing the URL from `location.origin`
- * (or `self.location` inside a worker) defeats that static analysis.
- *
- * Keep this helper separate so tests can stub it out with a file:// URL.
- */
-
-function validateUrlOrigin(parsedUrl: URL): void {
-  if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
-    throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
-  }
-
-  if (parsedUrl.protocol === 'file:') return;
-
-  const currentOrigin =
-    typeof self !== 'undefined' && typeof self.location !== 'undefined' && self.location.origin !== 'null'
-      ? self.location.origin
-      : 'http://localhost';
-
-  const expectedOrigin = new URL(currentOrigin === 'http://localhost' ? 'http://localhost/' : currentOrigin).origin;
-
-  if (parsedUrl.origin !== expectedOrigin && parsedUrl.hostname !== 'localhost' && parsedUrl.hostname !== '127.0.0.1') {
-    throw new Error(`Untrusted origin: ${parsedUrl.origin}`);
-  }
-}
-
-async function loadNec2Factory(baseUrl: string): Promise<EmscriptenFactory> {
-  let url: string;
-  if (/^https?:|^file:/.test(baseUrl)) {
-    // Already an absolute URL (e.g. test harness).
-    url = `${baseUrl}nec2.js`;
-  } else {
-    // Relative to the current origin. Building the absolute URL at runtime
-    // prevents Vite from treating the specifier as a source file.
-    const origin =
-      typeof self !== 'undefined' && typeof self.location !== 'undefined'
-        ? self.location.origin
-        : '';
-    url = new URL(`${baseUrl}nec2.js`, origin || 'http://localhost/').href;
-  }
-  const parsedUrl = new URL(url, 'http://localhost/');
-  validateUrlOrigin(parsedUrl);
-  const mod = (await import(/* @vite-ignore */ parsedUrl.href)) as { default: EmscriptenFactory };
-  return mod.default;
-}
+export { findMaxGainDirection };
 
 export interface Logger {
   info(...args: unknown[]): void;
@@ -113,77 +43,6 @@ export interface Nec2EngineOptions {
   quiet?: boolean;
   /** Optional logger to receive console output from the engine. */
   logger?: Logger;
-}
-
-// NEC prints gains to 0.01 dB, so tied directions arrive as bit-identical
-// Float32s. This epsilon only absorbs float noise — it deliberately does not
-// merge directions NEC itself distinguishes.
-const TIE_EPSILON_DB = 1e-6;
-
-function findPeakGain(data: ArrayLike<number>): number {
-  let maxGain = -Infinity;
-  for (let i = 0; i < data.length; i++) {
-    const v = data[i]!;
-    if (v > maxGain) maxGain = v;
-  }
-  return maxGain;
-}
-
-function findFirstPeakInThetaRow(pattern: GainPattern, ti: number, threshold: number): number {
-  const row = ti * pattern.phiSteps;
-  for (let pi = 0; pi < pattern.phiSteps; pi++) {
-    if (pattern.data[row + pi]! >= threshold) return pi;
-  }
-  return -1;
-}
-
-function findBestPeakGridIndex(pattern: GainPattern, threshold: number): { bestTi: number; bestPi: number } {
-  const horizonTi = Math.min(pattern.thetaSteps - 1, Math.round(90 / pattern.dTheta));
-
-  // Walk theta rows from the horizon back up to the zenith so the first row
-  // holding a tied peak is the lowest-elevation one.
-  for (let ti = horizonTi; ti >= 0; ti--) {
-    const pi = findFirstPeakInThetaRow(pattern, ti, threshold);
-    if (pi >= 0) return { bestTi: ti, bestPi: pi };
-  }
-
-  // Peak lies below the horizon (θ > 90°, only reachable in free space).
-  for (let ti = horizonTi + 1; ti < pattern.thetaSteps; ti++) {
-    const pi = findFirstPeakInThetaRow(pattern, ti, threshold);
-    if (pi >= 0) return { bestTi: ti, bestPi: pi };
-  }
-
-  return { bestTi: 0, bestPi: 0 };
-}
-
-/**
- * Locate the maximum-gain direction and report it as an elevation angle and a
- * NEC azimuth φ, both in degrees.
- *
- * Ties matter. A pattern is frequently flat to within NEC's 0.01 dB print
- * resolution over a whole span of directions — a free-space dipole is exactly
- * as strong straight up as it is broadside, and a lobe over ground is often
- * equal-valued across several elevation rows. Scanning the flat grid and
- * keeping the first strict maximum resolves every one of those ties toward
- * θ = 0 (the zenith), because row 0 is visited first. That produced a
- * take-off elevation of 90° for free-space patterns, and made the azimuth cut
- * a featureless circle: at the zenith every φ holds the same value.
- *
- * So among directions tied at the peak we keep the *lowest* elevation, which
- * is both the useful HF take-off angle and the direction whose azimuth cut
- * actually carries the pattern's shape. Remaining ties keep the lowest φ.
- */
-export function findMaxGainDirection(pattern: GainPattern): { maxGain: number; elevationDeg: number; phiDeg: number } {
-  const maxGain = findPeakGain(pattern.data);
-  const threshold = maxGain - TIE_EPSILON_DB;
-  const { bestTi, bestPi } = findBestPeakGridIndex(pattern, threshold);
-
-  const thetaDeg = bestTi * pattern.dTheta;
-  const phiDeg = bestPi * pattern.dPhi;
-  // Convert NEC theta (0 = +z zenith) to elevation (0 = horizon).
-  const elevationDeg = 90 - thetaDeg;
-
-  return { maxGain, elevationDeg, phiDeg };
 }
 
 export interface SweepOptions {
