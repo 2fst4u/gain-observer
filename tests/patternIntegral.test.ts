@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { averageGainLinear, directivityDbi } from '../src/physics/patternIntegral';
+import {
+  averageGainLinear,
+  dbToLinear,
+  degToRad,
+  directivityDbi,
+  sumRowLinearPower,
+  thetaWeight,
+} from '../src/physics/patternIntegral';
 import type { GainPattern } from '../src/physics/types';
 
 const THETA_STEPS = 37;
@@ -16,6 +23,33 @@ function pattern(fill: (thetaDeg: number, phiDeg: number) => number): GainPatter
   }
   return { data, thetaSteps: THETA_STEPS, phiSteps: PHI_STEPS, dTheta, dPhi };
 }
+
+describe('pure mathematical helper functions', () => {
+  it('converts degrees to radians correctly', () => {
+    expect(degToRad(0)).toBe(0);
+    expect(degToRad(180)).toBeCloseTo(Math.PI, 6);
+    expect(degToRad(90)).toBeCloseTo(Math.PI / 2, 6);
+  });
+
+  it('converts dB to linear scale correctly', () => {
+    expect(dbToLinear(0)).toBeCloseTo(1, 6);
+    expect(dbToLinear(3.0103)).toBeCloseTo(2, 3);
+    expect(dbToLinear(-3.0103)).toBeCloseTo(0.5, 3);
+  });
+
+  it('returns trapezoidal weights correctly', () => {
+    expect(thetaWeight(0, 10)).toBe(0.5);
+    expect(thetaWeight(9, 10)).toBe(0.5);
+    expect(thetaWeight(1, 10)).toBe(1);
+    expect(thetaWeight(5, 10)).toBe(1);
+  });
+
+  it('sums row linear power correctly', () => {
+    const row = new Float32Array([0, 3.0103, -3.0103]);
+    const sum = sumRowLinearPower(row, 0, 3);
+    expect(sum).toBeCloseTo(1 + 2 + 0.5, 2);
+  });
+});
 
 describe('averageGainLinear', () => {
   it('returns 1 for a lossless isotropic radiator', () => {
