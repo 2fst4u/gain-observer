@@ -361,12 +361,9 @@ export function slopingVTerminationHubZ(frequencyMHz: number, tipZ: number): num
   return Math.min(nominal, tipZ * 0.5);
 }
 
-// ⚡ Bolt: Removed .map() callback array allocation for Map initialization
-export const GROUND_PRESET_MAP = new Map<string, GroundPreset>();
-for (let i = 0; i < GROUND_PRESETS.length; i++) {
-  const p = GROUND_PRESETS[i];
-  if (p) GROUND_PRESET_MAP.set(p.id, p);
-}
+export const GROUND_PRESET_MAP = new Map<string, GroundPreset>(
+  GROUND_PRESETS.map((p) => [p.id, p]),
+);
 
 export function findGroundPreset(id: string): GroundPreset {
   const preset = GROUND_PRESET_MAP.get(id);
@@ -475,12 +472,9 @@ export const FEEDLINE_PRESETS: ReadonlyArray<FeedlinePreset> = [
 export const DEFAULT_FEEDLINE_ID = 'rg58';
 export const DEFAULT_FEEDLINE_LENGTH_M = 10;
 
-// ⚡ Bolt: Removed .map() callback array allocation for Map initialization
-const FEEDLINE_PRESET_MAP = new Map<string, FeedlinePreset>();
-for (let i = 0; i < FEEDLINE_PRESETS.length; i++) {
-  const p = FEEDLINE_PRESETS[i];
-  if (p) FEEDLINE_PRESET_MAP.set(p.id, p);
-}
+const FEEDLINE_PRESET_MAP = new Map<string, FeedlinePreset>(
+  FEEDLINE_PRESETS.map((p) => [p.id, p]),
+);
 
 export function findFeedlinePreset(id: string): FeedlinePreset {
   return FEEDLINE_PRESET_MAP.get(id) ?? FEEDLINE_PRESETS[0];
