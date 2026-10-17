@@ -62,7 +62,7 @@ interface EmscriptenFactory {
  * Keep this helper separate so tests can stub it out with a file:// URL.
  */
 
-function validateUrlOrigin(parsedUrl: URL): void {
+export function validateUrlOrigin(parsedUrl: URL): void {
   if (!['http:', 'https:', 'file:'].includes(parsedUrl.protocol)) {
     throw new Error(`Untrusted protocol: ${parsedUrl.protocol}`);
   }
