@@ -1190,14 +1190,17 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   return wires;
 }
 
-function calcFoldedAntennaPoints(
-  orientation: Orientation,
-  h: number,
-  half: number,
-  aperture: number,
-  bridgeHalf: number,
-  gapHalf: number
-) {
+export interface FoldedAntennaPointsParams {
+  orientation: Orientation;
+  h: number;
+  half: number;
+  aperture: number;
+  bridgeHalf: number;
+  gapHalf: number;
+}
+
+function calcFoldedAntennaPoints(params: FoldedAntennaPointsParams) {
+  const { orientation, h, half, aperture, bridgeHalf, gapHalf } = params;
   const [dx, dy] = orientationVector(orientation);
 
   // Bottom (fed) conductor at z = h; top (opposite) conductor at z = h + aperture.
@@ -1256,15 +1259,18 @@ function calcFoldedLegSegs(
   );
 }
 
-function calcFoldedAntennaSegments(
-  frequency: number,
-  aperture: number,
-  wireRadius: number,
-  segments: number,
-  half: number,
-  bridgeHalf: number,
-  gapHalf: number
-) {
+export interface FoldedAntennaSegmentsParams {
+  frequency: number;
+  aperture: number;
+  wireRadius: number;
+  segments: number;
+  half: number;
+  bridgeHalf: number;
+  gapHalf: number;
+}
+
+function calcFoldedAntennaSegments(params: FoldedAntennaSegmentsParams) {
+  const { frequency, aperture, wireRadius, segments, half, bridgeHalf, gapHalf } = params;
   const targetSegLen = calcFoldedTargetSegLen(frequency, aperture);
   const userFloor = Math.round(segments / 2);
 
@@ -1348,16 +1354,23 @@ export function buildFoldedAntennaWires(params: FoldedAntennaWiresParams): Wire[
   const hasTermination = (params.terminatingResistor ?? 0) > 0;
   const gapHalf = hasTermination ? FEED_BRIDGE_LENGTH_M / 2 : 0;
 
-  const pts = calcFoldedAntennaPoints(params.orientation, h, half, aperture, bridgeHalf, gapHalf);
-  const segs = calcFoldedAntennaSegments(
-    params.frequency,
+  const pts = calcFoldedAntennaPoints({
+    orientation: params.orientation,
+    h,
+    half,
     aperture,
-    params.wireRadius,
-    params.segments,
+    bridgeHalf,
+    gapHalf,
+  });
+  const segs = calcFoldedAntennaSegments({
+    frequency: params.frequency,
+    aperture,
+    wireRadius: params.wireRadius,
+    segments: params.segments,
     half,
     bridgeHalf,
-    gapHalf
-  );
+    gapHalf,
+  });
 
   const createWire = (
     start: [number, number, number],
