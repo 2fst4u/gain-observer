@@ -1,6 +1,6 @@
 // Shared physics-layer types. Everything here is metric, SI units.
 
-type Vec3 = readonly [number, number, number];
+export type Vec3 = readonly [number, number, number];
 
 /**
  * Antenna topology type.
@@ -40,7 +40,7 @@ export interface Wire {
   readonly tag?: number;
 }
 
-type GroundType = 'free' | 'perfect' | 'real';
+export type GroundType = 'free' | 'perfect' | 'real';
 
 export interface GroundParams {
   readonly type: GroundType;
@@ -50,7 +50,7 @@ export interface GroundParams {
   readonly epsilon?: number;
 }
 
-interface Excitation {
+export interface Excitation {
   readonly wireTag: number;
   /** 1-based segment index within the tagged wire to feed. */
   readonly segment: number;
