@@ -41,6 +41,11 @@ export function averageGainLinear(pattern: GainPattern): number {
   const { data, thetaSteps, phiSteps, dTheta, dPhi } = pattern;
   if (thetaSteps < 2 || phiSteps < 1 || data.length < thetaSteps * phiSteps) return 0;
 
+  // Kept as one inline loop with local constants on purpose: this is the whole
+  // calculation (about a dozen lines) and it reads top to bottom against the
+  // maths in the header. Splitting degToRad / dbToLinear / trapezoid weight
+  // into exported one-line helpers added indirection and public API surface
+  // for no gain in clarity or testability (declined in #899 / #902).
   const DEG = Math.PI / 180;
   const dThetaRad = dTheta * DEG;
   const dPhiRad = dPhi * DEG;
