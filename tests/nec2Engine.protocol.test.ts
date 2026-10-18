@@ -1,5 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { Nec2Engine } from '../src/physics/nec2Engine';
+import { Nec2Engine, validateUrlOrigin } from '../src/physics/nec2Engine';
+
+describe('validateUrlOrigin protocol checks', () => {
+  it('throws untrusted protocol error for data: URIs', () => {
+    const url = new URL('data:text/javascript,console.log("hello")');
+    expect(() => validateUrlOrigin(url)).toThrow('Untrusted protocol: data:');
+  });
+
+  it('throws untrusted protocol error for blob: URIs', () => {
+    const url = new URL('blob:http://localhost/550e8400-e29b-41d4-a716-446655440000');
+    expect(() => validateUrlOrigin(url)).toThrow('Untrusted protocol: blob:');
+  });
+
+  it('throws untrusted protocol error for javascript: URIs', () => {
+    const url = new URL('javascript:alert(1)');
+    expect(() => validateUrlOrigin(url)).toThrow('Untrusted protocol: javascript:');
+  });
+
+  it('throws untrusted protocol error for ftp: URIs', () => {
+    const url = new URL('ftp://localhost/nec2.js');
+    expect(() => validateUrlOrigin(url)).toThrow('Untrusted protocol: ftp:');
+  });
+});
 
 describe('Nec2Engine untrusted protocol', () => {
   it('throws untrusted protocol error on init', async () => {
