@@ -23,27 +23,6 @@
 
 import type { GainPattern } from './types';
 
-export const DEG_TO_RAD = Math.PI / 180;
-export const DB_TO_LINEAR_FACTOR = Math.LN10 / 10;
-
-/** Convert degrees to radians. */
-export function degToRad(deg: number): number {
-  return deg * DEG_TO_RAD;
-}
-
-/** Convert a dB value (power gain) to a linear ratio. */
-export function dbToLinearPower(db: number): number {
-  return Math.exp(db * DB_TO_LINEAR_FACTOR);
-}
-
-/**
- * Return trapezoidal integration weight for index `index` where endpoints (0 and `maxIndex`)
- * receive half weight (0.5) and interior points receive full weight (1).
- */
-export function trapezoidalWeight(index: number, maxIndex: number): number {
-  return index === 0 || index === maxIndex ? 0.5 : 1;
-}
-
 /**
  * Average of the power gain over the whole sphere, as a linear ratio.
  *
@@ -62,19 +41,25 @@ export function averageGainLinear(pattern: GainPattern): number {
   const { data, thetaSteps, phiSteps, dTheta, dPhi } = pattern;
   if (thetaSteps < 2 || phiSteps < 1 || data.length < thetaSteps * phiSteps) return 0;
 
-  const dThetaRad = degToRad(dTheta);
-  const dPhiRad = degToRad(dPhi);
-  const maxThetaIndex = thetaSteps - 1;
+  // Kept as one inline loop with local constants on purpose: this is the whole
+  // calculation (about a dozen lines) and it reads top to bottom against the
+  // maths in the header. Splitting degToRad / dbToLinear / trapezoid weight
+  // into exported one-line helpers added indirection and public API surface
+  // for no gain in clarity or testability (declined in #899 / #902).
+  const DEG = Math.PI / 180;
+  const dThetaRad = dTheta * DEG;
+  const dPhiRad = dPhi * DEG;
+  const dbToLinear = Math.LN10 / 10;
 
   let sum = 0;
   for (let ti = 0; ti < thetaSteps; ti++) {
-    const sinTheta = Math.sin(degToRad(ti * dTheta));
+    const sinTheta = Math.sin(ti * dTheta * DEG);
     if (sinTheta === 0) continue;
-    const weight = trapezoidalWeight(ti, maxThetaIndex);
+    const weight = ti === 0 || ti === thetaSteps - 1 ? 0.5 : 1;
     const row = ti * phiSteps;
     let rowSum = 0;
     for (let pi = 0; pi < phiSteps; pi++) {
-      rowSum += dbToLinearPower(data[row + pi]!);
+      rowSum += Math.exp(data[row + pi]! * dbToLinear);
     }
     sum += rowSum * sinTheta * weight;
   }
