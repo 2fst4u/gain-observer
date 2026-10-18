@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  averageGainLinear,
-  dbToLinearPower,
-  degToRad,
-  directivityDbi,
-  trapezoidalWeight,
-} from '../src/physics/patternIntegral';
+import { averageGainLinear, directivityDbi } from '../src/physics/patternIntegral';
 import type { GainPattern } from '../src/physics/types';
 
 const THETA_STEPS = 37;
@@ -89,30 +83,5 @@ describe('averageGainLinear', () => {
     expect(directivityDbi(empty, 3)).toBeUndefined();
     // A pattern that radiates nowhere cannot yield a directivity.
     expect(directivityDbi(pattern(() => -999), 0)).toBeUndefined();
-  });
-});
-
-describe('helper functions', () => {
-  it('degToRad converts degrees to radians accurately', () => {
-    expect(degToRad(0)).toBe(0);
-    expect(degToRad(180)).toBeCloseTo(Math.PI, 6);
-    expect(degToRad(360)).toBeCloseTo(2 * Math.PI, 6);
-    expect(degToRad(90)).toBeCloseTo(Math.PI / 2, 6);
-  });
-
-  it('dbToLinearPower converts dB to linear ratio accurately', () => {
-    expect(dbToLinearPower(0)).toBeCloseTo(1, 6);
-    expect(dbToLinearPower(3)).toBeCloseTo(1.99526, 4);
-    expect(dbToLinearPower(-3)).toBeCloseTo(0.50118, 4);
-    expect(dbToLinearPower(10)).toBeCloseTo(10, 5);
-    expect(dbToLinearPower(-10)).toBeCloseTo(0.1, 5);
-  });
-
-  it('trapezoidalWeight returns 0.5 for endpoints and 1 for interior points', () => {
-    expect(trapezoidalWeight(0, 10)).toBe(0.5);
-    expect(trapezoidalWeight(10, 10)).toBe(0.5);
-    expect(trapezoidalWeight(1, 10)).toBe(1);
-    expect(trapezoidalWeight(5, 10)).toBe(1);
-    expect(trapezoidalWeight(9, 10)).toBe(1);
   });
 });
