@@ -68,7 +68,7 @@ export const FEEDLINE_SUPPORTED_TYPES = new Set<string>([
 export const SLOPING_V_DEFAULT_TERMINATION_OHMS = 300;
 export const TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS = 600;
 
-export const RECOMMENDED_TERMINATING_RESISTORS: Record<AntennaType, number> = {
+const RECOMMENDED_TERMINATING_RESISTORS: Record<AntennaType, number> = {
   'sloping-v': SLOPING_V_DEFAULT_TERMINATION_OHMS,
   'terminated-delta': TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS,
   'folded-dipole': FOLDED_DIPOLE_FEED_R_OHMS,
@@ -83,8 +83,8 @@ export function recommendedTerminatingResistor(antennaType: AntennaType): number
   return RECOMMENDED_TERMINATING_RESISTORS[antennaType] ?? 0;
 }
 
-export const SWR_VIEW_MIN_SPAN_MHZ = 0.05;
-export const DEFAULT_SWR_VIEW_SPAN_FRACTION = 0.2;
+const SWR_VIEW_MIN_SPAN_MHZ = 0.05;
+const DEFAULT_SWR_VIEW_SPAN_FRACTION = 0.2;
 
 export function clampSwrView(centerMHz: number, spanMHz: number): { center: number; span: number } {
   const fullSpan = SWEEP_F_MAX_MHZ - SWEEP_F_MIN_MHZ;
