@@ -3,7 +3,7 @@
 //
 // Source: matplotlib viridis (MIT).
 
-export type ColormapName = 'viridis' | 'turbo' | 'jet';
+export type Colormap = 'viridis' | 'turbo' | 'jet';
 
 type RGB = readonly [number, number, number];
 
@@ -46,7 +46,7 @@ const JET: readonly RGB[] = [
   [0.5, 1, 0.5], [1, 1, 0], [1, 0.5, 0], [1, 0, 0], [0.5, 0, 0],
 ];
 
-export function pickTable(name: ColormapName): readonly RGB[] {
+export function pickTable(name: Colormap): readonly RGB[] {
   switch (name) {
     case 'viridis': return VIRIDIS;
     case 'turbo': return TURBO;
@@ -77,7 +77,7 @@ export function sampleColormapFast(table: readonly RGB[], t: number, out: Float3
  * Converts a colormap table into a CSS linear gradient string.
  * Used for rendering a legend gradient that matches the 3D scene colors.
  */
-export function getColormapCssGradient(name: ColormapName): string {
+export function getColormapCssGradient(name: Colormap): string {
   const table = pickTable(name);
   const len = table.length;
   const stops = table.map((rgb, index) => {
