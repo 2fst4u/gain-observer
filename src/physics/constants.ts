@@ -95,6 +95,9 @@ const REFERENCE_LENGTH_STRATEGIES: Record<AntennaType, (lambda: number, endEffec
  *   - sloping-v: 2λ total (1λ per leg). Traveling-wave antenna; no
  *     end-effect correction applies.
  *   - terminated-delta: 1.0λ perimeter (same triangle as delta-loop).
+ *   - vertical-whip: 0.2375λ (0.25λ × 0.95 end-effect). Quarter-wave monopole.
+ *   - inverted-l: 0.2375λ total (0.25λ × 0.95 end-effect). Total wire length (vertical + horizontal).
+ *   - folded-dipole: 0.475λ total (0.5λ × 0.95 end-effect). Each conductor is a resonant half-wave.
  *
  * Applies the standard HF end-effect factor k ~ 0.95 only to resonant
  * half-wave elements (dipole variants, quarter-wave monopoles).
