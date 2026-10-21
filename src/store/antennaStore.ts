@@ -1,3 +1,4 @@
+import type { Colormap } from '../utils/colormap';
 // Central application state (Zustand + Immer).
 //
 // Invariants:
@@ -74,7 +75,6 @@ const TRANSFORMER_DEFAULTS: Record<AntennaType, TransformerDefaults> = {
 };
 
 export type Mode = 'normal' | 'comparison';
-export type Colormap = 'viridis' | 'turbo' | 'jet';
 
 export interface ComparisonSnapshot {
   readonly frequency: number;
