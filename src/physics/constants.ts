@@ -305,15 +305,6 @@ export const FOLDED_DIPOLE_MAX_APERTURE_M = 0.5;
 export const VERTICAL_WHIP_RADIAL_COUNT = 4;
 
 /**
- * Gap (metres) between the inner ends of the two terminated-delta
- * half-base wires at the centre of the base. The two halves must not meet
- * (otherwise they'd short across the termination), so we leave a small
- * physical gap matched to FEED_BRIDGE_LENGTH_M so the geometry stays
- * NEC-valid (no coincident wires) without materially altering the
- * radiating perimeter.
- */
-
-/**
  * Floor for the height of the sloping-V termination hub (the bottom of each
  * stub, where the counterpoise radials meet), metres above ground. Must be
  * > 0 — NEC wires cannot touch z = 0 under a Sommerfeld-Norton ground.
