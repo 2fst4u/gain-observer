@@ -197,3 +197,7 @@
 ## 2026-09-19 - Fast String to Number Coercion in regex loops
 **Learning:** In hot execution loops parsing regex matches (e.g. NEC parsing), replacing `parseInt(string, 10)` with the unary `+` operator yields a measurable performance benefit, as V8 optimizes out the function execution overhead. Note that code reviewers may flag this as a micro-optimization depending on the context scale.
 **Action:** When working on parsing loops inside hot code paths in performance-critical codebases, use the unary `+` operator over `parseInt` or `parseFloat` when bounds are well known and regex controls string shape.
+
+## 2026-07-07 - Avoid Array.prototype.map() in CSS Gradient Generation
+**Learning:** In utility functions like `getColormapCssGradient` that are frequently invoked during UI updates, using `Array.prototype.map()` creates intermediate array allocations and incurs callback execution overhead.
+**Action:** Replace `.map()` with a pre-allocated array (e.g., `new Array(len)`) and a standard `for` loop to reduce garbage collection pressure and improve execution speed, ensuring to add comments explaining the optimization.
