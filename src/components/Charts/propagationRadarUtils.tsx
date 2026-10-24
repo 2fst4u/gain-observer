@@ -2,8 +2,8 @@ import type { JSX } from "react";
 import type { PropagationPrediction } from "../../physics/propagation";
 import type { UnitSystem } from "../../physics/units";
 
-export const KM_PER_MILE = 1.609344;
-export const DEG_TO_RAD = Math.PI / 180;
+const KM_PER_MILE = 1.609344;
+const DEG_TO_RAD = Math.PI / 180;
 
 export function formatDistance(km: number, units: UnitSystem): string {
   if (units === "imperial") {
@@ -27,7 +27,7 @@ export function qualityOpacity(quality: "useful" | "weak" | "unusable"): number 
   return 0.035;
 }
 
-export function worseStatus(
+function worseStatus(
   a: "open" | "marginal" | "closed",
   b: "open" | "marginal" | "closed",
 ): "open" | "marginal" | "closed" {
@@ -36,7 +36,7 @@ export function worseStatus(
   return "open";
 }
 
-export function worseQuality(
+function worseQuality(
   a: "useful" | "weak" | "unusable",
   b: "useful" | "weak" | "unusable",
 ): "useful" | "weak" | "unusable" {

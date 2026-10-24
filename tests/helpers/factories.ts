@@ -18,7 +18,7 @@ import type { HopPrediction, PropagationPrediction } from '../../src/physics/pro
 import { phiToBearingDeg } from '../../src/physics/angles';
 
 /** Flat pattern with a mild gradient, so cuts and peak-finding have something to bite on. */
-export function makeGainPattern(overrides: Partial<GainPattern> = {}): GainPattern {
+function makeGainPattern(overrides: Partial<GainPattern> = {}): GainPattern {
   const thetaSteps = overrides.thetaSteps ?? 19;
   const phiSteps = overrides.phiSteps ?? 36;
   const data = overrides.data ?? new Float32Array(thetaSteps * phiSteps);
@@ -32,7 +32,7 @@ export function makeGainPattern(overrides: Partial<GainPattern> = {}): GainPatte
   };
 }
 
-export function makePowerBudget(overrides: Partial<PowerBudget> = {}): PowerBudget {
+function makePowerBudget(overrides: Partial<PowerBudget> = {}): PowerBudget {
   return {
     inputW: 100,
     radiatedW: 90,
@@ -43,7 +43,7 @@ export function makePowerBudget(overrides: Partial<PowerBudget> = {}): PowerBudg
   };
 }
 
-export function makeTerminationDiagnostics(
+function makeTerminationDiagnostics(
   overrides: Partial<TerminationDiagnostics> = {},
 ): TerminationDiagnostics {
   return {
@@ -54,7 +54,7 @@ export function makeTerminationDiagnostics(
   };
 }
 
-export function makeImpedance(overrides: Partial<ImpedanceResult> = {}): ImpedanceResult {
+function makeImpedance(overrides: Partial<ImpedanceResult> = {}): ImpedanceResult {
   return { R: 50, X: 0, ...overrides };
 }
 

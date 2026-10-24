@@ -170,7 +170,7 @@ export function RadarHopRings({
   return <>{hopRings}</>;
 }
 
-export function LegendSwatch({
+function LegendSwatch({
   color,
   label,
 }: {
