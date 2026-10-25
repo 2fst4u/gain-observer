@@ -205,7 +205,7 @@ describe('PropagationRadarComponents', () => {
       );
 
       expect(screen.getByText('Open')).toBeTruthy();
-      const dot = container.querySelector('span > span');
+      const dot = container.querySelector<HTMLElement>('span > span');
       expect(dot?.getAttribute('aria-hidden')).toBe('true');
       expect(dot?.style.background).toBe('var(--success)');
     });
