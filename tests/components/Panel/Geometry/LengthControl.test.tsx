@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { LengthControl } from '../../../../src/components/Panel/Geometry/LengthControl';
 import { mockAntennaStore, type MockAntennaState } from '../../../helpers/mockStore';
