@@ -374,61 +374,62 @@ interface BuildGradedLegWiresOptions {
   reverse: boolean;
 }
 
-function buildGradedLegWires({
-  legLen,
-  prefixEnd,
-  breakpoints,
-  prefixLens,
-  tailCount,
-  wireRadius,
-  tag,
-  side,
-  legPointAt,
-  reverse,
-}: BuildGradedLegWiresOptions): Wire[] {
+function buildReversedGradedLegWires(options: BuildGradedLegWiresOptions): Wire[] {
+  const { legLen, prefixEnd, breakpoints, prefixLens, tailCount, wireRadius, tag, side, legPointAt } = options;
   const wires: Wire[] = [];
 
-  if (reverse) {
-    if (tailCount > 0) {
-      wires.push({
-        start: legPointAt(legLen, side),
-        end: legPointAt(prefixEnd, side),
-        radius: wireRadius,
-        segments: tailCount,
-        tag,
-      });
-    }
-    for (let i = prefixLens.length - 1; i >= 0; i--) {
-      wires.push({
-        start: legPointAt(breakpoints[i + 1]!, side),
-        end: legPointAt(breakpoints[i]!, side),
-        radius: wireRadius,
-        segments: 1,
-        tag,
-      });
-    }
-  } else {
-    for (let i = 0; i < prefixLens.length; i++) {
-      wires.push({
-        start: legPointAt(breakpoints[i]!, side),
-        end: legPointAt(breakpoints[i + 1]!, side),
-        radius: wireRadius,
-        segments: 1,
-        tag,
-      });
-    }
-    if (tailCount > 0) {
-      wires.push({
-        start: legPointAt(prefixEnd, side),
-        end: legPointAt(legLen, side),
-        radius: wireRadius,
-        segments: tailCount,
-        tag,
-      });
-    }
+  if (tailCount > 0) {
+    wires.push({
+      start: legPointAt(legLen, side),
+      end: legPointAt(prefixEnd, side),
+      radius: wireRadius,
+      segments: tailCount,
+      tag,
+    });
+  }
+  for (let i = prefixLens.length - 1; i >= 0; i--) {
+    wires.push({
+      start: legPointAt(breakpoints[i + 1]!, side),
+      end: legPointAt(breakpoints[i]!, side),
+      radius: wireRadius,
+      segments: 1,
+      tag,
+    });
   }
 
   return wires;
+}
+
+function buildForwardGradedLegWires(options: BuildGradedLegWiresOptions): Wire[] {
+  const { legLen, prefixEnd, breakpoints, prefixLens, tailCount, wireRadius, tag, side, legPointAt } = options;
+  const wires: Wire[] = [];
+
+  for (let i = 0; i < prefixLens.length; i++) {
+    wires.push({
+      start: legPointAt(breakpoints[i]!, side),
+      end: legPointAt(breakpoints[i + 1]!, side),
+      radius: wireRadius,
+      segments: 1,
+      tag,
+    });
+  }
+  if (tailCount > 0) {
+    wires.push({
+      start: legPointAt(prefixEnd, side),
+      end: legPointAt(legLen, side),
+      radius: wireRadius,
+      segments: tailCount,
+      tag,
+    });
+  }
+
+  return wires;
+}
+
+function buildGradedLegWires(options: BuildGradedLegWiresOptions): Wire[] {
+  return options.reverse
+    ? buildReversedGradedLegWires(options)
+    : buildForwardGradedLegWires(options);
 }
 
 interface GradedStraightWireParams {
