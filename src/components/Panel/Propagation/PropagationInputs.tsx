@@ -20,17 +20,18 @@ export function hourToHHmm(h: number): string {
 export function HHmmToHour(s: string): number | null {
   if (s.length > 20) return null; // Prevent long inputs
 
-  let digits = '';
+  const digits: string[] = [];
   for (let i = 0; i < s.length; i++) {
     const charCode = s.charCodeAt(i);
     if (charCode >= 48 && charCode <= 57) { // '0' is 48, '9' is 57
-      digits += s[i];
+      digits.push(s[i]);
     }
   }
 
   if (digits.length !== 4) return null;
-  const h = parseInt(digits.substring(0, 2), 10);
-  const m = parseInt(digits.substring(2, 4), 10);
+  const digitsStr = digits.join('');
+  const h = parseInt(digitsStr.substring(0, 2), 10);
+  const m = parseInt(digitsStr.substring(2, 4), 10);
   if (h >= 0 && h < 24 && m >= 0 && m < 60) {
     return h + m / 60;
   }
