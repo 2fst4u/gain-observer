@@ -105,7 +105,12 @@ function getElevationLabels(p: GainPattern): string[] {
 /** Shift dBi into a 0..range display scale so PolarArea has positive radii. */
 function normaliseForPolar(values: number[], maxDb: number, rangeDb: number): number[] {
   const min = maxDb - rangeDb;
-  return values.map((v) => Math.max(0, v - min));
+  const len = values.length;
+  const out = new Array<number>(len);
+  for (let i = 0; i < len; i++) {
+    out[i] = Math.max(0, values[i] - min);
+  }
+  return out;
 }
 
 function getCssVar(name: string): string {
