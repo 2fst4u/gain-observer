@@ -6,10 +6,10 @@ const MODES: Array<{ id: Mode; label: string; hint: string; shortcut?: string }>
   { id: 'comparison', label: 'Compare', hint: 'Side-by-side two configs', shortcut: 'm' },
 ];
 
-const MODE_MAP = MODES.reduce((acc, m) => {
-  acc[m.id] = m;
-  return acc;
-}, {} as Record<Mode, (typeof MODES)[0]>);
+const MODE_MAP = {} as Record<Mode, (typeof MODES)[0]>;
+for (const m of MODES) {
+  MODE_MAP[m.id] = m;
+}
 
 export function ModeSelector() {
   // ⚡ Bolt: Group multiple store selections into a single useShallow block
