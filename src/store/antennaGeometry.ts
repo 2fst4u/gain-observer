@@ -182,7 +182,7 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
   const wires: Wire[] = [];
 
   // LEFT leg: emit tip → apex, so the last segment is at the feed.
-  wires.push(...buildGradedLegWires({
+  buildGradedLegWires({
     legLen,
     prefixEnd,
     breakpoints,
@@ -193,10 +193,11 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
     side: -1,
     legPointAt,
     reverse: true,
-  }));
+    targetWires: wires,
+  });
 
   // RIGHT leg: emit apex → tip.
-  wires.push(...buildGradedLegWires({
+  buildGradedLegWires({
     legLen,
     prefixEnd,
     breakpoints,
@@ -207,7 +208,8 @@ export function buildInvertedVWires(params: InvertedVWiresParams): Wire[] {
     side: 1,
     legPointAt,
     reverse: false,
-  }));
+    targetWires: wires,
+  });
 
   wires.push({
     start: apexLeft,
@@ -372,21 +374,24 @@ interface BuildGradedLegWiresOptions {
   side: number;
   legPointAt: (axis: number, side: number) => [number, number, number];
   reverse: boolean;
+  targetWires?: Wire[];
 }
 
-function buildGradedLegWires({
-  legLen,
-  prefixEnd,
-  breakpoints,
-  prefixLens,
-  tailCount,
-  wireRadius,
-  tag,
-  side,
-  legPointAt,
-  reverse,
-}: BuildGradedLegWiresOptions): Wire[] {
-  const wires: Wire[] = [];
+function buildGradedLegWires(options: BuildGradedLegWiresOptions): Wire[] {
+  const {
+    legLen,
+    prefixEnd,
+    breakpoints,
+    prefixLens,
+    tailCount,
+    wireRadius,
+    tag,
+    side,
+    legPointAt,
+    reverse,
+    targetWires,
+  } = options;
+  const wires: Wire[] = targetWires ?? [];
 
   if (reverse) {
     if (tailCount > 0) {
@@ -438,6 +443,7 @@ interface GradedStraightWireParams {
   tag: number;
   maxSegLen: number;
   emitFromFarEnd: boolean;
+  targetWires?: Wire[];
 }
 
 /**
@@ -469,12 +475,12 @@ interface GradedStraightWireParams {
  * convention for which end of the tag is `.start`.
  */
 function buildGradedStraightWires(params: GradedStraightWireParams): Wire[] {
-  const { bridgeEnd, farEnd, wireRadius, tag, maxSegLen, emitFromFarEnd } = params;
+  const { bridgeEnd, farEnd, wireRadius, tag, maxSegLen, emitFromFarEnd, targetWires } = params;
   const vx = farEnd[0] - bridgeEnd[0];
   const vy = farEnd[1] - bridgeEnd[1];
   const vz = farEnd[2] - bridgeEnd[2];
   const legLen = Math.sqrt(vx * vx + vy * vy + vz * vz);
-  if (legLen < 1e-9) return [];
+  if (legLen < 1e-9) return targetWires ?? [];
 
   const ux = vx / legLen, uy = vy / legLen, uz = vz / legLen;
   const pointAt = (axis: number): [number, number, number] => [
@@ -497,6 +503,7 @@ function buildGradedStraightWires(params: GradedStraightWireParams): Wire[] {
     side: 1,
     legPointAt: (axis) => pointAt(axis),
     reverse: emitFromFarEnd,
+    targetWires,
   });
 }
 
@@ -530,7 +537,7 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
   const wires: Wire[] = [];
 
   // LEFT leg: emit tip → apex.
-  wires.push(...buildGradedLegWires({
+  buildGradedLegWires({
     legLen,
     prefixEnd,
     breakpoints,
@@ -541,10 +548,11 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
     side: -1,
     legPointAt,
     reverse: true,
-  }));
+    targetWires: wires,
+  });
 
   // RIGHT leg: emit apex → tip.
-  wires.push(...buildGradedLegWires({
+  buildGradedLegWires({
     legLen,
     prefixEnd,
     breakpoints,
@@ -555,7 +563,8 @@ export function buildSlopingVWires(params: SlopingVWiresParams): Wire[] {
     side: 1,
     legPointAt,
     reverse: false,
-  }));
+    targetWires: wires,
+  });
 
   // Apex feed bridge.
   wires.push({
@@ -708,52 +717,53 @@ export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
   // buildGradedStraightWires). Without one the source sits on the last
   // ordinary leg segment and there is no discontinuity to correct.
   const legMaxSegLen = legLength / segmentsPerLeg;
-  const legWires: Wire[] = params.feedlineShield
-    ? [
-        ...buildGradedStraightWires({
-          bridgeEnd: apexLeft,
-          farEnd: leftCorner,
-          wireRadius: params.wireRadius,
-          tag: LEFT_LEG_TAG,
-          maxSegLen: legMaxSegLen,
-          emitFromFarEnd: true,
-        }),
-        ...buildGradedStraightWires({
-          bridgeEnd: apexRight,
-          farEnd: rightCorner,
-          wireRadius: params.wireRadius,
-          tag: RIGHT_LEG_TAG,
-          maxSegLen: legMaxSegLen,
-          emitFromFarEnd: false,
-        }),
-      ]
-    : [
-        {
-          start: leftCorner,
-          end: apexLeft,
-          radius: params.wireRadius,
-          segments: segmentsPerLeg,
-          tag: LEFT_LEG_TAG,
-        },
-        {
-          start: apexRight,
-          end: rightCorner,
-          radius: params.wireRadius,
-          segments: segmentsPerLeg,
-          tag: RIGHT_LEG_TAG,
-        },
-      ];
+  const wires: Wire[] = [];
 
-  const wires: Wire[] = [
-    ...legWires,
-    {
-      start: leftCorner,
-      end: rightCorner,
-      radius: params.wireRadius,
-      segments: baseSegments,
-      tag: DELTA_BASE_TAG,
-    },
-  ];
+  if (params.feedlineShield) {
+    buildGradedStraightWires({
+      bridgeEnd: apexLeft,
+      farEnd: leftCorner,
+      wireRadius: params.wireRadius,
+      tag: LEFT_LEG_TAG,
+      maxSegLen: legMaxSegLen,
+      emitFromFarEnd: true,
+      targetWires: wires,
+    });
+    buildGradedStraightWires({
+      bridgeEnd: apexRight,
+      farEnd: rightCorner,
+      wireRadius: params.wireRadius,
+      tag: RIGHT_LEG_TAG,
+      maxSegLen: legMaxSegLen,
+      emitFromFarEnd: false,
+      targetWires: wires,
+    });
+  } else {
+    wires.push(
+      {
+        start: leftCorner,
+        end: apexLeft,
+        radius: params.wireRadius,
+        segments: segmentsPerLeg,
+        tag: LEFT_LEG_TAG,
+      },
+      {
+        start: apexRight,
+        end: rightCorner,
+        radius: params.wireRadius,
+        segments: segmentsPerLeg,
+        tag: RIGHT_LEG_TAG,
+      },
+    );
+  }
+
+  wires.push({
+    start: leftCorner,
+    end: rightCorner,
+    radius: params.wireRadius,
+    segments: baseSegments,
+    tag: DELTA_BASE_TAG,
+  });
 
   appendFeedlineShieldWires({
     wires,
@@ -804,32 +814,33 @@ interface TerminatedDeltaLegWiresOptions {
   segmentsPerLeg: number;
 }
 
-function buildTerminatedDeltaLegWires(opts: TerminatedDeltaLegWiresOptions): Wire[] {
+function buildTerminatedDeltaLegWires(opts: TerminatedDeltaLegWiresOptions, targetWires: Wire[] = []): Wire[] {
   // As for the delta loop: grade the legs into the apex bridge when a
   // feedline splits the apex (see buildGradedStraightWires).
   const legMaxSegLen = opts.legLength / opts.segmentsPerLeg;
   if (opts.feedlineShield) {
-    return [
-      ...buildGradedStraightWires({
-        bridgeEnd: opts.apexLeft,
-        farEnd: opts.leftCorner,
-        wireRadius: opts.wireRadius,
-        tag: LEFT_LEG_TAG,
-        maxSegLen: legMaxSegLen,
-        emitFromFarEnd: true,
-      }),
-      ...buildGradedStraightWires({
-        bridgeEnd: opts.apexRight,
-        farEnd: opts.rightCorner,
-        wireRadius: opts.wireRadius,
-        tag: RIGHT_LEG_TAG,
-        maxSegLen: legMaxSegLen,
-        emitFromFarEnd: false,
-      }),
-    ];
+    buildGradedStraightWires({
+      bridgeEnd: opts.apexLeft,
+      farEnd: opts.leftCorner,
+      wireRadius: opts.wireRadius,
+      tag: LEFT_LEG_TAG,
+      maxSegLen: legMaxSegLen,
+      emitFromFarEnd: true,
+      targetWires,
+    });
+    buildGradedStraightWires({
+      bridgeEnd: opts.apexRight,
+      farEnd: opts.rightCorner,
+      wireRadius: opts.wireRadius,
+      tag: RIGHT_LEG_TAG,
+      maxSegLen: legMaxSegLen,
+      emitFromFarEnd: false,
+      targetWires,
+    });
+    return targetWires;
   }
 
-  return [
+  targetWires.push(
     {
       start: opts.leftCorner,
       end: opts.apexLeft,
@@ -844,7 +855,8 @@ function buildTerminatedDeltaLegWires(opts: TerminatedDeltaLegWiresOptions): Wir
       segments: opts.segmentsPerLeg,
       tag: RIGHT_LEG_TAG,
     },
-  ];
+  );
+  return targetWires;
 }
 
 /**
@@ -910,16 +922,21 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
   //   RIGHT half-base:  centreRight → rightCorner  (first seg = inner end)
   // We keep the right-leg ordering "outward" for symmetry with the
   // delta-loop's right-leg convention (apex → rightCorner).
-  const legWires = buildTerminatedDeltaLegWires({
-    feedlineShield: params.feedlineShield,
-    wireRadius: params.wireRadius,
-    apexLeft,
-    apexRight,
-    leftCorner,
-    rightCorner,
-    legLength,
-    segmentsPerLeg,
-  });
+  const wires: Wire[] = [];
+
+  buildTerminatedDeltaLegWires(
+    {
+      feedlineShield: params.feedlineShield,
+      wireRadius: params.wireRadius,
+      apexLeft,
+      apexRight,
+      leftCorner,
+      rightCorner,
+      legLength,
+      segmentsPerLeg,
+    },
+    wires,
+  );
 
   // The half-bases need the same treatment at the *other* end. They stop
   // FEED_BRIDGE_LENGTH_M apart at the centre, and when terminated that gap
@@ -930,29 +947,29 @@ export function buildTerminatedDeltaWires(params: TerminatedDeltaWiresParams): W
   // its input power before this was graded.
   const halfBaseMaxSegLen = innerHalfBase / halfBaseSegments;
 
-  const wires: Wire[] = [
-    ...legWires,
-    // Emitted leftCorner -> centreLeft, so the inner end is the LAST
-    // sub-wire's `.end` (buildTerminatedDeltaTermination relies on this).
-    ...buildGradedStraightWires({
-      bridgeEnd: centreLeft,
-      farEnd: leftCorner,
-      wireRadius: params.wireRadius,
-      tag: TERMINATED_DELTA_LEFT_BASE_TAG,
-      maxSegLen: halfBaseMaxSegLen,
-      emitFromFarEnd: true,
-    }),
-    // Emitted centreRight -> rightCorner, so the inner end is the FIRST
-    // sub-wire's `.start`.
-    ...buildGradedStraightWires({
-      bridgeEnd: centreRight,
-      farEnd: rightCorner,
-      wireRadius: params.wireRadius,
-      tag: TERMINATED_DELTA_RIGHT_BASE_TAG,
-      maxSegLen: halfBaseMaxSegLen,
-      emitFromFarEnd: false,
-    }),
-  ];
+  // Emitted leftCorner -> centreLeft, so the inner end is the LAST
+  // sub-wire's `.end` (buildTerminatedDeltaTermination relies on this).
+  buildGradedStraightWires({
+    bridgeEnd: centreLeft,
+    farEnd: leftCorner,
+    wireRadius: params.wireRadius,
+    tag: TERMINATED_DELTA_LEFT_BASE_TAG,
+    maxSegLen: halfBaseMaxSegLen,
+    emitFromFarEnd: true,
+    targetWires: wires,
+  });
+
+  // Emitted centreRight -> rightCorner, so the inner end is the FIRST
+  // sub-wire's `.start`.
+  buildGradedStraightWires({
+    bridgeEnd: centreRight,
+    farEnd: rightCorner,
+    wireRadius: params.wireRadius,
+    tag: TERMINATED_DELTA_RIGHT_BASE_TAG,
+    maxSegLen: halfBaseMaxSegLen,
+    emitFromFarEnd: false,
+    targetWires: wires,
+  });
 
   appendFeedlineShieldWires({
     wires,
@@ -1468,30 +1485,37 @@ export function buildDipoleWires(params: DipoleWiresParams): Wire[] {
   // bulk of each half, so the segment-count control is unaffected.
   const maxSegLen = 1 / segDensity;
 
-  return [
-    ...buildGradedStraightWires({
-      bridgeEnd: bridgeStart,
-      farEnd: leftTip,
-      wireRadius,
-      tag: LEFT_LEG_TAG,
-      maxSegLen: Math.min(maxSegLen, leftLen / Math.max(1, leftSeg)),
-      emitFromFarEnd: true,
-    }),
-    ...buildGradedStraightWires({
-      bridgeEnd,
-      farEnd: rightTip,
-      wireRadius,
-      tag: RIGHT_LEG_TAG,
-      maxSegLen: Math.min(maxSegLen, rightLen / Math.max(1, rightSeg)),
-      emitFromFarEnd: false,
-    }),
-    {
-      start: bridgeStart, end: bridgeEnd,
-      radius: wireRadius,
-      segments: 1,
-      tag: FEED_BRIDGE_TAG,
-    },
-  ];
+  const wires: Wire[] = [];
+
+  buildGradedStraightWires({
+    bridgeEnd: bridgeStart,
+    farEnd: leftTip,
+    wireRadius,
+    tag: LEFT_LEG_TAG,
+    maxSegLen: Math.min(maxSegLen, leftLen / Math.max(1, leftSeg)),
+    emitFromFarEnd: true,
+    targetWires: wires,
+  });
+
+  buildGradedStraightWires({
+    bridgeEnd,
+    farEnd: rightTip,
+    wireRadius,
+    tag: RIGHT_LEG_TAG,
+    maxSegLen: Math.min(maxSegLen, rightLen / Math.max(1, rightSeg)),
+    emitFromFarEnd: false,
+    targetWires: wires,
+  });
+
+  wires.push({
+    start: bridgeStart,
+    end: bridgeEnd,
+    radius: wireRadius,
+    segments: 1,
+    tag: FEED_BRIDGE_TAG,
+  });
+
+  return wires;
 }
 
 function oddRound(v: number): number {
