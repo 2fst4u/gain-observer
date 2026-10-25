@@ -468,13 +468,17 @@ interface GradedStraightWireParams {
  * `emitFromFarEnd` picks the emission order so callers keep their existing
  * convention for which end of the tag is `.start`.
  */
-function buildGradedStraightWires(params: GradedStraightWireParams): Wire[] {
-  const { bridgeEnd, farEnd, wireRadius, tag, maxSegLen, emitFromFarEnd } = params;
+function createLinearPointCalculator(
+  bridgeEnd: [number, number, number],
+  farEnd: [number, number, number],
+) {
   const vx = farEnd[0] - bridgeEnd[0];
   const vy = farEnd[1] - bridgeEnd[1];
   const vz = farEnd[2] - bridgeEnd[2];
   const legLen = Math.sqrt(vx * vx + vy * vy + vz * vz);
-  if (legLen < 1e-9) return [];
+  if (legLen < 1e-9) {
+    return { legLen: 0, pointAt: (): [number, number, number] => bridgeEnd };
+  }
 
   const ux = vx / legLen, uy = vy / legLen, uz = vz / legLen;
   const pointAt = (axis: number): [number, number, number] => [
@@ -482,6 +486,14 @@ function buildGradedStraightWires(params: GradedStraightWireParams): Wire[] {
     cleanZero(bridgeEnd[1] + uy * axis),
     cleanZero(bridgeEnd[2] + uz * axis),
   ];
+
+  return { legLen, pointAt };
+}
+
+function buildGradedStraightWires(params: GradedStraightWireParams): Wire[] {
+  const { bridgeEnd, farEnd, wireRadius, tag, maxSegLen, emitFromFarEnd } = params;
+  const { legLen, pointAt } = createLinearPointCalculator(bridgeEnd, farEnd);
+  if (legLen < 1e-9) return [];
 
   const plan = gradedSegmentPlan(legLen, FEED_BRIDGE_LENGTH_M, Math.max(maxSegLen, FEED_BRIDGE_LENGTH_M));
   const { breakpoints, prefixEnd, tailCount } = resolveGradedSegmentBreakpoints(plan, legLen);
