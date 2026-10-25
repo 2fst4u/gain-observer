@@ -369,9 +369,10 @@ export function slopingVTerminationHubZ(frequencyMHz: number, tipZ: number): num
   return Math.min(nominal, tipZ * 0.5);
 }
 
-export const GROUND_PRESET_MAP = new Map<string, GroundPreset>(
-  GROUND_PRESETS.map((p) => [p.id, p]),
-);
+export const GROUND_PRESET_MAP = new Map<string, GroundPreset>();
+for (const p of GROUND_PRESETS) {
+  GROUND_PRESET_MAP.set(p.id, p);
+}
 
 export function findGroundPreset(id: string): GroundPreset {
   const preset = GROUND_PRESET_MAP.get(id);
@@ -480,9 +481,10 @@ export const FEEDLINE_PRESETS: ReadonlyArray<FeedlinePreset> = [
 export const DEFAULT_FEEDLINE_ID = 'rg58';
 export const DEFAULT_FEEDLINE_LENGTH_M = 10;
 
-const FEEDLINE_PRESET_MAP = new Map<string, FeedlinePreset>(
-  FEEDLINE_PRESETS.map((p) => [p.id, p]),
-);
+const FEEDLINE_PRESET_MAP = new Map<string, FeedlinePreset>();
+for (const p of FEEDLINE_PRESETS) {
+  FEEDLINE_PRESET_MAP.set(p.id, p);
+}
 
 export function findFeedlinePreset(id: string): FeedlinePreset {
   return FEEDLINE_PRESET_MAP.get(id) ?? FEEDLINE_PRESETS[0];
