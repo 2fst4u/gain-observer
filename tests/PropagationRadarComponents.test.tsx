@@ -111,7 +111,7 @@ describe('PropagationRadarComponents', () => {
     it('renders concentric circles when azimuthalHops is omitted or has 1 entry', () => {
       const prediction: PropagationPrediction = makePropagationPrediction({
         hops: [
-          makeHop({ n: 1, rangeKm: 1000, status: 'open', linkQuality: 'good' }),
+          makeHop({ n: 1, rangeKm: 1000, status: 'open', linkQuality: 'useful' }),
           makeHop({ n: 2, rangeKm: 2000, status: 'closed', linkQuality: 'unusable' }),
         ],
         azimuthalHops: undefined,
@@ -132,7 +132,7 @@ describe('PropagationRadarComponents', () => {
       expect(ring2?.getAttribute('stroke-dasharray')).toBe('4 3');
       expect(ring2?.getAttribute('stroke-opacity')).toBe('0.35');
 
-      // Good open hop (rendered second: n=1)
+      // Useful open hop (rendered second: n=1)
       const ring1 = circles[1];
       expect(ring1?.getAttribute('r')).toBe('50'); // 1000 * 0.05
       expect(ring1?.getAttribute('stroke-dasharray')).toBeNull();
