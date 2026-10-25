@@ -369,9 +369,10 @@ export function slopingVTerminationHubZ(frequencyMHz: number, tipZ: number): num
   return Math.min(nominal, tipZ * 0.5);
 }
 
-export const GROUND_PRESET_MAP = new Map<string, GroundPreset>(
-  GROUND_PRESETS.map((p) => [p.id, p]),
-);
+export const GROUND_PRESET_MAP = new Map<string, GroundPreset>();
+for (const p of GROUND_PRESETS) {
+  GROUND_PRESET_MAP.set(p.id, p);
+}
 
 export function findGroundPreset(id: string): GroundPreset {
   const preset = GROUND_PRESET_MAP.get(id);
