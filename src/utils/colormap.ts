@@ -80,16 +80,18 @@ export function sampleColormapFast(table: readonly RGB[], t: number, out: Float3
 export function getColormapCssGradient(name: ColormapName): string {
   const table = pickTable(name);
   const len = table.length;
-  // ⚡ Bolt: Replace map() with a pre-allocated array and for loop to avoid intermediate allocations
-  const stops = new Array(len);
-  for (let index = 0; index < len; index++) {
-    const rgb = table[index];
+  // NOTE (intentional, please do not "optimize"): this is NOT a hot path. It runs
+  // only when the legend is (re)rendered and each table has just 9-16 stops, so
+  // the .map() allocation is negligible. Replacing it with a pre-allocated array
+  // and for-loop (proposed repeatedly in earlier PRs) adds noise and loses the
+  // type-safe `rgb` binding without any measurable benefit.
+  const stops = table.map((rgb, index) => {
     const percentage = (index / (len - 1)) * 100;
     const r = Math.round(rgb[0] * 255);
     const g = Math.round(rgb[1] * 255);
     const b = Math.round(rgb[2] * 255);
-    stops[index] = `rgb(${r}, ${g}, ${b}) ${percentage.toFixed(2)}%`;
-  }
+    return `rgb(${r}, ${g}, ${b}) ${percentage.toFixed(2)}%`;
+  });
   // Draw the gradient from bottom (0%) to top (100%) so that
   // the highest value is at the top of the element.
   return `linear-gradient(to top, ${stops.join(', ')})`;
