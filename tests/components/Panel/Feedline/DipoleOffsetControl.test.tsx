@@ -16,7 +16,7 @@ describe('DipoleOffsetControl', () => {
     );
 
     expect(screen.getByText('Attachment offset from centre (m) — 0.00')).toBeDefined();
-    expect(screen.getByText('Centred (perfectly balanced — no common-mode current).')).toBeDefined();
+    expect(screen.getByText('Centred feedpoint; common-mode current depends on the feedline route and choke.')).toBeDefined();
 
     const centreButton = screen.getByRole('button', { name: 'Centre feedpoint offset' });
     expect(centreButton.getAttribute('aria-disabled')).toBe('true');
@@ -35,7 +35,7 @@ describe('DipoleOffsetControl', () => {
     );
 
     expect(screen.getByText('Attachment offset from centre (m) — 1.50')).toBeDefined();
-    expect(screen.getByText('Shifted 1.50 m + axis; common-mode current will flow on the shield.')).toBeDefined();
+    expect(screen.getByText('Shifted 1.50 m + axis; offset feeding may drive common-mode current on the shield.')).toBeDefined();
 
     const centreButton = screen.getByRole('button', { name: 'Centre feedpoint offset' });
     expect(centreButton.getAttribute('aria-disabled')).toBe('false');
@@ -54,7 +54,7 @@ describe('DipoleOffsetControl', () => {
     );
 
     expect(screen.getByText('Attachment offset from centre (m) — -2.25')).toBeDefined();
-    expect(screen.getByText('Shifted 2.25 m − axis; common-mode current will flow on the shield.')).toBeDefined();
+    expect(screen.getByText('Shifted 2.25 m − axis; offset feeding may drive common-mode current on the shield.')).toBeDefined();
   });
 
   it('calls setFeedlineOffset when slider changes', () => {

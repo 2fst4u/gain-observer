@@ -277,8 +277,6 @@ describe('useAdaptiveLOD', () => {
         for (const n of [
           c.thetaSegments,
           c.phiSegments,
-          c.patternResolution.thetaSteps,
-          c.patternResolution.phiSteps,
           c.sweepPoints,
           c.charPoints,
           c.maxAdaptiveIter,
@@ -311,8 +309,6 @@ describe('useAdaptiveLOD', () => {
 
         expect(poorer.thetaSegments).toBeLessThan(richer.thetaSegments);
         expect(poorer.phiSegments).toBeLessThan(richer.phiSegments);
-        expect(poorer.patternResolution.thetaSteps).toBeLessThanOrEqual(richer.patternResolution.thetaSteps);
-        expect(poorer.patternResolution.phiSteps).toBeLessThanOrEqual(richer.patternResolution.phiSteps);
         expect(poorer.sweepPoints).toBeLessThanOrEqual(richer.sweepPoints);
         expect(poorer.charPoints).toBeLessThanOrEqual(richer.charPoints);
         expect(poorer.maxAdaptiveIter).toBeLessThanOrEqual(richer.maxAdaptiveIter);

@@ -21,11 +21,24 @@
 import { buildNecCards } from './necCard';
 import { parseNecImpedanceSweep, parseNecOutput } from './necParser';
 import { computeTerminationDiagnostics } from './terminationDiagnostics';
-import { directivityDbi } from './patternIntegral';
+import { averageGainLinear, directivityDbi } from './patternIntegral';
 import { swr, mismatchLossFactor } from './impedance';
 import type { Engine, GainPattern, ImpedanceResult, SimulationInput, SimulationResult, SweepPoint } from './types';
 import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ } from './constants';
 import { clampSpan, runScan, adaptiveSweep } from './sweep';
+import { FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG } from './tags';
+
+/** Reject a known nonconverged circuit/geometry combination before publishing results. */
+export function validateModelConfiguration(input: SimulationInput): void {
+  const tags = new Set(input.wires.map(wire => wire.tag));
+  const terminatedDeltaWithShield = tags.has(TERMINATED_DELTA_LEFT_BASE_TAG)
+    && tags.has(TERMINATED_DELTA_RIGHT_BASE_TAG) && tags.has(FEEDLINE_SHIELD_TAG);
+  const chokedShield = input.loads?.some(load => load.wireTag === FEEDLINE_SHIELD_TAG
+    && load.type === 4 && load.param1 > 0 && load.segmentStart === 1);
+  if (terminatedDeltaWithShield && chokedShield) {
+    throw new Error('The terminated-delta model with a choked radiating feedline has not passed numerical power-convergence checks. Disable the transformer/choke or remove the feedline.');
+  }
+}
 
 interface EmscriptenFS {
   writeFile(path: string, data: string | Uint8Array): void;
@@ -346,6 +359,7 @@ export class Nec2Engine implements Engine {
     if (!this.factory) await this.init();
     const factory = this.factory;
     if (!factory) throw new Error('NEC-2 engine failed to initialise');
+    validateModelConfiguration(input);
 
     // Serialise so concurrent simulate() calls don't compete for memory.
     const release = await this.acquire();
@@ -358,6 +372,7 @@ export class Nec2Engine implements Engine {
         output,
         input.patternResolution.thetaSteps,
         input.patternResolution.phiSteps,
+        input.ground.type === 'free' ? 180 : 90,
       );
 
       if (!parsed.pattern) {
@@ -380,9 +395,15 @@ export class Nec2Engine implements Engine {
         parsed.pattern,
         elevationDeg,
         phiDeg,
+        input.loads,
       );
 
       const efficiency = parsed.powerBudget ? parsed.powerBudget.efficiencyPct / 100 : undefined;
+      const escapingEfficiency = averageGainLinear(parsed.pattern);
+      const budget = parsed.powerBudget;
+      const networkLossDb = budget && budget.inputW > 0 && budget.networkLossW < budget.inputW
+        ? -10 * Math.log10(1 - Math.max(0, budget.networkLossW) / budget.inputW)
+        : undefined;
 
       // Directivity: D = 4π·U_max / P_rad = G_max / ⟨G⟩, with ⟨G⟩ the whole-
       // sphere average of the power gain. Integrating the pattern is the
@@ -406,6 +427,8 @@ export class Nec2Engine implements Engine {
         impedance: parsed.impedance,
         swr: swr(parsed.impedance),
         efficiency,
+        escapingEfficiency,
+        networkLossDb,
         computeTimeMs,
         terminationDiagnostics,
       };
@@ -472,9 +495,22 @@ export class Nec2Engine implements Engine {
     if (!this.factory) await this.init();
     const factory = this.factory;
     if (!factory) throw new Error('NEC-2 engine failed to initialise');
+    validateModelConfiguration(input);
 
     const release = await this.acquire();
     try {
+      // NT admittances for a lossy cable depend on frequency. A single FR
+      // sweep would incorrectly reuse the first frequency's cable network.
+      // Independent jobs also avoid relying on NEC's mutable NT-card state.
+      if (input.transmissionLines?.some(tl => tl.lossModel || (tl.impedanceRatio ?? 1) !== 1)) {
+        const results: { impedance: ImpedanceResult | null; power: number | null }[] = [];
+        for (let i = 0; i < points; i++) {
+          const cards = buildNecCards({ ...input, frequencyMHz: startFreq + step * i }, { includePattern: false });
+          const output = await this.runJob(factory, cards, 'sweep');
+          results.push(...parseNecImpedanceSweep(output));
+        }
+        return results;
+      }
       const cards = buildNecCards(input, {
         includePattern: false,
         sweepPoints: points,

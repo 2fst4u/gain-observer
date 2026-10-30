@@ -3,6 +3,7 @@ import { render, cleanup } from '@testing-library/react';
 import { StatsReadout } from '../src/components/Panel/StatsReadout';
 import { useAntennaStore } from '../src/store/antennaStore';
 import type { TerminationDiagnostics } from '../src/physics/types';
+import { makeComparisonSnapshot, makeSimulationResult, makeTerminationDiagnostics } from './helpers/factories';
 
 describe('StatsReadout', () => {
   beforeEach(() => {
@@ -16,6 +17,12 @@ describe('StatsReadout', () => {
       atuEnabled: false,
       transformerEnabled: false,
       feedlineId: 'none',
+      feedlineLength: 10,
+      feedlineOffset: 0,
+      groundId: 'pastoral',
+      length: 20,
+      height: 10,
+      transformerRatio: 1,
     });
   });
 
@@ -114,7 +121,7 @@ describe('StatsReadout', () => {
     expect(getByText('Gain')).not.toBeNull();
     expect(getByText('Directivity')).not.toBeNull();
     expect(getByText('Realized gain')).not.toBeNull();
-    expect(getByText('Efficiency')).not.toBeNull();
+    expect(getByText('Conductor/network efficiency')).not.toBeNull();
     expect(getByText('50.0%')).not.toBeNull();
     // Directivity = 3.0 + 10·log10(2) ≈ 6.01 dBi
     expect(getByText('6.01 dBi')).not.toBeNull();
@@ -256,37 +263,51 @@ describe('StatsReadout', () => {
       } as unknown as import('../src/physics/types').SimulationResult,
     });
     const { container } = render(<StatsReadout />);
-    expect(container.textContent).not.toContain('Termination effectiveness');
+    expect(container.textContent).not.toContain('Current and power diagnostics');
     expect(container.textContent).not.toContain('Termination reduces reflections');
   });
 
-  it('reads termination dissipation from the structure-loss bucket', () => {
-    // Every termination in this app is an LD-4 segment load, and NEC books LD
-    // loads as STRUCTURE LOSS — NETWORK LOSS covers NT-card two-port networks,
-    // which these decks never emit. Reading networkLossW alone made this row
-    // display 0.00 mW no matter how much the resistor was absorbing.
-    const diagnostics: TerminationDiagnostics = {
-      currentRippleByTag: [
-        { tagNo: 1, magnitudes: [2e-3, 1e-3], ripple: 2, rippleDb: 2.0 },
-      ],
-      powerBudget: {
-        inputW: 0.01, radiatedW: 0.006, structureLossW: 0.004,
-        networkLossW: 0, efficiencyPct: 60,
-      },
-      frontBackDb: 8.5,
-    };
+  it('separates actual termination dissipation from conductor and network losses', () => {
     useAntennaStore.setState({
       antennaType: 'sloping-v',
-      result: {
-        computeTimeMs: 10, maxGainDbi: 2, takeoffElevationDeg: 15,
-        takeoffAzimuthDeg: 0, impedance: { R: 50, X: 0 }, swr: 1.0,
-        pattern: { data: new Float32Array([1]), phiSteps: 1, thetaSteps: 1 },
-        terminationDiagnostics: diagnostics,
-      } as unknown as import('../src/physics/types').SimulationResult,
+      result: makeSimulationResult({ terminationDiagnostics: makeTerminationDiagnostics({
+        terminationPowerW: 0.002,
+        powerBudget: { inputW: 0.01, radiatedW: 0.005, structureLossW: 0.004, networkLossW: 0.001, efficiencyPct: 50 },
+      }) }),
     });
-
     const { getByText } = render(<StatsReadout />);
-    expect(getByText('4.00 mW')).not.toBeNull();
+    expect(getByText('Termination dissipation').nextElementSibling!.textContent).toBe('2.00 mW');
+    expect(getByText('Conductor and load dissipation').nextElementSibling!.textContent).toBe('4.00 mW');
+    expect(getByText('Network dissipation').nextElementSibling!.textContent).toBe('1.00 mW');
+  });
+
+  it('does not infer termination dissipation from an aggregate loss bucket', () => {
+    useAntennaStore.setState({ antennaType: 'sloping-v', result: makeSimulationResult() });
+    const { queryByText } = render(<StatsReadout />);
+    expect(queryByText('Termination dissipation')).toBeNull();
+  });
+
+  it('distinguishes far-field efficiency including soil absorption from the NEC power budget', () => {
+    useAntennaStore.setState({ result: makeSimulationResult({ efficiency: 0.9, escapingEfficiency: 0.45 }) });
+    const { getByText } = render(<StatsReadout />);
+    expect(getByText('Far-field efficiency').nextElementSibling!.textContent).toBe('45.0%');
+    expect(getByText('Conductor/network efficiency').nextElementSibling!.textContent).toBe('90.0%');
+  });
+
+  it('compares displayed feed metrics using each configuration’s saved matching hardware', () => {
+    useAntennaStore.setState({
+      mode: 'comparison', transformerEnabled: true, transformerRatio: 4, feedlineId: 'none',
+      result: makeSimulationResult({ impedance: { R: 200, X: 0 }, swr: 4, maxGainDbi: 6 }),
+      comparisonReference: makeComparisonSnapshot({
+        transformerEnabled: true, transformerRatio: 9, feedlineId: 'none',
+        result: makeSimulationResult({ impedance: { R: 450, X: 0 }, swr: 9, maxGainDbi: 4 }),
+      }),
+    });
+    const { getByText } = render(<StatsReadout />);
+    expect(getByText('SWR delta (vs 50 Ω)').nextElementSibling!.textContent).toBe('0.00');
+    expect(getByText('R delta').nextElementSibling!.textContent).toBe('0.0 Ω');
+    expect(getByText('X delta').nextElementSibling!.textContent).toBe('0.0 Ω');
+    expect(getByText('Realized gain delta').nextElementSibling!.textContent).toBe('+2.00 dB');
   });
 
   it('renders termination section for sloping-v with front-back ratio', () => {
@@ -315,7 +336,7 @@ describe('StatsReadout', () => {
     const { container } = render(<StatsReadout />);
 
     // Assert
-    expect(container.textContent).toContain('Termination effectiveness');
+    expect(container.textContent).toContain('Current and power diagnostics');
     expect(container.textContent).toContain('8.5 dB');
   });
 
@@ -344,9 +365,9 @@ describe('StatsReadout', () => {
     const { container } = render(<StatsReadout />);
 
     // Assert
-    expect(container.textContent).toContain('Termination effectiveness');
+    expect(container.textContent).toContain('Current and power diagnostics');
     expect(container.textContent).toContain('∞ dB');
-    expect(container.textContent).toContain('Left leg ripple');
+    expect(container.textContent).toContain('Left leg current envelope range');
   });
 
   it('applies correct SWR threshold colors and negative reactance formatting', () => {
@@ -473,7 +494,7 @@ describe('StatsReadout', () => {
     expect(container.innerHTML).toContain('Realized gain (dBi): antenna gain after mismatch loss against 50 Ω with the 4:1 transformer fitted');
   });
 
-  it('renders termination section ripple colors and leg labels correctly', () => {
+  it('reports current envelope range without interpreting it as reflection purity', () => {
     const diagnostics: TerminationDiagnostics = {
       currentRippleByTag: [
         { tagNo: 1, magnitudes: [2e-3, 1e-3], ripple: 1.2, rippleDb: 2.0 }, // Left leg (<3 dB -> success)
@@ -500,10 +521,10 @@ describe('StatsReadout', () => {
     const { getByText, container } = render(<StatsReadout />);
     const leftRipple = getByText('2.0 dB');
     const rightRipple = getByText('6.0 dB');
-    expect(leftRipple.style.color).toBe('var(--success)');
-    expect(rightRipple.style.color).toBe('var(--warning)');
-    expect(container.textContent).toContain('Left leg ripple');
-    expect(container.textContent).toContain('Right leg ripple');
+    expect(leftRipple.style.color).toBe('');
+    expect(rightRipple.style.color).toBe('');
+    expect(container.textContent).toContain('Left leg current envelope range');
+    expect(container.textContent).toContain('Right leg current envelope range');
   });
 
   it('returns null for TerminationSection when diagnostics has no content', () => {
@@ -527,6 +548,6 @@ describe('StatsReadout', () => {
     });
 
     const { container } = render(<StatsReadout />);
-    expect(container.textContent).not.toContain('Termination effectiveness');
+    expect(container.textContent).not.toContain('Current and power diagnostics');
   });
 });

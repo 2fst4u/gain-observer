@@ -2,10 +2,11 @@ import type { RenderedWire } from './useAntennaGeometry';
 
 interface ShieldElementProps {
   shield: RenderedWire;
+  rigPosition: [number, number, number];
   transformerEnabled: boolean;
 }
 
-export function ShieldElement({ shield, transformerEnabled }: ShieldElementProps) {
+export function ShieldElement({ shield, rigPosition, transformerEnabled }: ShieldElementProps) {
   return (
     <>
       {transformerEnabled && (
@@ -24,8 +25,8 @@ export function ShieldElement({ shield, transformerEnabled }: ShieldElementProps
           <meshStandardMaterial color="#cc8844" emissive="#cc8844" emissiveIntensity={0.3} />
         </mesh>
       )}
-      {/* Rig marker at the bottom of the feedline (small box). */}
-      <mesh position={shield.sceneEnd}>
+      {/* Rig marker at the far end of the feedline (small box). */}
+      <mesh position={rigPosition}>
         <boxGeometry args={[0.4, 0.25, 0.5]} />
         <meshStandardMaterial color="#444" emissive="#222" emissiveIntensity={0.15} metalness={0.6} roughness={0.5} />
       </mesh>

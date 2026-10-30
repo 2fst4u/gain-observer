@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { buildWires, type Orientation } from '../../store/antennaStore';
+import { buildPhysicalWires, type Orientation } from '../../store/antennaStore';
 import type { AntennaType } from '../../physics/types';
 import { MAIN_WIRE_TAG, LEFT_LEG_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, INVERTED_L_VERTICAL_TAG } from '../../physics/tags';
 
@@ -18,6 +18,10 @@ export interface AntennaWireProps {
   readonly vAngle: number;
   readonly legSlope: number;
   readonly frequency: number;
+  readonly designFrequency: number;
+  readonly groundId: string;
+  readonly terminatingResistor: number;
+  readonly transformerEnabled: boolean;
   readonly foldedDipoleAperture: number;
 }
 
@@ -48,12 +52,17 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
     vAngle,
     legSlope,
     frequency,
+    designFrequency,
+    groundId,
+    terminatingResistor,
     whipCounterpoise,
     foldedDipoleAperture,
   } = props;
 
   return useMemo(() => {
-    const wires = buildWires({
+    let wires;
+    try {
+      wires = buildPhysicalWires({
       antennaType: type,
       length,
       height,
@@ -66,9 +75,17 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
       vAngle,
       legSlope,
       frequency,
+      designFrequency,
+      groundId,
+      terminatingResistor,
       whipCounterpoise,
       foldedDipoleAperture,
-    });
+      });
+    } catch {
+      // The scheduler runs the same builder and reports its validation message.
+      // Keep controls usable so correcting the geometry can recover the scene.
+      return { rendered: [], byTag: new Map<number, RenderedWire>() };
+    }
 
     const out: RenderedWire[] = [];
     const byTag = new Map<number, RenderedWire>();
@@ -129,12 +146,15 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
     vAngle,
     legSlope,
     frequency,
+    designFrequency,
+    groundId,
+    terminatingResistor,
     whipCounterpoise,
     foldedDipoleAperture,
   ]);
 }
 
-function useFeedpointAndShield(byTag: Map<number, RenderedWire>, type: AntennaType) {
+function useFeedpointAndShield(rendered: RenderedWire[], byTag: Map<number, RenderedWire>, type: AntennaType) {
   return useMemo(() => {
     const isDelta = type === 'delta-loop' || type === 'terminated-delta';
     const isWhip = type === 'vertical-whip';
@@ -160,8 +180,18 @@ function useFeedpointAndShield(byTag: Map<number, RenderedWire>, type: AntennaTy
       feedSingle?.position ??
       null;
 
-    return { shield: shieldWire, feedpoint: feedpointObj };
-  }, [byTag, type]);
+    // A cable longer than the drop turns along the ground, so the rig sits at
+    // the far end of the last shield wire rather than the bottom of the first.
+    let shieldEnd = shieldWire?.sceneEnd;
+    for (let i = rendered.length - 1; shieldWire && i >= 0; i--) {
+      if (rendered[i]!.isShield) {
+        shieldEnd = rendered[i]!.sceneEnd;
+        break;
+      }
+    }
+
+    return { shield: shieldWire, shieldEnd, feedpoint: feedpointObj };
+  }, [rendered, byTag, type]);
 }
 
 export interface TerminatedDeltaSplitResult {
@@ -220,8 +250,8 @@ function useTerminatedDeltaSplit(
 
 export function useAntennaGeometry(props: AntennaWireProps) {
   const { rendered, byTag } = useRenderedWires(props);
-  const { shield, feedpoint } = useFeedpointAndShield(byTag, props.type);
+  const { shield, shieldEnd, feedpoint } = useFeedpointAndShield(rendered, byTag, props.type);
   const terminatedDeltaSplit = useTerminatedDeltaSplit(byTag, props.type, props.wireRadius);
 
-  return { rendered, shield, feedpoint, terminatedDeltaSplit };
+  return { rendered, shield, shieldEnd, feedpoint, terminatedDeltaSplit };
 }

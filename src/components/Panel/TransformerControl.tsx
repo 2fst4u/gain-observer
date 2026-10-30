@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAntennaStore } from '../../store/antennaStore';
+import { useAntennaStore, isFeedlineActive } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { TRANSFORMER_INSERTION_LOSS_DB, Z0_SYSTEM, findFeedlinePreset } from '../../physics/constants';
 import { matchRatioForFeedpoint, suggestedTransformerRatio } from '../../physics/impedance';
@@ -116,7 +116,7 @@ function calculateOptimalRatio(
   if (!feedpointImpedance) return null;
   const preset = findFeedlinePreset(feedlineId);
   const target = preset.z0 > 0 ? preset.z0 : Z0_SYSTEM;
-  return matchRatioForFeedpoint(feedpointImpedance.R, target);
+  return matchRatioForFeedpoint(feedpointImpedance, target);
 }
 
 /**
@@ -135,6 +135,7 @@ export function TransformerControl() {
     transformerEnabled,
     transformerRatio,
     feedlineId,
+    feedlineActive,
     result,
     feedpointImpedance,
     setTransformerEnabled,
@@ -143,13 +144,13 @@ export function TransformerControl() {
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
     feedlineId: s.feedlineId,
+    feedlineActive: isFeedlineActive(s),
     result: s.result,
     feedpointImpedance: s.feedpointImpedance,
     setTransformerEnabled: s.setTransformerEnabled,
     setTransformerRatio: s.setTransformerRatio,
   })));
 
-  const feedlineActive = feedlineId !== 'none';
   const optimalRatio = calculateOptimalRatio(
     result,
     feedpointImpedance,
@@ -197,8 +198,8 @@ export function TransformerControl() {
 
       {!transformerEnabled && (
         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-          No transformer fitted — the feedline shield carries common-mode current
-          and contributes to radiation (often skewing the pattern for off-centre or
+          Without a choke, the feedline shield can carry common-mode current
+          and contribute to radiation (often skewing the pattern for off-centre or
           unbalanced feeds).
         </div>
       )}

@@ -9,7 +9,8 @@ import {
   expectExcitation,
   expectNoGroundTouchingWires,
 } from './necInspect';
-import { SLOPING_V_MIN_TIP_Z_M, FEED_BRIDGE_LENGTH_M, wavelengthMeters } from '../src/physics/constants';
+import { SLOPING_V_MIN_TIP_Z_M, FEED_BRIDGE_LENGTH_M, wavelengthMeters, DEFAULT_FEEDLINE_ID } from '../src/physics/constants';
+import { validateModelConfiguration } from '../src/physics/nec2Engine';
 import { TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, TERMINATED_DELTA_BRIDGE_TAG } from '../src/physics/tags';
 import { LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG } from '../src/physics/tags';
 
@@ -76,13 +77,25 @@ describe('Terminated Delta — defaults & state', () => {
     expect(useAntennaStore.getState().terminatingResistor).toBe(450);
   });
 
-  it('switching to terminated-delta engages a 9:1 transformer by default', () => {
+  it('switching to terminated-delta leaves the choke off but presets a 9:1 ratio', () => {
     const store = useAntennaStore.getState();
-    store.setTransformerEnabled(false);
+    store.setTransformerEnabled(true);
     store.setTransformerRatio(1);
     store.setAntennaType('terminated-delta');
-    expect(useAntennaStore.getState().transformerEnabled).toBe(true);
+    expect(useAntennaStore.getState().transformerEnabled).toBe(false);
     expect(useAntennaStore.getState().transformerRatio).toBe(9);
+  });
+
+  it('defaults to a configuration the engine accepts, feedline included', () => {
+    // The choked feed is rejected as nonconverged, so the antenna's own
+    // defaults must not enable it.
+    const store = useAntennaStore.getState();
+    store.setFeedline(DEFAULT_FEEDLINE_ID);
+    store.setFeedlineLength(10);
+    store.setAntennaType('terminated-delta');
+    const input = selectSimulationInput(useAntennaStore.getState());
+    expect(input.wires.some(w => w.tag === FEEDLINE_SHIELD_TAG)).toBe(true);
+    expect(() => validateModelConfiguration(input)).not.toThrow();
   });
 });
 
@@ -91,7 +104,7 @@ describe('Terminated Delta — NT-card transformer', () => {
     useAntennaStore.getState().setTerminatingResistor(0);
   });
 
-  it('with feedline + transformer + ratio>1: emits one NT card from bridge to shield top', () => {
+  it('cascades transformer and lossy line in one NT, without a differential port on the choke', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('terminated-delta');
     store.setFrequency(7.1);
@@ -102,24 +115,17 @@ describe('Terminated Delta — NT-card transformer', () => {
     store.setTransformerRatio(9);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    expect(input.networks).toHaveLength(1);
+    expect(input.networks).toBeUndefined();
     expect(getNecLines(deck, 'NT')).toHaveLength(1);
-    const nt = input.networks![0]!;
-    expect(nt.fromTag).toBe(FEED_BRIDGE_TAG);
-    expect(nt.fromSegment).toBe(1);
-    expect(nt.toTag).toBe(FEEDLINE_SHIELD_TAG);
-    expect(nt.toSegment).toBe(1);
-    // Lossless transformer: all real parts of Y are zero.
-    expect(nt.y11Real).toBe(0);
-    expect(nt.y12Real).toBe(0);
-    expect(nt.y22Real).toBe(0);
-    // Ideal transformer relationship: Y22 / Y11 = n² (impedance ratio).
-    expect(Math.abs(nt.y22Imag! / nt.y11Imag!)).toBeCloseTo(9, 3);
-    // And Y12 / Y11 = -n (voltage ratio sign-flipped).
-    expect(Math.abs(nt.y12Imag! / nt.y11Imag!)).toBeCloseTo(3, 3);
+    const line = input.transmissionLines![0]!;
+    expect(line.fromTag).toBe(FEED_BRIDGE_TAG);
+    expect(line.toTag).toBe(FEEDLINE_SHIELD_TAG);
+    expect(line.toSegment).toBe(input.excitation.segment);
+    expect(line.impedanceRatio).toBe(9);
+    expect(line.lossModel!.lossK1).toBeGreaterThan(0);
   });
 
-  it('with feedline + transformer + ratio>1: TL carries cable signal from shield top to shield bottom', () => {
+  it('with a transformer the combined two-port still goes bridge to source', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('terminated-delta');
     store.setFrequency(7.1);
@@ -130,7 +136,7 @@ describe('Terminated Delta — NT-card transformer', () => {
     store.setTransformerRatio(9);
     const input = selectSimulationInput(useAntennaStore.getState());
     const tl = input.transmissionLines![0]!;
-    expect(tl.fromTag).toBe(FEEDLINE_SHIELD_TAG);
+    expect(tl.fromTag).toBe(FEED_BRIDGE_TAG);
     expect(tl.toTag).toBe(FEEDLINE_SHIELD_TAG);
   });
 
@@ -489,7 +495,7 @@ describe('Terminated Delta — feedline support', () => {
     expect(input.excitation.wireTag).toBe(FEEDLINE_SHIELD_TAG);
   });
 
-  it('with a feedline, a TL card is emitted between the apex bridge and the shield', () => {
+  it('with a lossy feedline, a distributed NT card is emitted between bridge and shield', () => {
     const store = useAntennaStore.getState();
     store.setAntennaType('terminated-delta');
     store.setFrequency(7.1);
@@ -499,7 +505,8 @@ describe('Terminated Delta — feedline support', () => {
     store.setFeedlineLength(10);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    expect(getNecLines(deck, 'TL')).toHaveLength(1);
+    expect(getNecLines(deck, 'NT')).toHaveLength(1);
+    expect(getNecLines(deck, 'TL')).toHaveLength(0);
     expect(input.transmissionLines).toHaveLength(1);
   });
 });

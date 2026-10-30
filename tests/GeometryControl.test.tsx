@@ -311,7 +311,7 @@ describe('GeometryControl', () => {
 
     const checkbox = screen.getByRole('checkbox', { name: /Add ¼λ counterpoise radials/i }) as HTMLInputElement;
     expect(checkbox.checked).toBe(true);
-    expect(screen.getByText(/canonical ground-plane vertical/i)).toBeTruthy();
+    expect(screen.getByText(/physical lengths stay fixed while tuning/i)).toBeTruthy();
   });
 
   it('selects an inverted-l horizontal direction preset', () => {

@@ -7,59 +7,19 @@
 
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
-import { Suspense, useMemo } from 'react';
+import { Suspense } from 'react';
 import { AntennaWire } from './AntennaWire';
 import { GroundPlane } from './GroundPlane';
 import { RadiationPattern } from './RadiationPattern';
-import { useAntennaStore, selectAtuConfig, type ComparisonSnapshot } from '../../store/antennaStore';
+import { useAntennaStore, type ComparisonSnapshot } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { displayedFeedMetrics } from '../../physics/impedance';
+import { useFeedMetrics } from '../../hooks/useFeedMetrics';
 import { THEME_COLORS } from '../../utils/themeColors';
-import { type SimulationResult } from '../../physics/types';
 
 interface AntennaSceneProps {
   readonly snapshot?: ComparisonSnapshot | null;
 }
 
-
-function useRealizedGainOffset(
-  result: SimulationResult | null,
-  snapshot: ComparisonSnapshot | null,
-  frequency: number,
-  feedlineId: string,
-  feedlineLength: number,
-  storeLiveTransformerEnabled: boolean,
-  storeLiveTransformerRatio: number,
-  storeLiveAtuEnabled: boolean,
-  storeLiveAtuMainFeedlineLength: number
-) {
-  return useMemo(() => {
-    if (!result || result.maxRealizedGainDbi == null) return 0;
-    const { displayedRealizedGainDbi } = displayedFeedMetrics(result, {
-      transformerEnabled: snapshot ? false : storeLiveTransformerEnabled,
-      transformerRatio: snapshot ? 1 : storeLiveTransformerRatio,
-      feedlineActive: feedlineId !== 'none',
-      atu: snapshot ? undefined : selectAtuConfig({
-        atuEnabled: storeLiveAtuEnabled,
-        frequency,
-        feedlineId,
-        feedlineLength,
-        atuMainFeedlineLength: storeLiveAtuMainFeedlineLength,
-      }),
-    });
-    return displayedRealizedGainDbi != null ? displayedRealizedGainDbi - result.maxGainDbi : 0;
-  }, [
-    result,
-    snapshot,
-    storeLiveTransformerEnabled,
-    storeLiveTransformerRatio,
-    feedlineId,
-    feedlineLength,
-    storeLiveAtuEnabled,
-    frequency,
-    storeLiveAtuMainFeedlineLength,
-  ]);
-}
 
 function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
   const store = useAntennaStore(useShallow((s) => ({
@@ -81,6 +41,8 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
     liveTransformerEnabled: s.transformerEnabled,
     liveTransformerRatio: s.transformerRatio,
     liveFrequency: s.frequency,
+    liveDesignFrequency: s.designFrequency,
+    liveTerminatingResistor: s.terminatingResistor,
     liveAtuEnabled: s.atuEnabled,
     liveAtuMainFeedlineLength: s.atuMainFeedlineLength,
     showGrid: s.showGrid,
@@ -109,22 +71,18 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
   const foldedDipoleAperture = snapshot?.foldedDipoleAperture ?? store.liveFoldedDipoleAperture;
   const frequency = snapshot?.frequency ?? store.liveFrequency;
 
-  // Scale the pattern bubble to realized gain: the gain actually delivered after
-  // feedpoint mismatch (and any transformer/ATU) loss. The offset is realizedGain
-  // − gain, the same constant the stats readout applies. Comparison snapshots
-  // don't capture transformer/ATU settings, so they fall back to plain realized
-  // gain.
-  const realizedGainOffsetDb = useRealizedGainOffset(
-    result,
-    snapshot,
-    frequency,
-    feedlineId,
-    feedlineLength,
-    store.liveTransformerEnabled,
-    store.liveTransformerRatio,
-    store.liveAtuEnabled,
-    store.liveAtuMainFeedlineLength
-  );
+  const designFrequency = snapshot?.designFrequency ?? store.liveDesignFrequency;
+  const terminatingResistor = snapshot?.terminatingResistor ?? store.liveTerminatingResistor;
+  const transformerEnabled = snapshot?.transformerEnabled ?? store.liveTransformerEnabled;
+  const transformerRatio = snapshot?.transformerRatio ?? store.liveTransformerRatio;
+  const atuEnabled = snapshot?.atuEnabled ?? store.liveAtuEnabled;
+  const atuMainFeedlineLength = snapshot?.atuMainFeedlineLength ?? store.liveAtuMainFeedlineLength;
+  const metrics = useFeedMetrics({
+    antennaType: type, length, height, groundId, frequency, feedlineId, feedlineLength, feedlineOffset,
+    transformerEnabled, transformerRatio, atuEnabled, atuMainFeedlineLength,
+  }, result)?.metrics;
+  const realizedGainOffsetDb = result && metrics?.displayedRealizedGainDbi !== undefined
+    ? metrics.displayedRealizedGainDbi - result.maxGainDbi : 0;
 
   return {
     type,
@@ -143,6 +101,9 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
     legSlope,
     foldedDipoleAperture,
     frequency,
+    designFrequency,
+    terminatingResistor,
+    transformerEnabled,
     realizedGainOffsetDb,
     showGrid: store.showGrid,
     showAxes: store.showAxes,
@@ -180,6 +141,10 @@ function SceneContents({ snapshot = null }: AntennaSceneProps) {
           vAngle={config.vAngle}
           legSlope={config.legSlope}
           frequency={config.frequency}
+          designFrequency={config.designFrequency}
+          groundId={config.groundId}
+          terminatingResistor={config.terminatingResistor}
+          transformerEnabled={config.transformerEnabled}
           foldedDipoleAperture={config.foldedDipoleAperture}
         />
         <RadiationPattern

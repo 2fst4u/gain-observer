@@ -1,521 +1,190 @@
-# Antenna Physics and Modeling Specification
+# Antenna geometry and physical model
 
-This document is the stable reference for antenna geometry, coordinate systems, and the physical/mathematical model for all antenna types supported by `gain-observer`. All implementation work must reference and adhere to this specification to ensure consistency.
+This document describes the implemented model and its accuracy boundaries.
+NEC-2 solves a thin-wire electromagnetic problem; geometry, materials, feed
+networks and post-processing must also be validated. A plausible pattern or low
+SWR is not proof of an accurate model.
 
-It is organised in two parts:
+## Coordinates and physical configuration
 
-- **Part I — Concepts & Conventions** establishes the coordinate system, the shared glossary, the theory of terminated antennas, the SWR/impedance definitions, and the modeling patterns to avoid. These apply to every antenna type.
-- **Part II — Per-Type Specifications** gives the concrete, NEC-card-level geometry, feedpoint, termination, and segmentation rules for each supported antenna.
+Internal lengths are metres, frequencies MHz, conductivity S/m, impedance ohms
+and admittance siemens. NEC uses Z up, X east and Y north. Its θ angle is measured
+from zenith; elevation is 90°−θ. Its azimuth φ is counterclockwise from east;
+compass bearing is (90°−φ) mod 360°. The scene maps NEC (x,y,z) to (x,z,−y).
 
----
+Operating frequency and design frequency are separate. Counterpoise dimensions
+are fixed at design frequency and retained while tuning. Explicit antenna
+design actions reset those dimensions. Segmentation can change with frequency
+without moving physical endpoints. Captured comparisons retain the complete
+physical and matching configuration. Rendering shares the solver wire builder.
 
-# Part I — Concepts & Conventions
+## Antenna topologies
 
-## 1. Coordinate Conventions
-
-### 1.1 NEC Coordinate Axes
-
-We use the standard NEC-2 Cartesian coordinate system:
-
-- **Z-Axis**: Vertical axis. Positive Z is "up" (toward the zenith).
-- **XY-Plane**: The horizontal ground plane.
-- **Origin (0,0,0)**: Located at ground level directly under the antenna's geometric center (for symmetric antennas) or the primary feedpoint.
-
-### 1.2 Ground Plane Convention
-
-- **Free Space**: No ground plane. Calculations are performed in an infinite vacuum.
-- **Perfect Ground**: An infinite, perfectly conducting plane at $Z = 0$.
-- **Real Ground**: An infinite lossy dielectric plane at $Z = 0$, characterized by conductivity ($\sigma$ in S/m) and relative permittivity ($\epsilon_r$).
-- **Grounded Wires**: Wires must not end exactly at $Z = 0$ unless they are part of a deliberate grounded structure (e.g., a monopole or a terminated leg). NEC-2 requires special care for wires touching ground.
-
-### 1.3 Orientation and Angles
-
-- **Compass Heading**: $0^\circ$ is North ($+Y$ axis), $90^\circ$ is East ($+X$ axis).
-- **Internal Mapping**: To convert a compass heading $\alpha$ to a standard unit circle angle $\theta$ (where $0^\circ$ is $+X$): $\theta = 90^\circ - \alpha$.
-- **Elevation**: $0^\circ$ is the horizon (XY plane), $90^\circ$ is the zenith ($+Z$ axis).
-
-#### 1.3.1 NEC azimuth $\varphi$ vs compass bearing
-
-The NEC-2 `RP` card sweeps its own azimuth $\varphi$, measured from $+X$ toward $+Y$ (counter-clockwise seen from above). That is the axis `GainPattern` is indexed by and the one `SimulationResult.takeoffAzimuthDeg` reports. Because the geometry puts North on $+Y$ and East on $+X$, $\varphi = 0^\circ$ is due **East** and $\varphi = 90^\circ$ is due **North**:
-
-$$\text{bearing} = 90^\circ - \varphi \pmod{360^\circ}$$
-
-The relation is its own inverse — the two conventions differ by a $90^\circ$ rotation *and* a handedness flip. **Every** display that shows a direction to the user (polar cuts, propagation radar, stats readout) must convert; helpers live in `src/physics/angles.ts`. Substituting $\varphi$ for a bearing rotates and mirrors the whole pattern, which makes a north–south dipole appear to radiate north and south — off its ends, where it has nulls.
-
-The 3D scene is a separate mapping and needs no conversion: it remaps NEC $(x, y, z)$ to Three.js $(x, z, -y)$, so its $\varphi = \operatorname{atan2}(-z, x)$ recovers the NEC azimuth exactly.
-
-## 2. Glossary
-
-These definitions apply to every antenna type in Part II.
-
-- **Directivity ($D$):** $D = \frac{4\pi U_{max}}{P_{rad}}$. Computed as $G_{max} / \langle G \rangle$, where $\langle G \rangle$ is the whole-sphere average of the NEC power-gain pattern (`src/physics/patternIntegral.ts`). Deriving it from the NEC `POWER BUDGET` block instead ($D = G/\eta$) is only valid in free space: that budget counts conductor and network loss but not power absorbed by a lossy ground, so over real soil it collapses $D$ onto $G$.
-- **Gain ($G$):** $10 \log_{10}(\eta \cdot D)$ dBi. Read directly from the `RP` card's TOTAL column, which with `XNDA = 1000` is power gain referenced to the accepted input power — all ohmic and termination losses already included.
-- **Realized Gain:** $G(dBi) + 10 \log_{10}(1 - |\Gamma|^2)$.
-- **Efficiency ($\eta$):** $P_{rad} / P_{in}$, from the NEC power budget: conductor and termination loss only. Ground absorption happens after radiation and is not counted here — it shows up as the gap between $G$ and $D$.
-- **Average gain ($\langle G \rangle$):** $\frac{1}{4\pi}\oint G\,d\Omega$ — the fraction of input power that reaches the far field. NEC's classical average-gain test: a lossless free-space model must return $1.0$, and a value far off that indicates unconverged segmentation.
-- **Pattern surface (3D):** the rendered radius is the *linear power* gain, $r \propto 10^{G(\theta,\varphi)/10}$, so the bubble is the gain surface itself. The $/20$ field-amplitude exponent would draw its square root and halve every lobe ratio in dB.
-- **Front/Back:** $G_{peak} - G_{180^\circ}$ (dB).
-- **Ripple:** $(I_{max}-I_{min})/(I_{max}+I_{min})$.
-
-## 3. "Terminated" Antennas
-
-### 3.1 Physical Meaning
-
-A **terminated** antenna places a non-inductive resistive load somewhere on the radiating structure to absorb the wave that would otherwise reflect and form a standing wave. Two distinct families exist in this app, and they behave very differently:
-
-- **Open travelling-wave terminations** (Sloping V): each leg is an open long wire carrying a travelling wave from the apex feed out to a terminator at its far (ground-ward) tip. The termination absorbs the wave that would otherwise reflect, so each wire's radiation cone tilts toward its tip and the two cones reinforce off the open mouth of the V. The directionality comes from the travelling-wave _direction_ along each leg, **not** from any left/right geometric asymmetry. Result: a unidirectional, broadly cardioid pattern fired along the bisector of the V's opening, broadband.
-- **Closed aperiodic-loop terminations** (Terminated Delta, Terminated Folded Dipole [T2FD]): the structure is a closed loop fed at a symmetric point; the current is absorbed at the symmetric point opposite the feed via a single resistor _bridging the gap_ (not shunted to ground). Because the geometry stays bilaterally symmetric and the loop is electrically compact, the pattern remains bidirectional/broadside — **not** unidirectional. The termination buys broadband flat impedance, trading efficiency for flat SWR across an octave.
-
-### 3.2 Termination Implementation
-
-- **Sloping V**: Termination consists of a resistor connected from the end of each leg to ground via a short stub wire. Typical value $300\text{--}600\,\Omega$ (matches the leg's characteristic impedance against ground).
-- **Terminated Delta**: Termination is a single resistor on a short horizontal _bridge wire_ spanning the gap at the centre of the base. Typical value $\sim 600\,\Omega$ (close to the loop wire's characteristic impedance over typical HF heights, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$). **Not** two resistors to ground — that topology is symmetric but fails to terminate the loop, leaving large reactive feedpoint impedance and high leg current ripple.
-- **Terminated Folded Dipole**: Termination is a single resistor on a short horizontal _bridge wire_ spanning the gap at the centre of the top (un-fed) conductor. Like the terminated delta, this implements a proper TFD (T2FD) aperiodic-loop topology by forcing current through the resistor across the gap. Unlike the two loop types, the resistor lands in series with the feedpoint almost 1:1, so its value is a direct efficiency dial — recommended $300\,\Omega$ (−3 dB); see §13.3 for the closed form.
-- **Effect (sloping V)**: converts a resonant bi-directional radiator into a broadband uni-directional travelling-wave radiator.
-- **Effect (terminated delta)**: converts a resonant narrowband loop into a broadband aperiodic loop. Pattern stays roughly delta-loop-shaped (broadside max, end-fire minimum). Multi-band usable with a 9:1 unun.
-- **Effect (terminated folded dipole)**: flattens SWR across a wide frequency range compared to a standard folded dipole, at the cost of radiation efficiency due to power dissipated in the termination.
-
-### 3.3 Termination vs. Matching
-
-- **Crucial Distinction**: A "correctly terminated" antenna **does not** imply a $50\,\Omega$ feedpoint SWR.
-- The termination resistor is chosen to match the **antenna wire's characteristic impedance** to ground to prevent reflections on the wire itself.
-- The resulting feedpoint impedance may still be high (e.g., $400\text{--}800\,\Omega$) and will likely require a transformer (Balun/Unun) to match to $50\,\Omega$ coax.
-
-## 4. SWR and Impedance Definitions
-
-### 4.1 Raw Feedpoint Impedance
-
-The complex impedance $Z = R + jX$ calculated by NEC at the excitation segment.
-
-### 4.2 Raw SWR (vs 50 Ω)
-
-SWR calculated directly from the raw feedpoint impedance relative to a $50\,\Omega$ system:
-$$\Gamma = \frac{Z - 50}{Z + 50}$$
-$$\text{SWR} = \frac{1 + |\Gamma|}{1 - |\Gamma|}$$
-
-### 4.3 Reflection Distinction
-
-- **Wire Reflection**: Reflection at the end of the antenna wire (controlled by termination).
-- **Source SWR**: Mismatch between the transmission line (or generator) and the antenna feedpoint.
-- **Note**: A travelling-wave antenna (terminated) can have an excellent (low) wire reflection but a high source SWR if not transformed.
-
-## 5. Invalid Modeling Patterns to Avoid
-
-1.  **Grounded Tips at Z=0**: Do not end wires at $Z=0$ unless intentionally modeling a grounded structure. For real ground, wires should typically end at a small height (e.g., $0.001\text{--}0.1\,\text{m}$) or use the NEC-2 ground connection cards correctly if implemented.
-2.  **Silent Geometry Clamping**: If a user enters a height or length that is physically impossible or violates NEC constraints (e.g., segment length/radius ratio), do not silently change the value in the physics engine without reflecting this in the UI.
-3.  **Inconsistent Termination**: Do not mix "per-leg-to-ground" termination and "across-tip" termination in the same antenna model unless it is a specific, documented hybrid type.
-4.  **SWR-based Proof of Termination**: Never use a low SWR alone as "proof" that an antenna is correctly terminated. A resonant antenna can have $1:1$ SWR, but it is not "terminated" in the travelling-wave sense. Termination must be verified by inspecting the current distribution (lack of standing wave) and front-to-back ratio.
-
----
-
-# Part II — Per-Type Specifications
-
-Every type below uses the coordinate conventions of Part I §1 and the glossary of Part I §2. Termination behaviour is governed by the theory in Part I §3 and the SWR conventions by Part I §4.
-
-## 6. Dipole
-
-- **Balanced:** Yes.
-
-### 6.1 Geometry Definition
-
-- **Structure:** A single straight horizontal wire (or two collinear wires).
-- **Apex Location:** Geometric center of the wire at $(0, 0, \text{height})$.
-- **Leg Count & Length:** 1 wire, total end-to-end length $L$.
-- **Reference Length:** $0.475\lambda$ (Resonance). The UI also provides a $1.25\lambda$ 'Extended Double Zepp' preset length, yielding 3–4 dB more gain than ½λ via a longer wire aperture and narrower broadside lobes, at the cost of a very high feedpoint impedance (~1000 Ω) requiring a wide-range ATU or open-wire feedline.
-- **Conventions:** Straight wire aligned with orientation vector.
-- **Tips:** Symmetric endpoints at $\pm L/2$ relative to apex.
-- **Min Height:** Fully supports `height = 0` (or `height <= 0`), which seamlessly switches the model to a free space environment without ground, preventing NEC-2 `GE 1` instability.
-
-### 6.2 Feedpoint Definition
-
-- **NEC Excitation:** Single-segment voltage source (`EX`) on `MAIN_WIRE_TAG` (5) when no feedline/offset is present. When an offset or feedline is configured, the wire is split and the source is placed on a 1-segment `FEED_BRIDGE_TAG` (3).
-- **Segment:** Center segment of `MAIN_WIRE_TAG` (center-fed by default), or Segment 1 of `FEED_BRIDGE_TAG` when split.
-- **Feed Type:** Single-segment voltage source.
-- **Offset Feed:** Supports offset feedpoints (e.g., Off-Center Fed Dipole) by splitting the wire asymmetrically.
-- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; offset feedpoints are supported via splitting the wire).
-
-### 6.3 Termination Definition
-
-- **Model:** None. Dipoles are resonant, non-terminated antennas.
-
-### 6.4 SWR Convention
-
-- **Reference:** 50.0 Ω.
-- **Metric:** Raw feedpoint SWR (Mismatch to 50 Ω).
-
-### 6.5 Segmentation Rules
-
-- **Density:** 20 segments per $\lambda$ minimum.
-- **Minimum:** 9 segments total.
-- **Alignment:** Must use an **odd** number of segments to ensure a precise center feedpoint.
-
----
-
-## 7. Inverted-V
-
-- **Balanced:** Yes.
-
-### 7.1 Geometry Definition
-
-- **Structure:** Two wires sloping down from a common central apex.
-- **Apex Location:** Highest point at $(0, 0, \text{height})$. The `height` parameter refers to the apex.
-- **Leg Count & Length:** 2 legs, total radiating length $L$ (sum of both legs).
-- **Reference Length:** $0.485\lambda$ total ($0.5\lambda$ with 0.97 end-effect).
-- **Angle/Slope:** Included angle $\alpha$ between legs (Default 120°). The angle automatically flattens (increases) if necessary to prevent the tips from dropping below the minimum height.
-- **Tips:** Symmetric endpoints at $z = \text{height} - \frac{L - \text{bridge}}{2} \cdot \cos(\alpha_{\text{eff}}/2)$, where $\alpha_{\text{eff}}$ is the effective angle after any required flattening.
-- **Min Height:** Tip height must be $\ge 0.5$ m.
-
-### 7.2 Feedpoint Definition
-
-- **NEC Excitation:** 1-segment "source bridge" (Tag 3) at apex.
-- **Segment:** Segment 1 of Tag 3.
-- **Feed Type:** Balanced bridge segment.
-- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable).
-
-### 7.3 Termination Definition
-
-- **Model:** None.
-
-### 7.4 SWR Convention
-
-- **Reference:** 50.0 Ω.
-- **Metric:** Raw feedpoint SWR.
-
-### 7.5 Segmentation Rules
-
-- **Density:** 20 segments per $\lambda$ minimum.
-- **Minimum:** 9 segments per radiating leg.
-- **Alignment:** Legs should have equal segments. Bridge is exactly 1 segment.
-
----
-
-## 8. Sloping V (Terminated)
-
-- **Balanced:** Yes (apex-fed). Supports termination at the far ends of the legs (see Part I §3).
-
-### 8.1 Geometry Definition
-
-- **Structure:** Two wires forming a V-shape, sloping from a high feedpoint toward the ground or lower supports.
-- **Apex Location:** Highest point at $(0, 0, \text{height})$. The `height` parameter refers to the feedpoint (apex).
-- **Leg Count & Length:** 2 legs, total radiating length $L$ (sum of both legs).
-- **Reference Length:** $2.0\lambda$ **total** ($\approx 1.0\lambda$ per leg). The `length` parameter is the total radiating wire, split into two legs of $(L - \text{bridge})/2$ each. Traveling-wave structure, so no end-effect correction applies.
-- **Angle/Slope:** Included angle $\alpha$ (between legs). The downward slope of the legs is automatically calculated so that the tips rest at the ground floor (`SLOPING_V_MIN_TIP_Z_M` or $0.5$ m) to ensure consistent termination to ground.
-- **Tips:** Endpoints at ground-ward end of legs.
-- **Min Height:** Tip height must be $\ge 0.5$ m.
-- **Apex feed gap.** Each leg end is set back **along its own leg** from the geometric apex, leaving a gap of `FEED_BRIDGE_LENGTH_M` between the two ends that the 1-segment feed bridge spans. Because the legs diverge at $\alpha$, the setback is $(\text{bridge}/2)/\sin(\alpha/2)$ — a narrow V must be trimmed further back to open the same gap, which is what the real antenna looks like. It is capped at 5 % of the leg so a short antenna cannot have its legs eaten, and floored at half a bridge.
-
-  This matters more than it looks. The setback used to be applied along the **orientation axis** instead of along each leg, which left the bridge at $\alpha/2$ to both legs — fully perpendicular at $\alpha = 180°$, where the two legs became a pair of parallel lines one bridge-width apart rather than a single straight wire. At $\alpha = 180°$ the sloping V *is* an inverted V (opposed legs, tips on the same floor), so the two must agree; they were 0.17–0.20 dB and ~160 Ω of reactance apart, unchanged across four levels of segment refinement. They now agree to 0.000 dB and ~2 Ω. Holding the *gap* constant rather than the *setback* also measurably beats the simpler alternative — average-gain error over perfect ground by $\alpha$:
-
-  | $\alpha$ | 10° | 30° | 45° | 60° | ≥90° |
-  |---|---|---|---|---|---|
-  | offset along orientation axis (old) | −0.264 dB | −0.232 | −0.217 | −0.201 | −0.15 to −0.18 |
-  | constant setback along each leg | −0.313 | −0.154 | −0.103 | −0.070 | ~0.02 |
-  | **constant gap (current)** | **−0.170** | **−0.117** | **−0.088** | **−0.063** | **~0.02** |
-
-  The residual at narrow $\alpha$ is not this: there the two legs run within about one segment length of each other for their whole length, which NEC-2's thin-wire kernel cannot represent well. `tests/slopingVInvertedVEquivalence.integration.test.ts` pins the equivalence.
-- **Orientation convention.** A sloping V's `orientation` is its **boresight** — the direction the V points — so at $\alpha = 180°$ its legs run *across* that axis. An inverted V's `orientation` is the leg axis itself. The same setting therefore puts the two patterns 90° apart in azimuth: sloping V NS corresponds to inverted V EW. This is per-antenna convention rather than a defect, but it is the usual reason the two look unrelated when compared directly.
-- **`vAngle` is not the same quantity as the inverted V's.** Here it is the included angle **in azimuth** (how far the legs splay horizontally); for the inverted V it is the included angle **in the vertical plane**. Setting both to 180° gives a drooping V with its tips at 0.5 m in one case and a *flat dipole at full apex height* in the other — around 5.4 dB apart at 15 m, almost all of it height over ground. To compare them, match the tip heights, not the angle.
-
-### 8.2 Feedpoint Definition
-
-- **NEC Excitation:** 1-segment source bridge at apex.
-- **Segment:** Segment 1 of bridge.
-- **Feed Type:** Balanced bridge segment.
-- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable).
-
-### 8.3 Termination Definition
-
-- **Topology:** Resistor from each leg tip to ground via short stub wires.
-- **Diagram:**
-  ```
-       Apex (Feed)
-          / \
-         /   \
-        /     \
-      Tip     Tip
-       |       |
-       R       R
-       |       |
-      GND     GND
-  ```
-- **NEC Model:** `LD 4` loads on short vertical stub wires extending from each tip down to a hub just above ground, plus a radial screen at each hub. The hub sits at `slopingVTerminationHubZ()` — 0.001 λ above ground (the lowest the Sommerfeld-Norton ground is documented to represent faithfully), floored at `SLOPING_V_STUB_BOTTOM_Z_M`.
-- **Value:** `terminatingResistor` is applied identically to both stubs. Default is 300 Ω; the modelled ripple optimum sits nearer 500 Ω (see below).
-- **Return Path — and why the screen exists.** This is the one place in the model where a wire stands in for something that is not wire. **NEC-2 cannot bond a conductor to a Sommerfeld-Norton ground**: wires must stay above `z = 0`, and a wire that merely *ends* near the earth is an open circuit, not an earth connection. A resistor terminating into one is in series with its own sub-picofarad end capacitance and passes almost no current.
-
-  That is not a theoretical worry — it is what this model used to do. Measured against the solver at 7.1 MHz (84 m legs, 90°, 15 m apex): the stub-only termination dissipated **0.9 %** of input power and left **18 dB** of leg current ripple, a full standing wave. Deleting the resistor altogether moved the answer less than the ripple's own rounding, and *raising* R from 300 Ω to 5000 Ω made it dissipate **more** — the signature of a series capacitance setting the current, which is the opposite of how a termination behaves.
-
-  `SLOPING_V_COUNTERPOISE_RADIALS` (8) radials of `SLOPING_V_COUNTERPOISE_LENGTH_WL` (0.10 λ) at each hub give the termination current the return path the real antenna's earth stake provides. With the screen fitted the same resistor takes **~68 %** of the power and ripple falls to **~2.4 dB**.
-
-  The check that this is now physics rather than a fudge: the ripple minimum lands at **R ≈ 500 Ω**, on the leg's characteristic impedance against ground, and degrades either side of it (100 Ω → 12.5 dB, 500 Ω → 2.4 dB, 1200 Ω → 7.1 dB). A decorative resistor shows no optimum at all. `tests/slopingVTermination.integration.test.ts` pins this; a structural test over the deck cannot, which is exactly how the defect survived.
-- **Radial sizing.** 0.10 λ rather than the marginally better-terminating 0.25 λ because the deck is built once at the design frequency and re-used across the whole 1.8–30 MHz SWR sweep. Quarter-wave radials pass through resonance mid-sweep and put a step in the efficiency curve that belongs to the model, not the antenna. At 0.10 λ the screen stays electrically small across the sweep. Radial length is additionally capped at 40 % of the tip separation so the two screens can never overlap, which would be a NEC geometry error.
-- **Not rendered.** The counterpoise is simulation-only: `buildWires` does not emit it, so the 3D scene shows the stub and resistor a builder actually installs and not the solver's stand-in for the dirt underneath. In the real antenna there is an earth stake there, not eight radials.
-
-### 8.4 SWR Convention
-
-- **Reference:** 50.0 Ω.
-- **Statement:** Traveling wave antennas often have high raw SWR (e.g., 600 Ω feed). Raw SWR graph reflects this mismatch, not termination quality.
-
-### 8.5 Segmentation Rules
-
-- **Density:** 20 segments per $\lambda$ minimum.
-- **Minimum:** 9 segments per radiating leg.
-
----
-
-## 9. Delta Loop
-
-- **Balanced:** Yes.
-
-### 9.1 Geometry Definition
-
-- **Structure:** An apex-up, isosceles triangular loop of wire.
-- **Apex Location:** Highest point at $(0, 0, \text{height})$.
-- **Leg Count & Length:** 3 wires forming a triangle, total perimeter $L$.
-- **Reference Length:** $1.0\lambda$ (Resonance).
-- **Angle/Slope:** Equilateral triangle in the vertical plane (flattens to isosceles when the mast height is below the equilateral height; perimeter preserved).
-- **Tips:** Bottom corners.
-- **Min Height:** Bottom wire must be $\ge 0.5$ m above ground.
-
-### 9.2 Feedpoint Definition
-
-- **NEC Excitation:** Last segment of the LEFT leg (Tag 1, nearest the apex) when no feedline is fitted; 1-segment apex bridge when a feedline is present.
-- **Segment:** Segment `segmentsPerLeg` of Tag 1 (no feedline), or Segment 1 of the apex bridge (with feedline).
-- **Feed Type:** Apex feed (balanced).
-- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable).
-
-### 9.3 Termination Definition
-
-- **Model:** None.
-
-### 9.4 SWR Convention
-
-- **Reference:** 50.0 Ω.
-- **Metric:** Raw feedpoint SWR.
-
-### 9.5 Segmentation Rules
-
-- **Density:** 20 segments per $\lambda$.
-- **Minimum:** 9 segments per side.
-- **Alignment:** Excitation is placed at the apex, so segment count alignment on the bottom wire is not strictly constrained by feedpoint centering.
-
----
-
-## 10. Terminated Delta (aperiodic loop)
-
-- **Termination Support:** A single resistor across the base-centre gap (not two resistors to ground). Designed for broadband flat impedance, not directionality — the antenna remains roughly broadside-bidirectional, like a delta loop but aperiodic (see Part I §3).
-
-### 10.1 Geometry Definition
-
-- **Structure:** A triangular loop of wire, split at the centre of the base, with a single horizontal _bridge wire_ spanning the gap.
-- **Apex Location:** Highest point at $(0, 0, \text{height})$.
-- **Leg Count & Length:** 3 wires forming a triangle, total perimeter $L$. The bottom wire is split at the centre, so the structure is emitted as two top legs + two half-base wires + one bridge wire across the gap (when terminated).
-- **Reference Length:** $1.0\lambda$ canonical, but resonance is not the design goal: a properly bridged termination flattens impedance across an octave or more, so the antenna is used multi-band rather than at a single design frequency.
-- **Angle/Slope:** Equilateral triangle in the vertical plane (flattens to isosceles when the mast height is below the equilateral height; perimeter preserved).
-- **Tips:** Bottom corners. The bottom wire is split at the centre with a gap (`FEED_BRIDGE_LENGTH_M` = 0.1 m).
-- **Min Height:** Bottom wire must be $\ge 0.5$ m above ground.
-
-### 10.2 Feedpoint Definition
-
-- **NEC Excitation:** Last segment of the LEFT leg (at the apex) when no feedline is fitted; 1-segment apex bridge when a feedline is present.
-- **Feed Type:** Apex feed (balanced).
-- **Feedline Support:** Supported (radiating shield + NEC `TL` card; feedpoint always at apex, offset is not applicable). A 9:1 (or similar) unun is typically required at the rig end to bring the ~500–900 Ω feedpoint Z down to ~50 Ω.
-
-### 10.3 Termination Definition
-
-**How it is built, in plain terms.** Put up an ordinary delta loop — one triangle of wire, apex at the top of the mast, bottom corners out to stakes. Feed the apex, balanced. Then cut the *bottom* wire at its exact midpoint, pull the two ends ~100 mm apart on a small insulator, and connect the terminating resistor **across that gap**: one lead to the left half of the bottom wire, one lead to the right half. The resistor is a link in the wire, in line with it, hanging in the air.
-
-Nothing goes to earth — no ground rod, no wire to the ground, nowhere. The antenna is entirely floating.
-
-The picture to keep is *a bead threaded onto the loop, not a drain to earth*. Current circulates round the triangle, and the resistor sits in that current path at the point furthest from the feed, where the current is strongest, absorbing the wave before it can reflect. Earth plays no part.
-
-Resistor: non-inductive (carbon composition or a bank of them; never wirewound), and rated for real power — at 7 MHz the model puts ~65 % of transmit power into it, so 100 W out wants a 100 W-plus resistor.
-
-- **Topology:** A single horizontal _bridge wire_ spans the gap between the two half-base inner ends. The terminating resistor sits on that bridge. This is an aperiodic-loop topology (the triangular cousin to the T2FD).
-- **Why the resistor goes there, and not to ground.** On a 1 λ loop fed at one point, the point diametrically opposite the feed is a **current maximum and voltage null**. A resistor in series across the gap sits in the full circulating current and absorbs it ($P = I^2R$). Two resistors shunted to earth sit at a voltage null, so there is little voltage to drive current through them — and worse, they break the loop, so the circulating mode cannot exist at all. The structure stops being a loop and becomes two wires fed in series against earth, with the return current going through the ground.
-
-  Measured (42 m perimeter, 15 m apex, pastoral ground), grounded stubs against the bridge: at 7.1 MHz the stub version leaves **14.2 dB** of leg ripple against 16.5 dB unterminated — it barely terminates anything — while still burning ~62 % of the power, and feedpoint reactance is **−1755 Ω** against −260 Ω for the bridge. After a 9:1 unun the bridge holds **1.4–2.1:1 from 7 to 28 MHz**; the grounded version blows out to **9:1** at 7.1 MHz. It only begins working above ~14 MHz, where the stubs are electrically long enough to couple to ground — and by then they are radiating verticals in their own right, so the pattern is no longer a delta loop's. Worst of both: full termination loss, none of the broadband flatness.
-
-  This is also what the published designs do. The ground-independent terminated loops — Flag, Pennant, Kaz, and the K6SE/EA3VY **Delta** whose name this antenna borrows — all put a single resistor *in* the loop opposite the feed, with no earth connection; ground-independence is the selling point. The terminated loops that *do* run a resistor to earth (K9AY, Ewe) are asymmetric, need a ground rod, and are receive-only: they are lossy enough to need ~15 dB of gain to match a Beverage.
-- **NEC Model:** One `LD 4` load on the single segment of `TERMINATED_DELTA_BRIDGE_TAG`. No vertical stubs, no ground shunts.
-- **Value:** `terminatingResistor` should be close to the loop wire's characteristic impedance over real ground, $Z_0 \approx 60 \ln(2h/a) \approx 500\text{--}700\,\Omega$. Default is 600 Ω.
-- **What this is NOT:** Not a unidirectional travelling-wave antenna. The geometry is bilaterally symmetric, so by symmetry the pattern is bidirectional/broadside (delta-loop-like). The termination buys broadband flat impedance, not directionality. For a unidirectional cardioid you need an asymmetric topology (e.g. corner-fed/corner-terminated K9AY-style), which this app does not currently model.
-
-### 10.4 SWR Convention
-
-- **Reference:** 50.0 Ω.
-- **Metric:** Raw feedpoint SWR.
-
-### 10.5 Segmentation Rules
-
-- **Density:** 20 segments per $\lambda$.
-- **Minimum:** 9 segments per side.
-- **Alignment:** Base is split into two halves.
-
----
-
-## 11. Vertical Whip
-
-- **Balanced:** No (unbalanced, driven against ground or radials).
-
-### 11.1 Geometry Definition
-
-- **Shape:** A single vertical wire extending upwards from the base.
-- **`height` parameter:** The height of the base above ground (metres). Usually 0 or very small.
-- **`length` parameter:** The length of the vertical wire (metres). Defaults to 32 ft (9.75 m).
-- **Orientation:** Not applicable (omnidirectional).
-- **Base:** The vertical wire starts at the maximum of `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) and `height` to ensure electrical isolation from the ground.
-- **Reference length:** $0.2375\lambda$ (¼λ with 0.95 end-effect).
-
-### 11.2 Feedpoint Definition
-
-- **NEC Excitation:** Segment 1 of `VERTICAL_WHIP_TAG` (12) — the lowest segment at the base.
-- **Feed Type:** Base-fed monopole (unbalanced). Coax shield connects at the base; the antenna is driven against the ground / counterpoise.
-- **Feedline Support:** Not modelled. The feedline is treated as ideal.
-
-### 11.3 Counterpoise
-
-- **Model:** When enabled, `VERTICAL_WHIP_RADIAL_COUNT` (4) horizontal ¼λ radials fan out from the base at equal azimuth spacing, tagged `VERTICAL_WHIP_RADIAL_TAG` (13).
-- **Without counterpoise:** The source has no proper return path; NEC reports the high reactance and SWR that a radial-less base-fed antenna physically exhibits.
-
-### 11.4 SWR Convention
-
-- **Reference:** 50 Ω.
-- **Notes:** A resonant ¼λ vertical over a good ground plane presents roughly 36 Ω.
-
-### 11.5 Segmentation Rules
-
-- **Density:** 20 segments per λ minimum for the whip and each radial.
-- **Minimum:** 9 segments (`MIN_SEGS_PER_LEG`) per wire.
-- **Whip and radials are emitted as separate `Wire` objects**, tagged independently.
-
----
-
-## 12. Inverted-L
-
-- **Balanced:** No.
-
-### 12.1 Geometry Definition
-
-- **Shape:** Two wire segments forming an L: a vertical section from the base up to the bend point, followed by a horizontal top-loading section extending outward at right angles.
-- **`height` parameter:** Bend-point height above ground (metres). This equals the length of the vertical section (base gap excluded). Controls how tall the mast needs to be.
-- **`length` parameter:** Total wire length (vertical + horizontal combined, metres). The horizontal section absorbs any length beyond the vertical section: $L_{horiz} = L_{total} - L_{vert}$.
-- **Orientation:** Azimuth direction the horizontal section runs.
-- **Base:** The vertical wire starts at exactly `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above ground, regardless of the `height` parameter.
-- **Bend junction:** The end of the vertical wire and the start of the horizontal wire share an exact coordinate so NEC creates a proper wire junction.
-- **Reference length:** $0.2375\lambda$ total (¼λ with 0.95 end-effect); the horizontal section provides the electrical length the mast height falls short of.
-
-### 12.2 Feedpoint Definition
-
-- **NEC Excitation:** Segment 1 of `INVERTED_L_VERTICAL_TAG` (14) — the lowest segment at the base of the vertical section.
-- **Feed Type:** Base-fed monopole (unbalanced). Coax shield connects at the base; the antenna is driven against the ground / counterpoise.
-- **Feedline Support:** Not modelled (same convention as vertical whip). The feedline is treated as ideal.
-
-### 12.3 Counterpoise
-
-- **Model:** When enabled, `VERTICAL_WHIP_RADIAL_COUNT` (4) horizontal ¼λ radials fan out from the base at equal azimuth spacing, tagged `INVERTED_L_RADIAL_TAG` (16). Identical pattern to the vertical whip's counterpoise.
-- **Without counterpoise:** The source has no proper return path; NEC reports the high reactance and SWR that a radial-less base-fed antenna physically exhibits.
-
-### 12.4 SWR Convention
-
-- **Reference:** 50 Ω.
-- **Notes:** A resonant ¼λ inverted-L over a good ground presents roughly 30–50 Ω — a usable direct coax match. Feedpoint impedance varies with height, horizontal-section fraction, and ground quality. The vertical-section fraction has a stronger influence on the radiation pattern (more vertical component → more omnidirectional; more horizontal component → slight gain asymmetry in the horizontal-section direction).
-
-### 12.5 Segmentation Rules
-
-- **Density:** 20 segments per λ minimum for each section independently.
-- **Minimum:** 9 segments per section (`MIN_SEGS_PER_LEG`).
-- **Vertical and horizontal sections are emitted as separate `Wire` objects**, tagged independently so current-ripple diagnostics can distinguish them.
-
----
-
-## 13. Folded Dipole
-
-- **Balanced:** Yes.
-
-### 13.1 Geometry Definition
-
-- **Shape:** Two parallel half-wave conductors joined at both ends, forming a narrow rectangular loop in the vertical plane. The bottom (fed) conductor sits at `z = height`; the top (un-fed) conductor sits at `z = height + aperture`. The connectors are short vertical wires at each end. The overall structure is fully buildable at a modest height — the top conductor only rises `aperture` (≤ 0.5 m) above the feedpoint, unlike a vertical loop.
-- **`length` parameter:** Each conductor's length (metres). Reference length: ½λ (0.475λ with end-effect) — same as a standard dipole; the fold does not change the resonant length.
-- **`foldedDipoleAperture` parameter:** Vertical spacing between the two parallel conductors (metres). Default 0.3 m. Clamped to [0.02 m, `FOLDED_DIPOLE_MAX_APERTURE_M` = 0.5 m]. The upper cap keeps the antenna a genuine folded dipole and, crucially, within the spacing range where NEC's close-parallel-wire solution converges inside `MAX_SEGS_PER_LEG` (see §13.5).
-- **Orientation:** Azimuth the conductor axis runs. The aperture is in the vertical (Z) direction; changing the orientation rotates the axis in the horizontal plane but the top/bottom wire layout is preserved.
-- **Fed conductor:** Split at its centre by a `FEED_BRIDGE_LENGTH_M` (0.1 m) feed bridge (the two halves carry `LEFT_LEG_TAG` / `RIGHT_LEG_TAG`, the same split-fed convention as the standard dipole).
-- **Min Height:** Bottom conductor at `z = height`; fully supports `height = 0` (or `height <= 0`), which seamlessly switches the model to a free space environment without ground, preventing NEC-2 `GE 1` instability. The top conductor is automatically at `z = height + aperture`.
-
-### 13.2 Feedpoint Definition
-
-- **NEC Excitation:** Segment 1 of `FEED_BRIDGE_TAG` (3) at the centre of the lower conductor — handled by the existing `hasBridge` excitation path.
-- **Feed Type:** Single-segment voltage source on the bridge; balanced.
-- **Feedline Support:** Supported (Radiating shield + NEC `TL` card; feedpoint always at the centre bridge, offset is not applicable).
-- **Feedpoint Impedance:** Approximately 4× a plain dipole (~300 Ω, `FOLDED_DIPOLE_FEED_R_OHMS`) for equal-diameter conductors, largely independent of spacing — the two conductors each carry the same antenna-mode current, doubling the current for a given feed current. A 4:1 balun brings this to ~75 Ω; a 6:1 to ~50 Ω. 300 Ω twin-lead matches it directly.
-- **Default balun: 9:1**, not the textbook 6:1. Over real ground the feedpoint is ~285 + 90j rather than a clean 300 Ω, and the recommended termination adds another ~300 Ω in series, so 6:1 suits only the unterminated case. Measured at 7.1 MHz, 8 m over pastoral ground: 9:1 gives 1.6:1 unterminated and 1.4:1 terminated, where 6:1 gives 1.4:1 and 2.0:1.
-
-### 13.3 Termination Definition
-
-- **Topology:** Optional. The opposite conductor is split into two halves at the centre. When terminated, a single `LD 4` resistor sits on a short horizontal bridge wire (`FOLDED_DIPOLE_TERM_BRIDGE_TAG`) that spans the gap between the two inner ends of the un-fed (top) conductor.
-- **Unterminated (`terminatingResistor = 0`):** A classic folded dipole — ~300 Ω, narrowband, dipole gain and pattern.
-- **Terminated (`terminatingResistor > 0`):** A terminated folded dipole (TFD or T2FD). The resistor flattens SWR across a wide frequency range at the cost of efficiency. This is the straight-conductor cousin of the aperiodic loop modelled under §10 as a terminated delta.
-- **Cost of termination — closed form.** At the half-wave resonance the unfed conductor carries essentially the same current as the fed one (that is *why* the feedpoint is 4× a dipole's), and the resistor sits at its current maximum, so it appears at the feedpoint almost 1:1 in series with the radiation resistance:
-
-$$\eta \approx \frac{R_{feed}}{R_{feed} + R} \qquad \Delta G \approx -10\log_{10}\left(1 + \frac{R}{R_{feed}}\right)\ \text{dB}$$
-
-  Verified against the solver at 7.1 MHz, 8 m over pastoral ground: R = 300 Ω → 49 % efficiency (predicted 48.6 %), R = 600 Ω → 32.5 % (predicted 32.1 %), R = 900 Ω → 24.4 % (predicted 24.0 %). The feedpoint rises by almost exactly R, which is the same statement.
-- **Recommended value: `FOLDED_DIPOLE_FEED_R_OHMS` = 300 Ω** = $R_{feed}$, i.e. the 50 % / −3 dB point — the least that can be paid for broadband behaviour. Default is 0 Ω (unterminated). **Not** the two-wire line's $Z_0$ (≈ 684 Ω at the default aperture), which was the earlier recommendation: that line is the *non-radiating* transmission-line mode, so terminating it in its own $Z_0$ flattens SWR without contributing to radiation, and measured 5.3 dB down at the design frequency. Across 7–28 MHz the 300 Ω + 9:1 pair holds the same worst-case SWR (5.6:1) as the old 684 Ω + 6:1 pair while returning 2.2 dB at the design frequency.
-- **Where the loss is booked.** The termination is an `LD 4` segment load, so NEC reports its dissipation under **STRUCTURE LOSS**, not NETWORK LOSS (which covers `NT` two-port networks and is 0 for these decks).
-
-### 13.4 SWR Convention
-
-- **Reference:** 50 Ω.
-- **Statement:** Raw SWR against 50 Ω is high (~6:1) for the unterminated ~300 Ω feedpoint. A 9:1 impedance-transforming balun is **enabled by default** when this antenna type is selected (see §13.2), landing both the plain and the terminated antenna under 1.7:1 at the design frequency. The terminated variant (TFD) shows a flatter curve across the band, reflecting the resistive termination rather than improved efficiency.
-
-### 13.5 Segmentation Rules
-
-- **Target segment length:** `min(λ / 20, aperture / 2)`. NEC's thin-wire kernel loses accuracy for closely-spaced parallel wires once the segment length grows much larger than the wire separation; tying the segment length to half the aperture is the empirical point at which the free-space gain converges to the dipole value. All segment counts derive from this single target length, capped at `MAX_SEGS_PER_LEG` (100). This is also why the aperture is capped at 0.5 m — wider spacings would need more than 100 segments to converge.
-- **Minimum:** 9 segments (`MIN_SEGS_PER_LEG`) per fed half-conductor and for each half of the opposite conductor.
-- **Alignment:** The opposite conductor is always split into two symmetric halves (each with the same segment count) around the centre. The fed conductor is split into two halves around the 1-segment feed bridge.
-- **Wires:** 7 wires total — fed-conductor left half, feed bridge, fed-conductor right half, opposite conductor left half, opposite conductor right half, and the two end connectors across the aperture (shared `FOLDED_DIPOLE_CONNECTOR_TAG`). An 8th wire (the termination bridge) is added when terminated.
-
-### 13.6 Gain
-
-- **Unterminated:** Identical to a standard dipole (~2.15 dBi in free space) at narrow apertures. The fold is an impedance transformation, not a gain mechanism.
-- **Wide aperture:** As the spacing grows toward a notable fraction of a wavelength, the two in-phase conductors begin to act as a broadside two-element array and the pattern departs from a simple dipole.
-- **Terminated:** Lower than a plain dipole by $10\log_{10}(1 + R/R_{feed})$ dB — 3.0 dB at the recommended 300 Ω (§13.3). The *pattern* is untouched: directivity holds at 7.7 dBi across the whole range of R, so every dB is dissipation, not a change in radiation.
-- **Harmonic dips:** At even multiples of the design frequency the transmission-line mode presents a short across the feed (each side becomes a half-wave shorted stub), collapsing the feedpoint resistance. Terminated, nearly all the power then goes into the resistor: measured −0.3 dBi at 2× against +3.2 dBi at the design frequency. This is inherent to the folded topology and is why a T2FD is specified from its design frequency upward rather than at its harmonics.
-
-## 14. Model validity: the average-gain test
-
-### 14.1 Feed-bridge segmentation
-
-Integrating NEC's power gain over the whole sphere recovers the fraction of the source's input power that actually left as a far field:
-
-$$\langle G \rangle = \frac{1}{4\pi} \oint G(\theta,\phi)\, d\Omega = \frac{P_{far}}{P_{in}}$$
-
-Over a **perfect** ground nothing absorbs power except the deck's own `LD` cards, so $\langle G \rangle$ must land on the power budget's efficiency. Above it is physically impossible — the deck radiating more than it is fed — and always means the model is wrong.
-
-Several antennas failed this badly. A wire fed through a bridge is split around a 1-segment `FEED_BRIDGE_LENGTH_M` (0.1 m) wire carrying the source; if the halves either side keep their bulk segment length, that bridge segment butts against neighbours 10–20× its length. NEC-2's thin-wire kernel assumes adjacent segments are comparable — the usual guidance is to stay inside about 2:1 — and beyond that the solved current at the source is wrong. Because NEC normalises the entire radiation pattern by the source's input power, that error scales every gain figure in the deck.
-
-Measured on a split half-wave dipole over perfect ground, where the answer must equal the unsplit 8.43 dBi and $\langle G \rangle$ must be 1.000:
-
-| Segment ratio at bridge | 9.7:1 | 5.1:1 | 2.6:1 | 1.3:1 | 1.0:1 |
-|---|---|---|---|---|---|
-| Gain error | +1.05 dB | +0.68 | +0.35 | +0.09 | 0.00 |
-| $\langle G \rangle$ | 127 % | 117 % | 108 % | 102 % | 100 % |
-
-The fix is `buildGradedStraightWires`: the segment touching the bridge matches the bridge's own length and doubles outward until it reaches the bulk density, which still governs the rest of the wire. Cost is a handful of extra segments per leg — logarithmic in the ratio, never a bulk density change. The sloping V had always done this for its legs; every other feed bridge now does too.
-
-Corrections applied (perfect ground, 7 MHz, 20 m):
-
-| | Before | After |
+| Type | Dimensions and source | Optional termination |
 |---|---|---|
-| Inverted-V, no feedline | 8.09 dBi, $\langle G \rangle$ 125 % | 7.16 dBi, 101 % |
-| Dipole, feedline | 8.50 dBi, 115 % | 7.89 dBi, 100 % |
-| Delta loop, feedline | 7.44 dBi, 118 % | 6.85 dBi, 103 % |
+| Dipole | Horizontal length L, centre height h; centre or offset feed. Default L≈0.475λ. | None |
+| Inverted V | Descending legs, total length L; source bridge at apex h. Included angle is in the vertical plane and widens if necessary to keep tips above their floor. Default L≈0.485λ. | None |
+| Sloping V | Two long legs; h is feed height, orientation is boresight, included angle is in azimuth. Tips approach 0.5 m when geometry permits. Default total length≈2λ. | Equal series resistors in downleads to two elevated radial screens |
+| Delta loop | Isosceles triangle with perimeter L and apex height h; equilateral when height permits. Fed near the apex. Default perimeter≈λ. | None |
+| Terminated delta | Same triangular layout, with a centre gap in the base. | One series resistor across the base gap; zero setting leaves the gap open |
+| Vertical whip | Vertical wire length L; h is base height. Source on lowest segment. | Four horizontal radials of length 0.2375λ at design frequency |
+| Inverted L | Vertical section plus horizontal top wire; L is total length and h is bend height. Base-fed. | Same radial option as whip |
+| Folded dipole | Equal-radius parallel conductors of length L, joined at both ends; h is lower-wire height, aperture is vertical separation. Lower centre fed. Default L≈0.475λ, aperture 0.3 m. | Series resistor in the opposite conductor's centre |
 
-`tests/averageGainTest.integration.test.ts` holds this. Note what it catches that nothing else can: every deck above had its wires in the right places, its tags correct and its cards well-formed, and every structural test passed throughout. Only asking the solver whether the energy balances finds this class of defect.
+A loop resistor is a link in the loop, not two shunts to earth. Sloping-V screens
+are explicit elevated wires, not galvanic soil connections. Termination can
+reduce resonance or reflections while dissipating power; it does not guarantee
+50-ohm matching, a particular bandwidth or a unidirectional pattern. Default
+resistances are representative starting points rather than measured optima.
 
-### 14.2 Known remaining deviations
+Whip and inverted-L feedlines are idealized. Without an explicit return conductor
+or counterpoise, do not interpret their impedance as a complete real installation.
 
-Three separate issues survive, none of them the segmentation problem above, all documented rather than papered over:
+## Ground and conductors
 
-- **Vertical whip and inverted-L: +0.28 to +0.35 dB.** Their source segment sits `VERTICAL_WHIP_BASE_GAP_M` (0.01 m) above the ground plane, which over a perfect conductor is nearly a short to the wire's own image. The error does **not** converge with refinement — it grows slightly, from 0.28 dB at 11 segments to 0.39 dB at 100 — so this is not a segment-ratio problem and grading will not help it. It needs a decision about how an "ungrounded" base should be modelled at all, given NEC-2 cannot bond a wire to a Sommerfeld-Norton ground (§8.3 covers the same constraint on the sloping-V termination).
-- **Terminated delta with a feedline: −0.43 dB.** The deficit direction: power vanishing rather than appearing. It does not respond to feed-bridge grading, and the shield's endpoints were checked and are not coincident with the half-base inner ends. Cause not yet established.
-- **Directivity carries up to ~0.3 dB of quadrature error at the display resolution.** The gain figure is unaffected — it is NEC's own pattern maximum — but directivity is derived from $\langle G \rangle$, and the default 5° pattern grid does not resolve a sharply structured pattern well enough to integrate it. The terminated delta reads 0.32 dB of apparent error at 5°, 0.09 dB at 2° and 0.004 dB at 1°, with the gain unmoved throughout. The integration test therefore evaluates on a 1° grid: it is a statement about the deck, not about the display grid.
+Ground is free space, an infinite perfect conductor, or a flat homogeneous lossy
+half-space with specified relative permittivity and conductivity, using
+Sommerfeld–Norton ground. Terrain, layered soil, insulation, nearby structures
+and buried ground systems are absent. Height zero selects free space for
+nonvertical antenna types as a documented application convention.
+
+The application explicitly models copper conductivity **58×10⁶ S/m**, through
+NEC LD5 loading. Analytic engine callers may omit conductivity for ideal wires.
+
+The near-ground modelling floor for real soil is 0.001 wavelength at the lowest
+sweep frequency, 1 MHz: **0.2998 m**. It is fixed while tuning. Whip/L bases,
+radials and eligible shield/screens use this elevated model; the height control
+explains it. Free/perfect-ground geometry retains its separate conventions. A
+wire close to real ground is not treated as a galvanic earth connection.
+
+## Mesh and angular accuracy
+
+Long wires target at least 20 segments per wavelength, with grading near small
+source/load bridges. Adjacent segments need compatible lengths and adequate
+length/radius aspect ratios. Mesh density alone does not guarantee accuracy.
+
+Folded dipoles align longitudinal segment centres on both parallel conductors,
+including corresponding source/termination cells. Centre-cell length is at most
+0.1 m. The old silent 100-segment-per-half cap is removed; invalid thin-wire
+aspects or excessive meshes raise errors. The 0.02–0.5 m UI aperture range is
+not itself an accuracy guarantee.
+
+The application uses a fixed **2° radiation grid**, independent of rendering
+LOD. A low-power device can draw fewer vertices without changing its computed
+gain, directivity or efficiency. Across every antenna type over perfect and
+average ground at 14 MHz, the 2° grid matched 1° sampling to within 0.001 dB in
+escaping efficiency and 0.01 dB in peak gain, at about a quarter of the
+far-field work; 5° drifted by up to 0.04 dB. Engine callers choosing other grids must
+account for sampling error. Tests check mesh convergence and power balance at
+1.8, 7.1 and 30 MHz with folded apertures 0.02, 0.3 and 0.5 m. These reference
+cases do not certify every arbitrary geometry, wire length and radius.
+
+## Feed system
+
+Differential cable signals use a nonradiating distributed two-port. Exposed
+common-mode cable conductors are separate physical wires. Their explicit
+route descends in a plane normal to the antenna: vertically, or inclined 10°
+away from a loop plane so it cannot cross the base wire and form an accidental
+electrical junction. When the cable is longer than the drop to ground
+clearance, it turns 90° there and runs horizontally away from the antenna for
+the rest of its length. It is an assumed visible route, not a measurement of an
+installation's cable path.
+
+Matched attenuation is the preset fit `(k1√f+k2f)·length/100` dB. With real cable
+impedance Zc and propagation length γl=αl+jβl:
+
+```
+αl = matchedLossDb · ln(10) / 20
+βl = 2π · electricalLength / wavelength
+Y11 = Y22 = coth(γl)/Zc
+Y12 = −csch(γl)/Zc
+```
+
+Attenuation changes both source impedance and power. Frequency-dependent cable
+networks are recomputed at every sweep point. Ideal untransformed lossless lines
+can use native TL cards; lossy/transformed lines use precise NT cards. An ideal
+transformer is cascaded algebraically with the cable, avoiding an unintended
+differential connection through its common-mode choke.
+
+Transformer ratio n:1 is an impedance ratio: Z becomes Z/n. For reactive Z, the
+continuous ratio minimizing reflection against a real Z0 is |Z|/Z0; permitted
+integer candidates are compared. A transformer cannot cancel reactance. With
+no actual modelled line, including zero-length/clipped cable, the transform is
+applied in the display layer.
+
+A fitted choke has representative common-mode resistance 2000 Ω; transformer
+hardware adds representative insertion loss 0.2 dB. These are assumptions, not
+measured broadband device responses. Cable presets likewise approximate uniform
+TEM lines with real Zc; balanced-line common modes need more detailed geometry.
+
+The mast-base ATU is an explicit two-reactance **L network**, with ESR |X|/Q
+and shunt conductance |B|/Q, Q=150 for both components. Both orientations and
+roots are considered, the finite-loss circuit is retuned toward a real 50 Ω
+input, and component dissipation gives insertion loss. Unachievable matches
+are not reported as 1:1. Component tuning ranges and power ratings are absent.
+
+NEC gain already includes the up-mast cable loss. A separate **50 Ω RG-213**
+main run, even with 450 Ω ladder line above the tuner, adds matched main-run
+loss once. ATU sweep curves indicate independent retuning at each frequency;
+they do not measure antenna bandwidth.
+
+## Power and diagnostic definitions
+
+NEC power gain is G=4πU/Paccepted. Linear average gain is
+`<G>=(1/4π)∫G sinθ dθ dφ`, the fraction of accepted source power escaping to the
+far field. Integrate the full sphere in free space, and the upper hemisphere
+over ground, **half-weighting θ=90° only over ground**. Azimuth is periodic,
+without duplicating the 360° endpoint. Peak directivity is Gmax/<G>.
+
+- Far-field efficiency is the integrated pattern and includes soil absorption.
+- Conductor/network efficiency is the NEC budget remainder after structure and
+  network heat. NEC does not subtract environmental ground absorption there.
+- Realized gain additionally accounts for source mismatch and display-side feed
+  hardware. Results, polar cuts, 3D surfaces, comparisons and ray geometry share
+  this adjustment and avoid deducting cable loss twice.
+
+NEC structure loss includes copper and every LD resistor, including chokes.
+Termination heat is attributed separately to designated resistors using
+½|Ipeak|²R. Network heat includes cable loss. Diagnostic watts refer to the
+model's 1 V peak excitation, not an assumed transmitter power.
+
+Current envelope range is 20log10(max|I|/min|I|). Radiation, attenuation and
+geometry vary the envelope even for a purely forward wave. This metric is
+not a reflected-power fraction or a quantitative termination match.
+
+## Ray geometry
+
+The ray view reflects straight rays from a user-selected ideal spherical shell
+(default 300 km) above a 6371 km Earth. For elevation ε and shell height h, the
+one-hop surface arc is `2R[π/2−ε−asin(R cosε/(R+h))]`. Repeated illustrated arcs
+reuse this geometry. The strongest lobe per bearing and its realized antenna
+gain are shown.
+
+There is **no ionospheric forecast, MUF, LUF, received SNR or availability
+classification**. Real propagation needs frequency-dependent electron-density
+profiles, refraction, absorption, path conditions and a transmitter/receiver/noise
+link budget. True hmF2 is not a virtual reflection height. Manual latitude and
+longitude provide approximate monthly solar-angle context only.
+
+## Validation boundaries
+
+Real-NEC tests include each topology in supported reference configurations,
+conductor-loss checks, folded mesh convergence, analytic line/transformer/circuit
+benchmarks, and sweep-versus-point consistency for identical hardware. No gain
+normalization is used to conceal failed energy balance.
+
+The choked radiating-shield feed of the terminated-delta family has an unresolved
+numerical power-convergence defect. The engine rejects that combination rather
+than presenting a trusted-looking result, and the terminated delta therefore
+defaults to the choke off. Further work must establish both power
+and impedance convergence, not tune a mesh to make one integral pass.
+
+Thin-wire NEC-2, homogeneous ground, assumed cable routing and nominal hardware
+remain modelling assumptions. Independent solvers and installation measurements
+are needed before claiming installation-specific accuracy.
+
+The shipped NEC loader/Wasm passed the numerical regressions but their original
+source revision and compiler have not been recovered. Artifact hashes and the
+verified-source requirements for future builds are recorded in
+[`nec2-build/PROVENANCE.md`](../nec2-build/PROVENANCE.md). This limitation is not
+resolved by assigning a guessed engine version or an unrelated upstream source.

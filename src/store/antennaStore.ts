@@ -54,7 +54,8 @@ export * from './antennaSimulation';
  * Consolidated per-type transformer/balun defaults. Every antenna that supports a
  * balun (i.e. every type except the base-fed monopole-style verticals, whose
  * feedpoint is unbalanced) gets the transformer enabled by default so the
- * "Match n:1" auto-matching button is always available. The ratio is just a
+ * "Match n:1" auto-matching button is always available, except the
+ * terminated-delta (see its entry). The ratio is just a
  * sensible starting point — a 1:1 current ("choke") balun where no impedance
  * transformation is needed, or the established step-down ratio for the
  * high-impedance folded-dipole and terminated-delta designs.
@@ -68,7 +69,10 @@ const TRANSFORMER_DEFAULTS: Record<AntennaType, TransformerDefaults> = {
   'inverted-v': { enabled: true, ratio: 1 },
   'sloping-v': { enabled: true, ratio: 1 },
   'delta-loop': { enabled: true, ratio: 1 },
-  'terminated-delta': { enabled: true, ratio: 9 },
+  // Off by default: the choked terminated-delta feed has not passed NEC's
+  // power-convergence checks and is rejected, so enabling the choke here would
+  // make the antenna's own defaults fail. The ratio is kept for when it is on.
+  'terminated-delta': { enabled: false, ratio: 9 },
   'folded-dipole': { enabled: true, ratio: 9 },
   'vertical-whip': { enabled: false, ratio: 1 },
   'inverted-l': { enabled: false, ratio: 1 },
@@ -78,6 +82,7 @@ export type Mode = 'normal' | 'comparison';
 
 export interface ComparisonSnapshot {
   readonly frequency: number;
+  readonly designFrequency: number;
   readonly antennaType: AntennaType;
   readonly length: number;
   readonly height: number;
@@ -94,6 +99,11 @@ export interface ComparisonSnapshot {
   readonly feedlineLength: number;
   readonly feedlineOffset: number;
   readonly whipCounterpoise: boolean;
+  readonly terminatingResistor: number;
+  readonly transformerEnabled: boolean;
+  readonly transformerRatio: number;
+  readonly atuEnabled: boolean;
+  readonly atuMainFeedlineLength: number;
   readonly result: SimulationResult;
   readonly sweep: SweepPoint[];
   readonly capturedAt: number;
@@ -103,6 +113,8 @@ export interface AntennaState {
   // Antenna geometry (metres, MHz)
   antennaType: AntennaType;
   frequency: number;
+  /** Frequency at which fixed counterpoise dimensions were designed. */
+  designFrequency: number;
   length: number;
   height: number;
   orientation: Orientation;
@@ -146,7 +158,6 @@ export interface AntennaState {
   atuMainFeedlineLength: number;
 
   // Propagation
-  tIndex: number;
   latitudeDeg: number | null;
   longitudeDeg: number | null;
   monthOverride: number | null;
@@ -212,7 +223,6 @@ export interface AntennaState {
   clearComparisonReference(): void;
 
   // Propagation actions
-  setTIndex(v: number): void;
   setLatitude(deg: number | null): void;
   setLongitude(deg: number | null): void;
   setMonthOverride(month: number | null): void;
@@ -226,7 +236,8 @@ export interface AntennaState {
     feedpointImpedance?: ImpedanceResult | null,
   ): void;
   _setSweep(sweep: readonly SweepPoint[]): void;
-  _setError(msg: string | null): void;
+  /** `keepResult` leaves the last valid solve on screen (a failed sweep-only request). */
+  _setError(msg: string | null, keepResult?: boolean): void;
   _setLoading(v: boolean): void;
   _setEngineReady(v: boolean): void;
 }
@@ -254,6 +265,7 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
   if (!state.result || state.sweep.length === 0) return null;
   return {
     frequency: state.frequency,
+    designFrequency: state.designFrequency,
     antennaType: state.antennaType,
     length: state.length,
     height: state.height,
@@ -270,6 +282,11 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     feedlineLength: state.feedlineLength,
     feedlineOffset: state.feedlineOffset,
     whipCounterpoise: state.whipCounterpoise,
+    terminatingResistor: state.terminatingResistor,
+    transformerEnabled: state.transformerEnabled,
+    transformerRatio: state.transformerRatio,
+    atuEnabled: state.atuEnabled,
+    atuMainFeedlineLength: state.atuMainFeedlineLength,
     result: state.result,
     sweep: [...state.sweep],
     capturedAt: Date.now(),
@@ -281,6 +298,7 @@ export const useAntennaStore = create<AntennaState>()(
     immer((set) => ({
       antennaType: INITIAL_TYPE,
       frequency: INITIAL_FREQ,
+      designFrequency: INITIAL_FREQ,
       length: INITIAL_LENGTH,
       height: INITIAL_HEIGHT,
       orientation: 'EW',
@@ -319,7 +337,6 @@ export const useAntennaStore = create<AntennaState>()(
       atuEnabled: false,
       atuMainFeedlineLength: DEFAULT_ATU_MAIN_FEEDLINE_LENGTH_M,
 
-      tIndex: 30,
       latitudeDeg: null,
       longitudeDeg: null,
       monthOverride: null,
@@ -336,6 +353,7 @@ export const useAntennaStore = create<AntennaState>()(
 
       setAntennaType: (type) => set((s) => {
         s.antennaType = type;
+        s.designFrequency = s.frequency;
 
         if (type !== 'vertical-whip' && type !== 'inverted-l' && s.height === 0) {
           s.height = INITIAL_HEIGHT;
@@ -345,6 +363,7 @@ export const useAntennaStore = create<AntennaState>()(
           s.feedlineId = 'none';
           s.feedlineLength = 0;
           s.feedlineOffset = 0;
+          s.atuEnabled = false;
         } else {
           if (s.feedlineId === 'none') {
             s.feedlineId = DEFAULT_FEEDLINE_ID;
@@ -418,6 +437,7 @@ export const useAntennaStore = create<AntennaState>()(
       setLength: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
         s.length = Math.max(0.1, meters);
+        s.designFrequency = s.frequency;
         if (s.antennaType === 'sloping-v') {
           s.vAngle = computeOptimalVAngleDeg(s.length, s.frequency, s.height);
         }
@@ -427,6 +447,7 @@ export const useAntennaStore = create<AntennaState>()(
       }),
 
       setHalfWaveLength: () => set((s) => {
+        s.designFrequency = s.frequency;
         const isTravelingWave = s.antennaType === 'sloping-v';
         if (isTravelingWave) {
           const n = legMultipleFromLength(s.length, s.frequency);
@@ -445,6 +466,7 @@ export const useAntennaStore = create<AntennaState>()(
       setLegLengthMultiple: (n) => set((s) => {
         if (s.antennaType !== 'sloping-v') return;
         if (!Number.isFinite(n) || n < 1) return;
+        s.designFrequency = s.frequency;
         s.length = Math.round(n) * 2 * (299.792458 / s.frequency);
         if (s.antennaType === 'sloping-v') {
           s.vAngle = computeOptimalVAngleDeg(s.length, s.frequency, s.height);
@@ -523,6 +545,7 @@ export const useAntennaStore = create<AntennaState>()(
       setFeedline: (id) => set((s) => {
         const preset = findFeedlinePreset(id);
         s.feedlineId = preset.id;
+        if (preset.id === 'none') s.atuEnabled = false;
       }),
 
       setFeedlineLength: (meters) => set((s) => {
@@ -614,10 +637,6 @@ export const useAntennaStore = create<AntennaState>()(
 
       clearComparisonReference: () => set((s) => { s.comparisonReference = null; }),
 
-      setTIndex: (v) => set((s) => {
-        if (!Number.isFinite(v)) return;
-        s.tIndex = Math.max(-100, Math.min(250, v));
-      }),
       setLatitude: (deg) => set((s) => {
         if (deg === null) { s.latitudeDeg = null; return; }
         if (!Number.isFinite(deg)) return;
@@ -658,9 +677,14 @@ export const useAntennaStore = create<AntennaState>()(
         s.error = null;
       }),
 
-      _setError: (msg) => set((s) => {
+      _setError: (msg, keepResult = false) => set((s) => {
         s.error = msg;
         s.loading = false;
+        if (msg && !keepResult) {
+          s.result = null;
+          s.sweep = [];
+          s.feedpointImpedance = null;
+        }
       }),
 
       _setLoading: (v) => set((s) => { s.loading = v; }),

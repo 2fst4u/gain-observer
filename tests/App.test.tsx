@@ -112,7 +112,7 @@ describe('App', () => {
       useAntennaStore.setState({ error: 'Test solver error' });
       render(<App />);
       expect(screen.getByText('Test solver error')).toBeTruthy();
-      expect(screen.getByText('Solver error:')).toBeTruthy();
+      expect(screen.getByText('Simulation unavailable:')).toBeTruthy();
     });
 
     it('renders comparison view when mode is comparison and reference exists', () => {

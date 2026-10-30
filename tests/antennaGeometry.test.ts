@@ -196,11 +196,11 @@ describe('buildTerminatedDeltaWires', () => {
     // Verify shield connects to right side of the bridge and goes down
     expect(shield!.start[0]).toBeCloseTo(bridge!.end[0]);
     expect(shield!.start[2]).toBeCloseTo(baseParams.height);
-    // The shield's bottomZ is clamped to the antenna's bottomZ to prevent crossing the base plane
-    const leftBase = wires.find((w) => w.tag === TERMINATED_DELTA_LEFT_BASE_TAG);
-    const bottomZ = leftBase!.start[2];
-    const expectedShieldEndZ = Math.max(paramsWithFeedline.feedlineShield.bottomZ, bottomZ);
-    expect(shield!.end[2]).toBeCloseTo(expectedShieldEndZ);
+    // The cable leaves the loop plane rather than being shortened at its base.
+    expect(Math.hypot(shield!.end[0] - shield!.start[0], shield!.end[1] - shield!.start[1]))
+      .toBeGreaterThan(0);
+    expect(Math.hypot(...shield!.end.map((v, i) => v - shield!.start[i])))
+      .toBeCloseTo(baseParams.height - paramsWithFeedline.feedlineShield.bottomZ, 8);
   });
 });
 
@@ -353,7 +353,7 @@ describe('buildDeltaLoopWires', () => {
     expect(feedlineShield).toBeDefined();
   });
 
-  it('clamps feedline shield bottom Z to prevent crossing the base wire', () => {
+  it('routes the feedline outside the loop plane without truncating it at the base', () => {
     const params = {
       ...baseParams,
       feedlineShield: {
@@ -365,9 +365,10 @@ describe('buildDeltaLoopWires', () => {
     const wires = buildDeltaLoopWires(params);
     const feedlineShield = wires.find(w => w.tag === FEEDLINE_SHIELD_TAG);
 
-    // Height is 10, triangle height is roughly ~6, so bottomZ is roughly ~4
-    // The shield end Z should be clamped to bottomZ.
-    expect(feedlineShield!.end[2]).toBeGreaterThan(0);
+    const shield = feedlineShield!;
+    expect(Math.hypot(shield.end[0] - shield.start[0], shield.end[1] - shield.start[1])).toBeGreaterThan(0);
+    expect(Math.hypot(...shield.end.map((v, i) => v - shield.start[i])))
+      .toBeCloseTo(baseParams.height - params.feedlineShield.bottomZ, 8);
   });
   it('calculates segment counts based on geometry and safe bounds', () => {
     const params = {
@@ -444,7 +445,7 @@ describe('buildFoldedAntennaWires', () => {
     const params = { ...baseParams, terminatingResistor: 0 };
     const wires = buildFoldedAntennaWires(params);
 
-    expect(wires).toHaveLength(7);
+    expect(wires).toHaveLength(8);
 
     const leftOpp = wires[3];
     const rightOpp = wires[4];
@@ -452,10 +453,11 @@ describe('buildFoldedAntennaWires', () => {
     expect(leftOpp.tag).toBe(FOLDED_DIPOLE_OPPOSITE_TAG);
     expect(rightOpp.tag).toBe(FOLDED_DIPOLE_OPPOSITE_TAG);
 
-    // Ensure the top opposite wires meet at the exact center without a gap
-    expect(leftOpp.end[0]).toBeCloseTo(rightOpp.start[0]);
-    expect(leftOpp.end[1]).toBeCloseTo(rightOpp.start[1]);
-    expect(leftOpp.end[2]).toBeCloseTo(rightOpp.start[2]);
+    // A matching centre cell joins the halves and aligns with the feed cell.
+    const centre = wires[5]!;
+    expect(centre.start).toEqual(leftOpp.end);
+    expect(centre.end).toEqual(rightOpp.start);
+    expect(centre.segments).toBe(1);
 
     // Top wires should be elevated by aperture (h + aperture = 10.5)
     expect(leftOpp.end[2]).toBeCloseTo(10.5);

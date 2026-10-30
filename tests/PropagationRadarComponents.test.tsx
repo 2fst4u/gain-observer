@@ -1,7 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  LegendSwatch,
   RadarGrid,
   RadarHopRings,
   RadarLabels,
@@ -139,8 +138,8 @@ describe('PropagationRadarComponents', () => {
     it('renders circular hop rings when azimuthalHops is not provided or has <= 1 item', () => {
       const prediction: PropagationPrediction = makePropagationPrediction({
         hops: [
-          makeHop({ n: 1, rangeKm: 1000, status: 'open', linkQuality: 'useful' }),
-          makeHop({ n: 2, rangeKm: 2000, status: 'closed', linkQuality: 'unusable' }),
+          makeHop({ n: 1, rangeKm: 1000 }),
+          makeHop({ n: 2, rangeKm: 2000 }),
         ],
         azimuthalHops: [makeAzimuthalHop({ phiDeg: 0, rangeKm: [1000] })],
       });
@@ -162,16 +161,18 @@ describe('PropagationRadarComponents', () => {
       // Rings rendered in reverse order (k = 1, then k = 0)
       const ringHop2 = circles[0];
       expect(ringHop2?.getAttribute('r')).toBe('100'); // 2000 * 0.05
-      expect(ringHop2?.getAttribute('stroke-opacity')).toBe('0.35');
-      expect(ringHop2?.getAttribute('stroke-dasharray')).toBe('4 3');
+      expect(ringHop2?.getAttribute('stroke-opacity')).toBe('0.75');
+      expect(ringHop2?.getAttribute('stroke-dasharray')).toBeNull();
+      expect(ringHop2?.getAttribute('fill')).toBe('none');
 
       const ringHop1 = circles[1];
       expect(ringHop1?.getAttribute('r')).toBe('50'); // 1000 * 0.05
-      expect(ringHop1?.getAttribute('stroke-opacity')).toBe('0.85');
+      expect(ringHop1?.getAttribute('stroke-opacity')).toBe('0.75');
       expect(ringHop1?.getAttribute('stroke-dasharray')).toBeNull();
+      expect(ringHop1?.getAttribute('fill')).toBe('none');
     });
 
-    it('renders azimuthal wedges when azimuthalHops has more than 1 item', () => {
+    it('renders unfilled azimuthal arcs in compass orientation with descriptive SVG titles', () => {
       const prediction: PropagationPrediction = makePropagationPrediction({
         hops: [makeHop({ n: 1, rangeKm: 1000 })],
         azimuthalHops: [
@@ -193,32 +194,26 @@ describe('PropagationRadarComponents', () => {
         </svg>,
       );
 
-      const polygons = container.querySelectorAll('polygon');
-      expect(polygons.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('LegendSwatch', () => {
-    it('renders label and a colored dot with aria-hidden', () => {
-      const { container } = render(
-        <LegendSwatch color="var(--success)" label="Open" />,
-      );
-
-      expect(screen.getByText('Open')).toBeTruthy();
-      const dot = container.querySelector<HTMLElement>('span > span');
-      expect(dot?.getAttribute('aria-hidden')).toBe('true');
-      expect(dot?.style.background).toBe('var(--success)');
+      const lines = container.querySelectorAll('line');
+      expect(lines).toHaveLength(4);
+      expect(container.querySelectorAll('polygon')).toHaveLength(0);
+      // NEC phi=0 is East, phi=90 is North: the first arc joins those bearings.
+      expect(Number(lines[0]?.getAttribute('x1'))).toBeCloseTo(200, 8);
+      expect(Number(lines[0]?.getAttribute('y1'))).toBeCloseTo(150, 8);
+      expect(Number(lines[0]?.getAttribute('x2'))).toBeCloseTo(150, 8);
+      expect(Number(lines[0]?.getAttribute('y2'))).toBeCloseTo(100, 8);
+      expect(lines[0]?.querySelector('title')?.textContent)
+        .toBe('Bearing 90°, elevation 15.0°, realized antenna gain 4.00 dBi. Ideal arc only.');
     });
   });
 
   describe('RadarLegend', () => {
-    it('renders legend caption with all status swatches and note', () => {
-      render(<RadarLegend />);
+    it('describes ideal ground arcs without implying coverage or received signal', () => {
+      const { container } = render(<RadarLegend />);
 
-      expect(screen.getByText('Open')).toBeTruthy();
-      expect(screen.getByText('Marginal')).toBeTruthy();
-      expect(screen.getByText('Closed')).toBeTruthy();
-      expect(screen.getByText('Faint/dashed = weak signal')).toBeTruthy();
+      expect(container.querySelector('figcaption')?.textContent)
+        .toBe('Ideal ground arcs · no coverage or signal forecast');
+      expect(screen.queryByText(/Open|Marginal|Closed|weak signal/)).toBeNull();
     });
   });
 });

@@ -4,10 +4,13 @@
 # Output: ../public/nec2.js  (loader)
 #         ../public/nec2.wasm (binary)
 #
+# Requires verified nec2c-src and source-manifest.json; see PROVENANCE.md.
 # Usage: source ~/emsdk/emsdk_env.sh && ./build.sh
 set -euo pipefail
 
 cd "$(dirname "$0")"
+
+NEC_SOURCE_VERSION="$(python3 provenance.py verify)"
 
 if ! command -v emcc >/dev/null 2>&1; then
   echo "ERROR: emcc not on PATH. Run: source ~/emsdk/emsdk_env.sh" >&2
@@ -43,15 +46,15 @@ mkdir -p "$OUT_DIR"
 # -s ALLOW_MEMORY_GROWTH=1 because NEC-2 allocates heavily based on problem size
 # -s FORCE_FILESYSTEM=1 so MEMFS is available for input/output cards
 # -s EXPORTED_RUNTIME_METHODS exposes the helpers we use from JS
-# -s ENVIRONMENT=web,worker keeps the bundle lean (no node-specific shims)
+# -s ENVIRONMENT=web,worker,node supports the application and regression harness
 # -lm for libm (complex.h trig)
 
-emcc "${SOURCES[@]}" \
+NEC_BUILD_FLAGS=(
   -I"$SRC_DIR" \
   -O2 \
   -DHAVE_STRLCPY=0 \
-  -DPACKAGE_STRING='"nec2c-wasm 1.7.7"' \
-  -DPACKAGE_VERSION='"1.7.7"' \
+  "-DPACKAGE_STRING=\"nec2c-wasm $NEC_SOURCE_VERSION\"" \
+  "-DPACKAGE_VERSION=\"$NEC_SOURCE_VERSION\"" \
   -DPACKAGE_NAME='"nec2c-wasm"' \
   -s WASM=1 \
   -s MODULARIZE=1 \
@@ -67,8 +70,16 @@ emcc "${SOURCES[@]}" \
   -Wno-incompatible-pointer-types \
   -Wno-implicit-function-declaration \
   -Wno-int-conversion \
-  -lm \
-  -o "$OUT_DIR/nec2.js"
+  -lm
+)
+
+NEC_EMCC_VERSION="$(emcc --version)"
+emcc "${SOURCES[@]}" "${NEC_BUILD_FLAGS[@]}" -o "$OUT_DIR/nec2.js"
+NEC_MANIFEST_FLAGS=()
+for flag in "${NEC_BUILD_FLAGS[@]}"; do
+  NEC_MANIFEST_FLAGS+=("--flag=$flag")
+done
+python3 provenance.py record --compiler-version "$NEC_EMCC_VERSION" "${NEC_MANIFEST_FLAGS[@]}"
 
 echo
 echo "Build complete:"

@@ -39,6 +39,25 @@ describe('buildNecCards', () => {
     expect(lines[8]).toBe('EN');
   });
 
+  it('models explicit finite conductivity with LD5 and rejects invalid materials', () => {
+    expect(buildNecCards({ ...defaultInput, conductivitySm: 58e6 })).toContain('LD 5 0 0 0 5.8000000000e+7 0 0');
+    expect(buildNecCards(defaultInput)).not.toContain('LD 5');
+    for (const conductivitySm of [0, -1, Infinity, NaN]) {
+      expect(() => buildNecCards({ ...defaultInput, conductivitySm })).toThrow('conductivity');
+    }
+  });
+
+  it('represents lossy cable by a frequency-dependent NT two-port', () => {
+    const line = { fromTag: 1, fromSegment: 1, toTag: 1, toSegment: 11, z0: 50, lengthM: 15,
+      lossModel: { physicalLengthM: 10, lossK1: 1.3, lossK2: 0.04 } };
+    const input = { ...defaultInput, transmissionLines: [line] };
+    const deck = buildNecCards(input);
+    expect(deck).toContain('\nNT 1 1 1 11 ');
+    expect(deck).not.toContain('\nTL ');
+    expect(buildNecCards({ ...input, frequencyMHz: 30 })).not.toBe(deck);
+    expect(() => buildNecCards(input, { sweepPoints: 3 })).toThrow('single-frequency');
+  });
+
   describe('geometry and coordinate formatting', () => {
     it('handles multiple wires with auto-incrementing tags', () => {
       const input: SimulationInput = {

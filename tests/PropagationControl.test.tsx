@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { PropagationControl } from '../src/components/Panel/PropagationControl';
 import { mockAntennaStore, type MockAntennaState } from './helpers/mockStore';
+import { makeGainPattern, makeSimulationResult } from './helpers/factories';
 
 // Mock the store
 vi.mock('../src/store/antennaStore', async () => {
@@ -31,14 +32,12 @@ describe('PropagationControl - time override visibility', () => {
   const setupMockStore = (overrides: Partial<MockState> = {}) => {
     mockAntennaStore({
         frequency: 7.1,
-        tIndex: 30,
         latitudeDeg: null,
         longitudeDeg: null,
         monthOverride: null,
         utcHourOverride: null,
         units: 'metric',
         result: null,
-        setTIndex: vi.fn(),
         setLatitude: vi.fn(),
         setMonthOverride: mockSetMonthOverride,
         setUtcHourOverride: mockSetUtcHourOverride,
@@ -138,131 +137,52 @@ describe('PropagationControl - time override visibility', () => {
   });
 });
 
-describe('PropagationControl - T-index Input Bug', () => {
+describe('PropagationControl - geometry and realized gain', () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
   });
 
-  it('allows clearing the T-index input (via local buffer)', () => {
-    const setTIndex = vi.fn();
-    let currentTIndex = 30;
-
-    mockAntennaStore(() => ({
-        frequency: 7.1,
-        tIndex: currentTIndex,
-        setTIndex: (v: number) => {
-          currentTIndex = v;
-          setTIndex(v);
-        },
-        latitudeDeg: null,
-        longitudeDeg: null,
-        setLatitude: vi.fn(),
-        monthOverride: null,
-        utcHourOverride: null,
-        setMonthOverride: vi.fn(),
-        setUtcHourOverride: vi.fn(),
-        result: null,
-        units: 'metric',
-        geolocationStatus: 'idle',
-      }));
-
-    const { getByLabelText } = render(<PropagationControl />);
-    const tInput = getByLabelText('Ionospheric T-index') as HTMLInputElement;
-
-    expect(tInput.value).toBe('30');
-
-    // Focus and clear
-    fireEvent.focus(tInput);
-    fireEvent.change(tInput, { target: { value: '' } });
-
-    expect(tInput.value).toBe('');
-
-    // Store should not have been updated with NaN
-    expect(setTIndex).not.toHaveBeenCalledWith(NaN);
-
-    // On blur, it should snap back to the store value
-    fireEvent.blur(tInput);
-    expect(tInput.value).toBe('30');
+  it('labels the panel as illustrative geometry without signal or ionosphere forecasts', () => {
+    mockAntennaStore({ result: null, units: 'metric', latitudeDeg: 40, longitudeDeg: -75, monthOverride: 6, utcHourOverride: 12, geolocationStatus: 'idle' });
+    render(<PropagationControl />);
+    expect(screen.getByRole('heading', { level: 2, name: /Propagation geometry/ })).toBeDefined();
+    expect(screen.getByText('Illustrative')).toBeDefined();
+    expect(screen.getByText('Received signal and path availability: not calculated.')).toBeDefined();
+    expect(screen.queryByText('LUF')).toBeNull();
+    expect(screen.queryByText('foF2')).toBeNull();
   });
 
-  it('syncs local buffer with store when store changes externally (and not focused)', () => {
-    const setTIndex = vi.fn();
-    let currentTIndex = 30;
-
-    mockAntennaStore(() => ({
-        frequency: 7.1,
-        tIndex: currentTIndex,
-        setTIndex,
-        latitudeDeg: null,
-        longitudeDeg: null,
-        setLatitude: vi.fn(),
-        monthOverride: null,
-        utcHourOverride: null,
-        setMonthOverride: vi.fn(),
-        setUtcHourOverride: vi.fn(),
-        result: null,
-        units: 'metric',
-        geolocationStatus: 'idle',
-      }));
-
-    const { getByLabelText, rerender } = render(<PropagationControl />);
-    const tInput = getByLabelText('Ionospheric T-index') as HTMLInputElement;
-    expect(tInput.value).toBe('30');
-
-    // Simulate external store update
-    currentTIndex = 45;
-    rerender(<PropagationControl />);
-
-    expect(tInput.value).toBe('45');
-  });
-});
-
-describe('PropagationControl - Component Rendering & Prediction Integration', () => {
-  beforeEach(() => {
-    cleanup();
-    vi.clearAllMocks();
-  });
-
-  it('renders section heading and T-index badge formatted as integer', () => {
+  it('uses the fitted transformer matching and insertion loss, rather than raw feedpoint SWR', () => {
+    const pattern = makeGainPattern();
+    pattern.data.fill(-30);
+    pattern.data[6 * pattern.phiSteps] = 0; // 30° elevation, 0 dBi antenna gain.
     mockAntennaStore({
       frequency: 14.2,
-      tIndex: 85.6,
-      latitudeDeg: 40,
-      longitudeDeg: -75,
+      result: makeSimulationResult({ pattern, impedance: { R: 800, X: 0 }, swr: 16, maxGainDbi: 0, maxRealizedGainDbi: -6.5471786877 }),
+      transformerEnabled: true,
+      transformerRatio: 16,
+      feedlineId: 'none',
+      atuEnabled: false,
+      units: 'metric',
+      latitudeDeg: 0,
+      longitudeDeg: 0,
       monthOverride: 6,
       utcHourOverride: 12,
-      units: 'imperial',
-      result: null,
       geolocationStatus: 'idle',
     });
-
     render(<PropagationControl />);
-
-    expect(screen.getByRole('heading', { level: 2, name: /propagation/i })).toBeDefined();
-    expect(screen.getByText('T = 86')).toBeDefined();
+    const gain = screen.getByText('Selected lobe realized gain').nextElementSibling;
+    expect(gain?.textContent).toBe('-0.20 dBi');
+    expect(screen.queryByText(/weak signal/)).toBeNull();
   });
 
-  it('handles simulation result with custom takeoff elevation angle in propagation calculation', () => {
-    mockAntennaStore({
-      frequency: 21.0,
-      tIndex: 50,
-      latitudeDeg: 51.5,
-      longitudeDeg: -0.12,
-      monthOverride: 7,
-      utcHourOverride: 18,
-      units: 'metric',
-      result: {
-        takeoffElevationDeg: 18,
-        pattern: [],
-        swr: [],
-      } as unknown as NonNullable<MockState['result']>,
-      geolocationStatus: 'idle',
-    });
-
+  it('allows shell height changes to alter geometric arcs explicitly', () => {
+    mockAntennaStore({ result: null, units: 'metric', latitudeDeg: 0, longitudeDeg: 0, monthOverride: 6, utcHourOverride: 12, geolocationStatus: 'idle' });
     render(<PropagationControl />);
-
-    expect(screen.getByRole('heading', { level: 2, name: /propagation/i })).toBeDefined();
-    expect(screen.getByText('T = 50')).toBeDefined();
+    const before = screen.getByText('1× ideal hop').nextElementSibling!.textContent;
+    fireEvent.change(screen.getByLabelText('Ideal shell height in kilometres'), { target: { value: '400' } });
+    const after = screen.getByText('1× ideal hop').nextElementSibling!.textContent;
+    expect(Number.parseInt(after!)).toBeGreaterThan(Number.parseInt(before!));
   });
 });

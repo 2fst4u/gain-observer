@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { useAntennaStore, buildWires, selectSimulationInput, selectAtuConfig, selectSwrWindow, legMultipleFromLength, computeOptimalVAngleDeg, recommendedTerminatingResistor, SLOPING_V_DEFAULT_TERMINATION_OHMS, TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS, type AntennaState } from '../src/store/antennaStore';
-import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ, ATU_COMPONENT_Q, findFeedlinePreset, DEFAULT_WHIP_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT, FOLDED_DIPOLE_FEED_R_OHMS } from '../src/physics/constants';
+import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ, ATU_COMPONENT_Q, DEFAULT_WHIP_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT, FOLDED_DIPOLE_FEED_R_OHMS } from '../src/physics/constants';
 import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG, FEEDLINE_SHIELD_TAG, VERTICAL_WHIP_TAG } from '../src/physics/tags';
 import { VERTICAL_WHIP_RADIAL_TAG } from '../src/physics/tags';
 
@@ -237,9 +237,6 @@ describe("antennaStore selectors", () => {
       });
 
       expect(config).toBeDefined();
-      const preset = findFeedlinePreset("rg213");
-      expect(config?.z0).toBe(preset.z0);
-      expect(config?.upmastMatchedLossDb).toBeGreaterThan(0);
       expect(config?.mainMatchedLossDb).toBeGreaterThan(0);
       expect(config?.componentQ).toBe(ATU_COMPONENT_Q);
     });
@@ -299,7 +296,8 @@ describe("antennaStore selectors", () => {
       expect(tags).toEqual([1, 2, 3, 4]);
       const shield = input.wires.find((w) => w.tag === 4)!;
       expect(shield.start[2]).toBe(10);
-      expect(shield.end[2]).toBeCloseTo(2, 5);
+      expect(shield.end[2]).toBeGreaterThanOrEqual(2);
+      expect(Math.hypot(...shield.end.map((v, i) => v - shield.start[i]))).toBeCloseTo(8, 8);
       // EX moves to bottom of shield (the rig).
       expect(input.excitation.wireTag).toBe(4);
       // TL card connects source bridge to rig segment.
@@ -884,16 +882,6 @@ describe("antennaStore actions", () => {
   });
 
   describe("propagation", () => {
-    it("clamps T-index to the practical range", () => {
-      const store = useAntennaStore.getState();
-      store.setTIndex(99999);
-      expect(useAntennaStore.getState().tIndex).toBe(250);
-      store.setTIndex(-99999);
-      expect(useAntennaStore.getState().tIndex).toBe(-100);
-      store.setTIndex(75);
-      expect(useAntennaStore.getState().tIndex).toBe(75);
-    });
-
     it("accepts and clears latitude", () => {
       const store = useAntennaStore.getState();
       store.setLatitude(51.5);
@@ -1301,9 +1289,13 @@ describe("antennaStore actions", () => {
           // Shield must be present (feedline is active for delta-loop with rg58).
           expect(shield).toBeDefined();
 
-          // Shield bottom must be at or above the base wire height.
-          const baseZ = base.start[2];
-          expect(shield.end[2]).toBeGreaterThanOrEqual(baseZ - 0.001);
+          // The shield leaves the loop plane and keeps its full length,
+          // turning along the ground once the drop runs out.
+          const shields = input.wires.filter((w) => w.tag === FEEDLINE_SHIELD_TAG);
+          expect(Math.abs(shield.end[1] - shield.start[1])).toBeGreaterThan(0);
+          const total = shields.reduce(
+            (sum, w) => sum + Math.hypot(...w.end.map((v, i) => v - w.start[i])), 0);
+          expect(total).toBeCloseTo(10, 8);
 
           // Basic geometry sanity.
           for (const w of input.wires) {

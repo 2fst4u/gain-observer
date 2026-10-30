@@ -9,6 +9,7 @@ import {
 } from './necInspect';
 import { slopingVTerminationHubZ, SLOPING_V_COUNTERPOISE_RADIALS, SLOPING_V_COUNTERPOISE_LENGTH_WL, wavelengthMeters } from '../src/physics/constants';
 import { buildWires } from '../src/store/antennaStore';
+import { MIN_REAL_GROUND_HEIGHT_M } from '../src/store/antennaSimulation';
 import { LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, SLOPING_V_LEFT_STUB_TAG, SLOPING_V_RIGHT_STUB_TAG, SLOPING_V_LEFT_COUNTERPOISE_TAG, SLOPING_V_RIGHT_COUNTERPOISE_TAG } from '../src/physics/tags';
 
 function setupSlopingV(terminatingResistor?: number) {
@@ -85,10 +86,8 @@ describe('V-antenna termination topology', () => {
     expect(rightStub.start[1]).toBeCloseTo(rightLegTip[1], 6);
     expect(rightStub.start[2]).toBeCloseTo(rightLegTip[2], 6);
 
-    // Stub ends at the counterpoise hub just above ground. The height is
-    // frequency-scaled (0.001 λ) rather than a flat 1 cm, because that is the
-    // lowest the Sommerfeld-Norton ground is documented to model faithfully.
-    const hubZ = slopingVTerminationHubZ(7.1, leftLegTip[2]);
+    // Fixed physical lift is valid throughout the supported frequency sweep.
+    const hubZ = Math.max(MIN_REAL_GROUND_HEIGHT_M, slopingVTerminationHubZ(7.1, leftLegTip[2]));
     expect(hubZ).toBeGreaterThan(0);
     expect(hubZ).toBeLessThan(leftLegTip[2]);
     expect(leftStub.end[2]).toBeCloseTo(hubZ, 6);

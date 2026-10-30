@@ -1,10 +1,8 @@
 import type { PropagationPrediction } from "../../physics/propagation";
 import type { UnitSystem } from "../../physics/units";
 import {
-  buildAzimuthalWedges,
+  buildAzimuthalSegments,
   formatDistance,
-  qualityOpacity,
-  statusFill,
 } from "./propagationRadarUtils";
 
 export function RadarGrid({
@@ -142,14 +140,14 @@ export function RadarHopRings({
   for (let k = prediction.hops.length - 1; k >= 0; k--) {
     const ring = prediction.hops[k]!;
     if (prediction.azimuthalHops && prediction.azimuthalHops.length > 1) {
-      const wedges = buildAzimuthalWedges(
+      const segments = buildAzimuthalSegments(
         prediction.azimuthalHops,
         ring.n,
         cx,
         cy,
         kmToPx,
       );
-      hopRings.push(<g key={ring.n}>{wedges}</g>);
+      hopRings.push(<g key={ring.n}>{segments}</g>);
     } else {
       hopRings.push(
         <circle
@@ -157,12 +155,10 @@ export function RadarHopRings({
           cx={cx}
           cy={cy}
           r={ring.rangeKm * kmToPx}
-          fill={statusFill(ring.status)}
-          fillOpacity={qualityOpacity(ring.linkQuality)}
-          stroke={statusFill(ring.status)}
-          strokeOpacity={ring.linkQuality === "unusable" ? 0.35 : 0.85}
+          fill="none"
+          stroke="var(--accent)"
+          strokeOpacity={0.75}
           strokeWidth={2}
-          strokeDasharray={ring.linkQuality === "unusable" ? "4 3" : undefined}
         />,
       );
     }
@@ -170,45 +166,6 @@ export function RadarHopRings({
   return <>{hopRings}</>;
 }
 
-export function LegendSwatch({
-  color,
-  label,
-}: {
-  readonly color: string;
-  readonly label: string;
-}) {
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-      <span
-        aria-hidden="true"
-        style={{
-          display: "inline-block",
-          width: 10,
-          height: 10,
-          borderRadius: "50%",
-          background: color,
-          opacity: 0.85,
-        }}
-      />
-      {label}
-    </span>
-  );
-}
-
 export function RadarLegend() {
-  return (
-    <figcaption
-      style={{
-        display: "flex",
-        gap: 12,
-        fontSize: 11,
-        color: "var(--text-muted)",
-      }}
-    >
-      <LegendSwatch color="var(--success)" label="Open" />
-      <LegendSwatch color="var(--warning)" label="Marginal" />
-      <LegendSwatch color="var(--danger)" label="Closed" />
-      <span>Faint/dashed = weak signal</span>
-    </figcaption>
-  );
+  return <figcaption style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ideal ground arcs · no coverage or signal forecast</figcaption>;
 }

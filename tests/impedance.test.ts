@@ -125,18 +125,17 @@ describe('atuLossDb', () => {
     expect(atuLossDb({ R: 50, X: 0 }, 150)).toBeCloseTo(0, 10);
   });
 
-  it('non-passive R or non-positive Q or non-positive z0 → no loss (zero or division by zero guards)', () => {
-    expect(atuLossDb({ R: -5, X: 0 }, 150)).toBe(0);
-    expect(atuLossDb({ R: 0, X: 10 }, 150)).toBe(0);
-    expect(atuLossDb({ R: 50, X: 0 }, 0)).toBe(0);
-    expect(atuLossDb({ R: 50, X: 0 }, -10)).toBe(0);
-    expect(atuLossDb({ R: 50, X: 0 }, 150, 0)).toBe(0);
-    expect(atuLossDb({ R: 50, X: 0 }, 150, -50)).toBe(0);
+  it('invalid components or a non-passive load cannot be matched', () => {
+    expect(atuLossDb({ R: -5, X: 0 }, 150)).toBe(Infinity);
+    expect(atuLossDb({ R: 0, X: 10 }, 150)).toBe(Infinity);
+    expect(atuLossDb({ R: 50, X: 0 }, 0)).toBe(Infinity);
+    expect(atuLossDb({ R: 50, X: 0 }, -10)).toBe(Infinity);
+    expect(atuLossDb({ R: 50, X: 0 }, 150, 0)).toBe(Infinity);
+    expect(atuLossDb({ R: 50, X: 0 }, 150, -50)).toBe(Infinity);
   });
 
-  it('folded-dipole 300 Ω is a gentle match (~0.06 dB at Q=150)', () => {
-    // Q_net = 250/√(300·50) = 2.041 ⇒ loss = -10log10(150/152.04) ≈ 0.059 dB
-    expect(atuLossDb({ R: 300, X: 0 }, 150)).toBeCloseTo(0.06, 2);
+  it('300 Ω loses about 0.13 dB in the retuned two-component L network at Q=150', () => {
+    expect(atuLossDb({ R: 300, X: 0 }, 150)).toBeCloseTo(0.12947, 5);
   });
 
   it('heavy reactance costs more loss', () => {
@@ -152,14 +151,12 @@ describe('atuLossDb', () => {
 describe('displayedFeedMetrics — mast-base ATU', () => {
   const preset = findFeedlinePreset('rg213');
   const atu = {
-    z0: preset.z0,
-    upmastMatchedLossDb: feedlineLossDb(preset, 14.2, 6),
     mainMatchedLossDb: feedlineLossDb(preset, 14.2, 50),
     componentQ: ATU_COMPONENT_Q,
   };
 
-  it('presents 50 Ω at 1:1 and subtracts feedline + tuner losses from gain', () => {
-    const result = stubResult({ impedance: { R: 18, X: -40 }, maxGainDbi: 6 });
+  it('matches 50 Ω and does not deduct up-mast loss already included in NEC gain twice', () => {
+    const result = { ...stubResult({ impedance: { R: 18, X: -40 }, maxGainDbi: 6 }), networkLossDb: 0.4 };
     const m = displayedFeedMetrics(result, {
       transformerEnabled: false, transformerRatio: 1, feedlineActive: true, atu,
     });
@@ -169,22 +166,32 @@ describe('displayedFeedMetrics — mast-base ATU', () => {
     expect(m.atuLoss).toBeDefined();
 
     // Cross-check each stage against the standalone loss functions.
-    const matchedUp = feedlineLossDb(preset, 14.2, 6);
-    const gamma = Math.hypot(18 - preset.z0, -40) / Math.hypot(18 + preset.z0, -40);
-    expect(m.atuLoss!.upmastDb).toBeCloseTo(feedlineLossUnderSwrDb(matchedUp, gamma), 10);
+    expect(m.atuLoss!.upmastDb).toBe(0.4);
     expect(m.atuLoss!.mainDb).toBeCloseTo(feedlineLossDb(preset, 14.2, 50), 10);
     expect(m.atuLoss!.tunerDb).toBeCloseTo(atuLossDb({ R: 18, X: -40 }, ATU_COMPONENT_Q), 10);
 
-    const total = m.atuLoss!.upmastDb + m.atuLoss!.mainDb + m.atuLoss!.tunerDb;
+    const total = m.atuLoss!.mainDb + m.atuLoss!.tunerDb;
     expect(m.displayedRealizedGainDbi!).toBeCloseTo(6 - total, 10);
   });
 
-  it('the ATU supersedes a transformer when both are set', () => {
+  it('retains a fitted transformer loss when the mast-base ATU is enabled', () => {
     const result = stubResult({ impedance: { R: 300, X: 0 }, maxGainDbi: 2 });
     const m = displayedFeedMetrics(result, {
       transformerEnabled: true, transformerRatio: 9, feedlineActive: true, atu,
     });
     expect(m.displayedZ).toEqual({ R: 50, X: 0 });
+    expect(m.displayedRealizedGainDbi).toBeCloseTo(2 - m.atuLoss!.mainDb - m.atuLoss!.tunerDb - TRANSFORMER_INSERTION_LOSS_DB, 10);
+  });
+
+  it('applies the display-side transformer before tuning a zero-length feedline', () => {
+    const result = stubResult({ impedance: { R: 450, X: 0 }, maxGainDbi: 5 });
+    const metrics = displayedFeedMetrics(result, {
+      transformerEnabled: true, transformerRatio: 9, feedlineActive: false, atu,
+    });
+    // The 9:1 transformer presents 50 ohms, so the L tuner is bypassed.
+    expect(metrics.atuLoss!.tunerDb).toBe(0);
+    expect(metrics.displayedSwr).toBe(1);
+    expect(metrics.displayedRealizedGainDbi).toBeCloseTo(5 - atu.mainMatchedLossDb - TRANSFORMER_INSERTION_LOSS_DB, 10);
   });
 
   it('a non-passive feedpoint leaves realized gain undefined but still reports losses', () => {
@@ -326,11 +333,18 @@ describe('deembedThroughLine', () => {
 });
 
 describe('matchRatioForFeedpoint', () => {
-  it('rounds R/target to the nearest integer ratio', () => {
-    expect(matchRatioForFeedpoint(73, 50)).toBe(1);   // dipole → 50 Ω
+  it('selects the integer ratio minimizing SWR, including geometric boundaries', () => {
+    expect(matchRatioForFeedpoint(73, 50)).toBe(2);   // 36.5 Ω gives less SWR than 73 Ω
     expect(matchRatioForFeedpoint(300, 50)).toBe(6);  // folded dipole → 50 Ω
     expect(matchRatioForFeedpoint(450, 50)).toBe(9);
     expect(matchRatioForFeedpoint(300, 450)).toBe(1); // 300 Ω feedpoint → 450 Ω line
+  });
+
+  it('uses reactance as well as resistance for a complex antenna', () => {
+    const z = { R: 50, X: 500 };
+    expect(matchRatioForFeedpoint(z, 50)).toBe(10);
+    expect(suggestedTransformerRatio(z, 1)).toBe(10);
+    expect(swr({ R: z.R / 10, X: z.X / 10 })).toBeLessThan(swr(z));
   });
 
   it('is independent of any fitted transformer (the value never moves once applied)', () => {

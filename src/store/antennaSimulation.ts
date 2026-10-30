@@ -52,6 +52,7 @@ import {
   buildInvertedLWires,
   buildFoldedAntennaWires,
   buildDipoleWires,
+  buildFeedlineShieldWires,
   SEGS_PER_WAVELENGTH,
 } from './antennaGeometry';
 import type { AntennaState } from './antennaStore';
@@ -158,10 +159,13 @@ export function calculateDefaultLength(type: AntennaType, frequencyMHz: number):
 
 const FEEDLINE_SHIELD_SEGMENTS = 11;
 const FEEDLINE_GROUND_GAP_M = 0.1;
+// A fixed physical lift covers the whole supported sweep without moving wires
+// when the operating frequency changes (Sommerfeld-Norton limit: 0.001 lambda).
+export const MIN_REAL_GROUND_HEIGHT_M = wavelengthMeters(SWEEP_F_MIN_MHZ) * 0.001;
 
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
 ): Wire[] {
   const wires = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
@@ -174,16 +178,20 @@ export function buildWires(
       }
     }
     if (bridge) {
-      wires.push({
-        start: bridge.end,
-        end: [bridge.end[0], bridge.end[1], layout.shield.bottomZ],
-        radius: layout.shield.radius,
-        segments: FEEDLINE_SHIELD_SEGMENTS,
-        tag: FEEDLINE_SHIELD_TAG,
-      });
+      wires.push(...buildFeedlineShieldWires([...bridge.end],
+        [bridge.end[0] - bridge.start[0], bridge.end[1] - bridge.start[1]],
+        { ...layout.shield, lengthM: state.feedlineLength, frequencyMHz: state.frequency,
+          segments: FEEDLINE_SHIELD_SEGMENTS }));
     }
   }
   return wires;
+}
+
+/** Complete physical geometry, including terminating bridges, stubs and radials. */
+export function buildPhysicalWires(state: Parameters<typeof buildWires>[0]): Wire[] {
+  const wires = buildWires(state);
+  const termination = buildTerminationElements({ ...state, terminatingResistor: state.terminatingResistor ?? 0 }, wires);
+  return [...wires, ...termination.extraWires];
 }
 
 function computeFeedlineShield(
@@ -191,15 +199,18 @@ function computeFeedlineShield(
 ) {
   const layout = computeFeedlineLayout(state);
   return layout?.shield
-    ? { ...layout.shield, segments: FEEDLINE_SHIELD_SEGMENTS }
+    ? { ...layout.shield, segments: FEEDLINE_SHIELD_SEGMENTS, lengthM: state.feedlineLength,
+        frequencyMHz: 'frequency' in state && typeof state.frequency === 'number' ? state.frequency : undefined }
     : null;
 }
 
 function buildWiresInternal(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
 ): Wire[] {
   const h = state.height;
+  const minimumHeight = state.groundId && state.groundId !== 'free' && state.groundId !== 'perfect'
+    ? MIN_REAL_GROUND_HEIGHT_M : 0;
 
   switch (state.antennaType) {
     case 'inverted-v':
@@ -246,6 +257,8 @@ function buildWiresInternal(
         segments: state.segments,
         frequency: state.frequency,
         counterpoise: state.whipCounterpoise ?? false,
+        designFrequency: state.designFrequency,
+        minimumHeight,
       });
 
     case 'inverted-l':
@@ -257,6 +270,8 @@ function buildWiresInternal(
         segments: state.segments,
         frequency: state.frequency,
         counterpoise: state.whipCounterpoise ?? false,
+        designFrequency: state.designFrequency,
+        minimumHeight,
       });
 
     case 'folded-dipole':
@@ -291,7 +306,7 @@ interface FeedlineLayout {
 
 function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
-    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset'>>,
+    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'groundId'>>,
 ): FeedlineLayout | null {
   if (!FEEDLINE_SUPPORTED_TYPES.has(state.antennaType ?? '')) return null;
 
@@ -310,7 +325,9 @@ function computeFeedlineLayout(
   const offset = Math.max(-limit, Math.min(limit, rawOffset));
 
   const topZ = state.height;
-  const minBottomZ = state.height > 0 ? FEEDLINE_GROUND_GAP_M : -len;
+  const realGround = state.groundId && state.groundId !== 'free' && state.groundId !== 'perfect';
+  const minBottomZ = state.height > 0 && state.groundId !== 'free'
+    ? (realGround ? MIN_REAL_GROUND_HEIGHT_M : FEEDLINE_GROUND_GAP_M) : -len;
   const desiredBottomZ = topZ - len;
   const bottomZ = Math.max(minBottomZ, desiredBottomZ);
   const drop = topZ - bottomZ;
@@ -325,6 +342,16 @@ function computeFeedlineLayout(
       radius: preset.shieldOuterRadiusM,
     },
   };
+}
+
+/**
+ * Whether the generated model actually contains a differential feedline.
+ * Selecting a cable preset alone is insufficient: zero/very short runs and
+ * ground-clipped runs without a usable shield segment are direct feeds, so an
+ * enabled impedance transformer must be applied in the display layer instead.
+ */
+export function isFeedlineActive(state: Parameters<typeof computeFeedlineLayout>[0]): boolean {
+  return computeFeedlineLayout(state)?.shield != null;
 }
 
 function buildGroundParams(state: AntennaState): GroundParams {
@@ -345,7 +372,8 @@ function buildExcitation(
   hasShield: boolean,
 ) {
   if (feedlineActive && hasShield) {
-    return { wireTag: FEEDLINE_SHIELD_TAG, segment: FEEDLINE_SHIELD_SEGMENTS };
+    return { wireTag: FEEDLINE_SHIELD_TAG, segment: wires.reduce((sum, wire) =>
+      sum + (wire.tag === FEEDLINE_SHIELD_TAG ? wire.segments : 0), 0) };
   } else if (hasBridge) {
     return { wireTag: FEED_BRIDGE_TAG, segment: 1 };
   } else if (state.antennaType === 'delta-loop' || state.antennaType === 'terminated-delta') {
@@ -367,7 +395,7 @@ function buildExcitation(
   }
 }
 
-function buildFeedlineElements(state: AntennaState, feedlineActive: boolean, hasShield: boolean) {
+function buildFeedlineElements(state: AntennaState, feedlineActive: boolean, hasShield: boolean, sourceSegment: number) {
   const transmissionLines: TransmissionLine[] = [];
   const loads: SegmentLoad[] = [];
   const networks: NetworkLoad[] = [];
@@ -378,37 +406,23 @@ function buildFeedlineElements(state: AntennaState, feedlineActive: boolean, has
     const xfmrRatio = Math.max(1, state.transformerRatio);
     const xfmrActive = state.transformerEnabled && xfmrRatio > 1;
 
-    if (xfmrActive) {
-      const omega = 2 * Math.PI * state.frequency * 1e6;
-      const xLeak = omega * 1e-8;
-      const n = Math.sqrt(xfmrRatio);
-      networks.push({
-        fromTag: FEED_BRIDGE_TAG,
-        fromSegment: 1,
-        toTag: FEEDLINE_SHIELD_TAG,
-        toSegment: 1,
-        y11Real: 0, y11Imag: -1 / xLeak,
-        y12Real: 0, y12Imag: +n / xLeak,
-        y22Real: 0, y22Imag: -(n * n) / xLeak,
-      });
-      transmissionLines.push({
-        fromTag: FEEDLINE_SHIELD_TAG,
-        fromSegment: 1,
-        toTag: FEEDLINE_SHIELD_TAG,
-        toSegment: FEEDLINE_SHIELD_SEGMENTS,
-        z0: preset.z0,
-        lengthM: electricalLength,
-      });
-    } else {
-      transmissionLines.push({
-        fromTag: FEED_BRIDGE_TAG,
-        fromSegment: 1,
-        toTag: FEEDLINE_SHIELD_TAG,
-        toSegment: FEEDLINE_SHIELD_SEGMENTS,
-        z0: preset.z0,
-        lengthM: electricalLength,
-      });
-    }
+    // Cascade the ideal transformer into the distributed line's two-port.
+    // A separate intermediate differential port on shield segment 1 would put
+    // its common-mode choke in the differential circuit as well.
+    transmissionLines.push({
+      fromTag: FEED_BRIDGE_TAG,
+      fromSegment: 1,
+      toTag: FEEDLINE_SHIELD_TAG,
+      toSegment: sourceSegment,
+      z0: preset.z0,
+      lengthM: electricalLength,
+      impedanceRatio: xfmrActive ? xfmrRatio : undefined,
+      lossModel: {
+        physicalLengthM: state.feedlineLength,
+        lossK1: preset.lossK1,
+        lossK2: preset.lossK2,
+      },
+    });
 
     if (state.transformerEnabled) {
       loads.push({
@@ -418,6 +432,7 @@ function buildFeedlineElements(state: AntennaState, feedlineActive: boolean, has
         segmentEnd: 1,
         param1: TRANSFORMER_CHOKE_OHMS,
         param2: 0,
+        role: 'choke',
       });
     }
   }
@@ -479,11 +494,12 @@ function createSlopingVCounterpoises(
   rightTip: Wire['end'],
   hubZ: number,
   radius: number,
-  frequency: number,
+  designFrequency: number,
+  operatingFrequency: number,
 ): Wire[] {
   const counterpoiseWires: Wire[] = [];
 
-  const lambda = wavelengthMeters(frequency);
+  const lambda = wavelengthMeters(designFrequency);
   const dx = leftTip[0] - rightTip[0];
   const dy = leftTip[1] - rightTip[1];
   const tipSeparation = Math.sqrt(dx * dx + dy * dy);
@@ -491,7 +507,7 @@ function createSlopingVCounterpoises(
     lambda * SLOPING_V_COUNTERPOISE_LENGTH_WL,
     Math.max(0.1, tipSeparation * 0.4),
   );
-  const radialSegments = Math.max(1, Math.ceil(radialLength / (lambda / SEGS_PER_WAVELENGTH)));
+  const radialSegments = Math.max(1, Math.ceil(radialLength / (wavelengthMeters(operatingFrequency) / SEGS_PER_WAVELENGTH)));
 
   const hubs: Array<[[number, number, number], number]> = [
     [[leftTip[0], leftTip[1], hubZ], SLOPING_V_LEFT_COUNTERPOISE_TAG],
@@ -520,12 +536,12 @@ function createSlopingVCounterpoises(
   return counterpoiseWires;
 }
 
-function buildSlopingVTermination(R: number, radius: number, frequency: number, wires: Wire[]) {
+function buildSlopingVTermination(R: number, radius: number, designFrequency: number, frequency: number, minimumHeight: number, wires: Wire[]) {
   const { leftTip, rightTip } = findSlopingVLegTips(wires);
-  const hubZ = slopingVTerminationHubZ(frequency, Math.min(leftTip[2], rightTip[2]));
+  const hubZ = Math.max(minimumHeight, slopingVTerminationHubZ(designFrequency, Math.min(leftTip[2], rightTip[2])));
 
   const { stubWires, stubLoads } = createSlopingVStubsAndLoads(leftTip, rightTip, hubZ, radius, R);
-  const counterpoiseWires = createSlopingVCounterpoises(leftTip, rightTip, hubZ, radius, frequency);
+  const counterpoiseWires = createSlopingVCounterpoises(leftTip, rightTip, hubZ, radius, designFrequency, frequency);
 
   return {
     extraWires: [...stubWires, ...counterpoiseWires],
@@ -600,14 +616,20 @@ function buildFoldedDipoleTermination(R: number, radius: number, wires: Wire[]) 
   return { extraWires, loads };
 }
 
-function buildTerminationElements(state: AntennaState, wires: Wire[]) {
+function buildTerminationElements(
+  state: Pick<AntennaState, 'antennaType' | 'terminatingResistor' | 'wireRadius' | 'frequency'> &
+    Partial<Pick<AntennaState, 'designFrequency' | 'groundId' | 'height'>>,
+  wires: Wire[],
+) {
   const extraWires: Wire[] = [];
   const loads: SegmentLoad[] = [];
 
   if (state.terminatingResistor > 0) {
     switch (state.antennaType) {
       case 'sloping-v': {
-        const { extraWires: ew, loads: l } = buildSlopingVTermination(state.terminatingResistor, state.wireRadius, state.frequency, wires);
+        const minimumHeight = (state.height ?? 0) > 0 && state.groundId && state.groundId !== 'free' && state.groundId !== 'perfect'
+          ? MIN_REAL_GROUND_HEIGHT_M : 0;
+        const { extraWires: ew, loads: l } = buildSlopingVTermination(state.terminatingResistor, state.wireRadius, state.designFrequency ?? state.frequency, state.frequency, minimumHeight, wires);
         extraWires.push(...ew);
         loads.push(...l);
         break;
@@ -639,11 +661,12 @@ export function selectAtuConfig(args: {
 }): AtuMatchConfig | undefined {
   if (!args.atuEnabled) return undefined;
   const preset = findFeedlinePreset(args.feedlineId);
+  if (preset.id === 'none') return undefined;
+  const mainPreset = findFeedlinePreset('rg213');
   return {
-    z0: preset.z0,
-    upmastMatchedLossDb: feedlineLossDb(preset, args.frequency, args.feedlineLength),
-    mainMatchedLossDb: feedlineLossDb(preset, args.frequency, args.atuMainFeedlineLength),
+    mainMatchedLossDb: feedlineLossDb(mainPreset, args.frequency, args.atuMainFeedlineLength),
     componentQ: ATU_COMPONENT_Q,
+    mainFeedlineId: mainPreset.id,
   };
 }
 
@@ -660,22 +683,23 @@ export function selectSimulationInput(state: AntennaState): SimulationInput {
   }
 
   const feedlineSupport = FEEDLINE_SUPPORTED_TYPES.has(state.antennaType);
-  const feedlineActive = hasBridge && feedlineSupport;
+  const feedlineActive = hasBridge && hasShield && feedlineSupport;
 
   const excitation = buildExcitation(state, wires, feedlineActive, hasBridge, hasShield);
 
-  const feedlineElements = buildFeedlineElements(state, feedlineActive, hasShield);
+  const feedlineElements = buildFeedlineElements(state, feedlineActive, hasShield, excitation.segment);
   const { transmissionLines, networks, loads: feedlineLoads } = feedlineElements;
   let loads = feedlineLoads;
 
   const terminationElements = buildTerminationElements(state, wires);
   wires.push(...terminationElements.extraWires);
-  loads = loads.concat(terminationElements.loads);
+  loads = loads.concat(terminationElements.loads.map((load) => ({ ...load, role: 'termination' as const })));
 
   return {
     wires,
     frequencyMHz: state.frequency,
     ground: buildGroundParams(state),
+    conductivitySm: 58e6,
     excitation,
     patternResolution: {
       thetaSteps: 37,

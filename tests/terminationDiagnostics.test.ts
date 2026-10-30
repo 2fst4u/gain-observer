@@ -3,8 +3,9 @@ import {
   computeCurrentRippleByTag,
   computeFrontBackDb,
   computeTerminationDiagnostics,
+  computeTerminationPower,
 } from '../src/physics/terminationDiagnostics';
-import type { SegmentCurrent, GainPattern, PowerBudget } from '../src/physics/types';
+import type { SegmentCurrent, GainPattern, PowerBudget, SegmentLoad } from '../src/physics/types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -23,6 +24,18 @@ function makePattern(data: number[], thetaSteps: number, phiSteps: number): Gain
     dPhi: 360 / phiSteps,
   };
 }
+
+describe('termination resistor dissipation', () => {
+  it('attributes peak-phasor I²R/2 only to identified resistors, excluding the choke', () => {
+    const currents = [makeCurrent(1, 4, 0.1), makeCurrent(2, 8, 0.02), makeCurrent(3, 8, 0.03)];
+    const loads: SegmentLoad[] = [
+      { type: 4, wireTag: 4, segmentStart: 1, segmentEnd: 1, param1: 2000, param2: 0, role: 'choke' },
+      { type: 4, wireTag: 8, segmentStart: 2, segmentEnd: 2, param1: 500, param2: 0, role: 'termination' },
+    ];
+    expect(computeTerminationPower(currents, loads)).toBeCloseTo(0.225, 12);
+    expect(computeTerminationPower(currents, loads.slice(0, 1))).toBe(0);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // computeCurrentRippleByTag

@@ -28,7 +28,7 @@ describe('AtuSection', () => {
     expect(checkbox).toBeDefined();
     expect(checkbox.checked).toBe(false);
 
-    expect(screen.queryByLabelText(/main run, atu/i)).toBeNull();
+    expect(screen.queryByLabelText(/main RG-213/i)).toBeNull();
     expect(screen.queryByText(/matched loss/i)).toBeNull();
     expect(screen.queryByText(/the feedline above becomes the short up-mast run/i)).toBeNull();
   });
@@ -73,7 +73,7 @@ describe('AtuSection', () => {
     const checkbox = screen.getByLabelText(/ATU at the base of the mast/i) as HTMLInputElement;
     expect(checkbox.checked).toBe(true);
 
-    const input = screen.getByRole('spinbutton', { name: /main run, atu → shack \(m\)/i }) as HTMLInputElement;
+    const input = screen.getByRole('spinbutton', { name: /main rg-213 \(50 Ω\) run, atu → shack \(m\)/i }) as HTMLInputElement;
     expect(input).toBeDefined();
     expect(input.value).toBe('50.00'); // 50m in display value may be 50 if metric
 
@@ -101,7 +101,7 @@ describe('AtuSection', () => {
     );
 
     // 30.48 m = 100 ft exactly.
-    const input = screen.getByRole('spinbutton', { name: /main run, atu → shack \(ft\)/i }) as HTMLInputElement;
+    const input = screen.getByRole('spinbutton', { name: /main rg-213 \(50 Ω\) run, atu → shack \(ft\)/i }) as HTMLInputElement;
     expect(parseFloat(input.value)).toBeCloseTo(100, 2);
   });
 

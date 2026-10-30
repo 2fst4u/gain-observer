@@ -121,7 +121,7 @@ export function parseNecImpedanceSweep(text: string): { impedance: ImpedanceResu
 // Row regex: leading whitespace, theta, phi, vert, horiz, total (we stop here).
 const patternRowRe = /^\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)/gm;
 
-function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainPattern | null {
+function parsePattern(text: string, thetaSteps: number, phiSteps: number, integrationThetaMaxDeg: 90 | 180): GainPattern | null {
   const blockStart = text.indexOf('RADIATION PATTERNS');
   if (blockStart < 0) return null;
 
@@ -159,6 +159,7 @@ function parsePattern(text: string, thetaSteps: number, phiSteps: number): GainP
     phiSteps,
     dTheta,
     dPhi,
+    integrationThetaMaxDeg,
   };
 }
 
@@ -213,10 +214,11 @@ export function parseNecCurrents(text: string): SegmentCurrent[] {
  *   NETWORK LOSS  =  0.0000E+00 Watts
  *   EFFICIENCY    =  100.00 Percent
  *
- * STRUCTURE LOSS is where LD-card segment loads land — which is how every
- * termination resistor in this app is modelled, so it is the termination's
- * dissipation. NETWORK LOSS covers NT-card two-port networks instead, and is
- * therefore 0 for these decks.
+ * STRUCTURE LOSS includes bulk wire conductivity and all LD segment loads,
+ * including both termination resistors and common-mode chokes. NETWORK LOSS
+ * covers NT two-port networks, including the lossy differential feedline.
+ * Termination-only power must therefore be computed from identified loaded
+ * segments and their currents rather than either aggregate budget value.
  */
 export function parseNecPowerBudget(text: string): PowerBudget | null {
   const blockStart = text.indexOf('POWER BUDGET');
@@ -247,9 +249,10 @@ export function parseNecOutput(
   text: string,
   expectedThetaSteps: number,
   expectedPhiSteps: number,
+  integrationThetaMaxDeg: 90 | 180 = 180,
 ): ParsedNecOutput {
   const { impedance, power } = parseNecImpedance(text);
-  const pattern = parsePattern(text, expectedThetaSteps, expectedPhiSteps);
+  const pattern = parsePattern(text, expectedThetaSteps, expectedPhiSteps, integrationThetaMaxDeg);
   const currents = parseNecCurrents(text);
   const powerBudget = parseNecPowerBudget(text);
 

@@ -8,6 +8,8 @@ describe('CounterpoiseControl', () => {
     useAntennaStore.setState({
       antennaType: 'vertical-whip',
       whipCounterpoise: false,
+      designFrequency: 7.1,
+      frequency: 14.2,
     });
   });
 
@@ -28,7 +30,8 @@ describe('CounterpoiseControl', () => {
     expect(checkbox).toBeDefined();
     expect(checkbox.checked).toBe(false);
 
-    expect(screen.getByText(/No counterpoise\. NEC will report the high reactance/i)).toBeDefined();
+    expect(screen.getByText(/No counterpoise is modelled/i)).toBeDefined();
+    expect(screen.getByText(/needs an explicitly modelled return conductor or ground system/i)).toBeDefined();
   });
 
   it('renders checkbox and enabled hint text when antennaType is inverted-l and whipCounterpoise is true', () => {
@@ -38,7 +41,8 @@ describe('CounterpoiseControl', () => {
     const checkbox = screen.getByRole('checkbox', { name: /Add ¼λ counterpoise radials/i }) as HTMLInputElement;
     expect(checkbox.checked).toBe(true);
 
-    expect(screen.getByText(/4 horizontal ¼λ radials fan out from the base/i)).toBeDefined();
+    expect(screen.getByText(/4 horizontal radials are designed at 7\.10 MHz/i)).toBeDefined();
+    expect(screen.getByText(/physical lengths stay fixed while tuning/i)).toBeDefined();
   });
 
   it('toggles whipCounterpoise in store when checkbox is clicked', () => {

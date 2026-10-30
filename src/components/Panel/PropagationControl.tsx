@@ -1,26 +1,14 @@
-// HF propagation panel — manual T-index entry plus a top-down radar plot
-// of estimated 1/2/3-hop range. Entirely client-side; no network calls.
-
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { predictPropagation } from '../../physics/propagation';
+import { useLiveFeedMetrics } from '../../hooks/useFeedMetrics';
 import { PropagationInputs } from './Propagation/PropagationInputs';
 import { ConditionsReadout } from './Propagation/ConditionsReadout';
 
 export function PropagationControl() {
-  const {
-    frequency,
-    tIndex,
-    latitudeDeg,
-    longitudeDeg,
-    monthOverride,
-    utcHourOverride,
-    result,
-    units,
-  } = useAntennaStore(useShallow((s) => ({
+  const state = useAntennaStore(useShallow((s) => ({
     frequency: s.frequency,
-    tIndex: s.tIndex,
     latitudeDeg: s.latitudeDeg,
     longitudeDeg: s.longitudeDeg,
     monthOverride: s.monthOverride,
@@ -28,51 +16,36 @@ export function PropagationControl() {
     result: s.result,
     units: s.units,
   })));
-
-  // Resolve "now" once per render. We deliberately don't memoise on a
-  // ticking clock — propagation conditions change on the order of minutes,
-  // so the panel just refreshes on the next render trigger (e.g. user
-  // input). Adding a 60s ticker is easy if needed later.
+  const feedMetrics = useLiveFeedMetrics().metrics;
+  const [shellHeightKm, setShellHeightKm] = useState(300);
   const now = new Date();
-  const autoMonth = now.getUTCMonth() + 1;
-  const autoUtcHour = now.getUTCHours() + now.getUTCMinutes() / 60;
+  const month = state.monthOverride ?? now.getUTCMonth() + 1;
+  const utcHour = state.utcHourOverride ?? now.getUTCHours() + now.getUTCMinutes() / 60;
+  const { result } = state;
+  const realizedGainOffsetDb = result && feedMetrics?.displayedRealizedGainDbi !== undefined
+    ? feedMetrics.displayedRealizedGainDbi - result.maxGainDbi
+    : undefined;
 
-  const month = monthOverride ?? autoMonth;
-  const utcHour = utcHourOverride ?? autoUtcHour;
-
-  const takeoffElevationDeg = result?.takeoffElevationDeg ?? 30;
-
-  const prediction = useMemo(() => {
-    return predictPropagation({
-      frequencyMHz: frequency,
-      tIndex,
-      takeoffElevationDeg,
-      month,
-      utcHour,
-      latitudeDeg: latitudeDeg ?? 0,
-      longitudeDeg: longitudeDeg ?? 0,
-      pattern: result?.pattern,
-      swr: result?.swr,
-    });
-  }, [frequency, tIndex, takeoffElevationDeg, month, utcHour, latitudeDeg, longitudeDeg, result?.pattern, result?.swr]);
-
-  const haveTakeoff = result !== null;
+  const prediction = useMemo(() => predictPropagation({
+    takeoffElevationDeg: result?.takeoffElevationDeg ?? 30,
+    shellHeightKm,
+    month,
+    utcHour,
+    latitudeDeg: state.latitudeDeg ?? 0,
+    longitudeDeg: state.longitudeDeg ?? 0,
+    pattern: result?.pattern,
+    realizedGainOffsetDb,
+  }), [result?.takeoffElevationDeg, result?.pattern, shellHeightKm, month, utcHour,
+    state.latitudeDeg, state.longitudeDeg, realizedGainOffsetDb]);
 
   return (
     <section className="panel-section">
-      {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
-      <h2>
-        Propagation
-        <span className="badge">T = {tIndex.toFixed(0)}</span>
-      </h2>
-
-      <PropagationInputs />
-
-      <ConditionsReadout
-        prediction={prediction}
-        haveTakeoff={haveTakeoff}
-        units={units}
-      />
+      <h2>Propagation geometry <span className="badge">Illustrative</span></h2>
+      <p style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+        Ideal shell ray distances. These are not coverage predictions; path availability, received signal and LUF require a propagation model and link budget.
+      </p>
+      <PropagationInputs shellHeightKm={shellHeightKm} onShellHeightChange={setShellHeightKm} />
+      <ConditionsReadout prediction={prediction} haveTakeoff={result !== null} units={state.units} />
     </section>
   );
 }

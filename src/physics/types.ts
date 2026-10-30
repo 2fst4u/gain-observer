@@ -10,8 +10,7 @@ export type Vec3 = readonly [number, number, number];
  *   - delta-loop: 1λ perimeter.
  *   - sloping-v: 2λ total (1λ per leg).
  *   - terminated-delta: 1λ perimeter (same triangle shape as a delta loop,
- *     but the base is split in the middle and each half terminates to
- *     ground through its own resistor, like a per-tip sloping-V termination).
+ *     but the base is split in the middle and a resistor bridges its gap).
  *   - vertical-whip: a single vertical wire fed at its base (monopole).
  *     `length` is the whip length and `height` is the base height above
  *     ground; resonant length is ¼λ.
@@ -60,17 +59,18 @@ export interface Excitation {
 }
 
 /**
- * NEC-2 transmission line (TL) card.
+ * Non-radiating differential transmission line.
  *
- * NEC's TL card models an ideal (lossless) two-port transmission line
- * connected between two segments. It is a circuit element only — it does
+ * Without attenuation or a transformer this becomes a lossless NEC TL card.
+ * A distributed lossy line and any ideal transformer are combined into a
+ * frequency-dependent NT admittance matrix. It is a circuit element only — it does
  * not radiate. We use it to represent the differential signal flowing
  * inside the coaxial feedline, while the outside of the shield is modelled
  * as a real radiating wire (so common-mode currents are physically
  * captured).
  *
- * shuntAdmEnd1/shuntAdmEnd2 are optional shunt admittances (S = 1/Ω) added
- * at each port — used to approximate dielectric loss when needed.
+ * shuntAdmEnd1/shuntAdmEnd2 are optional extra port admittances (S = 1/Ω).
+ * Distributed conductor/dielectric attenuation belongs in lossModel.
  */
 export interface TransmissionLine {
   readonly fromTag: number;
@@ -83,6 +83,14 @@ export interface TransmissionLine {
    *  required — NEC's TL card takes physical length directly and we encode
    *  velocity factor via the lengthM value: see selectSimulationInput). */
   readonly lengthM: number;
+  /** Ideal antenna-side transformer impedance ratio, Z_antenna / Z_line. */
+  readonly impedanceRatio?: number;
+  /** Frequency-dependent matched cable attenuation; omission selects an ideal line. */
+  readonly lossModel?: {
+    readonly physicalLengthM: number;
+    readonly lossK1: number;
+    readonly lossK2: number;
+  };
   readonly shuntAdmEnd1Real?: number;
   readonly shuntAdmEnd1Imag?: number;
   readonly shuntAdmEnd2Real?: number;
@@ -94,7 +102,7 @@ export interface TransmissionLine {
  *
  * type=0 → series RLC (R Ω, L H, C F).
  * type=4 → impedance Z = R + jX placed in series with the segment.
- * Other types exist but we only need 0 and 4.
+ * Bulk conductor loss uses SimulationInput.conductivitySm (NEC LD5).
  *
  * We use this to model a 1:1 current ("choke") balun: a high common-mode
  * impedance placed near the antenna feedpoint on the coax shield wire.
@@ -113,6 +121,8 @@ export interface SegmentLoad {
   readonly param2: number;
   /** For type=0: capacitance F. Ignored for type=4. */
   readonly param3?: number;
+  /** Physical attribution for diagnostics; NEC itself does not distinguish these. */
+  readonly role?: 'termination' | 'choke';
 }
 
 /**
@@ -159,6 +169,8 @@ export interface SimulationInput {
   readonly loads?: readonly SegmentLoad[];
   /** Optional NEC NT cards (two-port networks). */
   readonly networks?: readonly NetworkLoad[];
+  /** Wire conductivity in S/m. Omit for a perfect conductor analytic model. */
+  readonly conductivitySm?: number;
 }
 
 /**
@@ -174,6 +186,8 @@ export interface GainPattern {
   readonly dTheta: number;
   /** Phi step size in degrees. */
   readonly dPhi: number;
+  /** Integration support: 90° over ground, 180° in free space (default). */
+  readonly integrationThetaMaxDeg?: 90 | 180;
 }
 
 export interface ImpedanceResult {
@@ -206,14 +220,14 @@ export interface SegmentCurrent {
 export interface PowerBudget {
   /** Total power accepted by the antenna from the source, watts. */
   readonly inputW: number;
-  /** Power leaving as far-field radiation, watts. */
+  /** NEC budget power after conductor/network losses; includes soil absorption. */
   readonly radiatedW: number;
-  /** Ohmic loss in wire conductors, watts. */
+  /** Wire ohmic loss plus LD segment-load dissipation, watts. */
   readonly structureLossW: number;
   /**
    * Power absorbed by NT (network) cards, watts.
-   * For a terminated sloping-V this equals the power dissipated in the
-   * far-end resistor — the primary termination-effectiveness metric.
+   * Includes non-radiating cable loss. LD termination resistors are instead
+   * included in structureLossW.
    */
   readonly networkLossW: number;
   /** Radiation efficiency, percent (= 100 × radiatedW / inputW). */
@@ -232,8 +246,8 @@ export interface CurrentRipple {
   readonly magnitudes: number[];
   /**
    * max(|I|) / min(|I|).
-   * 1.0 = perfectly uniform (ideal travelling wave).
-   * High values indicate a standing-wave component.
+   * 1.0 = uniform current envelope. Radiation and attenuation can vary the
+   * envelope even with no reflected wave; this is not a reflection estimate.
    */
   readonly ripple: number;
   /** 20 × log10(ripple), dB. 0 dB = perfectly uniform. */
@@ -241,10 +255,8 @@ export interface CurrentRipple {
 }
 
 /**
- * Termination-effectiveness diagnostics derived from NEC output.
- *
- * These measure whether the far-end termination is absorbing the
- * travelling wave.  They are NOT feedpoint-match metrics.
+ * Current envelopes and identified termination dissipation from NEC output.
+ * These are not feedpoint-match or reflected-wave estimates.
  */
 export interface TerminationDiagnostics {
   /**
@@ -255,10 +267,11 @@ export interface TerminationDiagnostics {
    */
   readonly currentRippleByTag: CurrentRipple[];
   /**
-   * Full NEC power budget.  powerBudget.networkLossW is the power
-   * absorbed by the termination resistor (NT card).
+   * Full NEC power budget, including conductor, choke, termination and cable losses.
    */
   readonly powerBudget: PowerBudget | null;
+  /** Dissipation in loads explicitly identified as termination resistors, watts. */
+  readonly terminationPowerW?: number;
   /**
    * Gain at peak direction minus gain at 180° opposite, in dB.
    * Null when the pattern has too few phi steps to sample the rear.
@@ -285,11 +298,17 @@ export interface SimulationResult {
    */
   readonly swr: number;
   /**
-   * Radiation efficiency (0..1) from the NEC POWER BUDGET block.
+   * Conductor/network efficiency from the NEC POWER BUDGET block.
+   * Excludes environmental ground absorption; use escapingEfficiency for
+   * the accepted-power fraction that reaches the far field.
    * Equals terminationDiagnostics.powerBudget.efficiencyPct / 100.
    * Undefined only when the power budget block could not be parsed.
    */
   readonly efficiency?: number;
+  /** Integrated far-field power / accepted input power, including ground absorption. */
+  readonly escapingEfficiency?: number;
+  /** Accepted-power loss in all NEC NT networks, including differential cable loss. */
+  readonly networkLossDb?: number;
   /**
    * Peak directivity in dBi. Directivity describes pattern shape only,
    * normalised to the power that actually radiates:

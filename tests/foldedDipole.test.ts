@@ -25,15 +25,15 @@ function foldedAntennaWires(overrides: Partial<Parameters<typeof buildWires>[0]>
 }
 
 describe('folded dipole geometry', () => {
-  it('emits the seven expected wires with the correct tags', () => {
+  it('emits aligned conductor halves and matching centre cells', () => {
     const wires = foldedAntennaWires();
-    expect(wires).toHaveLength(7);
+    expect(wires).toHaveLength(8);
     const tags = wires.map((w) => w.tag);
     expect(tags).toContain(LEFT_LEG_TAG);
     expect(tags).toContain(RIGHT_LEG_TAG);
     expect(tags).toContain(FEED_BRIDGE_TAG);
-    // Top conductor split into 2 halves — both share FOLDED_DIPOLE_OPPOSITE_TAG.
-    expect(tags.filter((t) => t === FOLDED_DIPOLE_OPPOSITE_TAG)).toHaveLength(2);
+    // The top centre cell aligns with the source cell on the lower wire.
+    expect(tags.filter((t) => t === FOLDED_DIPOLE_OPPOSITE_TAG)).toHaveLength(3);
     // Two connectors share the connector tag.
     expect(tags.filter((t) => t === FOLDED_DIPOLE_CONNECTOR_TAG)).toHaveLength(2);
   });
@@ -73,24 +73,21 @@ describe('folded dipole geometry', () => {
     expect(opp.start[1]).toBeCloseTo(fed.start[1], 9);
   });
 
-  it('unterminated: top conductor halves share a common junction at topCenter (no gap)', () => {
+  it('unterminated: a matching centre cell closes the top conductor', () => {
     const wires = foldedAntennaWires({ height: 12, terminatingResistor: 0 });
     const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
-    expect(oppWires).toHaveLength(2);
-    // topCenter = (0, 0, height + aperture) for any orientation.
-    // When unterminated, left-half.end === right-half.start (shared junction = continuous wire).
+    expect(oppWires).toHaveLength(3);
     const leftEnd = oppWires[0]!.end;
     const rightStart = oppWires[1]!.start;
-    expect(leftEnd[0]).toBeCloseTo(rightStart[0], 9);
-    expect(leftEnd[1]).toBeCloseTo(rightStart[1], 9);
-    expect(leftEnd[2]).toBeCloseTo(rightStart[2], 9);
-    // That shared point is directly above the feed centre.
-    expect(leftEnd[0]).toBeCloseTo(0, 9);
-    expect(leftEnd[1]).toBeCloseTo(0, 9);
-    expect(leftEnd[2]).toBeCloseTo(12 + APERTURE, 9);
+    expect(oppWires[2]!.start).toEqual(leftEnd);
+    expect(oppWires[2]!.end).toEqual(rightStart);
+    const source = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
+    expect(oppWires[2]!.start.slice(0, 2)).toEqual(source.start.slice(0, 2));
+    expect(oppWires[2]!.end.slice(0, 2)).toEqual(source.end.slice(0, 2));
+    expect(oppWires[2]!.segments).toBe(1);
   });
 
-  it('terminated: top conductor halves have a gap of FEED_BRIDGE_LENGTH_M at the centre', () => {
+  it('terminated: the top gap matches the source cell', () => {
     const wires = foldedAntennaWires({ height: 12, terminatingResistor: 600 });
     const oppWires = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
     expect(oppWires).toHaveLength(2);
@@ -99,13 +96,14 @@ describe('folded dipole geometry', () => {
     // Both halves are at z = height + aperture.
     expect(leftEnd[2]).toBeCloseTo(12 + APERTURE, 9);
     expect(rightStart[2]).toBeCloseTo(12 + APERTURE, 9);
-    // The gap between them equals FEED_BRIDGE_LENGTH_M.
     const gapDist = Math.hypot(
       rightStart[0] - leftEnd[0],
       rightStart[1] - leftEnd[1],
       rightStart[2] - leftEnd[2],
     );
-    expect(gapDist).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
+    const source = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
+    expect(gapDist).toBeCloseTo(Math.hypot(...source.end.map((v, i) => v - source.start[i]!)), 9);
+    expect(gapDist).toBeLessThanOrEqual(FEED_BRIDGE_LENGTH_M);
   });
 
   it('forms a closed loop — connector endpoints coincide with both conductors', () => {
@@ -179,7 +177,8 @@ describe('folded dipole excitation and termination', () => {
       bridge.end[1] - bridge.start[1],
       bridge.end[2] - bridge.start[2],
     );
-    expect(bridgeLen).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
+    const source = input.wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
+    expect(bridgeLen).toBeCloseTo(Math.hypot(...source.end.map((v, i) => v - source.start[i]!)), 9);
 
     // LD-4 on segment 1 of the bridge wire, with the correct resistance.
     const bridgeLoads = (input.loads ?? []).filter((l) => l.wireTag === FOLDED_DIPOLE_TERM_BRIDGE_TAG);
@@ -217,8 +216,8 @@ describe('folded dipole feedline', () => {
     } as AntennaState;
   }
 
-  it('drops a coax shield wire vertically from the bottom-conductor feedpoint', () => {
-    const wires = buildWires(feedlineState());
+  it('drops the coax shield straight down from the bottom-conductor feedpoint', () => {
+    const wires = buildWires(feedlineState({ feedlineLength: 6 }));
     const shields = wires.filter((w) => w.tag === FEEDLINE_SHIELD_TAG);
     expect(shields).toHaveLength(1);
     const shield = shields[0]!;
@@ -227,10 +226,10 @@ describe('folded dipole feedline', () => {
     expect(shield.start[0]).toBeCloseTo(bridge.end[0], 9);
     expect(shield.start[1]).toBeCloseTo(bridge.end[1], 9);
     expect(shield.start[2]).toBeCloseTo(bridge.end[2], 9);
-    // …and drops straight down (same x,y; lower z).
+    // …and drops straight down, below and clear of the upper conductor.
     expect(shield.end[0]).toBeCloseTo(shield.start[0], 9);
     expect(shield.end[1]).toBeCloseTo(shield.start[1], 9);
-    expect(shield.end[2]).toBeLessThan(shield.start[2]);
+    expect(shield.start[2] - shield.end[2]).toBeCloseTo(6, 8);
   });
 
   it('moves the excitation to the shield and adds a transmission line when fed', () => {
@@ -244,5 +243,33 @@ describe('folded dipole feedline', () => {
     const shields = input.wires.filter((w) => w.tag === FEEDLINE_SHIELD_TAG);
     expect(shields).toHaveLength(0);
     expect(input.excitation).toEqual({ wireTag: FEED_BRIDGE_TAG, segment: 1 });
+  });
+});
+
+describe('folded-dipole numerical mesh constraints', () => {
+  it('aligns every upper/lower longitudinal cell and the source at narrow spacing', () => {
+    const wires = foldedAntennaWires({ length: 79.11, frequency: 1.8, foldedDipoleAperture: 0.02 });
+    const lowerLeft = wires.find((w) => w.tag === LEFT_LEG_TAG)!;
+    const lowerRight = wires.find((w) => w.tag === RIGHT_LEG_TAG)!;
+    const source = wires.find((w) => w.tag === FEED_BRIDGE_TAG)!;
+    const upper = wires.filter((w) => w.tag === FOLDED_DIPOLE_OPPOSITE_TAG);
+    for (const [lower, top] of [[lowerLeft, upper[0]!], [lowerRight, upper[1]!], [source, upper[2]!]]) {
+      expect(top.start.slice(0, 2)).toEqual(lower.start.slice(0, 2));
+      expect(top.end.slice(0, 2)).toEqual(lower.end.slice(0, 2));
+      expect(top.segments).toBe(lower.segments);
+    }
+    const sourceLength = Math.hypot(...source.end.map((v, i) => v - source.start[i]!));
+    const neighbourLength = Math.hypot(...lowerLeft.end.map((v, i) => v - lowerLeft.start[i]!)) / lowerLeft.segments;
+    expect(neighbourLength).toBeCloseTo(sourceLength, 9);
+    expect(lowerLeft.segments).toBeGreaterThan(100);
+  });
+
+  it('rejects an invalid thin-wire aspect ratio instead of silently coarsening', () => {
+    expect(() => foldedAntennaWires({ foldedDipoleAperture: 0.02, wireRadius: 0.006 }))
+      .toThrow(/four wire radii/);
+  });
+
+  it('rejects a model exceeding the resource limit instead of clipping its mesh', () => {
+    expect(() => foldedAntennaWires({ length: 1000 })).toThrow(/exceeds 4096 segments/);
   });
 });
