@@ -2,8 +2,7 @@ import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useAdaptiveLOD } from '../../hooks/useAdaptiveLOD';
 import type { SimulationResult } from '../../physics/types';
-import type { Colormap } from '../../store/antennaStore';
-import { pickTable, sampleColormapFast } from '../../utils/colormap';
+import { pickTable, sampleColormapFast, type Colormap } from '../../utils/colormap';
 import { DB_TO_LINEAR_POWER, radiusScaleForPattern } from './patternRadius';
 
 interface Props {
