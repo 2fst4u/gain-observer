@@ -2,6 +2,7 @@ import { renderHook, act, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { usePhysicsEngine } from '../src/hooks/usePhysicsEngine';
 import { useAntennaStore } from '../src/store/antennaStore';
+import { makeSimulationResult } from './helpers/factories';
 
 describe('usePhysicsEngine', () => {
   let workerInstances: unknown[] = [];
@@ -49,6 +50,63 @@ describe('usePhysicsEngine', () => {
     useAntennaStore.setState(original, true);
   });
 
+  function startWithResult() {
+    const original = useAntennaStore.getState();
+    const hook = renderHook(() => usePhysicsEngine({ debounceMs: 100 }));
+    const worker = workerInstances[0] as MockWorker;
+    const onMessage = worker.addEventListener.mock.calls.find(
+      (call: unknown[]) => call[0] === 'message')![1];
+    act(() => { vi.advanceTimersByTime(100); });
+    const result = makeSimulationResult();
+    const sweep = [{ frequencyMHz: 7.1, R: 50, X: 0, swr: 1 }];
+    act(() => {
+      onMessage({ data: { id: worker.postMessage.mock.calls[0][0].id, type: 'result', result, sweep } });
+    });
+    worker.postMessage.mockClear();
+    const finish = () => { hook.unmount(); useAntennaStore.setState(original, true); };
+    return { worker, onMessage, result, finish };
+  }
+
+  it('keeps the previous result on screen while a new full solve runs', () => {
+    const { worker, result, finish } = startWithResult();
+    act(() => {
+      useAntennaStore.getState().setHeight(useAntennaStore.getState().height + 1);
+      vi.advanceTimersByTime(100);
+    });
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'simulate' }));
+    expect(useAntennaStore.getState().loading).toBe(true);
+    expect(useAntennaStore.getState().result).toBe(result);
+    finish();
+  });
+
+  it('keeps a valid pattern result when only a zoom/pan re-sweep fails', () => {
+    const { worker, onMessage, result, finish } = startWithResult();
+    act(() => {
+      useAntennaStore.setState({ swrViewCenterMHz: useAntennaStore.getState().swrViewCenterMHz + 0.5 });
+      vi.advanceTimersByTime(100);
+    });
+    const request = worker.postMessage.mock.calls[0][0];
+    expect(request.type).toBe('sweep');
+    act(() => { onMessage({ data: { id: request.id, type: 'error', message: 'Sweep failed' } }); });
+    expect(useAntennaStore.getState().error).toBe('Sweep failed');
+    expect(useAntennaStore.getState().result).toBe(result);
+    finish();
+  });
+
+  it('clears the result when a full solve fails', () => {
+    const { worker, onMessage, finish } = startWithResult();
+    act(() => {
+      useAntennaStore.getState().setHeight(useAntennaStore.getState().height + 1);
+      vi.advanceTimersByTime(100);
+    });
+    const request = worker.postMessage.mock.calls[0][0];
+    expect(request.type).toBe('simulate');
+    act(() => { onMessage({ data: { id: request.id, type: 'error', message: 'Solve failed' } }); });
+    expect(useAntennaStore.getState().result).toBeNull();
+    expect(useAntennaStore.getState().sweep).toEqual([]);
+    finish();
+  });
+
   it('initializes worker and schedules initial simulation', () => {
     const { unmount } = renderHook(() => usePhysicsEngine({ debounceMs: 100 }));
 
@@ -65,7 +123,7 @@ describe('usePhysicsEngine', () => {
 
     expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
       type: 'simulate',
-      input: expect.objectContaining({ patternResolution: { thetaSteps: 181, phiSteps: 360 } }),
+      input: expect.objectContaining({ patternResolution: { thetaSteps: 91, phiSteps: 180 } }),
     }));
 
     unmount();

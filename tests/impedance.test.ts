@@ -151,8 +151,6 @@ describe('atuLossDb', () => {
 describe('displayedFeedMetrics — mast-base ATU', () => {
   const preset = findFeedlinePreset('rg213');
   const atu = {
-    z0: preset.z0,
-    upmastMatchedLossDb: feedlineLossDb(preset, 14.2, 6),
     mainMatchedLossDb: feedlineLossDb(preset, 14.2, 50),
     componentQ: ATU_COMPONENT_Q,
   };

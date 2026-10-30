@@ -29,7 +29,6 @@ describe('physical model mapping', () => {
       atuEnabled: true, frequency: 14.2, feedlineId: 'ladder450',
       feedlineLength: 6, atuMainFeedlineLength: 50,
     })!;
-    expect(config.z0).toBe(450);
     expect(config.mainFeedlineId).toBe('rg213');
     expect(config.mainMatchedLossDb).toBeCloseTo(feedlineLossDb(findFeedlinePreset('rg213'), 14.2, 50), 12);
   });

@@ -82,10 +82,6 @@ export function atuLossDb(z: ImpedanceResult, componentQ: number, z0: number = Z
  * can independently be coax or balanced line; its distributed loss is in NEC.
  */
 export interface AtuMatchConfig {
-  /** The characteristic impedance of the upmast cable. */
-  readonly z0: number;
-  /** The matched loss (dB) of the up-mast run (feedpoint → ATU). */
-  readonly upmastMatchedLossDb: number;
   /** The matched loss (dB) of the main run (ATU → shack). */
   readonly mainMatchedLossDb: number;
   /** Unloaded Q of both reactive components in the explicit L network. */

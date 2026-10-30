@@ -9,10 +9,10 @@ import {
   Filler,
   Tooltip,
 } from 'chart.js';
-import { useAntennaStore, selectAtuConfig, isFeedlineActive, type Orientation } from '../../store/antennaStore';
+import { useAntennaStore, type Orientation } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo, memo, type ComponentProps } from 'react';
-import { displayedFeedMetrics } from '../../physics/impedance';
+import { useLiveFeedMetrics } from '../../hooks/useFeedMetrics';
 import { bearingToPhiDeg, normalizeDeg } from '../../physics/angles';
 import type { GainPattern, SimulationResult } from '../../physics/types';
 
@@ -260,37 +260,14 @@ function usePolarPlotsState() {
     showPolarCuts,
     orientation,
     theme,
-    transformerEnabled,
-    transformerRatio,
-    feedlineId,
-    antennaType,
-    length,
-    height,
-    feedlineOffset,
-    groundId,
-    frequency,
-    feedlineLength,
-    atuEnabled,
-    atuMainFeedlineLength,
   } = useAntennaStore(useShallow((s) => ({
     result: s.result,
     dbRange: s.dbRange,
     showPolarCuts: s.showPolarCuts,
     orientation: s.orientation,
     theme: s.theme,
-    transformerEnabled: s.transformerEnabled,
-    transformerRatio: s.transformerRatio,
-    feedlineId: s.feedlineId,
-    antennaType: s.antennaType,
-    length: s.length,
-    height: s.height,
-    feedlineOffset: s.feedlineOffset,
-    groundId: s.groundId,
-    frequency: s.frequency,
-    feedlineLength: s.feedlineLength,
-    atuEnabled: s.atuEnabled,
-    atuMainFeedlineLength: s.atuMainFeedlineLength,
   })));
+  const { metrics } = useLiveFeedMetrics();
 
   // The cuts are normalised to the pattern peak (shape only), but the ring
   // labels report absolute dBi. Reference them to the realized-gain peak —
@@ -298,17 +275,7 @@ function usePolarPlotsState() {
   // 3D bubble and the stats readout instead of advertising the intrinsic gain.
   // The offset is direction-independent, so relabelling every ring by it is
   // exact for every point on the cut.
-  const feedlineActive = isFeedlineActive({ antennaType, length, height, feedlineId, feedlineLength, feedlineOffset, groundId });
-  const peakDbi = useMemo(() => {
-    if (!result) return 0;
-    const { displayedRealizedGainDbi } = displayedFeedMetrics(result, {
-      transformerEnabled,
-      transformerRatio,
-      feedlineActive,
-      atu: selectAtuConfig({ atuEnabled, frequency, feedlineId, feedlineLength, atuMainFeedlineLength }),
-    });
-    return displayedRealizedGainDbi ?? result.maxGainDbi;
-  }, [result, transformerEnabled, transformerRatio, feedlineId, feedlineActive, atuEnabled, frequency, feedlineLength, atuMainFeedlineLength]);
+  const peakDbi = result ? metrics?.displayedRealizedGainDbi ?? result.maxGainDbi : 0;
 
   const { broadsideBearing, endOnBearing } = useMemo(
     () => computeWireBearings(orientation),

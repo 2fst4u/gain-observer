@@ -664,8 +664,6 @@ export function selectAtuConfig(args: {
   if (preset.id === 'none') return undefined;
   const mainPreset = findFeedlinePreset('rg213');
   return {
-    z0: preset.z0,
-    upmastMatchedLossDb: feedlineLossDb(preset, args.frequency, args.feedlineLength),
     mainMatchedLossDb: feedlineLossDb(mainPreset, args.frequency, args.atuMainFeedlineLength),
     componentQ: ATU_COMPONENT_Q,
     mainFeedlineId: mainPreset.id,

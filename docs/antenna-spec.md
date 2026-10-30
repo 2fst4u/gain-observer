@@ -69,9 +69,12 @@ including corresponding source/termination cells. Centre-cell length is at most
 aspects or excessive meshes raise errors. The 0.02–0.5 m UI aperture range is
 not itself an accuracy guarantee.
 
-The application uses a fixed **1° radiation grid**, independent of rendering
+The application uses a fixed **2° radiation grid**, independent of rendering
 LOD. A low-power device can draw fewer vertices without changing its computed
-gain, directivity or efficiency. Engine callers choosing other grids must
+gain, directivity or efficiency. Across every antenna type over perfect and
+average ground at 14 MHz, the 2° grid matched 1° sampling to within 0.001 dB in
+escaping efficiency and 0.01 dB in peak gain, at about a quarter of the
+far-field work; 5° drifted by up to 0.04 dB. Engine callers choosing other grids must
 account for sampling error. Tests check mesh convergence and power balance at
 1.8, 7.1 and 30 MHz with folded apertures 0.02, 0.3 and 0.5 m. These reference
 cases do not certify every arbitrary geometry, wire length and radius.
@@ -172,7 +175,8 @@ normalization is used to conceal failed energy balance.
 
 The choked radiating-shield feed of the terminated-delta family has an unresolved
 numerical power-convergence defect. The engine rejects that combination rather
-than presenting a trusted-looking result. Further work must establish both power
+than presenting a trusted-looking result, and the terminated delta therefore
+defaults to the choke off. Further work must establish both power
 and impedance convergence, not tune a mesh to make one integral pass.
 
 Thin-wire NEC-2, homogeneous ground, assumed cable routing and nominal hardware

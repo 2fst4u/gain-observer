@@ -32,14 +32,12 @@ describe('PropagationControl - time override visibility', () => {
   const setupMockStore = (overrides: Partial<MockState> = {}) => {
     mockAntennaStore({
         frequency: 7.1,
-        tIndex: 30,
         latitudeDeg: null,
         longitudeDeg: null,
         monthOverride: null,
         utcHourOverride: null,
         units: 'metric',
         result: null,
-        setTIndex: vi.fn(),
         setLatitude: vi.fn(),
         setMonthOverride: mockSetMonthOverride,
         setUtcHourOverride: mockSetUtcHourOverride,

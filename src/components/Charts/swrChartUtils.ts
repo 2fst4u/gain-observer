@@ -31,12 +31,25 @@ function referenceConfig(reference: ComparisonSnapshot): SweepDisplayConfig {
   };
 }
 
+// The chart data, y-axis bound and reference curve all ask for the same ATU
+// SWR per point, and each answer is an iterative L-network solve. Sweep points
+// are immutable store values, so cache the answer on the point itself.
+const atuSwrCache = new WeakMap<SweepPoint, { ratio: number; swr: number }>();
+
+function atuSwr(point: SweepPoint, impedance: { R: number; X: number }, ratio: number): number {
+  const cached = atuSwrCache.get(point);
+  if (cached && cached.ratio === ratio) return cached.swr;
+  const value = Number.isFinite(atuLossDb(impedance, ATU_COMPONENT_Q)) ? 1 : computeSwr(impedance);
+  atuSwrCache.set(point, { ratio, swr: value });
+  return value;
+}
+
 function effectiveSwr(point: SweepPoint, config: SweepDisplayConfig): number {
   const impedance = config.transformerInDisplay
     ? { R: point.R / config.transformerRatio!, X: point.X / config.transformerRatio! }
     : { R: point.R, X: point.X };
   if (config.atuEnabled) {
-    return Number.isFinite(atuLossDb(impedance, ATU_COMPONENT_Q)) ? 1 : computeSwr(impedance);
+    return atuSwr(point, impedance, config.transformerInDisplay ? config.transformerRatio! : 1);
   }
   return config.transformerInDisplay
     ? computeSwr(impedance)

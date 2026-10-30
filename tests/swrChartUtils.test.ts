@@ -154,7 +154,7 @@ describe('saved matching configurations', () => {
     const point = { frequencyMHz: 7, R: 0.01, X: 0.1, swr: 999 };
     const result = displayedFeedMetrics({ impedance: point, swr: 999, maxGainDbi: 0 }, {
       transformerEnabled: true, transformerRatio: 100, feedlineActive: false,
-      atu: { z0: 50, upmastMatchedLossDb: 0, mainMatchedLossDb: 0, componentQ: ATU_COMPONENT_Q },
+      atu: { mainMatchedLossDb: 0, componentQ: ATU_COMPONENT_Q },
     });
     expect(result.displayedRealizedGainDbi).toBeUndefined();
     const data = computeChartData({ ...base, comparisonActive: false, reference: null,

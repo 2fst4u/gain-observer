@@ -15,7 +15,6 @@ vi.mock('../src/hooks/useGeolocation', () => {
 describe('PropagationInputs UI component', () => {
   beforeEach(() => {
     useAntennaStore.setState({
-      tIndex: 50,
       latitudeDeg: null,
       longitudeDeg: null,
       monthOverride: null,

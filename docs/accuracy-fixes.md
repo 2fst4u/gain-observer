@@ -8,7 +8,7 @@ checks independently verify feed-network calculations.
 |---|---|---|
 | Folded mesh creates artificial power | Align parallel longitudinal cells and source/load cells; reject invalid or excessive meshes rather than silently capping them | `geometryAccuracy.integration.test.ts`: nine frequency/aperture cases and independent mesh refinement |
 | Ordinary cable attenuation absent | Distributed complex line two-port and exact ideal-transformer cascade; rebuild networks at each frequency | `transmissionLine.test.ts`, `physicalMetrics.integration.test.ts` |
-| Horizon integral invents power below ground | Explicit sphere/hemisphere support and correct endpoint weights; fixed scientific 1° sampling | `patternIntegral.test.ts`, `averageGainTest.integration.test.ts` |
+| Horizon integral invents power below ground | Explicit sphere/hemisphere support and correct endpoint weights; fixed scientific 2° sampling | `patternIntegral.test.ts`, `averageGainTest.integration.test.ts` |
 | Tuning changes installed counterpoises | Persist design frequency separately; preserve wire endpoints while tuning | `antennaStateAccuracy.test.ts`, `counterpoiseGeometry.test.ts`, `modelAccuracyMapping.test.ts` |
 | Terminated-delta choked feed fails convergence | Reject that configuration with an actionable explanation; clear stale results after failure | `averageGainTest.integration.test.ts`, `usePhysicsEngine.test.tsx` |
 | Match ignores reactance | Use complex impedance and compare allowed ratios around the continuous SWR optimum | `impedance.test.ts`, `TransformerControl.test.tsx` |

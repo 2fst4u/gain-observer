@@ -54,7 +54,8 @@ export * from './antennaSimulation';
  * Consolidated per-type transformer/balun defaults. Every antenna that supports a
  * balun (i.e. every type except the base-fed monopole-style verticals, whose
  * feedpoint is unbalanced) gets the transformer enabled by default so the
- * "Match n:1" auto-matching button is always available. The ratio is just a
+ * "Match n:1" auto-matching button is always available, except the
+ * terminated-delta (see its entry). The ratio is just a
  * sensible starting point — a 1:1 current ("choke") balun where no impedance
  * transformation is needed, or the established step-down ratio for the
  * high-impedance folded-dipole and terminated-delta designs.
@@ -68,7 +69,10 @@ const TRANSFORMER_DEFAULTS: Record<AntennaType, TransformerDefaults> = {
   'inverted-v': { enabled: true, ratio: 1 },
   'sloping-v': { enabled: true, ratio: 1 },
   'delta-loop': { enabled: true, ratio: 1 },
-  'terminated-delta': { enabled: true, ratio: 9 },
+  // Off by default: the choked terminated-delta feed has not passed NEC's
+  // power-convergence checks and is rejected, so enabling the choke here would
+  // make the antenna's own defaults fail. The ratio is kept for when it is on.
+  'terminated-delta': { enabled: false, ratio: 9 },
   'folded-dipole': { enabled: true, ratio: 9 },
   'vertical-whip': { enabled: false, ratio: 1 },
   'inverted-l': { enabled: false, ratio: 1 },
@@ -154,7 +158,6 @@ export interface AntennaState {
   atuMainFeedlineLength: number;
 
   // Propagation
-  tIndex: number;
   latitudeDeg: number | null;
   longitudeDeg: number | null;
   monthOverride: number | null;
@@ -220,7 +223,6 @@ export interface AntennaState {
   clearComparisonReference(): void;
 
   // Propagation actions
-  setTIndex(v: number): void;
   setLatitude(deg: number | null): void;
   setLongitude(deg: number | null): void;
   setMonthOverride(month: number | null): void;
@@ -234,7 +236,8 @@ export interface AntennaState {
     feedpointImpedance?: ImpedanceResult | null,
   ): void;
   _setSweep(sweep: readonly SweepPoint[]): void;
-  _setError(msg: string | null): void;
+  /** `keepResult` leaves the last valid solve on screen (a failed sweep-only request). */
+  _setError(msg: string | null, keepResult?: boolean): void;
   _setLoading(v: boolean): void;
   _setEngineReady(v: boolean): void;
 }
@@ -334,7 +337,6 @@ export const useAntennaStore = create<AntennaState>()(
       atuEnabled: false,
       atuMainFeedlineLength: DEFAULT_ATU_MAIN_FEEDLINE_LENGTH_M,
 
-      tIndex: 30,
       latitudeDeg: null,
       longitudeDeg: null,
       monthOverride: null,
@@ -635,10 +637,6 @@ export const useAntennaStore = create<AntennaState>()(
 
       clearComparisonReference: () => set((s) => { s.comparisonReference = null; }),
 
-      setTIndex: (v) => set((s) => {
-        if (!Number.isFinite(v)) return;
-        s.tIndex = Math.max(-100, Math.min(250, v));
-      }),
       setLatitude: (deg) => set((s) => {
         if (deg === null) { s.latitudeDeg = null; return; }
         if (!Number.isFinite(deg)) return;
@@ -679,10 +677,10 @@ export const useAntennaStore = create<AntennaState>()(
         s.error = null;
       }),
 
-      _setError: (msg) => set((s) => {
+      _setError: (msg, keepResult = false) => set((s) => {
         s.error = msg;
         s.loading = false;
-        if (msg) {
+        if (msg && !keepResult) {
           s.result = null;
           s.sweep = [];
           s.feedpointImpedance = null;

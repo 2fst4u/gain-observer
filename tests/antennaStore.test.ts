@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { useAntennaStore, buildWires, selectSimulationInput, selectAtuConfig, selectSwrWindow, legMultipleFromLength, computeOptimalVAngleDeg, recommendedTerminatingResistor, SLOPING_V_DEFAULT_TERMINATION_OHMS, TERMINATED_DELTA_DEFAULT_TERMINATION_OHMS, type AntennaState } from '../src/store/antennaStore';
-import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ, ATU_COMPONENT_Q, findFeedlinePreset, DEFAULT_WHIP_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT, FOLDED_DIPOLE_FEED_R_OHMS } from '../src/physics/constants';
+import { SWEEP_F_MIN_MHZ, SWEEP_F_MAX_MHZ, ATU_COMPONENT_Q, DEFAULT_WHIP_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT, FOLDED_DIPOLE_FEED_R_OHMS } from '../src/physics/constants';
 import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, DELTA_BASE_TAG, FEEDLINE_SHIELD_TAG, VERTICAL_WHIP_TAG } from '../src/physics/tags';
 import { VERTICAL_WHIP_RADIAL_TAG } from '../src/physics/tags';
 
@@ -237,9 +237,6 @@ describe("antennaStore selectors", () => {
       });
 
       expect(config).toBeDefined();
-      const preset = findFeedlinePreset("rg213");
-      expect(config?.z0).toBe(preset.z0);
-      expect(config?.upmastMatchedLossDb).toBeGreaterThan(0);
       expect(config?.mainMatchedLossDb).toBeGreaterThan(0);
       expect(config?.componentQ).toBe(ATU_COMPONENT_Q);
     });
@@ -885,16 +882,6 @@ describe("antennaStore actions", () => {
   });
 
   describe("propagation", () => {
-    it("clamps T-index to the practical range", () => {
-      const store = useAntennaStore.getState();
-      store.setTIndex(99999);
-      expect(useAntennaStore.getState().tIndex).toBe(250);
-      store.setTIndex(-99999);
-      expect(useAntennaStore.getState().tIndex).toBe(-100);
-      store.setTIndex(75);
-      expect(useAntennaStore.getState().tIndex).toBe(75);
-    });
-
     it("accepts and clears latitude", () => {
       const store = useAntennaStore.getState();
       store.setLatitude(51.5);

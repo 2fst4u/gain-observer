@@ -178,9 +178,7 @@ describe('antennaSimulation', () => {
         atuMainFeedlineLength: 20,
       });
       expect(config).toBeDefined();
-      expect(config?.z0).toBe(50);
       expect(config?.componentQ).toBe(ATU_COMPONENT_Q);
-      expect(config?.upmastMatchedLossDb).toBeGreaterThan(0);
       expect(config?.mainMatchedLossDb).toBeGreaterThan(0);
     });
   });
@@ -258,7 +256,6 @@ describe('antennaSimulation', () => {
         swrViewSpanMHz: 1.4,
         atuEnabled: false,
         atuMainFeedlineLength: 20,
-        tIndex: 30,
         latitudeDeg: null,
         longitudeDeg: null,
         monthOverride: null,
@@ -314,7 +311,6 @@ describe('antennaSimulation', () => {
         setAtuMainFeedlineLength: () => {},
         captureComparisonReference: () => {},
         clearComparisonReference: () => {},
-        setTIndex: () => {},
         setLatitude: () => {},
         setLongitude: () => {},
         setMonthOverride: () => {},

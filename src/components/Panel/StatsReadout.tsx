@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { useAntennaStore, selectAtuConfig, isFeedlineActive } from '../../store/antennaStore';
+import { useAntennaStore } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { displayedFeedMetrics, type AtuMatchConfig, type DisplayedFeedMetrics } from '../../physics/impedance';
+import type { AtuMatchConfig, DisplayedFeedMetrics } from '../../physics/impedance';
+import { useFeedMetrics, useLiveFeedMetrics } from '../../hooks/useFeedMetrics';
 import { phiToBearingDeg } from '../../physics/angles';
 import { TRANSFORMER_INSERTION_LOSS_DB } from '../../physics/constants';
 import type { TerminationDiagnostics } from '../../physics/types';
@@ -20,16 +21,6 @@ export function StatsReadout() {
     comparisonReference: reference,
     transformerEnabled,
     transformerRatio,
-    feedlineId,
-    antennaType,
-    length,
-    height,
-    feedlineOffset,
-    groundId,
-    frequency,
-    feedlineLength,
-    atuEnabled,
-    atuMainFeedlineLength,
   } = useAntennaStore(useShallow((s) => ({
     result: s.result,
     error: s.error,
@@ -37,19 +28,13 @@ export function StatsReadout() {
     comparisonReference: s.comparisonReference,
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
-    feedlineId: s.feedlineId,
-    antennaType: s.antennaType,
-    length: s.length,
-    height: s.height,
-    feedlineOffset: s.feedlineOffset,
-    groundId: s.groundId,
-    frequency: s.frequency,
-    feedlineLength: s.feedlineLength,
-    atuEnabled: s.atuEnabled,
-    atuMainFeedlineLength: s.atuMainFeedlineLength,
   })));
-  const feedlineActive = isFeedlineActive({ antennaType, length, height, feedlineId, feedlineLength, feedlineOffset, groundId });
-  const atu = selectAtuConfig({ atuEnabled, frequency, feedlineId, feedlineLength, atuMainFeedlineLength });
+  // The displayed feedpoint metrics (impedance, SWR, realized gain) fold in any
+  // impedance transformer — either modelled in NEC (feedline present) or applied
+  // as an idealised display-side transform (no feedline). The same helper drives
+  // the 3D pattern's realized-gain scaling, so the readout and the bubble agree.
+  const { feedlineActive, atu, metrics: currentMetrics } = useLiveFeedMetrics();
+  const referenceMetrics = useFeedMetrics(reference, reference?.result)?.metrics;
   if (!result) {
     return (
       <section className="panel-section">
@@ -62,23 +47,7 @@ export function StatsReadout() {
     );
   }
 
-  // The displayed feedpoint metrics (impedance, SWR, realized gain) fold in any
-  // impedance transformer — either modelled in NEC (feedline present) or applied
-  // as an idealised display-side transform (no feedline). The same helper drives
-  // the 3D pattern's realized-gain scaling, so the readout and the bubble agree.
-  const currentMetrics = displayedFeedMetrics(result, {
-    transformerEnabled,
-    transformerRatio,
-    feedlineActive,
-    atu,
-  });
-  const { displayedZ, displayedSwr, displayedRealizedGainDbi, atuLoss } = currentMetrics;
-  const referenceMetrics = reference ? displayedFeedMetrics(reference.result, {
-    transformerEnabled: reference.transformerEnabled,
-    transformerRatio: reference.transformerRatio,
-    feedlineActive: isFeedlineActive(reference),
-    atu: selectAtuConfig(reference),
-  }) : undefined;
+  const { displayedZ, displayedSwr, displayedRealizedGainDbi, atuLoss } = currentMetrics!;
 
   const impedanceLabel = atu || feedlineActive ? 'Source impedance (R + jX)' : 'Feedpoint (R + jX)';
   const impedanceTitle = getImpedanceTitle(atu, feedlineActive, transformerEnabled, transformerRatio);
@@ -108,7 +77,7 @@ export function StatsReadout() {
       <StatRow label={impedanceLabel} title={impedanceTitle} value={`${displayedZ.R.toFixed(1)} ${displayedZ.X >= 0 ? '+' : '−'}j${Math.abs(displayedZ.X).toFixed(1)} Ω`} />
       <StatRow label="SWR (vs 50 Ω)" title={swrTitle} value={`${displayedSwr.toFixed(2)}:1`} valueStyle={{ color: displayedSwr > 2 ? 'var(--danger)' : displayedSwr > 1.5 ? 'var(--warning)' : 'var(--success)' }} />
       {mode === 'comparison' && reference && referenceMetrics && (
-        <ComparisonStats current={result} reference={reference.result} currentMetrics={currentMetrics} referenceMetrics={referenceMetrics} />
+        <ComparisonStats current={result} reference={reference.result} currentMetrics={currentMetrics!} referenceMetrics={referenceMetrics} />
       )}
       <TerminationSection diagnostics={result.terminationDiagnostics} />
     </section>

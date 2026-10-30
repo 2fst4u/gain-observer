@@ -11,9 +11,9 @@ import { Suspense } from 'react';
 import { AntennaWire } from './AntennaWire';
 import { GroundPlane } from './GroundPlane';
 import { RadiationPattern } from './RadiationPattern';
-import { useAntennaStore, selectAtuConfig, isFeedlineActive, type ComparisonSnapshot } from '../../store/antennaStore';
+import { useAntennaStore, type ComparisonSnapshot } from '../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
-import { displayedFeedMetrics } from '../../physics/impedance';
+import { useFeedMetrics } from '../../hooks/useFeedMetrics';
 import { THEME_COLORS } from '../../utils/themeColors';
 
 interface AntennaSceneProps {
@@ -77,13 +77,10 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
   const transformerRatio = snapshot?.transformerRatio ?? store.liveTransformerRatio;
   const atuEnabled = snapshot?.atuEnabled ?? store.liveAtuEnabled;
   const atuMainFeedlineLength = snapshot?.atuMainFeedlineLength ?? store.liveAtuMainFeedlineLength;
-  const feedlineActive = isFeedlineActive({ antennaType: type, length, height, feedlineId, feedlineLength, feedlineOffset, groundId });
-  const metrics = result ? displayedFeedMetrics(result, {
-    transformerEnabled,
-    transformerRatio,
-    feedlineActive,
-    atu: selectAtuConfig({ atuEnabled, frequency, feedlineId, feedlineLength, atuMainFeedlineLength }),
-  }) : undefined;
+  const metrics = useFeedMetrics({
+    antennaType: type, length, height, groundId, frequency, feedlineId, feedlineLength, feedlineOffset,
+    transformerEnabled, transformerRatio, atuEnabled, atuMainFeedlineLength,
+  }, result)?.metrics;
   const realizedGainOffsetDb = result && metrics?.displayedRealizedGainDbi !== undefined
     ? metrics.displayedRealizedGainDbi - result.maxGainDbi : 0;
 

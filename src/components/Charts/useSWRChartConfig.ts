@@ -123,13 +123,7 @@ export function useSWRChartConfig() {
     comparisonReference: reference,
     transformerEnabled,
     transformerRatio,
-    feedlineId,
-    antennaType,
-    length,
-    height,
-    feedlineLength,
-    feedlineOffset,
-    groundId,
+    feedlineActive,
     atuEnabled,
     swrViewCenterMHz,
     swrViewSpanMHz,
@@ -142,19 +136,12 @@ export function useSWRChartConfig() {
     comparisonReference: s.comparisonReference,
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
-    feedlineId: s.feedlineId,
-    antennaType: s.antennaType,
-    length: s.length,
-    height: s.height,
-    feedlineLength: s.feedlineLength,
-    feedlineOffset: s.feedlineOffset,
-    groundId: s.groundId,
+    feedlineActive: isFeedlineActive(s),
     atuEnabled: Boolean(selectAtuConfig(s)),
     swrViewCenterMHz: s.swrViewCenterMHz,
     swrViewSpanMHz: s.swrViewSpanMHz,
   })));
 
-  const feedlineActive = isFeedlineActive({ antennaType, length, height, feedlineId, feedlineLength, feedlineOffset, groundId });
   const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
   const comparisonActive = mode === 'comparison' && Boolean(reference);
 

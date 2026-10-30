@@ -9,7 +9,8 @@ import {
   expectExcitation,
   expectNoGroundTouchingWires,
 } from './necInspect';
-import { SLOPING_V_MIN_TIP_Z_M, FEED_BRIDGE_LENGTH_M, wavelengthMeters } from '../src/physics/constants';
+import { SLOPING_V_MIN_TIP_Z_M, FEED_BRIDGE_LENGTH_M, wavelengthMeters, DEFAULT_FEEDLINE_ID } from '../src/physics/constants';
+import { validateModelConfiguration } from '../src/physics/nec2Engine';
 import { TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, TERMINATED_DELTA_BRIDGE_TAG } from '../src/physics/tags';
 import { LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG } from '../src/physics/tags';
 
@@ -76,13 +77,25 @@ describe('Terminated Delta — defaults & state', () => {
     expect(useAntennaStore.getState().terminatingResistor).toBe(450);
   });
 
-  it('switching to terminated-delta engages a 9:1 transformer by default', () => {
+  it('switching to terminated-delta leaves the choke off but presets a 9:1 ratio', () => {
     const store = useAntennaStore.getState();
-    store.setTransformerEnabled(false);
+    store.setTransformerEnabled(true);
     store.setTransformerRatio(1);
     store.setAntennaType('terminated-delta');
-    expect(useAntennaStore.getState().transformerEnabled).toBe(true);
+    expect(useAntennaStore.getState().transformerEnabled).toBe(false);
     expect(useAntennaStore.getState().transformerRatio).toBe(9);
+  });
+
+  it('defaults to a configuration the engine accepts, feedline included', () => {
+    // The choked feed is rejected as nonconverged, so the antenna's own
+    // defaults must not enable it.
+    const store = useAntennaStore.getState();
+    store.setFeedline(DEFAULT_FEEDLINE_ID);
+    store.setFeedlineLength(10);
+    store.setAntennaType('terminated-delta');
+    const input = selectSimulationInput(useAntennaStore.getState());
+    expect(input.wires.some(w => w.tag === FEEDLINE_SHIELD_TAG)).toBe(true);
+    expect(() => validateModelConfiguration(input)).not.toThrow();
   });
 });
 
