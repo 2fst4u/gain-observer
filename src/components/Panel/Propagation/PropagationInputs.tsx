@@ -20,18 +20,21 @@ export function hourToHHmm(h: number): string {
 export function HHmmToHour(s: string): number | null {
   if (s.length > 20) return null; // Prevent long inputs
 
-  const digits: string[] = [];
+  // NOTE (intentional, please do not "optimize"): the input is capped at 20
+  // characters and this runs once per keystroke in a text box. Plain string
+  // concatenation is already optimal for V8 at this size; collecting digits in
+  // an array and calling .join() allocates more, not less, and is no faster.
+  let digits = '';
   for (let i = 0; i < s.length; i++) {
     const charCode = s.charCodeAt(i);
     if (charCode >= 48 && charCode <= 57) { // '0' is 48, '9' is 57
-      digits.push(s[i]);
+      digits += s[i];
     }
   }
 
   if (digits.length !== 4) return null;
-  const digitsStr = digits.join('');
-  const h = parseInt(digitsStr.substring(0, 2), 10);
-  const m = parseInt(digitsStr.substring(2, 4), 10);
+  const h = parseInt(digits.substring(0, 2), 10);
+  const m = parseInt(digits.substring(2, 4), 10);
   if (h >= 0 && h < 24 && m >= 0 && m < 60) {
     return h + m / 60;
   }
