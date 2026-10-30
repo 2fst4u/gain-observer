@@ -1302,9 +1302,13 @@ describe("antennaStore actions", () => {
           // Shield must be present (feedline is active for delta-loop with rg58).
           expect(shield).toBeDefined();
 
-          // The shield leaves the loop plane and keeps its full length.
+          // The shield leaves the loop plane and keeps its full length,
+          // turning along the ground once the drop runs out.
+          const shields = input.wires.filter((w) => w.tag === FEEDLINE_SHIELD_TAG);
           expect(Math.abs(shield.end[1] - shield.start[1])).toBeGreaterThan(0);
-          expect(Math.hypot(...shield.end.map((v, i) => v - shield.start[i]))).toBeCloseTo(10, 8);
+          const total = shields.reduce(
+            (sum, w) => sum + Math.hypot(...w.end.map((v, i) => v - w.start[i])), 0);
+          expect(total).toBeCloseTo(10, 8);
 
           // Basic geometry sanity.
           for (const w of input.wires) {

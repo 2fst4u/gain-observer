@@ -216,8 +216,8 @@ describe('folded dipole feedline', () => {
     } as AntennaState;
   }
 
-  it('routes the complete coax shield away from the bottom-conductor feedpoint', () => {
-    const wires = buildWires(feedlineState());
+  it('drops the coax shield straight down from the bottom-conductor feedpoint', () => {
+    const wires = buildWires(feedlineState({ feedlineLength: 6 }));
     const shields = wires.filter((w) => w.tag === FEEDLINE_SHIELD_TAG);
     expect(shields).toHaveLength(1);
     const shield = shields[0]!;
@@ -226,10 +226,10 @@ describe('folded dipole feedline', () => {
     expect(shield.start[0]).toBeCloseTo(bridge.end[0], 9);
     expect(shield.start[1]).toBeCloseTo(bridge.end[1], 9);
     expect(shield.start[2]).toBeCloseTo(bridge.end[2], 9);
-    // …and inclines outside the antenna plane without truncating the cable.
-    expect(Math.hypot(...shield.end.map((v, i) => v - shield.start[i]))).toBeCloseTo(10, 8);
-    expect(Math.abs(shield.end[1] - shield.start[1])).toBeGreaterThan(0);
-    expect(shield.end[2]).toBeLessThan(shield.start[2]);
+    // …and drops straight down, below and clear of the upper conductor.
+    expect(shield.end[0]).toBeCloseTo(shield.start[0], 9);
+    expect(shield.end[1]).toBeCloseTo(shield.start[1], 9);
+    expect(shield.start[2] - shield.end[2]).toBeCloseTo(6, 8);
   });
 
   it('moves the excitation to the shield and adds a transmission line when fed', () => {

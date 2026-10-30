@@ -22,7 +22,7 @@ export function AntennaWire(props: AntennaWireProps) {
     theme: s.theme,
   })));
 
-  const { rendered, shield, feedpoint, terminatedDeltaSplit } = useAntennaGeometry(props);
+  const { rendered, shield, shieldEnd, feedpoint, terminatedDeltaSplit } = useAntennaGeometry(props);
   const wireColor = THEME_COLORS[theme].wire;
 
   const elements = new Array(rendered.length);
@@ -35,8 +35,8 @@ export function AntennaWire(props: AntennaWireProps) {
     <group>
       {elements}
       {feedpoint && <Feedpoint position={feedpoint} color={THEME_COLORS[theme].feedpoint} />}
-      {shield && (
-        <ShieldElement shield={shield} transformerEnabled={props.transformerEnabled} />
+      {shield && shieldEnd && (
+        <ShieldElement shield={shield} rigPosition={shieldEnd} transformerEnabled={props.transformerEnabled} />
       )}
       {terminatedDeltaSplit && (
         <TerminatedDeltaElement

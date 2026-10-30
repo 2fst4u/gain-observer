@@ -39,7 +39,7 @@ describe('ShieldElement', () => {
   });
 
   it('renders rig marker always', () => {
-    const { container } = render(<ShieldElement shield={mockShield} transformerEnabled={false} />);
+    const { container } = render(<ShieldElement shield={mockShield} rigPosition={[7, 0, 3]} transformerEnabled={false} />);
 
     // Check for boxGeometry
     const boxGeometry = container.querySelector('boxgeometry');
@@ -49,11 +49,11 @@ describe('ShieldElement', () => {
     // Should only have 1 mesh
     const meshes = container.querySelectorAll('mesh');
     expect(meshes.length).toBe(1);
-    expect(meshes[0]?.getAttribute('position')).toBe('1,0,2'); // shield.sceneEnd
+    expect(meshes[0]?.getAttribute('position')).toBe('7,0,3'); // far end of the cable run
   });
 
   it('renders transformer choke marker when enabled', () => {
-    const { container } = render(<ShieldElement shield={mockShield} transformerEnabled={true} />);
+    const { container } = render(<ShieldElement shield={mockShield} rigPosition={mockShield.sceneEnd} transformerEnabled={true} />);
 
     // Check for torusGeometry
     const torusGeometry = container.querySelector('torusgeometry');
@@ -75,7 +75,7 @@ describe('ShieldElement', () => {
 
   it('calculates transformer position correctly for short wires', () => {
     const shortShield = { ...mockShield, length: 2 }; // length * 0.05 = 0.1, max(0.15, 0.1) = 0.15, min(0.4, 0.15) = 0.15
-    const { container } = render(<ShieldElement shield={shortShield} transformerEnabled={true} />);
+    const { container } = render(<ShieldElement shield={shortShield} rigPosition={shortShield.sceneEnd} transformerEnabled={true} />);
 
     const meshes = container.querySelectorAll('mesh');
     // Y = 5 - 0.15 = 4.85
@@ -84,7 +84,7 @@ describe('ShieldElement', () => {
 
   it('calculates transformer position correctly for long wires', () => {
     const longShield = { ...mockShield, length: 20 }; // length * 0.05 = 1.0, max(0.15, 1.0) = 1.0, min(0.4, 1.0) = 0.4
-    const { container } = render(<ShieldElement shield={longShield} transformerEnabled={true} />);
+    const { container } = render(<ShieldElement shield={longShield} rigPosition={longShield.sceneEnd} transformerEnabled={true} />);
 
     const meshes = container.querySelectorAll('mesh');
     // Y = 5 - 0.4 = 4.6

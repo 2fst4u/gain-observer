@@ -154,7 +154,7 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
   ]);
 }
 
-function useFeedpointAndShield(byTag: Map<number, RenderedWire>, type: AntennaType) {
+function useFeedpointAndShield(rendered: RenderedWire[], byTag: Map<number, RenderedWire>, type: AntennaType) {
   return useMemo(() => {
     const isDelta = type === 'delta-loop' || type === 'terminated-delta';
     const isWhip = type === 'vertical-whip';
@@ -180,8 +180,18 @@ function useFeedpointAndShield(byTag: Map<number, RenderedWire>, type: AntennaTy
       feedSingle?.position ??
       null;
 
-    return { shield: shieldWire, feedpoint: feedpointObj };
-  }, [byTag, type]);
+    // A cable longer than the drop turns along the ground, so the rig sits at
+    // the far end of the last shield wire rather than the bottom of the first.
+    let shieldEnd = shieldWire?.sceneEnd;
+    for (let i = rendered.length - 1; shieldWire && i >= 0; i--) {
+      if (rendered[i]!.isShield) {
+        shieldEnd = rendered[i]!.sceneEnd;
+        break;
+      }
+    }
+
+    return { shield: shieldWire, shieldEnd, feedpoint: feedpointObj };
+  }, [rendered, byTag, type]);
 }
 
 export interface TerminatedDeltaSplitResult {
@@ -240,8 +250,8 @@ function useTerminatedDeltaSplit(
 
 export function useAntennaGeometry(props: AntennaWireProps) {
   const { rendered, byTag } = useRenderedWires(props);
-  const { shield, feedpoint } = useFeedpointAndShield(byTag, props.type);
+  const { shield, shieldEnd, feedpoint } = useFeedpointAndShield(rendered, byTag, props.type);
   const terminatedDeltaSplit = useTerminatedDeltaSplit(byTag, props.type, props.wireRadius);
 
-  return { rendered, shield, feedpoint, terminatedDeltaSplit };
+  return { rendered, shield, shieldEnd, feedpoint, terminatedDeltaSplit };
 }

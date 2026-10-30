@@ -578,29 +578,49 @@ interface FeedlineShield {
 }
 
 /**
- * Explicit straight cable route in the vertical plane normal to the antenna.
- * Use the complete physical length, inclining away from the antenna when the
- * ground limits the drop. A minimum 10° inclination keeps loop feeds outside
- * the loop plane, so crossing base height cannot create an electrical junction.
+ * Explicit cable route in the vertical plane normal to the antenna. The cable
+ * drops from the feedpoint until ground clearance stops it, then turns 90° and
+ * runs horizontally away from the antenna for the rest of its physical length.
+ * The drop is vertical unless `leanRad` is set: loop feeds lean 10° away from
+ * the loop plane so the cable never crosses the base wire, where an accidental
+ * electrical junction would form.
  */
 export function buildFeedlineShieldWires(
   start: [number, number, number],
   axis: readonly [number, number],
   shield: FeedlineShield,
+  leanRad = 0,
 ): Wire[] {
   const length = shield.lengthM ?? Math.max(0, start[2] - shield.bottomZ);
   if (!(length > 0)) return [];
   const axisLength = Math.hypot(axis[0], axis[1]) || 1;
   const nx = -axis[1] / axisLength;
   const ny = axis[0] / axisLength;
-  const drop = Math.min(Math.max(0, start[2] - shield.bottomZ), length * Math.cos(Math.PI / 18));
-  const offset = Math.sqrt(Math.max(0, length * length - drop * drop));
-  const requested = Math.max(shield.segments,
-    Math.ceil(SEGS_PER_WAVELENGTH * length / wavelengthMeters(shield.frequencyMHz ?? 7.1)));
-  const segments = Math.min(requested, Math.max(1, Math.floor(length / (4 * shield.radius))));
-  return [{ start, end: [start[0] + nx * offset, start[1] + ny * offset, start[2] - drop],
-    radius: shield.radius, segments, tag: FEEDLINE_SHIELD_TAG }];
+  const cosLean = Math.cos(leanRad);
+  const available = Math.max(0, start[2] - shield.bottomZ);
+  const dropLength = Math.min(length, available / cosLean);
+  const drop = dropLength * cosLean;
+  const out = dropLength * Math.sin(leanRad);
+  const segmentsFor = (wireLength: number) => {
+    const requested = Math.max(shield.segments,
+      Math.ceil(SEGS_PER_WAVELENGTH * wireLength / wavelengthMeters(shield.frequencyMHz ?? 7.1)));
+    return Math.min(requested, Math.max(1, Math.floor(wireLength / (4 * shield.radius))));
+  };
+  const bend: [number, number, number] = [start[0] + nx * out, start[1] + ny * out, start[2] - drop];
+  const wires: Wire[] = [{ start, end: bend, radius: shield.radius,
+    segments: segmentsFor(dropLength), tag: FEEDLINE_SHIELD_TAG }];
+  // Remaining cable lies along the ground. A remainder shorter than one
+  // minimum-length segment cannot be meshed and is left off.
+  const run = length - dropLength;
+  if (run >= 4 * shield.radius) {
+    wires.push({ start: bend, end: [bend[0] + nx * run, bend[1] + ny * run, bend[2]],
+      radius: shield.radius, segments: segmentsFor(run), tag: FEEDLINE_SHIELD_TAG });
+  }
+  return wires;
 }
+
+/** Loop feeds lean this far from vertical to stay clear of the base wire. */
+const LOOP_FEEDLINE_LEAN_RAD = Math.PI / 18;
 
 export interface DeltaLoopWiresParams {
   length: number; // perimeter
@@ -657,7 +677,8 @@ function appendFeedlineShieldWires(options: FeedlineShieldWireOptions) {
       tag: FEED_BRIDGE_TAG,
     });
     wires.push(...buildFeedlineShieldWires(apexRight,
-      [apexRight[0] - apexLeft[0], apexRight[1] - apexLeft[1]], feedlineShield));
+      [apexRight[0] - apexLeft[0], apexRight[1] - apexLeft[1]], feedlineShield,
+      LOOP_FEEDLINE_LEAN_RAD));
   }
 }
 

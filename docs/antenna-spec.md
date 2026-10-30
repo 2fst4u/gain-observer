@@ -80,10 +80,11 @@ cases do not certify every arbitrary geometry, wire length and radius.
 
 Differential cable signals use a nonradiating distributed two-port. Exposed
 common-mode cable conductors are separate physical wires. Their explicit
-straight route descends in a plane normal to the antenna, inclined by at least
-10° away from a loop plane. Ground clearance limits the drop; inclination uses
-the complete cable length. This avoids base-wire crossings and accidental
-electrical junctions. It is an assumed visible route, not a measurement of an
+route descends in a plane normal to the antenna: vertically, or inclined 10°
+away from a loop plane so it cannot cross the base wire and form an accidental
+electrical junction. When the cable is longer than the drop to ground
+clearance, it turns 90° there and runs horizontally away from the antenna for
+the rest of its length. It is an assumed visible route, not a measurement of an
 installation's cable path.
 
 Matched attenuation is the preset fit `(k1√f+k2f)·length/100` dB. With real cable
