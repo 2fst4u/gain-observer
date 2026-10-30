@@ -3,6 +3,11 @@ compatibility_date = "2026-05-02"
 compatibility_flags = [ "nodejs_compat" ]
 preview_urls = true
 
+# Worker Previews (per-branch/PR environments). Previews do not inherit
+# production settings; this Worker only serves static assets, so the block
+# is empty. https://developers.cloudflare.com/workers/previews/configuration/
+previews = { }
+
 [[routes]]
 pattern = "gain.observer"
 custom_domain = true
