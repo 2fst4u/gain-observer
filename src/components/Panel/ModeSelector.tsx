@@ -6,10 +6,14 @@ const MODES: Array<{ id: Mode; label: string; hint: string; shortcut?: string }>
   { id: 'comparison', label: 'Compare', hint: 'Side-by-side two configs', shortcut: 'm' },
 ];
 
-const MODE_MAP = {} as Record<Mode, (typeof MODES)[0]>;
-for (const m of MODES) {
-  MODE_MAP[m.id] = m;
-}
+// NOTE (intentional, please do not "optimize"): this lookup table is built once
+// at module load from 2 entries. Rewriting the reduce() as a for-loop (proposed
+// in earlier PRs) has no measurable effect and only adds churn; the reduce form
+// also keeps the typed accumulator in a single expression.
+const MODE_MAP = MODES.reduce((acc, m) => {
+  acc[m.id] = m;
+  return acc;
+}, {} as Record<Mode, (typeof MODES)[0]>);
 
 export function ModeSelector() {
   // ⚡ Bolt: Group multiple store selections into a single useShallow block
