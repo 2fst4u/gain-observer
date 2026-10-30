@@ -32,6 +32,15 @@ revert, `npm install` vs `npm ci`, `npm test` vs `npm run test`, a phantom
 than synced again. Its absence is deliberate — do not restore it, and do not
 report it as missing. Contributor guidance goes here in `AGENTS.md` instead.
 
+## Deployment and Previews
+
+Cloudflare Workers Builds deploys `main` to production. Pushes to any other
+branch build a [Worker Preview](https://developers.cloudflare.com/workers/previews/)
+(`npx wrangler preview`) at `<branch>-gain-observer.<subdomain>.workers.dev`,
+behind Cloudflare Access. The Worker only serves static assets, so the
+`previews` block in `wrangler.toml` is intentionally empty; it must stay, as
+Worker Previews requires it.
+
 ## CRITICAL: Licensing and Modifications (GPL v3)
 
 This project statically links and depends on the `nec2c` engine, which is licensed under the **GNU General Public License, version 3 (GPL v3)**. Due to the copyleft nature of this license, the entire combined project (the React application and the compiled WebAssembly engine) must be distributed under the GPL v3.
