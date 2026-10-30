@@ -1189,7 +1189,7 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   return wires;
 }
 
-export interface FoldedAntennaPointsParams {
+interface FoldedAntennaPointsParams {
   orientation: Orientation;
   h: number;
   half: number;
@@ -1258,7 +1258,7 @@ function calcFoldedLegSegs(
   );
 }
 
-export interface FoldedAntennaSegmentsParams {
+interface FoldedAntennaSegmentsParams {
   frequency: number;
   aperture: number;
   wireRadius: number;
