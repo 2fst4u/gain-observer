@@ -225,6 +225,7 @@ describe('antennaSimulation', () => {
       const dummyState: AntennaState = {
         antennaType: 'dipole',
         frequency: 7.1,
+        designFrequency: 7.1,
         length: 20,
         height: 10,
         orientation: 'EW',

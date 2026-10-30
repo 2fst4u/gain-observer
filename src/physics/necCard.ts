@@ -30,6 +30,7 @@
 // with optional LD/TL cards for feedline modelling.
 
 import type { NetworkLoad, SegmentLoad, SimulationInput, TransmissionLine, Wire } from './types';
+import { transmissionLineAdmittance } from './transmissionLine';
 
 export interface BuildNecCardsOptions {
   readonly includePattern?: boolean;
@@ -97,7 +98,7 @@ function buildLoadingCards(lines: string[], loads?: readonly SegmentLoad[]): voi
 }
 
 /** Network cards (NT): non-radiating two-port networks. */
-function buildNetworkCards(lines: string[], networks?: readonly NetworkLoad[]): void {
+function buildNetworkCards(lines: string[], networks?: readonly NetworkLoad[], precise = false): void {
   if (!networks) return;
   for (let i = 0; i < networks.length; i++) {
     const nt = networks[i];
@@ -110,8 +111,9 @@ function buildNetworkCards(lines: string[], networks?: readonly NetworkLoad[]): 
     if (!Number.isFinite(y12i)) throw new Error(`Non-finite numeric value in NEC card: ${y12i}`);
     if (!Number.isFinite(nt.y22Real)) throw new Error(`Non-finite numeric value in NEC card: ${nt.y22Real}`);
     if (!Number.isFinite(y22i)) throw new Error(`Non-finite numeric value in NEC card: ${y22i}`);
+    const format = (value: number) => precise ? value.toExponential(10) : value.toFixed(6);
     lines.push(
-      'NT ' + nt.fromTag + ' ' + nt.fromSegment + ' ' + nt.toTag + ' ' + nt.toSegment + ' ' + nt.y11Real.toFixed(6) + ' ' + y11i.toFixed(6) + ' ' + nt.y12Real.toFixed(6) + ' ' + y12i.toFixed(6) + ' ' + nt.y22Real.toFixed(6) + ' ' + y22i.toFixed(6)
+      'NT ' + nt.fromTag + ' ' + nt.fromSegment + ' ' + nt.toTag + ' ' + nt.toSegment + ' ' + format(nt.y11Real) + ' ' + format(y11i) + ' ' + format(nt.y12Real) + ' ' + format(y12i) + ' ' + format(nt.y22Real) + ' ' + format(y22i)
     );
   }
 }
@@ -120,7 +122,7 @@ function buildNetworkCards(lines: string[], networks?: readonly NetworkLoad[]): 
  * Transmission-line cards (TL): differential signal in coax/parallel line.
  * NEC's TL card is lossless and non-radiating by definition.
  */
-function buildTransmissionLineCards(lines: string[], transmissionLines?: readonly TransmissionLine[]): void {
+function buildTransmissionLineCards(lines: string[], frequencyMHz: number, transmissionLines?: readonly TransmissionLine[]): void {
   if (!transmissionLines) return;
   for (let i = 0; i < transmissionLines.length; i++) {
     const tl = transmissionLines[i];
@@ -134,6 +136,34 @@ function buildTransmissionLineCards(lines: string[], transmissionLines?: readonl
     if (!Number.isFinite(y1i)) throw new Error(`Non-finite numeric value in NEC card: ${y1i}`);
     if (!Number.isFinite(y2r)) throw new Error(`Non-finite numeric value in NEC card: ${y2r}`);
     if (!Number.isFinite(y2i)) throw new Error(`Non-finite numeric value in NEC card: ${y2i}`);
+    const ratio = tl.impedanceRatio ?? 1;
+    if (!Number.isFinite(ratio) || ratio <= 0) throw new Error('Transformer impedance ratio must be positive.');
+    if (tl.lossModel || ratio !== 1) {
+      if (tl.lossModel && !Object.values(tl.lossModel).every(value => Number.isFinite(value) && value >= 0)) {
+        throw new Error('Cable loss coefficients and physical length must be finite and non-negative.');
+      }
+      const matchedLossDb = tl.lossModel
+        ? (tl.lossModel.lossK1 * Math.sqrt(frequencyMHz) + tl.lossModel.lossK2 * frequencyMHz) * tl.lossModel.physicalLengthM / 100
+        : 0;
+      if (!Number.isFinite(matchedLossDb) || matchedLossDb < 0) {
+        throw new Error('Cable attenuation must be finite and non-negative.');
+      }
+      if (matchedLossDb > 0 || ratio !== 1) {
+        const admittance = transmissionLineAdmittance(tl.z0, tl.lengthM, frequencyMHz, matchedLossDb);
+        buildNetworkCards(lines, [{
+          fromTag: tl.fromTag, fromSegment: tl.fromSegment,
+          toTag: tl.toTag, toSegment: tl.toSegment,
+          ...admittance,
+          y11Real: admittance.y11Real / ratio + y1r,
+          y11Imag: admittance.y11Imag / ratio + y1i,
+          y12Real: admittance.y12Real / Math.sqrt(ratio),
+          y12Imag: admittance.y12Imag / Math.sqrt(ratio),
+          y22Real: admittance.y22Real + y2r,
+          y22Imag: admittance.y22Imag + y2i,
+        }], true);
+        continue;
+      }
+    }
     lines.push(
       'TL ' + tl.fromTag + ' ' + tl.fromSegment + ' ' + tl.toTag + ' ' + tl.toSegment + ' ' + tl.z0.toFixed(4) + ' ' + tl.lengthM.toFixed(5) + ' ' + y1r.toFixed(6) + ' ' + y1i.toFixed(6) + ' ' + y2r.toFixed(6) + ' ' + y2i.toFixed(6)
     );
@@ -142,6 +172,9 @@ function buildTransmissionLineCards(lines: string[], transmissionLines?: readonl
 
 export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions = {}): string {
   const includePattern = opts.includePattern ?? true;
+  if (includePattern && input.ground.type !== 'free' && input.patternResolution.thetaSteps % 2 === 0) {
+    throw new Error('Ground radiation grids must include the horizon: use an odd thetaSteps count.');
+  }
   const lines: string[] = [];
   lines.push('CM gain-visualiser auto-generated deck');
   lines.push(`CM f=${input.frequencyMHz} MHz  ground=${input.ground.type}`);
@@ -160,6 +193,9 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
   const sweepPoints = opts.sweepPoints ?? 1;
   const sweepStep = opts.sweepStep ?? 0;
   const freqStart = opts.sweepStartFreq ?? input.frequencyMHz;
+  if (sweepPoints > 1 && input.transmissionLines?.some(tl => tl.lossModel || (tl.impedanceRatio ?? 1) !== 1)) {
+    throw new Error('Frequency-dependent cable networks require separate single-frequency decks.');
+  }
   // If not sweeping, keep step as strictly "0" for exact fixture match.
   const stepStr = sweepPoints > 1 ? sweepStep.toFixed(6) : '0';
   if (!Number.isFinite(freqStart)) throw new Error(`Non-finite numeric value in NEC card: ${freqStart}`);
@@ -181,6 +217,12 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
   }
 
   // Loading cards (LD): segment loads such as a choke balun.
+  if (input.conductivitySm !== undefined) {
+    if (!Number.isFinite(input.conductivitySm) || input.conductivitySm <= 0) {
+      throw new Error('Wire conductivity must be finite and positive. Omit it for perfect conductors.');
+    }
+    lines.push(`LD 5 0 0 0 ${input.conductivitySm.toExponential(10)} 0 0`);
+  }
   buildLoadingCards(lines, input.loads);
 
   // Network cards (NT): non-radiating two-port networks.
@@ -188,7 +230,7 @@ export function buildNecCards(input: SimulationInput, opts: BuildNecCardsOptions
 
   // Transmission-line cards (TL): differential signal in coax/parallel
   // line. NEC's TL card is lossless and non-radiating by definition.
-  buildTransmissionLineCards(lines, input.transmissionLines);
+  buildTransmissionLineCards(lines, freqStart, input.transmissionLines);
 
   // Excitation: EX 0 tag seg 0 Vr Vi
   const ex = input.excitation;

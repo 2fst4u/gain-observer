@@ -30,7 +30,8 @@ ChartJS.register(
 );
 
 export function SWRChart() {
-  const { result, sweep, data, options, stats } = useSWRChartConfig();
+  const error = useAntennaStore((s) => s.error);
+  const { result, sweep, data, options, stats, atuEnabled } = useSWRChartConfig();
   const { wrapperRef, chartRef, onPointerDown, dragging } = useSwrViewGestures();
 
   if (!result || sweep.length === 0) {
@@ -39,7 +40,7 @@ export function SWRChart() {
         {/* SEO: Use sequential heading tags (H2) to follow document outline initiated by H1 */}
         <h2>SWR sweep</h2>
         <div role="status" aria-live="polite" style={{ color: 'var(--text-muted)', fontSize: 12, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div className="spinner" aria-hidden="true" /> Computing frequency sweep…
+          {error ? 'Frequency sweep unavailable for this configuration.' : <><div className="spinner" aria-hidden="true" /> Computing frequency sweep…</>}
         </div>
       </section>
     );
@@ -58,6 +59,7 @@ export function SWRChart() {
       </div>
       <SWRZoomControls />
       {stats && <SWRChartStats stats={stats} />}
+      {atuEnabled && <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>ATU retuned at each frequency. A matched source curve does not establish antenna bandwidth or radiation efficiency.</p>}
     </section>
   );
 }

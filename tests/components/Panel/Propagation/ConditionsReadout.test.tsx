@@ -1,167 +1,37 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { ConditionsReadout } from '../../../../src/components/Panel/Propagation/ConditionsReadout';
-import type { PropagationPrediction } from '../../../../src/physics/propagation';
-import { makeHop } from '../../../helpers/factories';
+import { makeHop, makePropagationPrediction } from '../../../helpers/factories';
+
+const defaults = { haveTakeoff: true, units: 'metric' as const };
+afterEach(cleanup);
 
 describe('ConditionsReadout', () => {
-  it('assigns correct colors based on hop status', () => {
-    // Construct a mock prediction with all hop statuses
-    const mockPrediction: PropagationPrediction = {
-      foF2MHz: 5.5,
-      hmF2Km: 300,
-      mufMHz: 14.2,
-      lufMHz: 3.5,
-      selectedTakeoffElevationDeg: 15,
-      mismatchLossDb: 0,
-      solarZenithDeg: 45,
-      hops: [
-        makeHop(makeHop({ reason: 'Open path' })),
-        makeHop({ n: 2, rangeKm: 2000, status: 'marginal', linkQuality: 'weak', reason: 'Marginal path' }),
-        makeHop({ n: 3, rangeKm: 3000, status: 'closed', linkQuality: 'unusable', reason: 'Closed path' }),
-      ],
-      azimuthalHops: []
-    };
-
-    cleanup();
-
-    render(
-      <ConditionsReadout
-        prediction={mockPrediction}
-        haveTakeoff={true}
-        units="metric"
-      />
-    );
-
-    // Verify the assigned styles (colors are defined inline via the style prop)
-    const openHop = screen.getByText(/1× hop/).nextElementSibling as HTMLElement;
-    const marginalHop = screen.getByText(/2× hop/).nextElementSibling as HTMLElement;
-    const closedHop = screen.getByText(/3× hop/).nextElementSibling as HTMLElement;
-
-    expect(openHop.style.color).toBe('var(--success)');
-    expect(marginalHop.style.color).toBe('var(--warning)');
-    expect(closedHop.style.color).toBe('var(--danger)');
-
-    // Test the quality label map directly by asserting text content
-    expect(openHop.textContent).toContain('usable signal');
-    expect(marginalHop.textContent).toContain('weak signal');
-    expect(closedHop.textContent).toContain('very weak signal');
+  it('reports ideal arc distances and numerical gain without claiming usable signals', () => {
+    render(<ConditionsReadout {...defaults} prediction={makePropagationPrediction()} />);
+    expect(screen.getByText('1× ideal hop').nextElementSibling!.textContent).toBe('1000 km');
+    expect(screen.getByText('Selected lobe realized gain').nextElementSibling!.textContent).toBe('4.00 dBi');
+    expect(screen.getByText('Received signal and path availability: not calculated.')).toBeDefined();
+    expect(screen.queryByText(/usable signal|weak signal|Open|Closed/)).toBeNull();
+    expect(screen.queryByText('LUF')).toBeNull();
   });
 
-  it('renders "Computing antenna pattern..." when haveTakeoff is false', () => {
-    const mockPrediction: PropagationPrediction = {
-      foF2MHz: 5.5,
-      hmF2Km: 300,
-      mufMHz: 14.2,
-      lufMHz: 3.5,
-      selectedTakeoffElevationDeg: 15,
-      mismatchLossDb: 0,
-      solarZenithDeg: 45,
-      hops: [],
-      azimuthalHops: []
-    };
-
-    cleanup();
-
-    render(
-      <ConditionsReadout
-        prediction={mockPrediction}
-        haveTakeoff={false}
-        units="metric"
-      />
-    );
-
+  it('renders the pending antenna state', () => {
+    render(<ConditionsReadout {...defaults} haveTakeoff={false} prediction={makePropagationPrediction()} />);
     expect(screen.getByText('Computing antenna pattern…')).toBeDefined();
   });
 
-  it('toggles assumptions panel visibility', () => {
-    const mockPrediction: PropagationPrediction = {
-      foF2MHz: 5.5,
-      hmF2Km: 300,
-      mufMHz: 14.2,
-      lufMHz: 3.5,
-      selectedTakeoffElevationDeg: 15,
-      mismatchLossDb: 0,
-      solarZenithDeg: 45,
-      hops: [],
-      azimuthalHops: []
-    };
-
-    cleanup();
-
-    render(
-      <ConditionsReadout
-        prediction={mockPrediction}
-        haveTakeoff={true}
-        units="metric"
-      />
-    );
-
-    const button = screen.getByRole('button', { name: /Model & assumptions/i });
-    expect(screen.getByText(/This is a closed-form approximation/i).closest('div')).toHaveProperty('hidden', true);
-
-    fireEvent.click(button);
-    expect(screen.getByText(/This is a closed-form approximation/i).closest('div')).toHaveProperty('hidden', false);
-
-    fireEvent.click(button);
-    expect(screen.getByText(/This is a closed-form approximation/i).closest('div')).toHaveProperty('hidden', true);
+  it('explains the distinction between an ideal shell and measured hmF2', () => {
+    render(<ConditionsReadout {...defaults} prediction={makePropagationPrediction()} />);
+    const text = screen.getByText(/This is an ideal spherical-shell geometry illustration/);
+    expect(text.closest('div')!.hidden).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Model & assumptions' }));
+    expect(text.closest('div')!.hidden).toBe(false);
+    expect(screen.getByText(/not hmF2/)).toBeDefined();
   });
 
-  it('displays ranges in km when units is metric', () => {
-    const mockPrediction: PropagationPrediction = {
-      foF2MHz: 5.5,
-      hmF2Km: 300,
-      mufMHz: 14.2,
-      lufMHz: 3.5,
-      selectedTakeoffElevationDeg: 15,
-      mismatchLossDb: 0,
-      solarZenithDeg: 45,
-      hops: [
-        makeHop(makeHop({ reason: 'Open path' })),
-      ],
-      azimuthalHops: []
-    };
-
-    cleanup();
-
-    render(
-      <ConditionsReadout
-        prediction={mockPrediction}
-        haveTakeoff={true}
-        units="metric"
-      />
-    );
-
-    const hopTextContainer = screen.getByText(/1× hop/).nextElementSibling as HTMLElement;
-    expect(hopTextContainer.textContent).toContain('1000 km');
-  });
-
-  it('displays ranges in miles when units is imperial', () => {
-    const mockPrediction: PropagationPrediction = {
-      foF2MHz: 5.5,
-      hmF2Km: 300,
-      mufMHz: 14.2,
-      lufMHz: 3.5,
-      selectedTakeoffElevationDeg: 15,
-      mismatchLossDb: 0,
-      solarZenithDeg: 45,
-      hops: [
-        makeHop({ rangeKm: 1609.344 }),
-      ],
-      azimuthalHops: []
-    };
-
-    cleanup();
-
-    render(
-      <ConditionsReadout
-        prediction={mockPrediction}
-        haveTakeoff={true}
-        units="imperial"
-      />
-    );
-
-    const hopTextContainer = screen.getByText(/1× hop/).nextElementSibling as HTMLElement;
-    expect(hopTextContainer.textContent).toContain('1000 mi');
+  it('formats imperial arcs correctly', () => {
+    render(<ConditionsReadout {...defaults} units="imperial" prediction={makePropagationPrediction({ hops: [makeHop({ rangeKm: 1609.344 })] })} />);
+    expect(screen.getByText('1× ideal hop').nextElementSibling!.textContent).toBe('1000 mi');
   });
 });

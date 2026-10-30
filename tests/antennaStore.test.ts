@@ -299,7 +299,8 @@ describe("antennaStore selectors", () => {
       expect(tags).toEqual([1, 2, 3, 4]);
       const shield = input.wires.find((w) => w.tag === 4)!;
       expect(shield.start[2]).toBe(10);
-      expect(shield.end[2]).toBeCloseTo(2, 5);
+      expect(shield.end[2]).toBeGreaterThanOrEqual(2);
+      expect(Math.hypot(...shield.end.map((v, i) => v - shield.start[i]))).toBeCloseTo(8, 8);
       // EX moves to bottom of shield (the rig).
       expect(input.excitation.wireTag).toBe(4);
       // TL card connects source bridge to rig segment.
@@ -1301,9 +1302,9 @@ describe("antennaStore actions", () => {
           // Shield must be present (feedline is active for delta-loop with rg58).
           expect(shield).toBeDefined();
 
-          // Shield bottom must be at or above the base wire height.
-          const baseZ = base.start[2];
-          expect(shield.end[2]).toBeGreaterThanOrEqual(baseZ - 0.001);
+          // The shield leaves the loop plane and keeps its full length.
+          expect(Math.abs(shield.end[1] - shield.start[1])).toBeGreaterThan(0);
+          expect(Math.hypot(...shield.end.map((v, i) => v - shield.start[i]))).toBeCloseTo(10, 8);
 
           // Basic geometry sanity.
           for (const w of input.wires) {

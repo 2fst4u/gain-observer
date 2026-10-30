@@ -29,18 +29,33 @@ describe('averageGainLinear', () => {
     expect(averageGainLinear(pattern(() => -3.0103))).toBeCloseTo(0.5, 3);
   });
 
-  it('halves for a pattern confined to the upper hemisphere', () => {
+  it('uses the horizon as an endpoint only for a ground-supported pattern', () => {
     // 3 dBi above the horizon, nothing below: the classic perfect-ground
     // doubling. Directions NEC never computed come through as the parser's
     // large-negative sentinel.
     //
-    // Tolerance is loose because this pattern steps discontinuously at the
-    // horizon and a 5° grid can only resolve that to within half a cell
-    // (~4 %). Real patterns taper into the horizon instead, which the same
-    // quadrature integrates to better than 1 % — see the sin²θ case below and
-    // the free-space average-gain check in nec2Engine.integration.test.ts.
     const p = pattern((thetaDeg) => (thetaDeg <= 90 ? 3.0103 : -100));
-    expect(averageGainLinear(p)).toBeCloseTo(1, 1);
+    expect(Math.abs(averageGainLinear({ ...p, integrationThetaMaxDeg: 90 }) - 1)).toBeLessThan(0.001);
+    // A free-space horizon is an interior sample and retains full weight.
+    const freeSpace = pattern(() => 0);
+    expect(Math.abs(averageGainLinear(freeSpace) - 1)).toBeLessThan(0.001);
+  });
+
+  it('integrates a perfect-ground short monopole without a fictitious horizon cell', () => {
+    // G=3 sin²(theta) on the upper hemisphere has exactly unit average gain
+    // and a 4.771 dBi peak. Nonzero horizon power exercises the boundary.
+    for (const step of [15, 5, 1]) {
+      const thetaSteps = 180 / step + 1;
+      const phiSteps = 360 / step;
+      const data = new Float32Array(thetaSteps * phiSteps);
+      for (let ti = 0; ti < thetaSteps; ti++) {
+        const gain = ti * step <= 90 ? 3 * Math.sin(ti * step * Math.PI / 180) ** 2 : 0;
+        data.fill(gain > 0 ? 10 * Math.log10(gain) : -100, ti * phiSteps, (ti + 1) * phiSteps);
+      }
+      const p: GainPattern = { data, thetaSteps, phiSteps, dTheta: step, dPhi: step, integrationThetaMaxDeg: 90 };
+      expect(averageGainLinear(p)).toBeCloseTo(1, 3);
+      expect(directivityDbi(p, 10 * Math.log10(3))).toBeCloseTo(10 * Math.log10(3), 3);
+    }
   });
 
   it('integrates a sin²θ (dipole-like) pattern to its analytic value', () => {

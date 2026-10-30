@@ -1,9 +1,6 @@
-// Termination-effectiveness diagnostics derived from NEC output.
-//
-// These metrics measure whether the far-end resistor on a sloping-V
-// is actually absorbing the travelling wave.  They are distinct from SWR
-// (which only measures feedpoint reflection) and must not be described as
-// feedpoint-match metrics in any UI copy.
+// Current-envelope range and attributed termination heat from NEC output.
+// These are distinct from source SWR. Envelope variation alone does not
+// determine the amplitude or power of a reflected wave on a radiating wire.
 
 import type {
   SegmentCurrent,
@@ -11,6 +8,7 @@ import type {
   GainPattern,
   CurrentRipple,
   TerminationDiagnostics,
+  SegmentLoad,
 } from './types';
 
 /**
@@ -19,8 +17,8 @@ import type {
  * ripple = max(|I|) / min(|I|)
  * rippleDb = 20 * log10(ripple)
  *
- * A ripple of 1.0 (0 dB) indicates a pure travelling wave (uniform
- * current envelope).  High ripple indicates a standing-wave component.
+ * This is envelope dynamic range, not a reflected-wave estimate. A forward
+ * travelling wave can attenuate along a radiating wire without reflection.
  *
  * Tags with fewer than 2 segments are excluded — a single-segment wire
  * cannot have a ripple profile.
@@ -102,10 +100,27 @@ export function computeTerminationDiagnostics(
   pattern: GainPattern,
   takeoffElevationDeg: number,
   takeoffAzimuthDeg: number,
+  loads: readonly SegmentLoad[] = [],
 ): TerminationDiagnostics {
   return {
     currentRippleByTag: computeCurrentRippleByTag(currents),
     powerBudget,
+    terminationPowerW: computeTerminationPower(currents, loads),
     frontBackDb: computeFrontBackDb(pattern, takeoffElevationDeg, takeoffAzimuthDeg),
   };
+}
+
+/** NEC currents are peak phasors, hence resistor dissipation is R |I|² / 2. */
+export function computeTerminationPower(currents: SegmentCurrent[], loads: readonly SegmentLoad[]): number {
+  let power = 0;
+  for (const load of loads) {
+    if (load.role !== 'termination' || load.param1 <= 0) continue;
+    const tagged = load.wireTag === 0 ? currents : currents.filter(c => c.tagNo === load.wireTag);
+    const start = load.segmentStart === 0 ? 0 : load.segmentStart - 1;
+    const end = load.segmentEnd === 0 ? tagged.length : load.segmentEnd;
+    for (let i = start; i < Math.min(end, tagged.length); i++) {
+      power += 0.5 * load.param1 * tagged[i]!.magnitude ** 2;
+    }
+  }
+  return power;
 }

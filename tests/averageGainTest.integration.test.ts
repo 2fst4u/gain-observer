@@ -14,13 +14,10 @@
 //     the antenna is unusual.
 //   • <G> below efficiency means power vanished somewhere NEC did not book.
 //
-// The integral is evaluated on a finer grid than the app displays. The
-// average-gain test is a statement about the *deck*, and on a pattern with
-// sharp structure the default 5° display grid does not resolve the sphere
-// well enough to integrate it: the terminated delta reads 0.32 dB of error at
-// 5°, 0.09 dB at 2° and 0.004 dB at 1°, with the gain figure itself unmoved
-// throughout. That is quadrature error in the metric, not energy going
-// missing, and this suite must not confuse the two.
+// Use scientific angular resolution and the correct hemisphere endpoint.
+// A ground pattern's nonzero horizon is half weighted; treating it as an
+// interior full-sphere sample invents power below ground and can misdiagnose
+// otherwise valid vertical models as an energy-conservation failure.
 //
 // This is the check that catches feed-geometry errors nothing else can see.
 // A deck can have every wire in the right place, every tag correct and every
@@ -39,14 +36,9 @@ import { resolve } from 'node:path';
 
 const wasmUrl = pathToFileURL(resolve(process.cwd(), 'public/')).href + '/';
 
-// Types whose feed geometry this suite covers. The vertical whip and
-// inverted-L are excluded: they carry a separate, unrelated defect (their
-// source segment sits 1 cm above the ground plane, which over a perfect
-// conductor is a near-short to its own image). That error does not converge
-// with segmentation — it grows slightly — so it is not a segment-ratio
-// problem and needs its own fix. See §14.2 of `docs/antenna-spec.md`.
 const COVERED: AntennaType[] = [
   'dipole', 'inverted-v', 'sloping-v', 'delta-loop', 'terminated-delta',
+  'vertical-whip', 'inverted-l', 'folded-dipole',
 ];
 
 describe('NEC average-gain test over perfect ground', () => {
@@ -57,7 +49,7 @@ describe('NEC average-gain test over perfect ground', () => {
     await engine.init();
   }, 30_000);
 
-  async function measure(type: AntennaType, feedline: boolean) {
+  async function measure(type: AntennaType, feedline: boolean, losslessLine = false) {
     const store = useAntennaStore.getState();
     store.setAntennaType(type);
     store.setFrequency(7.0);
@@ -65,9 +57,16 @@ describe('NEC average-gain test over perfect ground', () => {
     store.setHeight(20);
     store.setTerminatingResistor(0);
     store.setFeedline(feedline ? 'rg58' : 'none');
+    store.setFeedlineLength(feedline ? 10 : 0);
+    // The choked terminated-delta feedline is rejected pending a converged
+    // junction model. Its unchoked feedline remains available and is tested.
+    if (type === 'terminated-delta' && feedline) store.setTransformerEnabled(false);
     const input = selectSimulationInput(useAntennaStore.getState());
     const r = await engine.simulate({
       ...input,
+      transmissionLines: losslessLine
+        ? input.transmissionLines?.map(line => ({ ...line, lossModel: undefined }))
+        : input.transmissionLines,
       patternResolution: { thetaSteps: 181, phiSteps: 360 },
     });
     const avg = averageGainLinear(r.pattern);
@@ -85,15 +84,7 @@ describe('NEC average-gain test over perfect ground', () => {
           expect(errDb).toBeLessThan(0.2);
         }, 60_000);
 
-        // The two-sided check also catches power going missing. One case is
-        // knowingly excluded: the terminated delta with a feedline loses
-        // 0.43 dB somewhere NEC does not book. That is a separate defect in
-        // the shield geometry — it is the deficit direction, not the excess
-        // direction this suite was written for, and it does not respond to
-        // feed-bridge grading. It has its own entry in §14.2 of
-        // `docs/antenna-spec.md`; do not widen the tolerance to cover it.
-        const knownDeficit = feedline && type === 'terminated-delta';
-        it.skipIf(knownDeficit)(`${type}: energy balances to within a quarter dB`, async () => {
+        it(`${type}: energy balances to within a quarter dB`, async () => {
           const { errDb } = await measure(type, feedline);
           expect(Math.abs(errDb)).toBeLessThan(0.25);
         }, 60_000);
@@ -101,11 +92,26 @@ describe('NEC average-gain test over perfect ground', () => {
     });
   }
 
-  it('a split dipole agrees with the unsplit one it models', async () => {
+  it('rejects the known nonconverged choked terminated-delta feedline in both solve paths', async () => {
+    const store = useAntennaStore.getState();
+    store.setAntennaType('terminated-delta');
+    store.setFrequency(7);
+    store.setHeight(20);
+    store.setFeedline('rg58');
+    store.setFeedlineLength(10);
+    store.setTransformerEnabled(true);
+    const input = selectSimulationInput(useAntennaStore.getState());
+    await expect(engine.simulate(input)).rejects.toThrow('power-convergence');
+    await expect(engine.feedpointImpedance(input)).rejects.toThrow('power-convergence');
+  });
+
+  it('a split dipole with an ideal differential line agrees with the unsplit geometry', async () => {
     // The split (feedline) and unsplit decks are the same antenna, so they
     // must give the same gain. They differed by 0.63 dB when the feed bridge
     // was butted against full-length segments.
-    const split = await measure('dipole', true);
+    // Isolate feed-geometry accuracy from the now explicitly modelled cable
+    // attenuation; a real lossy line should reduce accepted-power gain.
+    const split = await measure('dipole', true, true);
     const whole = await measure('dipole', false);
     expect(Math.abs(split.gain - whole.gain)).toBeLessThan(0.2);
   }, 90_000);

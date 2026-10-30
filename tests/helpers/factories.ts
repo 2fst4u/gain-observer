@@ -79,6 +79,7 @@ export function makeComparisonSnapshot(
 ): ComparisonSnapshot {
   return {
     frequency: 14.1,
+    designFrequency: 14.1,
     antennaType: 'dipole',
     length: 20,
     height: 10,
@@ -95,6 +96,11 @@ export function makeComparisonSnapshot(
     feedlineLength: 0,
     feedlineOffset: 0,
     whipCounterpoise: false,
+    terminatingResistor: 0,
+    transformerEnabled: false,
+    transformerRatio: 1,
+    atuEnabled: false,
+    atuMainFeedlineLength: 50,
     result: makeSimulationResult(),
     sweep: [],
     capturedAt: 0,
@@ -106,10 +112,9 @@ export function makeHop(overrides: Partial<HopPrediction> = {}): HopPrediction {
   return {
     n: 1,
     rangeKm: 1000,
-    status: 'open',
-    reason: 'Open path',
-    linkQuality: 'useful',
     takeoffElevationDeg: 15,
+    antennaGainDbi: 5,
+    realizedGainDbi: 4,
     ...overrides,
   };
 }
@@ -120,13 +125,11 @@ export function makeAzimuthalHop(overrides: Partial<AzimuthalHop> = {}): Azimuth
   const phiDeg = overrides.phiDeg ?? 0;
   return {
     phiDeg,
-    // Keep the pair consistent unless a test deliberately overrides it.
     bearingDeg: phiToBearingDeg(phiDeg),
     takeoffElevationDeg: 15,
     rangeKm: [1000],
-    status: 'open',
-    reason: 'Open path',
-    linkQuality: 'useful',
+    antennaGainDbi: 5,
+    realizedGainDbi: 4,
     ...overrides,
   };
 }
@@ -135,13 +138,10 @@ export function makePropagationPrediction(
   overrides: Partial<PropagationPrediction> = {},
 ): PropagationPrediction {
   return {
-    foF2MHz: 5.5,
-    hmF2Km: 300,
-    mufMHz: 14.2,
-    lufMHz: 3.5,
+    shellHeightKm: 300,
     hops: [makeHop()],
     selectedTakeoffElevationDeg: 15,
-    mismatchLossDb: 0,
+    realizedGainOffsetDb: -1,
     solarZenithDeg: 45,
     ...overrides,
   };

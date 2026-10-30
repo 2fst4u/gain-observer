@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useAntennaStore } from '../../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useGeolocation } from '../../../hooks/useGeolocation';
+import { NumericInput } from '../../UI/NumericInput';
 
 const MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -55,64 +56,10 @@ function geoStatusMessage(
     case 'denied':
       return 'Permission denied. Using the value above; edit it manually if you wish.';
     case 'unsupported':
-      return 'Browser geolocation is unavailable. Enter latitude manually.';
+      return 'Browser geolocation is unavailable. Enter latitude and longitude manually.';
     case 'error':
-      return 'Could not obtain location. Enter latitude manually.';
+      return 'Could not obtain location. Enter latitude and longitude manually.';
   }
-}
-
-function TIndexInput() {
-  const { tIndex, setTIndex } = useAntennaStore(
-    useShallow((s) => ({
-      tIndex: s.tIndex,
-      setTIndex: s.setTIndex,
-    }))
-  );
-
-  const [localTIndex, setLocalTIndex] = useState(tIndex.toString());
-  const [isTIndexFocused, setIsTIndexFocused] = useState(false);
-
-  const [prevTIndex, setPrevTIndex] = useState(tIndex);
-  if (tIndex !== prevTIndex) {
-    setPrevTIndex(tIndex);
-    if (!isTIndexFocused) {
-      setLocalTIndex(tIndex.toString());
-    }
-  }
-
-  return (
-    <>
-      <label htmlFor="t-index-input">T-index</label>
-      <div className="row">
-        <input
-          id="t-index-input"
-          type="number"
-          min={-100}
-          max={250}
-          step={1}
-          value={localTIndex}
-          aria-label="Ionospheric T-index"
-          aria-describedby="t-index-hint"
-          onFocus={() => setIsTIndexFocused(true)}
-          onChange={(e) => {
-            const s = e.target.value;
-            setLocalTIndex(s);
-            const v = parseFloat(s);
-            if (isNaN(v)) return;
-            setTIndex(v);
-          }}
-          onBlur={() => {
-            setIsTIndexFocused(false);
-            setLocalTIndex(tIndex.toString());
-          }}
-        />
-      </div>
-      <p id="t-index-hint" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
-        Australian IPS T-index. ~30 = quiet, ~100 = active. Look up today&apos;s
-        value from your usual space-weather source.
-      </p>
-    </>
-  );
 }
 
 function LatitudeInput() {
@@ -167,7 +114,7 @@ function LatitudeInput() {
           aria-disabled={geoStatus === 'requesting'}
           aria-busy={geoStatus === 'requesting'}
           style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: '6px' }}
-          title="Use the browser geolocation API to populate latitude. Asks for permission only when clicked."
+          title="Use the browser geolocation API to populate latitude and longitude. Asks for permission only when clicked."
         >
           {geoStatus === 'requesting' && <div className="spinner" aria-hidden="true" />}
           {geoStatus === 'requesting' ? 'Locating…' : 'Use my location'}
@@ -175,6 +122,49 @@ function LatitudeInput() {
       </div>
       <p id="lat-hint" aria-live="polite" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
         {geoStatusMessage(geoStatus, latitudeDeg)}
+      </p>
+    </>
+  );
+}
+
+function LongitudeInput() {
+  const { longitudeDeg, setLongitude } = useAntennaStore(
+    useShallow((s) => ({ longitudeDeg: s.longitudeDeg, setLongitude: s.setLongitude })),
+  );
+  const [localLongitude, setLocalLongitude] = useState(longitudeDeg?.toString() ?? '');
+  const [focused, setFocused] = useState(false);
+  const [previousLongitude, setPreviousLongitude] = useState(longitudeDeg);
+  if (longitudeDeg !== previousLongitude) {
+    setPreviousLongitude(longitudeDeg);
+    if (!focused) setLocalLongitude(longitudeDeg?.toString() ?? '');
+  }
+
+  return (
+    <>
+      <label htmlFor="longitude-input">Longitude</label>
+      <input
+        id="longitude-input"
+        type="number"
+        min={-180}
+        max={180}
+        step={0.1}
+        value={localLongitude}
+        placeholder="0.0"
+        aria-label="Longitude in degrees"
+        aria-describedby="longitude-hint"
+        onFocus={() => setFocused(true)}
+        onChange={(event) => {
+          setLocalLongitude(event.target.value);
+          const value = parseFloat(event.target.value);
+          setLongitude(Number.isFinite(value) ? value : null);
+        }}
+        onBlur={() => {
+          setFocused(false);
+          setLocalLongitude(longitudeDeg?.toString() ?? '');
+        }}
+      />
+      <p id="longitude-hint" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
+        East is positive; west is negative. {longitudeDeg === null ? 'Defaults to 0° (Greenwich) until set.' : 'Used with UTC time to calculate the local solar angle.'}
       </p>
     </>
   );
@@ -212,7 +202,7 @@ function MonthInput() {
         </select>
       </div>
       <div id="month-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-        Month for ionospheric prediction. Leave as Auto to use current time.
+        Month for the approximate solar-angle readout. Leave as Auto to use current time.
       </div>
     </>
   );
@@ -292,11 +282,31 @@ function UtcHourInput() {
   );
 }
 
-export function PropagationInputs() {
+export function PropagationInputs({
+  shellHeightKm = 300,
+  onShellHeightChange = () => {},
+}: {
+  shellHeightKm?: number;
+  onShellHeightChange?: (height: number) => void;
+}) {
   return (
     <>
-      <TIndexInput />
+      <label htmlFor="shell-height">Ideal shell height (km)</label>
+      <NumericInput
+        id="shell-height"
+        aria-label="Ideal shell height in kilometres"
+        aria-describedby="shell-height-hint"
+        min={50}
+        max={1000}
+        step={10}
+        value={shellHeightKm}
+        onChange={(height) => onShellHeightChange(Math.max(50, Math.min(1000, height)))}
+      />
+      <p id="shell-height-hint" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
+        Choose an illustrative reflecting height. This is neither a measured hmF2 nor a frequency-dependent virtual height.
+      </p>
       <LatitudeInput />
+      <LongitudeInput />
       <MonthInput />
       <UtcHourInput />
     </>

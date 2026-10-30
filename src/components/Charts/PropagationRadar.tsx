@@ -1,15 +1,5 @@
-// Top-down "radar" plot of estimated propagation range.
-//
-// The antenna sits at the centre and three concentric rings show the
-// great-circle ground range covered by 1, 2, and 3 sky-wave hops at the
-// current take-off angle. Ring colour reflects open / marginal / closed
-// status from src/physics/propagation.ts.
-//
-// We deliberately use raw SVG (no Chart.js radar plugin) because:
-//   - the chart is genuinely circular concentric rings, which is awkward
-//     to express with Chart.js polar-area scales;
-//   - SVG is easy to make theme-responsive (CSS variables work directly);
-//   - it keeps the bundle small.
+// Top-down outline of ideal spherical-shell ground arcs.
+// The outlines are geometric distances, not filled coverage regions.
 
 import type { PropagationPrediction } from "../../physics/propagation";
 import type { UnitSystem } from "../../physics/units";
@@ -57,7 +47,7 @@ export function PropagationRadar({
         width={size}
         height={size}
         role="img"
-        aria-label="Propagation range radar plot"
+        aria-label="Ideal propagation geometry radar plot"
         style={{ display: "block", maxWidth: "100%" }}
       >
         <RadarGrid
@@ -68,10 +58,7 @@ export function PropagationRadar({
           margin={margin}
         />
 
-        {/* Hop rings: rendered from outermost to innermost so labels stay readable.
-            If azimuthalHops are available, the ring is a sequence of per-azimuth
-            wedges so the colour reflects each bearing's own status / link
-            quality, not a single global "best-bearing" colour. */}
+        {/* Unfilled outlines show geometric arcs without implying coverage. */}
         <RadarHopRings
           prediction={prediction}
           cx={cx}

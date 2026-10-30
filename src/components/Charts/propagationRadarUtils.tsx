@@ -13,38 +13,6 @@ export function formatDistance(km: number, units: UnitSystem): string {
   return `${km.toFixed(0)} km`;
 }
 
-export function statusFill(status: "open" | "marginal" | "closed"): string {
-  // Use semantic CSS variables already defined in theme.css so the rings
-  // pick up theme overrides without hard-coding hex values here.
-  if (status === "open") return "var(--success)";
-  if (status === "marginal") return "var(--warning)";
-  return "var(--danger)";
-}
-
-export function qualityOpacity(quality: "useful" | "weak" | "unusable"): number {
-  if (quality === "useful") return 0.16;
-  if (quality === "weak") return 0.08;
-  return 0.035;
-}
-
-export function worseStatus(
-  a: "open" | "marginal" | "closed",
-  b: "open" | "marginal" | "closed",
-): "open" | "marginal" | "closed" {
-  if (a === "closed" || b === "closed") return "closed";
-  if (a === "marginal" || b === "marginal") return "marginal";
-  return "open";
-}
-
-export function worseQuality(
-  a: "useful" | "weak" | "unusable",
-  b: "useful" | "weak" | "unusable",
-): "useful" | "weak" | "unusable" {
-  if (a === "unusable" || b === "unusable") return "unusable";
-  if (a === "weak" || b === "weak") return "weak";
-  return "useful";
-}
-
 export function calculateMaxRangeKm(prediction: PropagationPrediction): number {
   let maxRangeKm = prediction.hops[prediction.hops.length - 1]?.rangeKm ?? 1;
   if (prediction.azimuthalHops) {
@@ -60,7 +28,7 @@ export function calculateMaxRangeKm(prediction: PropagationPrediction): number {
   return maxRangeKm;
 }
 
-export function buildAzimuthalWedges(
+export function buildAzimuthalSegments(
   az: NonNullable<PropagationPrediction["azimuthalHops"]>,
   ringN: number,
   cx: number,
@@ -69,7 +37,7 @@ export function buildAzimuthalWedges(
 ): JSX.Element[] {
   const len = az.length;
   if (len === 0) return [];
-  const wedges = new Array<JSX.Element>(len);
+  const segments = new Array<JSX.Element>(len);
 
   const ringIndex = ringN - 1;
   let aPoint = az[0]!;
@@ -101,28 +69,24 @@ export function buildAzimuthalWedges(
       by = cy - rB * Math.cos(bRad);
     }
 
-    // Colour the wedge by the worse status / quality of its two
-    // bounding radials, so a closed bearing visually pulls the
-    // wedge into "closed" rather than borrowing colour from a
-    // neighbouring open bearing.
-    const status = worseStatus(aPoint.status, bPoint.status);
-    const linkQuality = worseQuality(aPoint.linkQuality, bPoint.linkQuality);
-    wedges[i] = (
-      <polygon
+    segments[i] = (
+      <line
         key={`${ringN}-${i}`}
-        points={`${cx},${cy} ${ax},${ay} ${bx},${by}`}
-        fill={statusFill(status)}
-        fillOpacity={qualityOpacity(linkQuality)}
-        stroke={statusFill(status)}
-        strokeOpacity={linkQuality === "unusable" ? 0.25 : 0.6}
-        strokeWidth={1}
-        strokeDasharray={linkQuality === "unusable" ? "4 3" : undefined}
-      />
+        x1={ax}
+        y1={ay}
+        x2={bx}
+        y2={by}
+        stroke="var(--accent)"
+        strokeOpacity={0.75}
+        strokeWidth={1.5}
+      >
+        <title>{`Bearing ${aPoint.bearingDeg.toFixed(0)}°, elevation ${aPoint.takeoffElevationDeg.toFixed(1)}°${aPoint.realizedGainDbi !== undefined ? `, realized antenna gain ${aPoint.realizedGainDbi.toFixed(2)} dBi` : ''}. Ideal arc only.`}</title>
+      </line>
     );
 
     aPoint = bPoint;
     ax = bx;
     ay = by;
   }
-  return wedges;
+  return segments;
 }

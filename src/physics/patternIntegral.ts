@@ -26,10 +26,12 @@ import type { GainPattern } from './types';
 /**
  * Average of the power gain over the whole sphere, as a linear ratio.
  *
- * The pattern is a regular θ/φ grid, so this is a midpoint sum in φ (which is
- * periodic and therefore exact for the sampling) and a trapezoidal sum in θ
- * weighted by the sin θ area element. The θ endpoints carry half weight; both
- * sit at a pole where sin θ = 0, so they contribute nothing either way.
+ * The pattern is a regular θ/φ grid, so this is a periodic trapezoidal sum in φ
+ * (without duplicating 0°/360°) and a trapezoidal sum in θ
+ * weighted by the sin θ area element. The endpoints carry half weight.
+ * Over ground θ=90° is an endpoint, even though the stored rectangular grid
+ * retains below-ground rows. Those rows must not add a half-cell below the
+ * horizon to the integral. Free-space patterns retain the full sphere.
  *
  * Directions NEC never computed (below-ground rows over a ground plane, and
  * true nulls) arrive as a large negative dB sentinel, which contributes ~0 to
@@ -50,12 +52,15 @@ export function averageGainLinear(pattern: GainPattern): number {
   const dThetaRad = dTheta * DEG;
   const dPhiRad = dPhi * DEG;
   const dbToLinear = Math.LN10 / 10;
+  const thetaMax = pattern.integrationThetaMaxDeg ?? 180;
+  const lastTi = Math.min(thetaSteps - 1, Math.round(thetaMax / dTheta));
+  if (Math.abs(lastTi * dTheta - thetaMax) > 1e-6) return 0;
 
   let sum = 0;
-  for (let ti = 0; ti < thetaSteps; ti++) {
+  for (let ti = 0; ti <= lastTi; ti++) {
     const sinTheta = Math.sin(ti * dTheta * DEG);
     if (sinTheta === 0) continue;
-    const weight = ti === 0 || ti === thetaSteps - 1 ? 0.5 : 1;
+    const weight = ti === 0 || ti === lastTi ? 0.5 : 1;
     const row = ti * phiSteps;
     let rowSum = 0;
     for (let pi = 0; pi < phiSteps; pi++) {

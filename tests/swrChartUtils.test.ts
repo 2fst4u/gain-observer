@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { computeChartData, computeStats, formatBandwidth, computeYMax, computeOptions, buildAnnotations, buildScales } from '../src/components/Charts/swrChartUtils';
 import type { SweepPoint } from '../src/physics/types';
 import type { ComparisonSnapshot } from '../src/store/antennaStore';
+import { makeComparisonSnapshot } from './helpers/factories';
+import { displayedFeedMetrics } from '../src/physics/impedance';
+import { ATU_COMPONENT_Q } from '../src/physics/constants';
 
 describe('computeChartData', () => {
   const mockSweep: SweepPoint[] = [
@@ -114,6 +117,50 @@ describe('computeChartData', () => {
     expect(curDataset.data[0].y).toBeCloseTo(2.0, 5);
     expect(curDataset.data[1].x).toBe(7.1);
     expect(curDataset.data[1].y).toBeCloseTo(1.0, 5);
+  });
+});
+
+describe('saved matching configurations', () => {
+  const base = { comparisonActive: true, referenceFill: '#aaa', transformerInDisplay: true, transformerRatio: 4, sweep: [{ frequencyMHz: 7, R: 200, X: 0, swr: 4 }], accent: '#fff', currentFill: '#000' };
+
+  it('uses the reference transformer ratio for both its plotted curve and axis scaling', () => {
+    const reference = makeComparisonSnapshot({ transformerEnabled: true, transformerRatio: 9, feedlineId: 'none', sweep: [{ frequencyMHz: 7, R: 450, X: 0, swr: 9 }] });
+    const data = computeChartData({ ...base, reference });
+    expect(data.datasets[0]!.data[0]!.y).toBeCloseTo(1, 10);
+    expect(data.datasets[1]!.data[0]!.y).toBeCloseTo(1, 10);
+    expect(data.datasets[0]!.label).toBe('Reference (after 9:1)');
+    expect(computeYMax({ ...base, reference })).toBe(3);
+    expect(data.datasets.every((set) => set.tension === 0)).toBe(true);
+  });
+
+  it('labels independently retuned ATU curves and does not claim antenna bandwidth', () => {
+    const reference = makeComparisonSnapshot({ atuEnabled: true, feedlineId: 'rg58', feedlineLength: 10, sweep: [{ frequencyMHz: 7, R: 450, X: 100, swr: 10 }] });
+    const data = computeChartData({ ...base, reference });
+    expect(data.datasets[0]!.label).toContain('ATU retuned at each frequency');
+    expect(data.datasets[0]!.data[0]!.y).toBe(1);
+    expect(computeStats({ sweep: base.sweep, atuEnabled: true })).toBeNull();
+  });
+
+  it('ignores a captured hidden ATU when the reference has no cable', () => {
+    const reference = makeComparisonSnapshot({ atuEnabled: true, feedlineId: 'none', sweep: [{ frequencyMHz: 7, R: 200, X: 0, swr: 4 }] });
+    const data = computeChartData({ ...base, reference });
+    expect(data.datasets[0]!.label).toBe('Reference');
+    expect(data.datasets[0]!.data[0]!.y).toBe(4);
+  });
+
+  it('matches the same transformed load as Results before deciding ATU feasibility', () => {
+    // A short antenna with an unsuitable step-down transformer can fall
+    // outside a finite-Q L network's matchable range. Do not flatten its SWR.
+    const point = { frequencyMHz: 7, R: 0.01, X: 0.1, swr: 999 };
+    const result = displayedFeedMetrics({ impedance: point, swr: 999, maxGainDbi: 0 }, {
+      transformerEnabled: true, transformerRatio: 100, feedlineActive: false,
+      atu: { z0: 50, upmastMatchedLossDb: 0, mainMatchedLossDb: 0, componentQ: ATU_COMPONENT_Q },
+    });
+    expect(result.displayedRealizedGainDbi).toBeUndefined();
+    const data = computeChartData({ ...base, comparisonActive: false, reference: null,
+      sweep: [point], transformerInDisplay: true, transformerRatio: 100, atuEnabled: true });
+    expect(data.datasets[0]!.data[0]!.y).toBe(result.displayedSwr);
+    expect(data.datasets[0]!.data[0]!.y).toBeGreaterThan(1);
   });
 });
 

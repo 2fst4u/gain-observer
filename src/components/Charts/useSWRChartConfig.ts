@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useAntennaStore, selectSwrWindow, type ComparisonSnapshot } from '../../store/antennaStore';
+import { useAntennaStore, selectSwrWindow, selectAtuConfig, isFeedlineActive, type ComparisonSnapshot } from '../../store/antennaStore';
 import { type SweepPoint } from '../../physics/types';
 import {
   computeChartData,
@@ -41,7 +41,8 @@ function useChartData(
   transformerRatio: number,
   sweep: readonly SweepPoint[],
   accent: string,
-  currentFill: string
+  currentFill: string,
+  atuEnabled: boolean,
 ) {
   return useMemo(
     () =>
@@ -54,19 +55,20 @@ function useChartData(
         sweep,
         accent,
         currentFill,
+        atuEnabled,
       }),
-    [accent, comparisonActive, currentFill, reference, referenceFill, sweep, transformerInDisplay, transformerRatio]
+    [accent, comparisonActive, currentFill, reference, referenceFill, sweep, transformerInDisplay, transformerRatio, atuEnabled]
   );
 }
 
-function useChartStats(sweep: readonly SweepPoint[], transformerInDisplay: boolean, transformerRatio: number) {
+function useChartStats(sweep: readonly SweepPoint[], transformerInDisplay: boolean, transformerRatio: number, atuEnabled: boolean) {
   return useMemo(
-    () => computeStats({ sweep, transformerInDisplay, transformerRatio }),
-    [sweep, transformerInDisplay, transformerRatio]
+    () => computeStats({ sweep, transformerInDisplay, transformerRatio, atuEnabled }),
+    [sweep, transformerInDisplay, transformerRatio, atuEnabled]
   );
 }
 
-function useChartYMax(sweep: readonly SweepPoint[], comparisonActive: boolean, reference: ComparisonSnapshot | null, transformerInDisplay: boolean, transformerRatio: number) {
+function useChartYMax(sweep: readonly SweepPoint[], comparisonActive: boolean, reference: ComparisonSnapshot | null, transformerInDisplay: boolean, transformerRatio: number, atuEnabled: boolean) {
   return useMemo(
     () =>
       computeYMax({
@@ -75,8 +77,9 @@ function useChartYMax(sweep: readonly SweepPoint[], comparisonActive: boolean, r
         reference,
         transformerInDisplay,
         transformerRatio,
+        atuEnabled,
       }),
-    [comparisonActive, reference, sweep, transformerInDisplay, transformerRatio]
+    [comparisonActive, reference, sweep, transformerInDisplay, transformerRatio, atuEnabled]
   );
 }
 
@@ -121,6 +124,13 @@ export function useSWRChartConfig() {
     transformerEnabled,
     transformerRatio,
     feedlineId,
+    antennaType,
+    length,
+    height,
+    feedlineLength,
+    feedlineOffset,
+    groundId,
+    atuEnabled,
     swrViewCenterMHz,
     swrViewSpanMHz,
   } = useAntennaStore(useShallow((s) => ({
@@ -133,11 +143,18 @@ export function useSWRChartConfig() {
     transformerEnabled: s.transformerEnabled,
     transformerRatio: s.transformerRatio,
     feedlineId: s.feedlineId,
+    antennaType: s.antennaType,
+    length: s.length,
+    height: s.height,
+    feedlineLength: s.feedlineLength,
+    feedlineOffset: s.feedlineOffset,
+    groundId: s.groundId,
+    atuEnabled: Boolean(selectAtuConfig(s)),
     swrViewCenterMHz: s.swrViewCenterMHz,
     swrViewSpanMHz: s.swrViewSpanMHz,
   })));
 
-  const feedlineActive = feedlineId !== 'none';
+  const feedlineActive = isFeedlineActive({ antennaType, length, height, feedlineId, feedlineLength, feedlineOffset, groundId });
   const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
   const comparisonActive = mode === 'comparison' && Boolean(reference);
 
@@ -151,13 +168,14 @@ export function useSWRChartConfig() {
     transformerRatio,
     sweep,
     accent,
-    currentFill
+    currentFill,
+    atuEnabled,
   );
 
   const xBounds = useChartBounds(swrViewCenterMHz, swrViewSpanMHz);
-  const stats = useChartStats(sweep, transformerInDisplay, transformerRatio);
-  const yMax = useChartYMax(sweep, comparisonActive, reference, transformerInDisplay, transformerRatio);
+  const stats = useChartStats(sweep, transformerInDisplay, transformerRatio, atuEnabled);
+  const yMax = useChartYMax(sweep, comparisonActive, reference, transformerInDisplay, transformerRatio, atuEnabled);
   const options = useChartOptions(frequency, accent, stats, yMax, xBounds, chartText, chartGrid, comparisonActive);
 
-  return { result, sweep, data, options, stats };
+  return { result, sweep, data, options, stats, atuEnabled };
 }

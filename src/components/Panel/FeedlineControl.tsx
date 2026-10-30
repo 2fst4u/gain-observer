@@ -67,7 +67,7 @@ export function FeedlineControl() {
   if (!SUPPORTED_ANTENNA_TYPES.has(antennaType)) return null;
 
   const lossDb = enabled ? feedlineLossDb(preset, frequency, feedlineLength) : 0;
-  const atuMainRunLossDb = enabled ? feedlineLossDb(preset, frequency, atuMainFeedlineLength) : 0;
+  const atuMainRunLossDb = enabled ? feedlineLossDb(findFeedlinePreset('rg213'), frequency, atuMainFeedlineLength) : 0;
 
   return (
     <section className="panel-section">

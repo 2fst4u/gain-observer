@@ -25,6 +25,14 @@ describe('PolarPlots', () => {
     tickCbs.length = 0;
     useAntennaStore.setState({
       showPolarCuts: true,
+      transformerEnabled: false,
+      atuEnabled: false,
+      feedlineId: 'none',
+      feedlineLength: 10,
+      antennaType: 'dipole',
+      height: 10,
+      length: 20,
+      groundId: 'pastoral',
       orientation: 'NS',
       dbRange: 40,
       theme: 'light',
@@ -136,4 +144,13 @@ describe('PolarPlots', () => {
     render(<PolarPlots />);
     expect(tickCbs[0]!(40)).toBe('6 dBi');
   });
+  it('applies direct-feed transformer gain when a cable preset has zero physical length', () => {
+    useAntennaStore.setState({
+      transformerEnabled: true, transformerRatio: 4, feedlineId: 'rg58', feedlineLength: 0,
+      result: makeSimulationResult({ maxGainDbi: 5, maxRealizedGainDbi: 3, impedance: { R: 200, X: 0 }, swr: 4 }),
+    });
+    render(<PolarPlots />);
+    expect(tickCbs[0]!(40)).toBe('5 dBi'); // 4.8 dBi with the matched 4:1 transformer.
+  });
+
 });

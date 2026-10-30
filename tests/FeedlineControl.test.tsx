@@ -50,13 +50,13 @@ describe('FeedlineControl', () => {
 
     const toggle = screen.getByLabelText('ATU at the base of the mast') as HTMLInputElement;
     expect(toggle.checked).toBe(false);
-    expect(screen.queryByLabelText(/Main run/)).toBeNull();
+    expect(screen.queryByLabelText(/Main RG-213/)).toBeNull();
 
     fireEvent.click(toggle);
     expect(useAntennaStore.getState().atuEnabled).toBe(true);
 
     rerender(<FeedlineControl />);
-    expect(screen.getByLabelText(/Main run/)).toBeDefined();
+    expect(screen.getByLabelText(/Main RG-213/)).toBeDefined();
   });
 
   it('hides the ATU controls entirely when cable is "none"', () => {
@@ -69,7 +69,7 @@ describe('FeedlineControl', () => {
     useAntennaStore.setState({ atuEnabled: true, atuMainFeedlineLength: 50 });
     render(<FeedlineControl />);
 
-    const input = screen.getByLabelText(/Main run/) as HTMLInputElement;
+    const input = screen.getByLabelText(/Main RG-213/) as HTMLInputElement;
     fireEvent.change(input, { target: { value: '80' } });
     expect(useAntennaStore.getState().atuMainFeedlineLength).toBe(80);
 
@@ -121,14 +121,14 @@ describe('FeedlineControl', () => {
     fireEvent.change(slider, { target: { value: '3' } });
 
     expect(useAntennaStore.getState().feedlineOffset).toBe(3);
-    expect(screen.getByText(/common-mode current will flow on the shield/i)).toBeDefined();
+    expect(screen.getByText(/may drive common-mode current on the shield/i)).toBeDefined();
   });
 
   it('shows the centred hint when the offset is zero', () => {
     useAntennaStore.setState({ antennaType: 'dipole', length: 20, feedlineOffset: 0 });
     render(<FeedlineControl />);
 
-    expect(screen.getByText(/no common-mode current/i)).toBeDefined();
+    expect(screen.getByText(/depends on the feedline route and choke/i)).toBeDefined();
     const centre = screen.getByRole('button', { name: 'Centre feedpoint offset' }) as HTMLButtonElement;
     expect(centre.getAttribute('aria-disabled')).toBe('true');
   });
@@ -151,7 +151,7 @@ describe('FeedlineControl', () => {
     useAntennaStore.setState({ atuEnabled: true, atuMainFeedlineLength: 50 });
     render(<FeedlineControl />);
 
-    const input = screen.getByLabelText(/Main run/) as HTMLInputElement;
+    const input = screen.getByLabelText(/Main RG-213/) as HTMLInputElement;
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: '120' } });
     expect(useAntennaStore.getState().atuMainFeedlineLength).toBe(120);

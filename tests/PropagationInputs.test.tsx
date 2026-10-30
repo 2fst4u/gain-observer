@@ -17,6 +17,7 @@ describe('PropagationInputs UI component', () => {
     useAntennaStore.setState({
       tIndex: 50,
       latitudeDeg: null,
+      longitudeDeg: null,
       monthOverride: null,
       utcHourOverride: null,
     });
@@ -31,23 +32,13 @@ describe('PropagationInputs UI component', () => {
     vi.restoreAllMocks();
   });
 
-  it('handles T-index input focus, change, and blur', () => {
-    render(<PropagationInputs />);
-    const tIndexInput = screen.getByLabelText('Ionospheric T-index') as HTMLInputElement;
-
-    fireEvent.focus(tIndexInput);
-    fireEvent.change(tIndexInput, { target: { value: '100' } });
-
-    expect(tIndexInput.value).toBe('100');
-    expect(useAntennaStore.getState().tIndex).toBe(100);
-
-    // Test invalid input
-    fireEvent.change(tIndexInput, { target: { value: '' } }); // number input type rejects non-numbers, rendering as empty string
-    expect(tIndexInput.value).toBe('');
-    expect(useAntennaStore.getState().tIndex).toBe(100); // Should not update state with invalid number
-
-    fireEvent.blur(tIndexInput);
-    expect(tIndexInput.value).toBe('100'); // Resets to store value
+  it('accepts an explicit illustrative shell height without estimating hmF2', () => {
+    const onChange = vi.fn();
+    render(<PropagationInputs shellHeightKm={300} onShellHeightChange={onChange} />);
+    const input = screen.getByLabelText('Ideal shell height in kilometres');
+    fireEvent.change(input, { target: { value: '400' } });
+    expect(onChange).toHaveBeenCalledWith(400);
+    expect(screen.queryByLabelText('Ionospheric T-index')).toBeNull();
   });
 
   it('handles Latitude input focus, change, and blur', () => {
@@ -73,6 +64,20 @@ describe('PropagationInputs UI component', () => {
     fireEvent.blur(latInput);
     // After blur, it syncs to store state
     expect(latInput.value).toBe('12.3');
+  });
+
+  it('allows manual longitude entry and exposes the Greenwich default', () => {
+    render(<PropagationInputs />);
+    const longitude = screen.getByLabelText('Longitude in degrees') as HTMLInputElement;
+    expect(screen.getByText(/Defaults to 0° \(Greenwich\) until set/)).toBeDefined();
+    fireEvent.focus(longitude);
+    fireEvent.change(longitude, { target: { value: '-122.4' } });
+    expect(useAntennaStore.getState().longitudeDeg).toBe(-122.4);
+    expect(longitude.value).toBe('-122.4');
+    fireEvent.change(longitude, { target: { value: '' } });
+    expect(useAntennaStore.getState().longitudeDeg).toBeNull();
+    fireEvent.blur(longitude);
+    expect(longitude.value).toBe('');
   });
 
   it('handles "Use my location" button click', () => {
@@ -184,8 +189,8 @@ describe('PropagationInputs UI component', () => {
   it('renders initial state correctly', () => {
     render(<PropagationInputs />);
 
-    const tIndexInput = screen.getByLabelText('Ionospheric T-index') as HTMLInputElement;
-    expect(tIndexInput.value).toBe('50');
+    const height = screen.getByLabelText('Ideal shell height in kilometres') as HTMLInputElement;
+    expect(height.value).toBe('300');
 
     const latInput = screen.getByLabelText('Latitude in degrees') as HTMLInputElement;
     expect(latInput.value).toBe('');

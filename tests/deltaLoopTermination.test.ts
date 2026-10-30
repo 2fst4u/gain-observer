@@ -21,11 +21,11 @@ describe('Delta Loop termination (removed)', () => {
     useAntennaStore.getState().setTerminatingResistor(0);
   });
 
-  it('no LD card even if terminatingResistor > 0 (logic removed)', () => {
+  it('no lumped termination card even if terminatingResistor > 0', () => {
     setupDeltaLoop(600);
     const input = selectSimulationInput(useAntennaStore.getState());
     const deck = buildNecCards(input);
-    expect(getNecLines(deck, 'LD')).toHaveLength(0);
+    expect(getNecLines(deck, 'LD').filter((line) => !line.startsWith('LD 5 '))).toHaveLength(0);
     expect(input.loads).toBeUndefined();
   });
 
@@ -59,7 +59,7 @@ describe('Delta Loop termination (removed)', () => {
     store.setFeedline('none');
     store.setTerminatingResistor(600);
     const input = selectSimulationInput(useAntennaStore.getState());
-    expect(getNecLines(buildNecCards(input), 'LD')).toHaveLength(0);
+    expect(getNecLines(buildNecCards(input), 'LD').filter((line) => !line.startsWith('LD 5 '))).toHaveLength(0);
     expect(input.loads).toBeUndefined();
   });
 });

@@ -2,6 +2,7 @@
 
 import { Z0_SYSTEM, TRANSFORMER_INSERTION_LOSS_DB } from './constants';
 import type { ImpedanceResult, SimulationResult } from './types';
+import { matchLNetwork } from './atu';
 
 /**
  * Reflection coefficient magnitude for a load Z against the system impedance.
@@ -55,8 +56,8 @@ export function mismatchLossFactor(z: ImpedanceResult, z0: number = Z0_SYSTEM): 
  *
  * where ML is the matched-line loss (dB) of that section and |Γ| is the
  * reflection coefficient magnitude at the load against the *line's* Z₀.
- * Reduces to ML when |Γ| → 0. |Γ| is invariant along a lossless-ish line, so
- * it may be evaluated at either end.
+ * Reduces to ML when |Γ| → 0. The argument MUST be the load-end reflection:
+ * attenuation reduces |Γ| at the input, so the ends are not interchangeable.
  */
 export function feedlineLossUnderSwrDb(matchedLossDb: number, gammaMag: number): number {
   if (matchedLossDb <= 0) return 0;
@@ -68,35 +69,17 @@ export function feedlineLossUnderSwrDb(matchedLossDb: number, gammaMag: number):
   return 10 * Math.log10((a * a - g2) / (a * (1 - g2)));
 }
 
-/**
- * Insertion loss (dB) of an idealised antenna tuner matching a complex load Z
- * to a real system impedance, parameterised solely by the components' unloaded
- * Q — i.e. independent of the tuner topology (L/T/π).
- *
- * The tuner must transform R + jX to z₀, which forces it to circulate reactive
- * power. The minimum reactive "throughput Q" of *any* lossless matching
- * network performing that transformation is captured, model-agnostically, by
- * the geometric-mean-normalised distance of the load from the matched point:
- *
- *   Q_net = ( |R − z₀| + |X| ) / √(R · z₀)
- *
- * (zero at a perfect match; grows with both the resistance ratio and the
- * residual reactance). Feeding that through the single-section efficiency
- * bound η = Q_u / (Q_u + Q_net) gives the loss. Real T/π tuners can only
- * approach this minimum, so it is an optimistic-but-fair estimate.
- */
+/** Loss of the most efficient finite-Q L-network match; Infinity if unmatchable. */
 export function atuLossDb(z: ImpedanceResult, componentQ: number, z0: number = Z0_SYSTEM): number {
-  if (componentQ <= 0 || z.R <= 0 || z0 <= 0) return 0;
-  const qNet = (Math.abs(z.R - z0) + Math.abs(z.X)) / Math.sqrt(z.R * z0);
-  const efficiency = componentQ / (componentQ + qNet);
-  return -10 * Math.log10(efficiency);
+  return matchLNetwork(z, componentQ, z0)?.lossDb ?? Infinity;
 }
 
 /**
  * Configuration for an idealised ATU sited at the base of the mast: a short
  * feedline runs up the mast to the antenna (carrying its native SWR), the
  * tuner conjugate-matches at the base, and a longer main run continues to the
- * shack at ~1:1. Both runs are assumed to be the same cable type.
+ * shack at ~1:1 on a specified 50-ohm main coax (RG-213). The up-mast run
+ * can independently be coax or balanced line; its distributed loss is in NEC.
  */
 export interface AtuMatchConfig {
   /** The characteristic impedance of the upmast cable. */
@@ -105,8 +88,10 @@ export interface AtuMatchConfig {
   readonly upmastMatchedLossDb: number;
   /** The matched loss (dB) of the main run (ATU → shack). */
   readonly mainMatchedLossDb: number;
-  /** Unloaded Q of the tuner's reactive components. */
+  /** Unloaded Q of both reactive components in the explicit L network. */
   readonly componentQ: number;
+  /** Main cable is a separate 50-ohm coax, regardless of the up-mast cable. */
+  readonly mainFeedlineId?: string;
 }
 
 /** Feedpoint metrics as actually presented to the user. */
@@ -123,11 +108,11 @@ export interface DisplayedFeedMetrics {
   readonly displayedRealizedGainDbi: number | undefined;
   /** Per-stage loss (dB) when a mast-base ATU is modelled; undefined otherwise. */
   readonly atuLoss?: {
-    /** Up-mast feedline loss under the antenna's native SWR. */
+    /** Up-mast network loss already included in NEC gain (diagnostic only). */
     readonly upmastDb: number;
     /** Main feedline loss (matched, ~1:1). */
     readonly mainDb: number;
-    /** Tuner insertion loss (Q-based). */
+    /** Finite-Q L-network insertion loss. */
     readonly tunerDb: number;
   };
 }
@@ -145,47 +130,41 @@ export interface DisplayedFeedMetrics {
  * stats readout and the pattern bubble in lock-step.
  */
 export function displayedFeedMetrics(
-  result: Pick<SimulationResult, 'impedance' | 'swr' | 'maxGainDbi' | 'maxRealizedGainDbi'>,
+  result: Pick<SimulationResult, 'impedance' | 'swr' | 'maxGainDbi' | 'maxRealizedGainDbi' | 'networkLossDb'>,
   config: {
     transformerEnabled: boolean;
     transformerRatio: number;
     feedlineActive: boolean;
-    /** When present, an idealised ATU at the mast base supersedes the transformer. */
+    /** When present, a finite-Q L tuner conjugate-matches at the mast base. */
     atu?: AtuMatchConfig;
   },
 ): DisplayedFeedMetrics {
   const { transformerEnabled, transformerRatio, feedlineActive, atu } = config;
+  const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
+  const displayedZ: ImpedanceResult = transformerInDisplay
+    ? { R: result.impedance.R / transformerRatio, X: result.impedance.X / transformerRatio }
+    : result.impedance;
 
   if (atu) {
-    // The tuner conjugate-matches whatever impedance reaches the mast base, so
-    // the rig sees 50 Ω at 1:1 and mismatch loss → 0. `result.impedance` is the
-    // impedance at the foot of the (lossless-in-NEC) up-mast feedline — exactly
-    // where the tuner sits — so it is both the load the tuner matches and the
-    // point whose |Γ| sets the up-mast standing-wave loss. What remains:
-    //   • up-mast feedline loss under the antenna's native SWR,
-    //   • main feedline loss (matched, ~1:1),
-    //   • the tuner's own Q-based loss.
-    const z = result.impedance;
-    const gammaUpmast = atu.z0 > 0 ? reflectionCoefficientMag(z, atu.z0) : 0;
-    const upmastDb = feedlineLossUnderSwrDb(atu.upmastMatchedLossDb, gammaUpmast);
+    // NEC already includes distributed up-mast loss, so subtracting a scalar
+    // standing-wave loss here would count that heat twice. The explicit tuner
+    // matches NEC's actual lossy-line input, followed by a separate 50-ohm coax.
+    // A zero-length up-mast run is a direct feed. Its optional transformer is
+    // display-side, and the tuner must therefore match the transformed load.
+    const z = displayedZ;
+    const upmastDb = result.networkLossDb ?? 0;
     const mainDb = atu.mainMatchedLossDb;
-    const tunerDb = atuLossDb(z, atu.componentQ);
+    const match = matchLNetwork(z, atu.componentQ);
+    const tunerDb = match?.lossDb ?? Infinity;
     return {
-      displayedZ: { R: Z0_SYSTEM, X: 0 },
-      displayedSwr: 1,
-      // A non-passive feedpoint (R ≤ 0) can't be matched — leave realized gain
-      // undefined so the readout hides it, consistent with the other branches.
+      displayedZ: match ? { R: Z0_SYSTEM, X: 0 } : z,
+      displayedSwr: match ? 1 : swr(z),
       displayedRealizedGainDbi:
-        z.R > 0 ? result.maxGainDbi - upmastDb - mainDb - tunerDb : undefined,
+        match ? result.maxGainDbi - mainDb - tunerDb - (transformerEnabled ? TRANSFORMER_INSERTION_LOSS_DB : 0) : undefined,
       atuLoss: { upmastDb, mainDb, tunerDb },
     };
   }
 
-  const transformerInDisplay = transformerEnabled && !feedlineActive && transformerRatio > 1;
-
-  const displayedZ: ImpedanceResult = transformerInDisplay
-    ? { R: result.impedance.R / transformerRatio, X: result.impedance.X / transformerRatio }
-    : result.impedance;
   const displayedSwr = transformerInDisplay ? swr(displayedZ) : result.swr;
 
   let displayedRealizedGainDbi: number | undefined;
@@ -267,13 +246,13 @@ export function deembedThroughLine(
  *
  * The NEC source impedance means different things by configuration:
  *   • no feedline (`z0Line <= 0`) → it IS the antenna feedpoint; the optimal
- *     ratio brings it to the 50 Ω system impedance: round(R / 50).
+ *     ratio minimizes its SWR against the 50 Ω system impedance.
  *   • feedline present → it's the rig-end impedance (the coax, with any
  *     in-model NT transformer, sits between the rig and the antenna). De-embed
  *     the line to recover the antenna terminals, then undo the NT transformer
- *     (in the model only when ratio > 1) to get the raw feedpoint R. The
+ *     (in the model only when ratio > 1) to get the raw complex feedpoint. The
  *     optimal ratio matches that to the line's own characteristic impedance,
- *     flattening the line: round(R / z0Line).
+ *     minimizing SWR on that line.
  *
  * NOTE: with a feedline present this is only *approximately* stable — it has to
  * back the antenna feedpoint out of the rig-end reading, which (because the
@@ -282,7 +261,8 @@ export function deembedThroughLine(
  * can drift the value. Prefer `matchRatioForFeedpoint` against a bare-antenna
  * feedpoint (solved with the transformer/feedline stripped) when one is
  * available; this de-embed form is retained for the no-feedline case and as a
- * fallback.
+ * lossless-line fallback. Do not de-embed a lossy source reading with this
+ * lossless transform; use the separately solved bare antenna instead.
  *
  * Returns an integer ≥ 1.
  */
@@ -292,29 +272,39 @@ export function suggestedTransformerRatio(
   z0Line: number = 0,
   lineLengthLambdas: number = 0,
 ): number {
-  let antennaR: number;
+  let antennaZ: ImpedanceResult;
   let target: number;
   if (!Number.isFinite(z0Line) || z0Line <= 0) {
-    antennaR = zSrcReportedByNec.R;
+    antennaZ = zSrcReportedByNec;
     target = Z0_SYSTEM;
   } else {
     const zLoad = deembedThroughLine(zSrcReportedByNec, z0Line, lineLengthLambdas);
-    antennaR = currentRatio > 1 ? zLoad.R * currentRatio : zLoad.R;
+    const ratio = Math.max(1, currentRatio);
+    antennaZ = { R: zLoad.R * ratio, X: zLoad.X * ratio };
     target = z0Line;
   }
-  return matchRatioForFeedpoint(antennaR, target);
+  return matchRatioForFeedpoint(antennaZ, target);
 }
 
 /**
- * Integer impedance-transformer ratio that best matches a real feedpoint
- * resistance to a target impedance: round(R / target), clamped to ≥ 1.
+ * Integer impedance-transformer ratio minimizing SWR for a complex load.
+ * The continuous optimum is |Z|/target. Compare its adjacent allowed integers
+ * explicitly: ordinary arithmetic rounding is not the SWR decision boundary.
  *
- * Fed a *transformer-independent* antenna feedpoint R (and the target = the
+ * Fed a *transformer-independent* antenna feedpoint Z (and the target = the
  * feedline's characteristic impedance, or 50 Ω with no feedline), this yields a
  * single stable suggestion that does not move when the suggestion is applied —
  * because the bare feedpoint does not depend on the fitted transformer at all.
  */
-export function matchRatioForFeedpoint(antennaR: number, target: number): number {
-  if (!Number.isFinite(antennaR) || antennaR <= 0 || target <= 0) return 1;
-  return Math.max(1, Math.round(antennaR / target));
+export function matchRatioForFeedpoint(antenna: ImpedanceResult | number, target: number): number {
+  // Number input is retained for callers with a purely resistive reference.
+  const z = typeof antenna === 'number' ? { R: antenna, X: 0 } : antenna;
+  if (!(z.R > 0) || !(target > 0) || ![z.R, z.X, target].every(Number.isFinite)) return 1;
+  const continuous = Math.max(1, Math.hypot(z.R, z.X) / target);
+  const low = Math.max(1, Math.floor(continuous));
+  const high = Math.max(1, Math.ceil(continuous));
+  // Maximize 1-|Gamma|^2 before the display SWR cap can hide the distinction.
+  const transfer = (ratio: number) => 4 * z.R * target * ratio /
+    ((z.R + target * ratio) ** 2 + z.X ** 2);
+  return transfer(high) > transfer(low) ? high : low;
 }

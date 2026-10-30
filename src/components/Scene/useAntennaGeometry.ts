@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { buildWires, type Orientation } from '../../store/antennaStore';
+import { buildPhysicalWires, type Orientation } from '../../store/antennaStore';
 import type { AntennaType } from '../../physics/types';
 import { MAIN_WIRE_TAG, LEFT_LEG_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, INVERTED_L_VERTICAL_TAG } from '../../physics/tags';
 
@@ -18,6 +18,10 @@ export interface AntennaWireProps {
   readonly vAngle: number;
   readonly legSlope: number;
   readonly frequency: number;
+  readonly designFrequency: number;
+  readonly groundId: string;
+  readonly terminatingResistor: number;
+  readonly transformerEnabled: boolean;
   readonly foldedDipoleAperture: number;
 }
 
@@ -48,12 +52,17 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
     vAngle,
     legSlope,
     frequency,
+    designFrequency,
+    groundId,
+    terminatingResistor,
     whipCounterpoise,
     foldedDipoleAperture,
   } = props;
 
   return useMemo(() => {
-    const wires = buildWires({
+    let wires;
+    try {
+      wires = buildPhysicalWires({
       antennaType: type,
       length,
       height,
@@ -66,9 +75,17 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
       vAngle,
       legSlope,
       frequency,
+      designFrequency,
+      groundId,
+      terminatingResistor,
       whipCounterpoise,
       foldedDipoleAperture,
-    });
+      });
+    } catch {
+      // The scheduler runs the same builder and reports its validation message.
+      // Keep controls usable so correcting the geometry can recover the scene.
+      return { rendered: [], byTag: new Map<number, RenderedWire>() };
+    }
 
     const out: RenderedWire[] = [];
     const byTag = new Map<number, RenderedWire>();
@@ -129,6 +146,9 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
     vAngle,
     legSlope,
     frequency,
+    designFrequency,
+    groundId,
+    terminatingResistor,
     whipCounterpoise,
     foldedDipoleAperture,
   ]);

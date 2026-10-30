@@ -18,10 +18,8 @@ import { ShieldElement } from './ShieldElement';
 import { TerminatedDeltaElement } from './TerminatedDeltaElement';
 
 export function AntennaWire(props: AntennaWireProps) {
-  const { theme, transformerEnabled, terminatingResistor } = useAntennaStore(useShallow((s) => ({
+  const { theme } = useAntennaStore(useShallow((s) => ({
     theme: s.theme,
-    transformerEnabled: s.transformerEnabled,
-    terminatingResistor: s.terminatingResistor,
   })));
 
   const { rendered, shield, feedpoint, terminatedDeltaSplit } = useAntennaGeometry(props);
@@ -38,13 +36,13 @@ export function AntennaWire(props: AntennaWireProps) {
       {elements}
       {feedpoint && <Feedpoint position={feedpoint} color={THEME_COLORS[theme].feedpoint} />}
       {shield && (
-        <ShieldElement shield={shield} transformerEnabled={transformerEnabled} />
+        <ShieldElement shield={shield} transformerEnabled={props.transformerEnabled} />
       )}
       {terminatedDeltaSplit && (
         <TerminatedDeltaElement
           split={terminatedDeltaSplit}
           color={wireColor}
-          terminatingResistor={terminatingResistor}
+          terminatingResistor={props.terminatingResistor}
         />
       )}
     </group>

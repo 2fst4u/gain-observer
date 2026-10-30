@@ -3,22 +3,23 @@
 
 import { useEffect, useRef } from 'react';
 import type { WorkerRequest, WorkerResponse } from '../workers/physicsWorker';
-import { useAntennaStore, selectSimulationInput, selectSwrWindow } from '../store/antennaStore';
+import { useAntennaStore, selectSimulationInput, selectSwrWindow, isFeedlineActive, type AntennaState } from '../store/antennaStore';
 import type { SimulationResult } from '../physics/types';
 import { detectLODLevel, LOD_TABLE } from './useAdaptiveLOD';
 
 // Detected once per page load — navigator properties don't change at runtime.
 const LOD_CONFIG = LOD_TABLE[detectLODLevel()];
 
+const MODEL_FIELDS = [
+  'antennaType', 'frequency', 'designFrequency', 'length', 'height', 'orientation',
+  'wireRadius', 'segments', 'vAngle', 'legSlope', 'foldedDipoleAperture',
+  'terminatingResistor', 'whipCounterpoise', 'groundId', 'groundSigma', 'groundEpsilon',
+  'feedlineId', 'feedlineLength', 'feedlineOffset', 'transformerEnabled', 'transformerRatio',
+] as const satisfies readonly (keyof AntennaState)[];
+
 export interface UsePhysicsEngineOptions {
   /** Debounce window in ms for rapid slider/input changes. */
   debounceMs?: number;
-}
-
-interface TransformerState {
-  feedlineId: string;
-  transformerEnabled: boolean;
-  transformerRatio: number;
 }
 
 /**
@@ -27,8 +28,8 @@ interface TransformerState {
  * sweep frames its window around the SWR curve the user actually sees. Returns
  * 1 when the swept R/X already reflect what's displayed.
  */
-function displayTransformerRatio(s: TransformerState): number {
-  const feedlineActive = s.feedlineId !== 'none';
+function displayTransformerRatio(s: AntennaState): number {
+  const feedlineActive = isFeedlineActive(s);
   const inDisplay = s.transformerEnabled && !feedlineActive && s.transformerRatio > 1;
   return inDisplay ? s.transformerRatio : 1;
 }
@@ -69,7 +70,9 @@ function buildWorkerRequest(
 ): WorkerRequest {
   const input = {
     ...selectSimulationInput(state),
-    patternResolution: LOD_CONFIG.patternResolution,
+    // Scientific values must not change with the device's rendering budget.
+    // 1° sampling resolves power integrals and narrow HF lobes consistently.
+    patternResolution: { thetaSteps: 181, phiSteps: 360 },
   };
   const window = selectSwrWindow(state);
   const displayRatio = displayTransformerRatio(state);
@@ -80,7 +83,7 @@ function buildWorkerRequest(
   // Solve the bare antenna feedpoint (feedline + transformer stripped) so the
   // suggestion has a transformer-independent reference to match to the line.
   const feedpointInput =
-    state.transformerEnabled && state.feedlineId !== 'none'
+    state.transformerEnabled && isFeedlineActive(state)
       ? selectSimulationInput({ ...state, feedlineId: 'none', transformerEnabled: false })
       : undefined;
 
@@ -177,11 +180,18 @@ function usePhysicsScheduler(
       latestIdRef.current = id;
       state._setLoading(true);
 
-      const msg = buildWorkerRequest(requested, fullPendingRef.current, state, id);
-      if (msg.type === 'simulate') {
-        fullPendingRef.current = true;
+      try {
+        const msg = buildWorkerRequest(requested, fullPendingRef.current, state, id);
+        if (msg.type === 'simulate') {
+          fullPendingRef.current = true;
+          // A result for previous hardware must not appear under new controls.
+          useAntennaStore.setState({ result: null, sweep: [], feedpointImpedance: null });
+        }
+        worker.postMessage(msg);
+      } catch (error) {
+        fullPendingRef.current = false;
+        state._setError(error instanceof Error ? error.message : String(error));
       }
-      worker.postMessage(msg);
     };
 
     const schedule = (kind: 'full' | 'sweep') => {
@@ -197,20 +207,22 @@ function usePhysicsScheduler(
     schedule('full');
 
     const unsub = useAntennaStore.subscribe((state, prev) => {
-      // Re-run a full solve when something affecting the NEC simulation changed.
-      // JSON.stringify is intentional: selectSimulationInput returns freshly-allocated
-      // arrays and object literals on every call, so shallow reference equality (Object.keys
-      // + !==) would always fire. At ~3μs per call and ≤100 events/s this is negligible.
-      const a = selectSimulationInput(state);
-      const b = selectSimulationInput(prev);
-      // Also re-solve when the display-only balun ratio changes: it doesn't
-      // alter the NEC input but it does change the SWR curve the user sees.
-      if (
-        JSON.stringify(a) !== JSON.stringify(b) ||
-        displayTransformerRatio(state) !== displayTransformerRatio(prev)
-      ) {
-        schedule('full');
-        return;
+      // Ignore result/loading/error mutations before attempting geometry. An
+      // invalid mesh must not throw from a store listener or reschedule itself
+      // indefinitely as its error state is updated.
+      if (MODEL_FIELDS.some(key => state[key] !== prev[key])) {
+        try {
+          const a = selectSimulationInput(state);
+          const b = selectSimulationInput(prev);
+          if (JSON.stringify(a) !== JSON.stringify(b) ||
+              displayTransformerRatio(state) !== displayTransformerRatio(prev)) {
+            schedule('full');
+            return;
+          }
+        } catch {
+          schedule('full');
+          return;
+        }
       }
       // Only the SWR view window changed (zoom/pan) → cheap sweep-only recompute.
       const w = selectSwrWindow(state);

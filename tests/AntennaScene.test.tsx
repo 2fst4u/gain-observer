@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { AntennaScene } from '../src/components/Scene/AntennaScene';
 import { mockAntennaStore } from './helpers/mockStore';
-import { makeSimulationResult } from './helpers/factories';
+import { makeComparisonSnapshot, makeSimulationResult } from './helpers/factories';
+import { feedlineLossDb, findFeedlinePreset } from '../src/physics/constants';
 
 // Mock specific three.js components to avoid jsdom warnings
 vi.mock('@react-three/fiber', () => ({
@@ -51,6 +52,13 @@ describe('AntennaScene', () => {
     mockAntennaStore({
         antennaType: 'dipole',
         length: 20,
+        frequency: 14.1,
+        designFrequency: 7.1,
+        terminatingResistor: 0,
+        transformerEnabled: false,
+        transformerRatio: 1,
+        atuEnabled: false,
+        atuMainFeedlineLength: 20,
         height: 10,
         orientation: 'EW',
         wireRadius: 0.001,
@@ -140,6 +148,40 @@ describe('AntennaScene', () => {
     const groundPlane = getByTestId('ground-plane');
     const groundProps = JSON.parse(groundPlane.getAttribute('data-props') || '{}');
     expect(groundProps.groundId).toBe('sea');
+  });
+
+  it('uses captured matching settings and physical design parameters for a reference scene', () => {
+    const snapshot = makeComparisonSnapshot({
+      frequency: 28.2, designFrequency: 7.1, antennaType: 'folded-dipole',
+      transformerEnabled: true, transformerRatio: 16, feedlineId: 'rg58', feedlineLength: 0,
+      groundId: 'sea', terminatingResistor: 600,
+      result: makeSimulationResult({ maxGainDbi: 5, impedance: { R: 800, X: 0 }, swr: 16 }),
+    });
+    const { getByTestId } = render(<AntennaScene snapshot={snapshot} />);
+    const pattern = JSON.parse(getByTestId('radiation-pattern').getAttribute('data-props')!);
+    expect(pattern.realizedGainOffsetDb).toBeCloseTo(-0.2, 10);
+    const wire = JSON.parse(getByTestId('antenna-wire').getAttribute('data-props')!);
+    expect(wire.frequency).toBe(28.2);
+    expect(wire.designFrequency).toBe(7.1);
+    expect(wire.groundId).toBe('sea');
+    expect(wire.terminatingResistor).toBe(600);
+    expect(wire.transformerEnabled).toBe(true);
+  });
+
+  it('retains the reference ATU match after live hardware settings change', () => {
+    const snapshot = makeComparisonSnapshot({
+      transformerEnabled: false, atuEnabled: true, atuMainFeedlineLength: 10,
+      feedlineId: 'rg58', feedlineLength: 0,
+      result: makeSimulationResult({ maxGainDbi: 5, maxRealizedGainDbi: 5, impedance: { R: 50, X: 0 }, swr: 1 }),
+    });
+    const { getByTestId, rerender } = render(<AntennaScene snapshot={snapshot} />);
+    const initial = JSON.parse(getByTestId('radiation-pattern').getAttribute('data-props')!);
+    const expected = -feedlineLossDb(findFeedlinePreset('rg213'), snapshot.frequency, 10);
+    expect(initial.realizedGainOffsetDb).toBeCloseTo(expected, 10);
+    mockAntennaStore({ transformerEnabled: true, transformerRatio: 9, atuEnabled: false, theme: 'dark' });
+    rerender(<AntennaScene snapshot={snapshot} />);
+    const updated = JSON.parse(getByTestId('radiation-pattern').getAttribute('data-props')!);
+    expect(updated.realizedGainOffsetDb).toBeCloseTo(expected, 10);
   });
 
   it('shows axes when showAxes is true', () => {

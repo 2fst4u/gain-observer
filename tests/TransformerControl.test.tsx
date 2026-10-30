@@ -11,9 +11,23 @@ describe('TransformerControl', () => {
     useAntennaStore.setState({
       transformerEnabled: false,
       transformerRatio: 9,
+      antennaType: 'dipole',
+      height: 8,
+      length: 20,
+      feedlineLength: 10,
       result: null,
       feedpointImpedance: null,
     });
+  });
+
+  it('uses complex impedance for a direct or zero-length feedline match', () => {
+    useAntennaStore.setState({
+      transformerEnabled: true, transformerRatio: 1,
+      feedlineId: 'rg58', feedlineLength: 0,
+      result: { impedance: { R: 50, X: 500 } } as unknown as SimulationResult,
+    });
+    const { getByRole } = render(<TransformerControl />);
+    expect(getByRole('button', { name: 'Match transformer ratio to 10:1' })).toBeDefined();
   });
 
   it('renders the section heading', () => {
@@ -69,7 +83,7 @@ describe('TransformerControl', () => {
 
   it('shows shield-radiates hint when transformer is disabled', () => {
     const { container } = render(<TransformerControl />);
-    expect(container.textContent).toContain('feedline shield carries common-mode current');
+    expect(container.textContent).toContain('feedline shield can carry common-mode current');
   });
 
   it('suggests optimal ratio when result is present', () => {
@@ -124,7 +138,7 @@ describe('TransformerControl', () => {
       transformerEnabled: true,
       transformerRatio: 1,
       feedlineId: 'rg58',
-      feedlineLength: 0,
+      feedlineLength: 10,
       frequency: 14.1,
       // Rig-end reading (ratio-dependent, common-mode polluted) — must NOT be used.
       result: { impedance: { R: 999, X: 0 } } as unknown as SimulationResult,

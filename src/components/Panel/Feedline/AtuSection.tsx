@@ -38,7 +38,7 @@ export function AtuSection({
         <>
           <SyncedLengthInput
             id="atu-main-length"
-            label={`Main run, ATU → shack (${unit})`}
+            label={`Main RG-213 (50 Ω) run, ATU → shack (${unit})`}
             value={atuMainFeedlineLength}
             units={units}
             maxMetric={300}
@@ -48,9 +48,9 @@ export function AtuSection({
           />
           <div id="atu-hint" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             The feedline above becomes the short up-mast run (carries the antenna's native SWR);
-            the tuner conjugate-matches at the base, so this main run to the shack stays ~1:1
-            (matched loss {mainRunLossDb.toFixed(2)} dB). Realized gain keeps the up-mast loss
-            under SWR, this main-run loss, and a Q-based tuner loss — but a tuner cannot recover
+            the finite-Q L-network tuner matches to a separate 50 Ω RG-213 main run to the shack
+            (matched loss {mainRunLossDb.toFixed(2)} dB). Realized gain includes the up-mast loss
+            under SWR, this main-run loss, and the tuner's calculated component loss. A tuner cannot recover
             ohmic/termination (efficiency) loss.
           </div>
         </>

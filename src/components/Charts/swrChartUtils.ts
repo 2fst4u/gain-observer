@@ -1,8 +1,9 @@
 import type { ChartOptions } from 'chart.js';
 import type { AnnotationOptions } from 'chartjs-plugin-annotation';
 import type { SweepPoint } from '../../physics/types';
-import type { ComparisonSnapshot } from '../../store/antennaStore';
-import { swr as computeSwr } from '../../physics/impedance';
+import { isFeedlineActive, selectAtuConfig, type ComparisonSnapshot } from '../../store/antennaStore';
+import { atuLossDb, swr as computeSwr } from '../../physics/impedance';
+import { ATU_COMPONENT_Q } from '../../physics/constants';
 import { findSwrBands, type SwrBand } from '../../physics/bandwidth';
 
 /**
@@ -15,111 +16,66 @@ export function formatBandwidth(widthMHz: number): string {
   return `${widthMHz.toFixed(2)} MHz`;
 }
 
-interface ComputeChartDataArgs {
+interface SweepDisplayConfig {
+  transformerInDisplay?: boolean;
+  transformerRatio?: number;
+  /** Each point is retuned independently; this is not a fixed tuner sweep. */
+  atuEnabled?: boolean;
+}
+
+function referenceConfig(reference: ComparisonSnapshot): SweepDisplayConfig {
+  return {
+    transformerInDisplay: reference.transformerEnabled && !isFeedlineActive(reference) && reference.transformerRatio > 1,
+    transformerRatio: reference.transformerRatio,
+    atuEnabled: Boolean(selectAtuConfig(reference)),
+  };
+}
+
+function effectiveSwr(point: SweepPoint, config: SweepDisplayConfig): number {
+  const impedance = config.transformerInDisplay
+    ? { R: point.R / config.transformerRatio!, X: point.X / config.transformerRatio! }
+    : { R: point.R, X: point.X };
+  if (config.atuEnabled) {
+    return Number.isFinite(atuLossDb(impedance, ATU_COMPONENT_Q)) ? 1 : computeSwr(impedance);
+  }
+  return config.transformerInDisplay
+    ? computeSwr(impedance)
+    : point.swr;
+}
+
+interface ComputeChartDataArgs extends SweepDisplayConfig {
   comparisonActive: boolean;
   reference: ComparisonSnapshot | null;
   referenceFill: string;
-  transformerInDisplay: boolean;
-  transformerRatio: number;
   sweep: readonly SweepPoint[];
   accent: string;
   currentFill: string;
 }
 
-export function computeChartData({
-  comparisonActive,
-  reference,
-  referenceFill,
-  transformerInDisplay,
-  transformerRatio,
-  sweep,
-  accent,
-  currentFill,
-}: ComputeChartDataArgs) {
-  const datasets: Array<{
-    label: string;
-    data: Array<{ x: number; y: number }>;
-    borderColor: string;
-    backgroundColor: string;
-    fill: boolean;
-    tension: number;
-    pointRadius: number;
-    pointHoverRadius: number;
-    pointBackgroundColor: string;
-    borderDash?: number[];
-  }> = [];
-
+export function computeChartData(args: ComputeChartDataArgs) {
+  const { comparisonActive, reference, referenceFill, sweep, accent, currentFill } = args;
+  function dataset(points: readonly SweepPoint[], config: SweepDisplayConfig, label: string, color: string, fill: string, referenceLine = false) {
+    return {
+      label: config.atuEnabled ? `${label} (ATU retuned at each frequency)`
+        : config.transformerInDisplay && comparisonActive ? `${label} (after ${config.transformerRatio}:1)` : label,
+      data: points.map((point) => ({ x: point.frequencyMHz, y: effectiveSwr(point, config) })),
+      borderColor: color,
+      backgroundColor: fill,
+      fill: false,
+      // Use the sampled straight segments: smoothing can invent SWR extrema
+      // and threshold crossings that NEC never calculated.
+      tension: 0,
+      pointRadius: 0,
+      pointHoverRadius: 3,
+      pointBackgroundColor: color,
+      ...(referenceLine ? { borderDash: [8, 4] } : {}),
+    };
+  }
+  const datasets = [];
   if (comparisonActive && reference) {
-    const len = reference.sweep.length;
-    const refData = new Array<{ x: number; y: number }>(len);
-    for (let i = 0; i < len; i++) {
-      const pt = reference.sweep[i]!;
-      refData[i] = { x: pt.frequencyMHz, y: pt.swr };
-    }
-
-    datasets.push({
-      label: 'Reference',
-      data: refData,
-      borderColor: 'rgba(255, 179, 71, 0.9)',
-      backgroundColor: referenceFill,
-      fill: false,
-      tension: 0.18,
-      pointRadius: 0,
-      pointHoverRadius: 3,
-      pointBackgroundColor: '#ffb347',
-      borderDash: [8, 4],
-    });
+    datasets.push(dataset(reference.sweep, referenceConfig(reference), 'Reference', 'rgba(255, 179, 71, 0.9)', referenceFill, true));
   }
-
-  // When the balun/transformer is active, show ONLY the post-balun curve.
-  // The raw curve is suppressed — it can always be recovered by disabling
-  // the balun, and including both makes the post-balun curve unreadably
-  // compressed on the y-axis.
-  if (transformerInDisplay) {
-    const label = comparisonActive ? `Current (after ${transformerRatio}:1)` : 'SWR (vs 50 Ω)';
-    const len = sweep.length;
-    const curData = new Array<{ x: number; y: number }>(len);
-    for (let i = 0; i < len; i++) {
-      const pt = sweep[i]!;
-      curData[i] = {
-        x: pt.frequencyMHz,
-        y: computeSwr({ R: pt.R / transformerRatio, X: pt.X / transformerRatio }),
-      };
-    }
-
-    datasets.push({
-      label,
-      data: curData,
-      borderColor: accent,
-      backgroundColor: currentFill,
-      fill: false,
-      tension: 0.18,
-      pointRadius: 0,
-      pointHoverRadius: 3,
-      pointBackgroundColor: accent,
-    });
-  } else {
-    const rawLabel = comparisonActive ? 'Current' : 'SWR (vs 50 Ω)';
-    const len = sweep.length;
-    const curData = new Array<{ x: number; y: number }>(len);
-    for (let i = 0; i < len; i++) {
-      const pt = sweep[i]!;
-      curData[i] = { x: pt.frequencyMHz, y: pt.swr };
-    }
-
-    datasets.push({
-      label: rawLabel,
-      data: curData,
-      borderColor: accent,
-      backgroundColor: currentFill,
-      fill: false,
-      tension: 0.18,
-      pointRadius: 0,
-      pointHoverRadius: 3,
-      pointBackgroundColor: accent,
-    });
-  }
-
+  datasets.push(dataset(sweep, args, comparisonActive ? 'Current' : 'SWR (vs 50 Ω)', accent, currentFill));
   return { datasets };
 }
 
@@ -130,25 +86,19 @@ interface SWRStats {
   bands: SwrBand[];
 }
 
-interface ComputeStatsArgs {
+interface ComputeStatsArgs extends SweepDisplayConfig {
   sweep: readonly SweepPoint[];
-  /** When true, evaluate min SWR and 2:1 bandwidth on the post-balun impedance. */
-  transformerInDisplay?: boolean;
-  transformerRatio?: number;
 }
 
 export function computeStats({
   sweep,
   transformerInDisplay = false,
   transformerRatio = 1,
+  atuEnabled = false,
 }: ComputeStatsArgs): SWRStats | null {
-  if (sweep.length === 0) return null;
-
-  // Effective SWR after the optional transformer.
-  const effectiveSwr = (pt: SweepPoint): number =>
-    transformerInDisplay
-      ? computeSwr({ R: pt.R / transformerRatio, X: pt.X / transformerRatio })
-      : pt.swr;
+  // Independently retuned points say nothing about antenna/fixed-tuner BW.
+  if (sweep.length === 0 || atuEnabled) return null;
+  const config = { transformerInDisplay, transformerRatio };
 
   const len = sweep.length;
 
@@ -158,7 +108,7 @@ export function computeStats({
   for (let i = 0; i < len; i++) {
     const pt = sweep[i]!;
     const f = pt.frequencyMHz;
-    const s = effectiveSwr(pt);
+    const s = effectiveSwr(pt, config);
 
     if (s < minSWR) {
       minSWR = s;
@@ -172,54 +122,33 @@ export function computeStats({
     bands: findSwrBands(
       sweep,
       (pt) => pt.frequencyMHz,
-      (pt) => effectiveSwr(pt),
+      (pt) => effectiveSwr(pt, config),
       2,
     ),
   };
 }
 
-interface ComputeYMaxArgs {
+interface ComputeYMaxArgs extends SweepDisplayConfig {
   sweep: readonly SweepPoint[];
   comparisonActive: boolean;
   reference: ComparisonSnapshot | null;
-  transformerInDisplay: boolean;
-  transformerRatio: number;
 }
 
-export function computeYMax({
-  sweep,
-  comparisonActive,
-  reference,
-  transformerInDisplay,
-  transformerRatio,
-}: ComputeYMaxArgs) {
-  if (sweep.length === 0 && (!comparisonActive || !reference || reference.sweep.length === 0)) {
-    return 5;
-  }
-
+export function computeYMax(args: ComputeYMaxArgs) {
+  const { sweep, comparisonActive, reference } = args;
+  if (sweep.length === 0 && (!comparisonActive || !reference || reference.sweep.length === 0)) return 5;
   let maxVal = -Infinity;
-
-  for (let i = 0; i < sweep.length; i++) {
-    // When the transformer is active we only render the post-balun curve,
-    // so only consider those values for the y-axis range. Including the raw
-    // SWR (which can be ~6:1 for a folded dipole) would compress the
-    // post-balun curve to an unreadable sliver at the bottom of the chart.
-    if (transformerInDisplay) {
-      const v2 = computeSwr({ R: sweep[i].R / transformerRatio, X: sweep[i].X / transformerRatio });
-      if (v2 > maxVal) maxVal = v2;
-    } else {
-      const v = sweep[i].swr;
-      if (v > maxVal) maxVal = v;
-    }
+  for (const point of sweep) {
+    const value = effectiveSwr(point, args);
+    if (value > maxVal) maxVal = value;
   }
-
   if (comparisonActive && reference) {
-    for (let i = 0; i < reference.sweep.length; i++) {
-      const v = reference.sweep[i].swr;
-      if (v > maxVal) maxVal = v;
+    const config = referenceConfig(reference);
+    for (const point of reference.sweep) {
+      const value = effectiveSwr(point, config);
+      if (value > maxVal) maxVal = value;
     }
   }
-
   if (maxVal === -Infinity) return 5;
 
   // The y-axis is a FIXED reference frame — it never zooms vertically. Only the

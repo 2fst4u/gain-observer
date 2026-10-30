@@ -278,7 +278,7 @@ export const FOLDED_DIPOLE_DEFAULT_APERTURE_M = 0.3;
  * Nominal feedpoint resistance of a resonant folded dipole, ohms: 4× a plain
  * dipole's ~73 Ω, because the two equal-diameter conductors each carry the
  * same antenna-mode current, doubling the current for a given feed current and
- * so quadrupling the impedance. Independent of conductor spacing.
+ * so quadrupling the impedance in the electrically close, symmetric limit.
  *
  * Doubles as the recommended T2FD termination — see
  * `FOLDED_DIPOLE_FEED_R_OHMS` — because a resistor in the unfed
@@ -287,12 +287,10 @@ export const FOLDED_DIPOLE_DEFAULT_APERTURE_M = 0.3;
 export const FOLDED_DIPOLE_FEED_R_OHMS = 300;
 
 /**
- * Maximum folded-dipole conductor spacing, metres. Two long, closely-spaced
- * parallel wires converge slowly in NEC's thin-wire kernel: the segment length
- * must shrink with the spacing, and beyond ~0.5 m the structure would need
- * more than `MAX_SEGS_PER_LEG` segments to solve accurately (and is morphing
- * toward a loop rather than a folded dipole). 0.5 m comfortably covers every
- * realistic folded-dipole spacing across the HF range.
+ * Maximum folded-dipole conductor spacing offered by the geometry control.
+ * Parallel-wire segment centres must align; this aperture bound does not
+ * guarantee numerical convergence. The folded builder independently sizes
+ * its mesh and enforces thin-wire aspect and total-mesh limits.
  */
 export const FOLDED_DIPOLE_MAX_APERTURE_M = 0.5;
 
@@ -329,19 +327,10 @@ export const SLOPING_V_COUNTERPOISE_HEIGHT_WL = 0.001;
  * Radial count and length (in wavelengths at the design frequency) for the
  * sloping-V termination counterpoise.
  *
- * Chosen by measurement against the solver, not by convention. Eight radials
- * of 0.10 λ bring the leg current ripple at the design frequency down to
- * ~2.4 dB (from ~18 dB with no counterpoise, which is a full standing wave),
- * and — the real check — put the ripple minimum at R ≈ 500 Ω, right on the
- * leg's characteristic impedance against ground, which is where a correctly
- * modelled travelling-wave termination should optimise.
- *
- * Longer radials terminate marginally better at the design frequency but are
- * resonant there, and the deck is built once and re-used across the whole
- * 1.8-30 MHz SWR sweep: 0.25 λ radials pass through resonance mid-sweep and
- * put a step in the efficiency curve that is an artefact of the model rather
- * than anything the antenna does. At 0.10 λ the screen stays electrically
- * small across the entire sweep and the curves come out smooth.
+ * This is an explicit elevated radial screen, not a galvanic soil bond.
+ * Its dimensions are fixed at the design frequency and retained while tuning.
+ * At harmonics it can resonate like any real wire structure; a smooth SWR
+ * curve or a small current-envelope range is not proof of a good termination.
  */
 export const SLOPING_V_COUNTERPOISE_RADIALS = 8;
 export const SLOPING_V_COUNTERPOISE_LENGTH_WL = 0.10;
@@ -508,10 +497,8 @@ export const TRANSFORMER_INSERTION_LOSS_DB = 0.2;
 
 /**
  * Representative unloaded Q of the reactive components in an antenna tuning
- * unit (dominated by the inductor). This is the *only* parameter the ATU-loss
- * model takes, which keeps it network-topology-agnostic: L, T and π tuners
- * differ in how they're driven, but their achievable loss is bounded by the
- * component Q and the impedance transformation demanded. 150 is typical of a
+ * unit. The explicit L-network model assigns this Q to both reactive
+ * components and retunes the lossy circuit to a 50-ohm input. 150 is typical of a
  * decent HF tuner inductor (roller/air-wound ~150–250; small toroidal cores
  * lower). Higher Q → lower loss.
  */

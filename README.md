@@ -2,11 +2,11 @@
 
 **[www.gain.observer](https://www.gain.observer/)**
 
-A 3D, physics-accurate visualiser for HF antenna radiation patterns, powered by
+A 3D visualiser for HF antenna radiation patterns, powered by
 NEC-2 compiled to WebAssembly.
 
 Pick an antenna, set your frequency, height and ground, and see the pattern it
-actually radiates — in 3D, with elevation and azimuth cuts, SWR across the band,
+is predicted to radiate by the selected model — in 3D, with elevation and azimuth cuts, SWR across the band,
 and a comparison mode for putting two configurations side by side. The NEC-2
 engine runs entirely in your browser; nothing is uploaded, and there is nothing
 to install.
@@ -27,6 +27,10 @@ Keyboard shortcuts:
 Dipoles, inverted-V, sloping-V, inverted-L, vertical whips, folded dipoles,
 delta loops and terminated deltas, from 1.8–30 MHz, over real ground.
 `docs/antenna-spec.md` describes the geometry and physics of each in detail.
+
+Results depend on thin-wire segmentation, a flat homogeneous ground model,
+and the specified feed system. The ray view illustrates antenna elevations
+using an ideal reflecting shell; it does not predict coverage or signal strength.
 
 ## About the project
 

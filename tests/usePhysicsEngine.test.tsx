@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { usePhysicsEngine } from '../src/hooks/usePhysicsEngine';
 import { useAntennaStore } from '../src/store/antennaStore';
@@ -24,8 +24,29 @@ describe('usePhysicsEngine', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
     vi.useRealTimers();
+  });
+
+  it('reports invalid meshes without throwing from a store listener or retrying forever', () => {
+    const original = useAntennaStore.getState();
+    const { unmount } = renderHook(() => usePhysicsEngine({ debounceMs: 100 }));
+    const worker = workerInstances[0] as MockWorker;
+    act(() => { vi.advanceTimersByTime(100); });
+    worker.postMessage.mockClear();
+    act(() => {
+      useAntennaStore.setState({ antennaType: 'folded-dipole', length: 1000,
+        wireRadius: 0.001, foldedDipoleAperture: 0.3 });
+      vi.advanceTimersByTime(100);
+    });
+    expect(useAntennaStore.getState().error).toMatch(/mesh/i);
+    expect(useAntennaStore.getState().loading).toBe(false);
+    expect(useAntennaStore.getState().result).toBeNull();
+    expect(worker.postMessage).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    unmount();
+    useAntennaStore.setState(original, true);
   });
 
   it('initializes worker and schedules initial simulation', () => {
@@ -44,6 +65,7 @@ describe('usePhysicsEngine', () => {
 
     expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
       type: 'simulate',
+      input: expect.objectContaining({ patternResolution: { thetaSteps: 181, phiSteps: 360 } }),
     }));
 
     unmount();

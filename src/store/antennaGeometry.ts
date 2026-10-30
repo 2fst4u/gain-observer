@@ -573,6 +573,33 @@ interface FeedlineShield {
   readonly bottomZ: number;
   readonly radius: number;
   readonly segments: number;
+  readonly lengthM?: number;
+  readonly frequencyMHz?: number;
+}
+
+/**
+ * Explicit straight cable route in the vertical plane normal to the antenna.
+ * Use the complete physical length, inclining away from the antenna when the
+ * ground limits the drop. A minimum 10° inclination keeps loop feeds outside
+ * the loop plane, so crossing base height cannot create an electrical junction.
+ */
+export function buildFeedlineShieldWires(
+  start: [number, number, number],
+  axis: readonly [number, number],
+  shield: FeedlineShield,
+): Wire[] {
+  const length = shield.lengthM ?? Math.max(0, start[2] - shield.bottomZ);
+  if (!(length > 0)) return [];
+  const axisLength = Math.hypot(axis[0], axis[1]) || 1;
+  const nx = -axis[1] / axisLength;
+  const ny = axis[0] / axisLength;
+  const drop = Math.min(Math.max(0, start[2] - shield.bottomZ), length * Math.cos(Math.PI / 18));
+  const offset = Math.sqrt(Math.max(0, length * length - drop * drop));
+  const requested = Math.max(shield.segments,
+    Math.ceil(SEGS_PER_WAVELENGTH * length / wavelengthMeters(shield.frequencyMHz ?? 7.1)));
+  const segments = Math.min(requested, Math.max(1, Math.floor(length / (4 * shield.radius))));
+  return [{ start, end: [start[0] + nx * offset, start[1] + ny * offset, start[2] - drop],
+    radius: shield.radius, segments, tag: FEEDLINE_SHIELD_TAG }];
 }
 
 export interface DeltaLoopWiresParams {
@@ -620,7 +647,7 @@ interface FeedlineShieldWireOptions {
 }
 
 function appendFeedlineShieldWires(options: FeedlineShieldWireOptions) {
-  const { wires, feedlineShield, apexLeft, apexRight, wireRadius, bottomZ } = options;
+  const { wires, feedlineShield, apexLeft, apexRight, wireRadius } = options;
   if (feedlineShield) {
     wires.push({
       start: apexLeft,
@@ -629,19 +656,8 @@ function appendFeedlineShieldWires(options: FeedlineShieldWireOptions) {
       segments: 1,
       tag: FEED_BRIDGE_TAG,
     });
-    // Clamp the shield bottom to be at or above the base wire (z = bottomZ) so
-    // the shield never crosses the base wire plane. When it does cross, the NEC
-    // impedance matrix becomes ill-conditioned: the excitation segment midpoint
-    // ends up on the opposite side of the nearby base wire, corrupting mutual-
-    // coupling integrals and producing -999.99 sentinel gains / negative R.
-    const shieldEndZ = Math.max(feedlineShield.bottomZ, bottomZ);
-    wires.push({
-      start: apexRight,
-      end: [apexRight[0], apexRight[1], shieldEndZ],
-      radius: feedlineShield.radius,
-      segments: feedlineShield.segments,
-      tag: FEEDLINE_SHIELD_TAG,
-    });
+    wires.push(...buildFeedlineShieldWires(apexRight,
+      [apexRight[0] - apexLeft[0], apexRight[1] - apexLeft[1]], feedlineShield));
   }
 }
 
@@ -974,6 +990,10 @@ export interface VerticalWhipWiresParams {
   wireRadius: number;
   segments: number;
   frequency: number;
+  /** Frequency used to cut the physical radials; tuning must not resize them. */
+  designFrequency?: number;
+  /** Fixed physical clearance requested by the selected ground model, metres. */
+  minimumHeight?: number;
   /**
    * When true, deploy `VERTICAL_WHIP_RADIAL_COUNT` ¼λ horizontal radials
    * meeting at the whip base, giving the source a proper low-loss return
@@ -1009,7 +1029,7 @@ export interface VerticalWhipWiresParams {
  */
 export function buildVerticalWhipWires(params: VerticalWhipWiresParams): Wire[] {
   const length = Math.max(0.1, params.length);
-  const baseZ = Math.max(VERTICAL_WHIP_BASE_GAP_M, params.height);
+  const baseZ = Math.max(VERTICAL_WHIP_BASE_GAP_M, params.minimumHeight ?? 0, params.height);
   const topZ = baseZ + length;
 
   const lambda = wavelengthMeters(params.frequency);
@@ -1030,7 +1050,7 @@ export function buildVerticalWhipWires(params: VerticalWhipWiresParams): Wire[] 
   ];
 
   if (params.counterpoise) {
-    const radialLen = lambda * 0.25 * 0.95;
+    const radialLen = wavelengthMeters(params.designFrequency ?? params.frequency) * 0.25 * 0.95;
     const minRadialSegs = Math.ceil((SEGS_PER_WAVELENGTH * radialLen) / lambda);
     const radialSegs = Math.min(
       MAX_SEGS_PER_LEG,
@@ -1070,6 +1090,10 @@ export interface InvertedLWiresParams {
   wireRadius: number;
   segments: number;
   frequency: number;
+  /** Frequency used to cut the physical radials; tuning must not resize them. */
+  designFrequency?: number;
+  /** Fixed physical clearance requested by the selected ground model, metres. */
+  minimumHeight?: number;
   /**
    * When true, deploy `VERTICAL_WHIP_RADIAL_COUNT` ¼λ horizontal radials
    * at the base, providing a low-loss return path for the monopole source.
@@ -1111,7 +1135,7 @@ const safeSegs = (len: number, requested: number, wireRadius: number): number =>
  */
 export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   const totalLen = Math.max(0.1, params.length);
-  const baseZ = VERTICAL_WHIP_BASE_GAP_M;
+  const baseZ = Math.max(VERTICAL_WHIP_BASE_GAP_M, params.minimumHeight ?? 0);
 
   // Vertical section is either the total length (if shorter than the mast)
   // or the mast height itself.
@@ -1166,7 +1190,7 @@ export function buildInvertedLWires(params: InvertedLWiresParams): Wire[] {
   }
 
   if (params.counterpoise) {
-    const radialLen = lambda * 0.25 * 0.95;
+    const radialLen = wavelengthMeters(params.designFrequency ?? params.frequency) * 0.25 * 0.95;
     const minRadialSegs = Math.ceil((SEGS_PER_WAVELENGTH * radialLen) / lambda);
     const radialSegs = Math.min(
       MAX_SEGS_PER_LEG,
@@ -1226,37 +1250,15 @@ function calcFoldedAntennaPoints(params: FoldedAntennaPointsParams) {
   };
 }
 
-// Target segment length. NEC's thin-wire kernel loses accuracy for closely
-// spaced parallel wires once the segment length grows much larger than the
-// wire separation, so the folded dipole must segment finely enough that each
-// segment is no longer than ~half the aperture (empirically the point where
-// the free-space gain converges to the dipole value). We take the smaller of
-// the usual density target (λ / SEGS_PER_WAVELENGTH) and half the aperture,
-// then derive all segment counts from that single target length. This also
-// keeps the corner junction segments (conductor vs. connector) close in
-// length. The aperture is capped (see the store) so this stays within
-// MAX_SEGS_PER_LEG across the HF range.
-function calcFoldedTargetSegLen(frequency: number, aperture: number): number {
-  const lambda = wavelengthMeters(frequency);
-  return Math.max(1e-3, Math.min(lambda / SEGS_PER_WAVELENGTH, aperture / 2));
-}
-
-function calcFoldedLegSegs(
-  len: number,
-  targetSegLen: number,
-  minAllowed: number,
-  userFloor: number,
-  wireRadius: number
-): number {
-  return safeSegs(
-    len,
-    Math.min(
-      MAX_SEGS_PER_LEG,
-      Math.max(minAllowed, Math.ceil(len / targetSegLen), userFloor)
-    ),
-    wireRadius
-  );
-}
+// Closely spaced parallel NEC wires require coincident longitudinal segment
+// boundaries. Refining two independently split conductors does not repair a
+// half-cell offset: it corrupts the transmission-line mode and input power.
+// Use one odd, uniform grid on BOTH conductors, including their centre cells.
+// The source cell is at most the usual 0.1 m bridge length and lambda / 100.
+// There is deliberately no per-half cap: it caused 52% excess radiated power
+// on a 160 m folded dipole. A resource limit rejects an oversized model rather
+// than silently substituting a coarser, inaccurate mesh.
+const MAX_FOLDED_SEGMENTS = 4096;
 
 interface FoldedAntennaSegmentsParams {
   frequency: number;
@@ -1264,32 +1266,25 @@ interface FoldedAntennaSegmentsParams {
   wireRadius: number;
   segments: number;
   half: number;
-  bridgeHalf: number;
-  gapHalf: number;
 }
 
 function calcFoldedAntennaSegments(params: FoldedAntennaSegmentsParams) {
-  const { frequency, aperture, wireRadius, segments, half, bridgeHalf, gapHalf } = params;
-  const targetSegLen = calcFoldedTargetSegLen(frequency, aperture);
-  const userFloor = Math.round(segments / 2);
-
-  // Each half of the fed conductor (corner → feed bridge edge).
-  const halfCondLen = Math.max(0.01, half - bridgeHalf);
-  const halfSegs = calcFoldedLegSegs(halfCondLen, targetSegLen, MIN_SEGS_PER_LEG, userFloor, wireRadius);
-
-  // Each half of the top conductor runs from its outer end to the gap edge.
-  // When gapHalf = 0 both halves terminate at the same point (topCenter),
-  // making a continuous wire electrically.
-  // Both halves are symmetric: same length and same segment count.
-  const halfOppLen = Math.max(0.01, half - gapHalf);
-  const leftOppSegs = calcFoldedLegSegs(halfOppLen, targetSegLen, MIN_SEGS_PER_LEG, userFloor, wireRadius);
-  const rightOppSegs = leftOppSegs;
-
-  // End connectors span the aperture vertically, segmented at the same target
-  // length so their segments match the adjacent conductor segments at the corners.
-  const connSegs = calcFoldedLegSegs(aperture, targetSegLen, 1, 1, wireRadius);
-
-  return { halfSegs, leftOppSegs, rightOppSegs, connSegs };
+  const { frequency, aperture, wireRadius, segments, half } = params;
+  const targetSegLen = Math.min(FEED_BRIDGE_LENGTH_M, wavelengthMeters(frequency) / 100);
+  const halfSegs = Math.max(
+    MIN_SEGS_PER_LEG,
+    Math.ceil(segments / 2),
+    Math.ceil((2 * half / targetSegLen - 1) / 2),
+  );
+  const cellLength = 2 * half / (2 * halfSegs + 1);
+  const connSegs = Math.max(1, Math.ceil(aperture / cellLength));
+  if (Math.min(cellLength, aperture / connSegs) < 4 * wireRadius) {
+    throw new Error('Folded-dipole mesh requires segments shorter than four wire radii; use thinner wire or a larger antenna/aperture.');
+  }
+  if (4 * halfSegs + 2 + 2 * connSegs > MAX_FOLDED_SEGMENTS) {
+    throw new Error(`Accurate folded-dipole mesh exceeds ${MAX_FOLDED_SEGMENTS} segments; reduce the conductor length.`);
+  }
+  return { halfSegs, leftOppSegs: halfSegs, rightOppSegs: halfSegs, connSegs, bridgeHalf: cellLength / 2 };
 }
 
 export interface FoldedAntennaWiresParams {
@@ -1305,11 +1300,9 @@ export interface FoldedAntennaWiresParams {
   segments: number;
   frequency: number;
   /**
-   * When > 0, the top (un-fed) conductor is split at its centre with a gap
-   * of FEED_BRIDGE_LENGTH_M so that buildTerminationElements can
-   * add a resistive bridge across the gap (TFD topology). When 0 (unterminated),
-   * both halves share a common junction at the top centre — electrically
-   * equivalent to a single continuous wire.
+   * When > 0, leave the top centre mesh cell for the termination builder to
+   * fill with a resistive bridge (TFD topology). Otherwise that cell is an
+   * ordinary wire. Its boundaries always align with the lower source cell.
    */
   terminatingResistor?: number;
 }
@@ -1328,11 +1321,10 @@ export interface FoldedAntennaWiresParams {
  * source bridge — the same split-fed convention as the standard dipole, so
  * the existing buildExcitation `hasBridge` path drives it automatically.
  *
- * The top (un-fed) conductor is always split into two halves at the centre:
- *   • Unterminated: both halves share the same junction point at topCenter
- *     (0, 0, height + aperture), forming a continuous wire. No gap, no bridge.
- *   • Terminated (terminatingResistor > 0): a gap of FEED_BRIDGE_LENGTH_M
- *     separates the two inner ends. buildTerminationElements adds a horizontal
+ * Both conductors use the same odd uniform mesh, including a centre cell:
+ *   • Unterminated: an ordinary top centre cell joins the two halves.
+ *   • Terminated (terminatingResistor > 0): the centre cell is left open and
+ *     buildTerminationElements adds a horizontal
  *     bridge wire (FOLDED_DIPOLE_TERM_BRIDGE_TAG) with an LD-4 load across the
  *     gap. Current must flow through R to pass between the halves — exactly the
  *     traveling-wave termination of a T2FD / TFD, analogous to the
@@ -1342,33 +1334,28 @@ export interface FoldedAntennaWiresParams {
  *   LEFT_LEG_TAG              (1)  — fed (bottom) conductor, left half (left → bridge)
  *   RIGHT_LEG_TAG             (2)  — fed (bottom) conductor, right half (bridge → right)
  *   FEED_BRIDGE_TAG              (3)  — 1-segment source bridge at the centre
- *   FOLDED_DIPOLE_OPPOSITE_TAG   (17) — un-fed (top) conductor, 2 halves (always split)
+ *   FOLDED_DIPOLE_OPPOSITE_TAG   (17) — top halves and optional ordinary centre cell
  *   FOLDED_DIPOLE_CONNECTOR_TAG  (18) — both end connectors (vertical, bottom → top)
  */
 export function buildFoldedAntennaWires(params: FoldedAntennaWiresParams): Wire[] {
   const h = params.height;
   const half = Math.max(0.1, params.length) / 2;
   const aperture = Math.max(0.02, params.aperture);
-  const bridgeHalf = FEED_BRIDGE_LENGTH_M / 2;
   const hasTermination = (params.terminatingResistor ?? 0) > 0;
-  const gapHalf = hasTermination ? FEED_BRIDGE_LENGTH_M / 2 : 0;
-
-  const pts = calcFoldedAntennaPoints({
-    orientation: params.orientation,
-    h,
-    half,
-    aperture,
-    bridgeHalf,
-    gapHalf,
-  });
   const segs = calcFoldedAntennaSegments({
     frequency: params.frequency,
     aperture,
     wireRadius: params.wireRadius,
     segments: params.segments,
     half,
-    bridgeHalf,
-    gapHalf,
+  });
+  const pts = calcFoldedAntennaPoints({
+    orientation: params.orientation,
+    h,
+    half,
+    aperture,
+    bridgeHalf: segs.bridgeHalf,
+    gapHalf: segs.bridgeHalf,
   });
 
   const createWire = (
@@ -1391,12 +1378,14 @@ export function buildFoldedAntennaWires(params: FoldedAntennaWiresParams): Wire[
     createWire(pts.bridgeLeft, pts.bridgeRight, 1, FEED_BRIDGE_TAG),
     // Fed conductor — right half (bridge → right end).
     createWire(pts.bridgeRight, pts.rightFed, segs.halfSegs, RIGHT_LEG_TAG),
-    // Un-fed (top) conductor — left half.
-    // Unterminated: ends at topCenter (same as right half's start) → continuous.
-    // Terminated:   ends at topCenterLeft, separated from topCenterRight by the gap.
+    // Un-fed (top) conductor — left half, aligned with the lower left half.
     createWire(pts.leftOpp, pts.topCenterLeft, segs.leftOppSegs, FOLDED_DIPOLE_OPPOSITE_TAG),
     // Un-fed (top) conductor — right half.
     createWire(pts.topCenterRight, pts.rightOpp, segs.rightOppSegs, FOLDED_DIPOLE_OPPOSITE_TAG),
+    // Keep the first two opposite-tag wires as the left/right halves so the
+    // termination builder can find their inner ends. Without a resistor the
+    // centre cell closes the loop and preserves alignment with the source.
+    ...(hasTermination ? [] : [createWire(pts.topCenterLeft, pts.topCenterRight, 1, FOLDED_DIPOLE_OPPOSITE_TAG)]),
     // Left end connector across the aperture.
     createWire(pts.leftFed, pts.leftOpp, segs.connSegs, FOLDED_DIPOLE_CONNECTOR_TAG),
     // Right end connector across the aperture.

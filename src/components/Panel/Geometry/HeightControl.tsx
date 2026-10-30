@@ -1,4 +1,4 @@
-import { useAntennaStore } from '../../../store/antennaStore';
+import { useAntennaStore, MIN_REAL_GROUND_HEIGHT_M } from '../../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
   toDisplayLength,
@@ -7,10 +7,11 @@ import {
 } from '../../../physics/units';
 
 export function HeightControl() {
-  const { units, antennaType, height, setHeight } = useAntennaStore(useShallow((s) => ({
+  const { units, antennaType, height, groundId, setHeight } = useAntennaStore(useShallow((s) => ({
     units: s.units,
     antennaType: s.antennaType,
     height: s.height,
+    groundId: s.groundId,
     setHeight: s.setHeight,
   })));
 
@@ -48,6 +49,11 @@ export function HeightControl() {
           setHeight(fromDisplayLength(val, units));
         }}
       />
+      {(isVerticalWhip || isInvertedL) && groundId !== 'free' && groundId !== 'perfect' && (
+        <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+          Modelled base and radials are at least {toDisplayLength(MIN_REAL_GROUND_HEIGHT_M, units).toFixed(2)} {unit} above real soil. This is an elevated ground-system model.
+        </div>
+      )}
     </>
   );
 }

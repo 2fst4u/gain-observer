@@ -1,167 +1,53 @@
 import { useState } from 'react';
 import { PropagationRadar } from '../../Charts/PropagationRadar';
-import type { PropagationPrediction, HopPrediction } from '../../../physics/propagation';
+import type { PropagationPrediction } from '../../../physics/propagation';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function formatRange(km: number, units: 'metric' | 'imperial'): string {
-  if (units === 'imperial') {
-    return `${(km / 1.609344).toFixed(0)} mi`;
-  }
-  return `${km.toFixed(0)} km`;
+  return units === 'imperial' ? `${(km / 1.609344).toFixed(0)} mi` : `${km.toFixed(0)} km`;
 }
 
-function hopColor(status: 'open' | 'marginal' | 'closed'): string {
-  if (status === 'open') return 'var(--success)';
-  if (status === 'marginal') return 'var(--warning)';
-  return 'var(--danger)';
-}
-
-function qualityLabel(quality: 'useful' | 'weak' | 'unusable'): string {
-  if (quality === 'useful') return 'usable signal';
-  if (quality === 'weak') return 'weak signal';
-  return 'very weak signal';
-}
-
-function ConditionsStats({ prediction }: { prediction: PropagationPrediction }) {
-  return (
-    <>
-      {/* Conditions readout */}
-      <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
-      <div className="stat">
-        <span className="stat-label">foF2</span>
-        <span className="stat-value">{prediction.foF2MHz.toFixed(2)} MHz</span>
-      </div>
-      <div className="stat">
-        <span className="stat-label">hmF2</span>
-        <span className="stat-value">{prediction.hmF2Km.toFixed(0)} km</span>
-      </div>
-      <div className="stat">
-        <span className="stat-label">MUF (selected ray)</span>
-        <span className="stat-value">{prediction.mufMHz.toFixed(2)} MHz</span>
-      </div>
-      <div className="stat">
-        <span className="stat-label">Selected elevation</span>
-        <span className="stat-value">{prediction.selectedTakeoffElevationDeg.toFixed(0)}°</span>
-      </div>
-      {prediction.mismatchLossDb > 0.01 && (
-        <div className="stat">
-          <span className="stat-label">SWR mismatch loss</span>
-          <span className="stat-value">{prediction.mismatchLossDb.toFixed(1)} dB</span>
-        </div>
-      )}
-      <div className="stat" title="Lower usable frequency: D-layer absorption estimate. Least reliable part of the model — see assumptions.">
-        <span className="stat-label">
-          LUF <span style={{ color: 'var(--warning)', cursor: 'help' }} aria-label="LUF is the least reliable part of the model">ⓘ</span>
-        </span>
-        <span className="stat-value">{prediction.lufMHz.toFixed(2)} MHz</span>
-      </div>
-    </>
-  );
-}
-
-function HopStatusText({ hops, units }: { hops: readonly HopPrediction[]; units: 'metric' | 'imperial' }) {
-  return (
-    <div style={{ marginTop: 10 }}>
-      {hops.map((h: HopPrediction) => (
-        <div key={h.n} className="stat">
-          <span className="stat-label">{h.n}× hop</span>
-          <span
-            className="stat-value"
-            style={{ color: hopColor(h.status) }}
-            title={h.reason}
-          >
-            {formatRange(h.rangeKm, units)} · {h.status} · {qualityLabel(h.linkQuality)}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AssumptionsDisclosure() {
-  const [showAssumptions, setShowAssumptions] = useState(false);
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setShowAssumptions((v) => !v)}
-        aria-expanded={showAssumptions}
-        aria-controls="assumptions-panel"
-        style={{
-          marginTop: 10, background: 'transparent', border: 'none',
-          color: 'var(--accent)', padding: 0, fontSize: 11, cursor: 'pointer',
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-        }}
-      >
-        <svg
-          width="10" height="10" viewBox="0 0 24 24"
-          fill="none" stroke="currentColor" strokeWidth="3"
-          strokeLinecap="round" strokeLinejoin="round"
-          style={{
-            transform: showAssumptions ? 'rotate(90deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s ease-in-out'
-          }}
-          aria-hidden="true"
-        >
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-        {showAssumptions ? 'Hide model assumptions' : 'Model & assumptions'}
-      </button>
-      <div id="assumptions-panel" hidden={!showAssumptions} style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
-        <p style={{ marginTop: 0 }}>
-          This is a closed-form approximation, not IRI / ASAPS / VOACAP.
-          It captures the right monotonic behaviours (foF2 rises with
-          T-index, MUF rises with shallower take-off) but is not a
-          propagation-prediction product.
-        </p>
-        <ul style={{ paddingLeft: 18, margin: '6px 0' }}>
-          <li>foF2 from T-index, solar zenith angle, latitude (no URSI/CCIR maps).</li>
-          <li>hmF2 from a simple day/night sinusoid centred on canonical values.</li>
-          <li>MUF: secant law with curved-Earth correction.</li>
-          <li>Range is ray geometry from elevation and hmF2. Gain and SWR affect signal quality, not skip distance.</li>
-          <li>
-            <strong>LUF: heuristic from D-layer absorption.</strong> Treat with caution
-            — least reliable part of the model, especially near sunrise/sunset.
-          </li>
-          <li>User latitude is taken as the path-midpoint latitude (fine for short hops).</li>
-          <li>No sporadic-E, auroral, or polar effects.</li>
-        </ul>
-      </div>
-    </>
-  );
-}
-
-interface ConditionsReadoutProps {
+export function ConditionsReadout({ prediction, haveTakeoff, units }: {
   prediction: PropagationPrediction;
   haveTakeoff: boolean;
   units: 'metric' | 'imperial';
-}
-
-export function ConditionsReadout({ prediction, haveTakeoff, units }: ConditionsReadoutProps) {
+}) {
+  const [showAssumptions, setShowAssumptions] = useState(false);
+  const selected = prediction.hops[0];
   return (
     <>
-      <ConditionsStats prediction={prediction} />
-
-      {/* Radar plot */}
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
-      {haveTakeoff ? (
-        <PropagationRadar
-          prediction={prediction}
-          units={units}
-        />
-      ) : (
-        <div role="status" aria-live="polite" style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 0' }}>
-          <div className="spinner" aria-hidden="true" /> Computing antenna pattern…
-        </div>
+      <div className="stat"><span className="stat-label">Ideal shell height</span><span className="stat-value">{prediction.shellHeightKm.toFixed(0)} km</span></div>
+      <div className="stat"><span className="stat-label">Selected lobe elevation</span><span className="stat-value">{prediction.selectedTakeoffElevationDeg.toFixed(1)}°</span></div>
+      <div className="stat" title="Observer solar zenith using mid-month declination and mean solar time; not the illumination along a radio path."><span className="stat-label">Approximate solar zenith</span><span className="stat-value">{prediction.solarZenithDeg.toFixed(0)}°</span></div>
+      {selected?.realizedGainDbi !== undefined && (
+        <div className="stat"><span className="stat-label">Selected lobe realized gain</span><span className="stat-value">{selected.realizedGainDbi.toFixed(2)} dBi</span></div>
       )}
-
-      {/* Per-hop status text (machine-readable for screen readers and a
-          quick textual summary alongside the radar) */}
-      <HopStatusText hops={prediction.hops} units={units} />
-
-      {/* Assumptions disclosure */}
-      <AssumptionsDisclosure />
+      {haveTakeoff ? <PropagationRadar prediction={prediction} units={units} /> : (
+        <div role="status" aria-live="polite" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Computing antenna pattern…</div>
+      )}
+      <div style={{ marginTop: 10 }}>
+        {prediction.hops.map((hop) => (
+          <div key={hop.n} className="stat">
+            <span className="stat-label">{hop.n}× ideal hop</span>
+            <span className="stat-value">{formatRange(hop.rangeKm, units)}</span>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Received signal and path availability: not calculated.</p>
+      <button type="button" onClick={() => setShowAssumptions((value) => !value)} aria-expanded={showAssumptions} aria-controls="assumptions-panel" style={{ marginTop: 10, background: 'transparent', border: 'none', color: 'var(--accent)', padding: 0, fontSize: 11, cursor: 'pointer' }}>
+        {showAssumptions ? 'Hide model assumptions' : 'Model & assumptions'}
+      </button>
+      <div id="assumptions-panel" hidden={!showAssumptions} style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
+        <p>This is an ideal spherical-shell geometry illustration. Rays reflect at the chosen height; a real ionosphere refracts rays through a changing electron-density profile.</p>
+        <ul style={{ paddingLeft: 18 }}>
+          <li>The chosen shell height is not hmF2 (true electron-density peak height) or a calculated virtual height.</li>
+          <li>Each bearing uses its strongest upper-hemisphere antenna lobe. Feed-system losses change realized gain, not geometry.</li>
+          <li>Subsequent arcs assume the same shell height and elevation at each ground reflection. Ground-reflection and ionospheric absorption losses are not calculated.</li>
+          <li>No ionospheric critical frequency, MUF, LUF, noise, received SNR, or open/closed circuit forecast is inferred from solar angle or T-index.</li>
+          <li>Antenna gain is relative to isotropic radiation. It cannot establish signal usability without transmitter power, path loss, receiving antenna and noise.</li>
+        </ul>
+      </div>
     </>
   );
 }
