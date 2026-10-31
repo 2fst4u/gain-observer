@@ -54,27 +54,8 @@ When making modifications to the project or the `nec2c` prediction engine (locat
 
 Failure to adhere to these rules violates the GPL v3 license.
 
-## Agent Journals (`.jules/*.md`)
-
-Each agent keeps a journal of lessons learned. Entries are `## YYYY-MM-DD - Title`
-followed by `**Learning:**` and `**Action:**` lines. Before appending one:
-
-1. **Use the real current date.** Check it (`date -u +%F`) rather than recalling
-   one. Journals have accumulated entries dated one to two years before the work
-   actually happened, which makes the chronology useless for judging whether a
-   lesson still applies.
-2. **Search the file for the lesson first.** If an entry already covers it, amend
-   that entry instead of appending a second one. Journals have carried up to three
-   verbatim copies of the same lesson.
-3. **Title the entry after what the body says.** A title describing a different
-   optimisation than the body makes the lesson unfindable.
-4. **Check the interpolation actually happened.** Entries have been committed
-   reading `Inverted theta and phi loops in , and deferred  string resolution`,
-   where a template variable resolved to nothing.
-
-A journal entry is not a substitute for a code change. If the finding turns out to
-be already fixed, or a false positive, say so on the issue — do not open a pull
-request whose diff is empty.
+If a finding turns out to be already fixed, or a false positive, say so on the
+issue — do not open a pull request whose diff is empty.
 
 ## Before you start: look at the open pull requests
 
@@ -102,10 +83,10 @@ pull request has something to carry.
 This used to be enforced the other way round. A CI gate (`empty-commit-check`)
 failed any branch whose diff was empty. It did stop empty pull requests, and it
 started a worse habit: agents began manufacturing a change to get the gate
-green. The entry below this one in `.jules/sentinel.md` used to say so outright
-— *"apply a completely safe, trivial code health cleanup ... to satisfy the CI
-file modification requirement"* — sitting directly under an older entry telling
-the same agent not to introduce unnecessary modifications.
+green. One wrote the tactic into its own journal — *"apply a completely safe,
+trivial code health cleanup ... to satisfy the CI file modification
+requirement"* — directly beneath an older entry telling the same agent not to
+introduce unnecessary modifications.
 
 The filler was not always safe. Across one review of the open pull requests it
 suppressed worker error reporting in production builds (`ev.preventDefault()`
@@ -118,9 +99,5 @@ empty" throughout that period. Documentation lost to the incentive, which is
 why the gate is gone rather than merely re-described.
 
 In its place, `.github/workflows/no-op-pr.yml` closes a pull request whose diff
-is empty or touches only `.jules/**`, with a comment saying why. A close is not
+is empty, with a comment saying why. A close is not
 a failure — it is the same finding, recorded without costing anyone a review.
-
-A journal entry is not a change either. It records a lesson learned from work;
-it belongs in the pull request carrying that work, or committed straight to the
-default branch. On its own it is filler.
