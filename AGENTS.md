@@ -97,7 +97,3 @@ the response had been buffered into memory.
 Note that this file already said "do not open a pull request whose diff is
 empty" throughout that period. Documentation lost to the incentive, which is
 why the gate is gone rather than merely re-described.
-
-In its place, `.github/workflows/no-op-pr.yml` closes a pull request whose diff
-is empty, with a comment saying why. A close is not
-a failure — it is the same finding, recorded without costing anyone a review.
