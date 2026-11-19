@@ -1,11 +1,19 @@
 // Physics worker — hosts the NEC-2 Wasm solver off the main thread.
 //
 // Protocol:
-//   → main posts { id, type: 'simulate', input, displayRatio?, sweepPoints?,
-//                  charPoints?, maxAdaptiveIter?, skipBroadScan? }
-//   ← worker posts { id, type: 'result', result } or { id, type: 'error', message }
+//   → main posts { id, type: 'simulate', input, feedpointInput?, displayRatio?,
+//                  sweepPoints?, window?, skipSweep? }
+//              or { id, type: 'sweep', input, window, sweepPoints?, part? }
+//   ← worker posts { id, type: 'result', result, sweep, feedpointImpedance? },
+//                  { id, type: 'sweep', sweep, part? } or { id, type: 'error', message }
 //
 // The worker also emits { type: 'ready' } when the engine has initialised.
+//
+// Several of these workers can run side by side: the main thread hands the
+// pattern solve to one and splits the SWR sweep's frequencies across the rest
+// (`part` says which slice a reply carries). Request ids only increase, and the
+// main thread accepts only the newest, so a queued request that has been
+// superseded before it starts is dropped unanswered.
 
 /// <reference lib="webworker" />
 
@@ -33,6 +41,8 @@ export type WorkerRequest =
       displayRatio?: number;
       sweepPoints?: number;
       window?: SweepWindow;
+      /** Leave the sweep to other workers; the reply carries an empty sweep. */
+      skipSweep?: boolean;
     }
   // Sweep-only recompute: re-runs just the impedance sweep over a new window
   // (zoom/pan) without recomputing the radiation pattern. Much cheaper than a
@@ -44,6 +54,8 @@ export type WorkerRequest =
       displayRatio?: number;
       sweepPoints?: number;
       window: SweepWindow;
+      /** Index of this slice when one sweep is split across workers. */
+      part?: number;
     };
 
 export type WorkerResponse =
@@ -56,7 +68,7 @@ export type WorkerResponse =
       /** Bare-antenna feedpoint impedance, present when `feedpointInput` was sent. */
       feedpointImpedance?: ImpedanceResult;
     }
-  | { id: number; type: 'sweep'; sweep: readonly SweepPoint[] }
+  | { id: number; type: 'sweep'; sweep: readonly SweepPoint[]; part?: number }
   | { id: number; type: 'error'; message: string };
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
@@ -94,22 +106,18 @@ engine
     } satisfies WorkerResponse);
   });
 
-ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
-  // Security: drop cross-origin messages
-  if (ev.origin && ev.origin !== '' && ev.origin !== self.location.origin) {
-    if (import.meta.env.DEV) console.warn('[worker] dropping cross-origin message from', ev.origin);
-    return;
-  }
-  const msg = ev.data;
+function runRequest(msg: WorkerRequest): Promise<void> {
   if (msg.type === 'simulate') {
     const feedpointInput = msg.feedpointInput;
-    Promise.all([
+    return Promise.all([
       engine.simulate(msg.input),
-      engine.sweepImpedance(msg.input, {
-        points: msg.sweepPoints,
-        displayRatio: msg.displayRatio,
-        window: msg.window,
-      }),
+      msg.skipSweep
+        ? Promise.resolve([] as SweepPoint[])
+        : engine.sweepImpedance(msg.input, {
+          points: msg.sweepPoints,
+          displayRatio: msg.displayRatio,
+          window: msg.window,
+        }),
       feedpointInput
         ? engine.feedpointImpedance(feedpointInput)
         : Promise.resolve(undefined),
@@ -130,22 +138,39 @@ ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
           message: err instanceof Error ? err.message : String(err),
         } satisfies WorkerResponse);
       });
-  } else if (msg.type === 'sweep') {
-    engine
-      .sweepImpedance(msg.input, {
-        points: msg.sweepPoints,
-        displayRatio: msg.displayRatio,
-        window: msg.window,
-      })
-      .then((sweep) => {
-        ctx.postMessage({ id: msg.id, type: 'sweep', sweep } satisfies WorkerResponse);
-      })
-      .catch((err: unknown) => {
-        ctx.postMessage({
-          id: msg.id,
-          type: 'error',
-          message: err instanceof Error ? err.message : String(err),
-        } satisfies WorkerResponse);
-      });
   }
+  return engine
+    .sweepImpedance(msg.input, {
+      points: msg.sweepPoints,
+      displayRatio: msg.displayRatio,
+      window: msg.window,
+    })
+    .then((sweep) => {
+      ctx.postMessage({ id: msg.id, type: 'sweep', sweep, part: msg.part } satisfies WorkerResponse);
+    })
+    .catch((err: unknown) => {
+      ctx.postMessage({
+        id: msg.id,
+        type: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      } satisfies WorkerResponse);
+    });
+}
+
+// Requests run one after another. While a solve is running, slider drags can
+// queue several newer requests; only the newest is still wanted, so each
+// request checks on reaching the front of the queue whether it was superseded.
+let newestId = -Infinity;
+let queue: Promise<void> = Promise.resolve();
+
+ctx.addEventListener('message', (ev: MessageEvent<WorkerRequest>) => {
+  // Security: drop cross-origin messages
+  if (ev.origin && ev.origin !== '' && ev.origin !== self.location.origin) {
+    if (import.meta.env.DEV) console.warn('[worker] dropping cross-origin message from', ev.origin);
+    return;
+  }
+  const msg = ev.data;
+  if (msg.type !== 'simulate' && msg.type !== 'sweep') return;
+  newestId = Math.max(newestId, msg.id);
+  queue = queue.then(() => (msg.id < newestId ? undefined : runRequest(msg)));
 });

@@ -37,3 +37,11 @@ as a completed scientific validation.
 After rebasing onto the current main branch, clean-install validation passed
 108 test files / 1,194 tests with no skips, ESLint, TypeScript checks and the
 production build. No production deployment is part of this repair.
+
+## SWR curve, lobe elevation and solve latency (November 2026)
+
+| Finding | Implemented repair | Regression evidence |
+|---|---|---|
+| SWR chart joined 15 NEC samples with straight lines in SWR, misreading the minimum by up to 0.12 SWR / 42 kHz and 2:1 edges by up to 4 kHz against a 281-point NEC reference | Cubic Hermite spline through the complex reflection coefficient between samples (`swrInterpolation.ts`); same NEC solves, errors ≤ 0.006 SWR and ≤ 1.8 kHz | `swrInterpolation.test.ts`, `swrChartUtils.test.ts` |
+| Hop range used the nearest 2° pattern row; at low take-off angles 1° moves a 300 km shell hop by 150–200 km | Parabolic peak fit through the lobe's three rows (elevation only; gain stays the solved sample) | `propagation.test.ts` |
+| Real-ground sweeps cost ~23 ms per frequency (Sommerfeld tables) and ran serially behind the pattern on one worker | Pattern and sweep slices run on a worker pool (one per core, capped per device tier); superseded queued requests are skipped | `usePhysicsEngine.test.tsx`; Chromium, 4 cores: ~590 ms → ~280 ms per re-solve |

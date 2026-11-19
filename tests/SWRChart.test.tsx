@@ -40,9 +40,9 @@ describe('SWRChart', () => {
   it('displays the correct SWR stats', () => {
     useAntennaStore.setState({
       sweep: [
-        { frequencyMHz: 14.0, R: 50, X: 0, swr: 1.5 },
-        { frequencyMHz: 14.1, R: 50, X: 0, swr: 1.1 },
-        { frequencyMHz: 14.2, R: 50, X: 0, swr: 1.5 },
+        { frequencyMHz: 14.0, R: 75, X: 0, swr: 1.5 },
+        { frequencyMHz: 14.1, R: 55, X: 0, swr: 1.1 },
+        { frequencyMHz: 14.2, R: 75, X: 0, swr: 1.5 },
       ],
       result: makeSimulationResult({ swr: 1.1, maxGainDbi: 0, efficiency: 1 }),
     });
@@ -57,9 +57,9 @@ describe('SWRChart', () => {
   it('displays N/A for 2:1 BW when there is no band', () => {
     useAntennaStore.setState({
       sweep: [
-        { frequencyMHz: 14.0, R: 50, X: 0, swr: 3.0 },
-        { frequencyMHz: 14.1, R: 50, X: 0, swr: 2.5 },
-        { frequencyMHz: 14.2, R: 50, X: 0, swr: 3.0 },
+        { frequencyMHz: 14.0, R: 150, X: 0, swr: 3.0 },
+        { frequencyMHz: 14.1, R: 125, X: 0, swr: 2.5 },
+        { frequencyMHz: 14.2, R: 150, X: 0, swr: 3.0 },
       ],
       result: makeSimulationResult({ swr: 2.5, maxGainDbi: 0, efficiency: 1 }),
     });

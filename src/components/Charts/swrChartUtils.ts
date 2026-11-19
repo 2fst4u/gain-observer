@@ -5,6 +5,7 @@ import { isFeedlineActive, selectAtuConfig, type ComparisonSnapshot } from '../.
 import { atuLossDb, swr as computeSwr } from '../../physics/impedance';
 import { ATU_COMPONENT_Q } from '../../physics/constants';
 import { findSwrBands, type SwrBand } from '../../physics/bandwidth';
+import { interpolateSwrCurve, type SwrCurvePoint } from '../../physics/swrInterpolation';
 
 /**
  * Format a bandwidth (MHz wide) for display, scaling the unit by magnitude:
@@ -31,29 +32,35 @@ function referenceConfig(reference: ComparisonSnapshot): SweepDisplayConfig {
   };
 }
 
-// The chart data, y-axis bound and reference curve all ask for the same ATU
-// SWR per point, and each answer is an iterative L-network solve. Sweep points
-// are immutable store values, so cache the answer on the point itself.
-const atuSwrCache = new WeakMap<SweepPoint, { ratio: number; swr: number }>();
+/** Intervals drawn between neighbouring NEC samples (see swrInterpolation.ts). */
+const SWR_CURVE_SUBDIVISIONS = 8;
 
-function atuSwr(point: SweepPoint, impedance: { R: number; X: number }, ratio: number): number {
-  const cached = atuSwrCache.get(point);
-  if (cached && cached.ratio === ratio) return cached.swr;
-  const value = Number.isFinite(atuLossDb(impedance, ATU_COMPONENT_Q)) ? 1 : computeSwr(impedance);
-  atuSwrCache.set(point, { ratio, swr: value });
-  return value;
-}
+// The chart data, y-axis bound, stats and reference curve all ask for the same
+// curve, and each ATU point is an iterative L-network solve. Sweep arrays are
+// immutable store values, so cache the curve on the array itself.
+const curveCache = new WeakMap<readonly SweepPoint[], { key: string; curve: SwrCurvePoint[] }>();
 
-function effectiveSwr(point: SweepPoint, config: SweepDisplayConfig): number {
-  const impedance = config.transformerInDisplay
-    ? { R: point.R / config.transformerRatio!, X: point.X / config.transformerRatio! }
-    : { R: point.R, X: point.X };
-  if (config.atuEnabled) {
-    return atuSwr(point, impedance, config.transformerInDisplay ? config.transformerRatio! : 1);
-  }
-  return config.transformerInDisplay
-    ? computeSwr(impedance)
-    : point.swr;
+/**
+ * The SWR curve shown for a sweep: NEC samples joined by a spline through the
+ * reflection coefficient, which locates minima and 2:1 crossings between
+ * samples far better than straight lines in SWR. With an ATU every point is
+ * retuned independently, so there is no continuous circuit to interpolate and
+ * only the solved points are returned.
+ */
+export function swrCurve(points: readonly SweepPoint[], config: SweepDisplayConfig): SwrCurvePoint[] {
+  const key = `${config.atuEnabled ? 1 : 0}:${config.transformerInDisplay ? config.transformerRatio : 1}`;
+  const cached = curveCache.get(points);
+  if (cached && cached.key === key) return cached.curve;
+  const ratio = config.transformerInDisplay ? config.transformerRatio! : 1;
+  const impedances = points.map((point) => ({ R: point.R / ratio, X: point.X / ratio }));
+  const curve = config.atuEnabled
+    ? points.map((point, i) => ({
+      frequencyMHz: point.frequencyMHz,
+      swr: Number.isFinite(atuLossDb(impedances[i]!, ATU_COMPONENT_Q)) ? 1 : computeSwr(impedances[i]!),
+    }))
+    : interpolateSwrCurve(points.map((point) => point.frequencyMHz), impedances, SWR_CURVE_SUBDIVISIONS);
+  curveCache.set(points, { key, curve });
+  return curve;
 }
 
 interface ComputeChartDataArgs extends SweepDisplayConfig {
@@ -71,12 +78,12 @@ export function computeChartData(args: ComputeChartDataArgs) {
     return {
       label: config.atuEnabled ? `${label} (ATU retuned at each frequency)`
         : config.transformerInDisplay && comparisonActive ? `${label} (after ${config.transformerRatio}:1)` : label,
-      data: points.map((point) => ({ x: point.frequencyMHz, y: effectiveSwr(point, config) })),
+      data: swrCurve(points, config).map((point) => ({ x: point.frequencyMHz, y: point.swr })),
       borderColor: color,
       backgroundColor: fill,
       fill: false,
-      // Use the sampled straight segments: smoothing can invent SWR extrema
-      // and threshold crossings that NEC never calculated.
+      // The curve is already densified through the reflection coefficient
+      // (swrCurve); Chart.js's own SWR-space smoothing would distort it.
       tension: 0,
       pointRadius: 0,
       pointHoverRadius: 3,
@@ -111,33 +118,21 @@ export function computeStats({
 }: ComputeStatsArgs): SWRStats | null {
   // Independently retuned points say nothing about antenna/fixed-tuner BW.
   if (sweep.length === 0 || atuEnabled) return null;
-  const config = { transformerInDisplay, transformerRatio };
-
-  const len = sweep.length;
+  const curve = swrCurve(sweep, { transformerInDisplay, transformerRatio });
 
   let minSWR = Infinity;
   let minFreq = 0;
-
-  for (let i = 0; i < len; i++) {
-    const pt = sweep[i]!;
-    const f = pt.frequencyMHz;
-    const s = effectiveSwr(pt, config);
-
-    if (s < minSWR) {
-      minSWR = s;
-      minFreq = f;
+  for (const point of curve) {
+    if (point.swr < minSWR) {
+      minSWR = point.swr;
+      minFreq = point.frequencyMHz;
     }
   }
 
   return {
     minSWR,
     minFreq,
-    bands: findSwrBands(
-      sweep,
-      (pt) => pt.frequencyMHz,
-      (pt) => effectiveSwr(pt, config),
-      2,
-    ),
+    bands: findSwrBands(curve, (pt) => pt.frequencyMHz, (pt) => pt.swr, 2),
   };
 }
 
@@ -151,15 +146,13 @@ export function computeYMax(args: ComputeYMaxArgs) {
   const { sweep, comparisonActive, reference } = args;
   if (sweep.length === 0 && (!comparisonActive || !reference || reference.sweep.length === 0)) return 5;
   let maxVal = -Infinity;
-  for (const point of sweep) {
-    const value = effectiveSwr(point, args);
-    if (value > maxVal) maxVal = value;
+  for (const point of swrCurve(sweep, args)) {
+    if (point.swr > maxVal) maxVal = point.swr;
   }
   if (comparisonActive && reference) {
     const config = referenceConfig(reference);
-    for (const point of reference.sweep) {
-      const value = effectiveSwr(point, config);
-      if (value > maxVal) maxVal = value;
+    for (const point of swrCurve(reference.sweep, config)) {
+      if (point.swr > maxVal) maxVal = point.swr;
     }
   }
   if (maxVal === -Infinity) return 5;
