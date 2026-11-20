@@ -2,7 +2,10 @@ import { NumericInput } from '../../UI/NumericInput';
 import { useAntennaStore } from '../../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { toDisplayLength, fromDisplayLength, displayLengthUnit } from '../../../physics/units';
-import { YAGI_DIRECTOR_RATIO, YAGI_REFLECTOR_RATIO, yagiDimensions } from '../../../physics/constants';
+import {
+  YAGI_DIRECTOR_RATIO, YAGI_REFLECTOR_RATIO, YAGI_REFLECTOR_SLIDER_RATIOS, YAGI_DIRECTOR_SLIDER_RATIOS, yagiDimensions,
+} from '../../../physics/constants';
+import { LengthSlider } from './LengthSlider';
 
 /**
  * Reflector and director lengths for the wire Yagi. Each is stored as a ratio
@@ -47,6 +50,15 @@ export function YagiElementControls() {
         onChange={(v) => setYagiReflectorLength(fromDisplayLength(v, units))}
         formatValue={(v) => v.toFixed(2)}
       />
+      <LengthSlider
+        id="yagi-reflector-slider"
+        label="Reflector length"
+        valueM={d.reflectorM}
+        minM={length * YAGI_REFLECTOR_SLIDER_RATIOS[0]}
+        maxM={length * YAGI_REFLECTOR_SLIDER_RATIOS[1]}
+        units={units}
+        onChange={setYagiReflectorLength}
+      />
       <label htmlFor="yagi-director-length" style={{ marginTop: 10 }}>
         Director length ({unit}) — ×{directorRatio.toFixed(3)} driven, {pct(directorRatio, YAGI_DIRECTOR_RATIO)}
       </label>
@@ -67,6 +79,15 @@ export function YagiElementControls() {
           Reset
         </button>
       </div>
+      <LengthSlider
+        id="yagi-director-slider"
+        label="Director length"
+        valueM={d.directorM}
+        minM={length * YAGI_DIRECTOR_SLIDER_RATIOS[0]}
+        maxM={length * YAGI_DIRECTOR_SLIDER_RATIOS[1]}
+        units={units}
+        onChange={setYagiDirectorLength}
+      />
       <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
         Kept as ratios of the driven element, so they rescale with it. A long director or a
         short reflector collapses front/back and raises SWR; the opposite errors are mild.

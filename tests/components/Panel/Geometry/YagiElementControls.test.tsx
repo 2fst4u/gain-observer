@@ -26,8 +26,8 @@ describe('YagiElementControls', () => {
   it('shows the current lengths at the design ratios with reset disabled', () => {
     mockAntennaStore(state());
     render(<YagiElementControls />);
-    expect((screen.getByLabelText(/Reflector length/) as HTMLInputElement).value).toBe('21.00');
-    expect((screen.getByLabelText(/Director length/) as HTMLInputElement).value).toBe('19.20');
+    expect((document.getElementById('yagi-reflector-length')! as HTMLInputElement).value).toBe('21.00');
+    expect((document.getElementById('yagi-director-length')! as HTMLInputElement).value).toBe('19.20');
     expect(screen.getByText(/Reflector length \(m\) — ×1\.050 driven, design/)).toBeDefined();
     expect((screen.getByRole('button', { name: 'Reset' }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -37,11 +37,33 @@ describe('YagiElementControls', () => {
     mockAntennaStore(s);
     render(<YagiElementControls />);
     expect(screen.getByText(/\+3\.0% vs design/)).toBeDefined();
-    const input = screen.getByLabelText(/Reflector length/);
+    const input = document.getElementById('yagi-reflector-length')!;
     fireEvent.change(input, { target: { value: '70' } });
     fireEvent.blur(input);
     expect(s.setYagiReflectorLength).toHaveBeenCalledWith(expect.closeTo(70 * 0.3048, 6));
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
     expect(s.resetYagiElements).toHaveBeenCalled();
+  });
+
+  it('gives both parasitic elements sliders that send metres and span the useful ratios', () => {
+    const s = state();
+    mockAntennaStore(s);
+    render(<YagiElementControls />);
+    const refl = screen.getByRole('slider', { name: 'Reflector length' }) as HTMLInputElement;
+    const dir = screen.getByRole('slider', { name: 'Director length' }) as HTMLInputElement;
+    expect([Number(refl.min), Number(refl.max), Number(refl.value)]).toEqual([18, 24, 21]);
+    expect([Number(dir.min), Number(dir.max), Number(dir.value)]).toEqual([16, 22, 19.2]);
+    fireEvent.change(refl, { target: { value: '22.5' } });
+    expect(s.setYagiReflectorLength).toHaveBeenCalledWith(22.5);
+    fireEvent.change(dir, { target: { value: '18' } });
+    expect(s.setYagiDirectorLength).toHaveBeenCalledWith(18);
+  });
+
+  it('widens a slider to include a typed length outside its usual span', () => {
+    mockAntennaStore(state({ yagiDirectorRatio: 1.4 }));
+    render(<YagiElementControls />);
+    const dir = screen.getByRole('slider', { name: 'Director length' }) as HTMLInputElement;
+    expect(Number(dir.max)).toBeGreaterThanOrEqual(28);
+    expect(Number(dir.value)).toBe(28);
   });
 });

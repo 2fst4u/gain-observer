@@ -104,6 +104,12 @@ export const YAGI_REFLECTOR_RATIO = 1.05;
 export const YAGI_DIRECTOR_RATIO = 0.96;
 export const YAGI_SPACING_RATIO = 0.2 / YAGI_DRIVEN_WL;
 
+/** Slider spans (ratio of the driven element) around the useful region. */
+export const YAGI_REFLECTOR_SLIDER_RATIOS = [0.9, 1.2] as const;
+export const YAGI_DIRECTOR_SLIDER_RATIOS = [0.8, 1.1] as const;
+/** Driven-element slider span, as a factor of its resonant length. */
+export const YAGI_DRIVEN_SLIDER_FACTORS = [0.7, 1.3] as const;
+
 /** Allowed range for the user-adjusted parasitic-element ratios. */
 export const YAGI_RATIO_MIN = 0.5;
 export const YAGI_RATIO_MAX = 1.5;

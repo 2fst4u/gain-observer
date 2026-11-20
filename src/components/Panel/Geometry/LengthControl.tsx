@@ -7,6 +7,8 @@ import {
   displayLengthUnit,
 } from '../../../physics/units';
 import { resonateTitles } from './constants';
+import { LengthSlider } from './LengthSlider';
+import { referenceLength, YAGI_DRIVEN_SLIDER_FACTORS } from '../../../physics/constants';
 
 export function LengthControl() {
   const {
@@ -90,6 +92,17 @@ export function LengthControl() {
           </button>
         )}
       </div>
+      {isYagi && (
+        <LengthSlider
+          id="yagi-driven-slider"
+          label="Driven element length"
+          valueM={length}
+          minM={referenceLength('yagi', frequency) * YAGI_DRIVEN_SLIDER_FACTORS[0]}
+          maxM={referenceLength('yagi', frequency) * YAGI_DRIVEN_SLIDER_FACTORS[1]}
+          units={units}
+          onChange={setLength}
+        />
+      )}
     </>
   );
 }
