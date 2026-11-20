@@ -89,6 +89,8 @@ export function makeComparisonSnapshot(
     vAngle: 120,
     legSlope: 0,
     foldedDipoleAperture: 0.1,
+    yagiReflectorRatio: 1.05,
+    yagiDirectorRatio: 0.96,
     groundId: 'pastoral',
     groundSigma: 0.005,
     groundEpsilon: 13,

@@ -1513,6 +1513,10 @@ export interface YagiWiresParams {
   wireRadius: number;
   segments: number;
   layout: DipoleWiresParams['layout'];
+  /** Reflector length ÷ driven length (default YAGI_REFLECTOR_RATIO). */
+  reflectorRatio?: number;
+  /** Director length ÷ driven length (default YAGI_DIRECTOR_RATIO). */
+  directorRatio?: number;
 }
 
 /**
@@ -1527,6 +1531,8 @@ export interface YagiWiresParams {
  */
 export function buildYagiWires(params: YagiWiresParams): Wire[] {
   const { length, height: h, orientation, wireRadius, segments, layout } = params;
+  const reflectorRatio = params.reflectorRatio ?? YAGI_REFLECTOR_RATIO;
+  const directorRatio = params.directorRatio ?? YAGI_DIRECTOR_RATIO;
   const headingDeg = typeof orientation === 'number' ? orientation : orientationHeadingDeg(orientation);
   const [bx, by] = orientationVector(headingDeg);
   const [ex, ey] = orientationVector(headingDeg + 90);
@@ -1548,8 +1554,8 @@ export function buildYagiWires(params: YagiWiresParams): Wire[] {
 
   return [
     ...buildDipoleWires({ length, height: h, orientation: headingDeg + 90, wireRadius, segments, layout }),
-    parasite(-spacing, YAGI_REFLECTOR_RATIO, YAGI_REFLECTOR_TAG),
-    parasite(spacing, YAGI_DIRECTOR_RATIO, YAGI_DIRECTOR_TAG),
+    parasite(-spacing, reflectorRatio, YAGI_REFLECTOR_TAG),
+    parasite(spacing, directorRatio, YAGI_DIRECTOR_TAG),
   ];
 }
 

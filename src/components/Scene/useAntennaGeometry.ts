@@ -23,6 +23,8 @@ export interface AntennaWireProps {
   readonly terminatingResistor: number;
   readonly transformerEnabled: boolean;
   readonly foldedDipoleAperture: number;
+  readonly yagiReflectorRatio?: number;
+  readonly yagiDirectorRatio?: number;
 }
 
 export interface RenderedWire {
@@ -57,6 +59,8 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
     terminatingResistor,
     whipCounterpoise,
     foldedDipoleAperture,
+    yagiReflectorRatio,
+    yagiDirectorRatio,
   } = props;
 
   return useMemo(() => {
@@ -80,6 +84,8 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
       terminatingResistor,
       whipCounterpoise,
       foldedDipoleAperture,
+      yagiReflectorRatio,
+      yagiDirectorRatio,
       });
     } catch {
       // The scheduler runs the same builder and reports its validation message.
@@ -151,6 +157,8 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
     terminatingResistor,
     whipCounterpoise,
     foldedDipoleAperture,
+    yagiReflectorRatio,
+    yagiDirectorRatio,
   ]);
 }
 

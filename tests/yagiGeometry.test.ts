@@ -69,4 +69,51 @@ describe('wire Yagi geometry', () => {
     const after = buildWires(useAntennaStore.getState()).filter((w) => w.tag !== FEEDLINE_SHIELD_TAG);
     expect(after).toEqual(before);
   });
+
+  it('adjusts the reflector and director independently while keeping them proportional to the driven element', () => {
+    const store = useAntennaStore.getState();
+    store.setAntennaType('yagi');
+    store.setLength(20);
+    useAntennaStore.getState().setYagiReflectorLength(22);
+    useAntennaStore.getState().setYagiDirectorLength(18);
+    let s = useAntennaStore.getState();
+    expect(s.yagiReflectorRatio).toBeCloseTo(1.1, 12);
+    expect(s.yagiDirectorRatio).toBeCloseTo(0.9, 12);
+    let wires = buildWires(s);
+    expect(len(wires.find((w) => w.tag === YAGI_REFLECTOR_TAG)!)).toBeCloseTo(22, 9);
+    expect(len(wires.find((w) => w.tag === YAGI_DIRECTOR_TAG)!)).toBeCloseTo(18, 9);
+
+    // Changing the driven element rescales the modified array as a whole.
+    useAntennaStore.getState().setLength(10);
+    s = useAntennaStore.getState();
+    wires = buildWires(s);
+    expect(len(wires.find((w) => w.tag === YAGI_REFLECTOR_TAG)!)).toBeCloseTo(11, 9);
+    expect(len(wires.find((w) => w.tag === YAGI_DIRECTOR_TAG)!)).toBeCloseTo(9, 9);
+
+    // Out-of-range input is clamped; non-finite input is ignored.
+    useAntennaStore.getState().setYagiDirectorLength(100);
+    expect(useAntennaStore.getState().yagiDirectorRatio).toBe(1.5);
+    useAntennaStore.getState().setYagiDirectorLength(Number.NaN);
+    expect(useAntennaStore.getState().yagiDirectorRatio).toBe(1.5);
+
+    useAntennaStore.getState().resetYagiElements();
+    s = useAntennaStore.getState();
+    expect([s.yagiReflectorRatio, s.yagiDirectorRatio]).toEqual([YAGI_REFLECTOR_RATIO, YAGI_DIRECTOR_RATIO]);
+  });
+
+  it('restores the design ratios when the Yagi is selected again', () => {
+    useAntennaStore.getState().setAntennaType('yagi');
+    useAntennaStore.getState().setYagiReflectorLength(30);
+    useAntennaStore.getState().setAntennaType('dipole');
+    useAntennaStore.getState().setAntennaType('yagi');
+    expect(useAntennaStore.getState().yagiReflectorRatio).toBe(YAGI_REFLECTOR_RATIO);
+  });
+
+  it('captures adjusted elements in a comparison reference', () => {
+    useAntennaStore.getState().setAntennaType('yagi');
+    useAntennaStore.getState().setYagiDirectorLength(useAntennaStore.getState().length);
+    useAntennaStore.setState({ result: {} as never, sweep: [{ frequencyMHz: 7, R: 50, X: 0, swr: 1 }] });
+    useAntennaStore.getState().captureComparisonReference();
+    expect(useAntennaStore.getState().comparisonReference!.yagiDirectorRatio).toBe(1);
+  });
 });

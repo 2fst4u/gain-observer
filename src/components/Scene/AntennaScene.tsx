@@ -38,6 +38,8 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
     liveVAngle: s.vAngle,
     liveLegSlope: s.legSlope,
     liveFoldedDipoleAperture: s.foldedDipoleAperture,
+    liveYagiReflectorRatio: s.yagiReflectorRatio,
+    liveYagiDirectorRatio: s.yagiDirectorRatio,
     liveTransformerEnabled: s.transformerEnabled,
     liveTransformerRatio: s.transformerRatio,
     liveFrequency: s.frequency,
@@ -69,6 +71,8 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
   const vAngle = snapshot?.vAngle ?? store.liveVAngle;
   const legSlope = snapshot?.legSlope ?? store.liveLegSlope;
   const foldedDipoleAperture = snapshot?.foldedDipoleAperture ?? store.liveFoldedDipoleAperture;
+  const yagiReflectorRatio = snapshot?.yagiReflectorRatio ?? store.liveYagiReflectorRatio;
+  const yagiDirectorRatio = snapshot?.yagiDirectorRatio ?? store.liveYagiDirectorRatio;
   const frequency = snapshot?.frequency ?? store.liveFrequency;
 
   const designFrequency = snapshot?.designFrequency ?? store.liveDesignFrequency;
@@ -100,6 +104,8 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
     vAngle,
     legSlope,
     foldedDipoleAperture,
+    yagiReflectorRatio,
+    yagiDirectorRatio,
     frequency,
     designFrequency,
     terminatingResistor,
@@ -146,6 +152,8 @@ function SceneContents({ snapshot = null }: AntennaSceneProps) {
           terminatingResistor={config.terminatingResistor}
           transformerEnabled={config.transformerEnabled}
           foldedDipoleAperture={config.foldedDipoleAperture}
+          yagiReflectorRatio={config.yagiReflectorRatio}
+          yagiDirectorRatio={config.yagiDirectorRatio}
         />
         <RadiationPattern
           result={config.result}

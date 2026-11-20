@@ -171,7 +171,7 @@ export const MIN_REAL_GROUND_HEIGHT_M = wavelengthMeters(SWEEP_F_MIN_MHZ) * 0.00
 
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'yagiReflectorRatio' | 'yagiDirectorRatio' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
 ): Wire[] {
   const wires = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
@@ -212,7 +212,7 @@ function computeFeedlineShield(
 
 function buildWiresInternal(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'yagiReflectorRatio' | 'yagiDirectorRatio' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
 ): Wire[] {
   const h = state.height;
   const minimumHeight = state.groundId && state.groundId !== 'free' && state.groundId !== 'perfect'
@@ -300,6 +300,8 @@ function buildWiresInternal(
         wireRadius: state.wireRadius,
         segments: state.segments,
         layout: computeFeedlineLayout(state),
+        reflectorRatio: state.yagiReflectorRatio,
+        directorRatio: state.yagiDirectorRatio,
       });
 
     case 'dipole':

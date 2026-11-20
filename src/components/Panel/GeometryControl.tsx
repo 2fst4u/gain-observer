@@ -13,6 +13,7 @@ import { TerminationControl } from './Geometry/TerminationControl';
 import { CounterpoiseControl } from './Geometry/CounterpoiseControl';
 import { OrientationControl } from './Geometry/OrientationControl';
 import { YagiBuildSheet } from './Geometry/YagiBuildSheet';
+import { YagiElementControls } from './Geometry/YagiElementControls';
 
 export function GeometryControl() {
   const { antennaType } = useAntennaStore(useShallow((s) => ({
@@ -28,6 +29,7 @@ export function GeometryControl() {
 
       <TypeControl />
       <LengthControl />
+      <YagiElementControls />
       <TravelingWaveLegControl />
       <HeightControl />
       <VAngleControl />

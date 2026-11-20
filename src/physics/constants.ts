@@ -104,8 +104,20 @@ export const YAGI_REFLECTOR_RATIO = 1.05;
 export const YAGI_DIRECTOR_RATIO = 0.96;
 export const YAGI_SPACING_RATIO = 0.2 / YAGI_DRIVEN_WL;
 
-/** Physical dimensions of the wire Yagi for a given driven-element length. */
-export function yagiDimensions(drivenLengthM: number): {
+/** Allowed range for the user-adjusted parasitic-element ratios. */
+export const YAGI_RATIO_MIN = 0.5;
+export const YAGI_RATIO_MAX = 1.5;
+
+/**
+ * Physical dimensions of the wire Yagi for a given driven-element length.
+ * The reflector and director default to the optimised ratios; pass the user's
+ * adjusted ratios to describe a modified array.
+ */
+export function yagiDimensions(
+  drivenLengthM: number,
+  reflectorRatio: number = YAGI_REFLECTOR_RATIO,
+  directorRatio: number = YAGI_DIRECTOR_RATIO,
+): {
   readonly drivenM: number;
   readonly reflectorM: number;
   readonly directorM: number;
@@ -115,8 +127,8 @@ export function yagiDimensions(drivenLengthM: number): {
   const spacingM = drivenLengthM * YAGI_SPACING_RATIO;
   return {
     drivenM: drivenLengthM,
-    reflectorM: drivenLengthM * YAGI_REFLECTOR_RATIO,
-    directorM: drivenLengthM * YAGI_DIRECTOR_RATIO,
+    reflectorM: drivenLengthM * reflectorRatio,
+    directorM: drivenLengthM * directorRatio,
     spacingM,
     boomM: 2 * spacingM,
   };

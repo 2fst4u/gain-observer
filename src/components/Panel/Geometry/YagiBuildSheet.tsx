@@ -13,8 +13,10 @@ const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
  * element length with the same ratios the solver uses (yagiDimensions).
  */
 export function YagiBuildSheet() {
-  const { antennaType, units, length, height, orientation } = useAntennaStore(useShallow((s) => ({
+  const { antennaType, units, length, height, orientation, reflectorRatio, directorRatio } = useAntennaStore(useShallow((s) => ({
     antennaType: s.antennaType,
+    reflectorRatio: s.yagiReflectorRatio,
+    directorRatio: s.yagiDirectorRatio,
     units: s.units,
     length: s.length,
     height: s.height,
@@ -22,7 +24,7 @@ export function YagiBuildSheet() {
   })));
   if (antennaType !== 'yagi') return null;
 
-  const d = yagiDimensions(length);
+  const d = yagiDimensions(length, reflectorRatio, directorRatio);
   const unit = displayLengthUnit(units);
   const fmt = (m: number) => `${toDisplayLength(m, units).toFixed(2)} ${unit}`;
   const heading = ((typeof orientation === 'number' ? orientation : PRESET_HEADINGS[orientation] ?? 0) % 360 + 360) % 360;

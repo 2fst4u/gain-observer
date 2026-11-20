@@ -29,6 +29,10 @@ import {
   DEFAULT_WHIP_LENGTH_M,
   FOLDED_DIPOLE_DEFAULT_APERTURE_M,
   FOLDED_DIPOLE_MAX_APERTURE_M,
+  YAGI_REFLECTOR_RATIO,
+  YAGI_DIRECTOR_RATIO,
+  YAGI_RATIO_MIN,
+  YAGI_RATIO_MAX,
 } from '../physics/constants';
 
 import type { Theme } from '../utils/themeColors';
@@ -95,6 +99,8 @@ export interface ComparisonSnapshot {
   readonly vAngle: number;
   readonly legSlope: number;
   readonly foldedDipoleAperture: number;
+  readonly yagiReflectorRatio: number;
+  readonly yagiDirectorRatio: number;
   readonly groundId: string;
   readonly groundSigma: number;
   readonly groundEpsilon: number;
@@ -127,6 +133,10 @@ export interface AntennaState {
   vAngle: number;
   legSlope: number;
   foldedDipoleAperture: number;
+  /** Wire Yagi reflector length ÷ driven length; follows driven-length changes. */
+  yagiReflectorRatio: number;
+  /** Wire Yagi director length ÷ driven length; follows driven-length changes. */
+  yagiDirectorRatio: number;
   terminatingResistor: number;
   whipCounterpoise: boolean;
 
@@ -191,6 +201,12 @@ export interface AntennaState {
   setVAngle(deg: number): void;
   setLegSlope(deg: number): void;
   setFoldedDipoleAperture(meters: number): void;
+  /** Set the Yagi reflector length; stored as a ratio of the driven element. */
+  setYagiReflectorLength(meters: number): void;
+  /** Set the Yagi director length; stored as a ratio of the driven element. */
+  setYagiDirectorLength(meters: number): void;
+  /** Restore the optimised reflector and director ratios. */
+  resetYagiElements(): void;
   setTerminatingResistor(ohms: number): void;
   setWhipCounterpoise(enabled: boolean): void;
   setWireRadius(meters: number): void;
@@ -278,6 +294,8 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     vAngle: state.vAngle,
     legSlope: state.legSlope,
     foldedDipoleAperture: state.foldedDipoleAperture,
+    yagiReflectorRatio: state.yagiReflectorRatio,
+    yagiDirectorRatio: state.yagiDirectorRatio,
     groundId: state.groundId,
     groundSigma: state.groundSigma,
     groundEpsilon: state.groundEpsilon,
@@ -310,6 +328,8 @@ export const useAntennaStore = create<AntennaState>()(
       vAngle: 180,
       legSlope: 0,
       foldedDipoleAperture: FOLDED_DIPOLE_DEFAULT_APERTURE_M,
+      yagiReflectorRatio: YAGI_REFLECTOR_RATIO,
+      yagiDirectorRatio: YAGI_DIRECTOR_RATIO,
       terminatingResistor: 0,
       whipCounterpoise: false,
 
@@ -378,6 +398,10 @@ export const useAntennaStore = create<AntennaState>()(
         }
         s.length = calculateDefaultLength(type, s.frequency);
 
+        if (type === 'yagi') {
+          s.yagiReflectorRatio = YAGI_REFLECTOR_RATIO;
+          s.yagiDirectorRatio = YAGI_DIRECTOR_RATIO;
+        }
         if (type === 'dipole' || type === 'yagi') {
           s.vAngle = 180;
           s.legSlope = 0;
@@ -511,6 +535,21 @@ export const useAntennaStore = create<AntennaState>()(
       setFoldedDipoleAperture: (meters) => set((s) => {
         if (!Number.isFinite(meters)) return;
         s.foldedDipoleAperture = Math.max(0.02, Math.min(FOLDED_DIPOLE_MAX_APERTURE_M, meters));
+      }),
+
+      setYagiReflectorLength: (meters) => set((s) => {
+        if (!Number.isFinite(meters) || !(s.length > 0)) return;
+        s.yagiReflectorRatio = Math.max(YAGI_RATIO_MIN, Math.min(YAGI_RATIO_MAX, meters / s.length));
+      }),
+
+      setYagiDirectorLength: (meters) => set((s) => {
+        if (!Number.isFinite(meters) || !(s.length > 0)) return;
+        s.yagiDirectorRatio = Math.max(YAGI_RATIO_MIN, Math.min(YAGI_RATIO_MAX, meters / s.length));
+      }),
+
+      resetYagiElements: () => set((s) => {
+        s.yagiReflectorRatio = YAGI_REFLECTOR_RATIO;
+        s.yagiDirectorRatio = YAGI_DIRECTOR_RATIO;
       }),
 
       setTerminatingResistor: (ohms) => set((s) => {
