@@ -76,6 +76,9 @@ const TRANSFORMER_DEFAULTS: Record<AntennaType, TransformerDefaults> = {
   'folded-dipole': { enabled: true, ratio: 9 },
   'vertical-whip': { enabled: false, ratio: 1 },
   'inverted-l': { enabled: false, ratio: 1 },
+  // ~40 Ω driven element: the 1:1 choke keeps the coax shield from feeding
+  // current back into the array and spoiling the pattern.
+  'yagi': { enabled: true, ratio: 1 },
 };
 
 export type Mode = 'normal' | 'comparison';
@@ -375,7 +378,7 @@ export const useAntennaStore = create<AntennaState>()(
         }
         s.length = calculateDefaultLength(type, s.frequency);
 
-        if (type === 'dipole') {
+        if (type === 'dipole' || type === 'yagi') {
           s.vAngle = 180;
           s.legSlope = 0;
           s.terminatingResistor = 0;

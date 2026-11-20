@@ -7,6 +7,7 @@ import {
   displayLengthUnit,
 } from '../../../physics/units';
 import { resonateTitles } from './constants';
+import { yagiDimensions } from '../../../physics/constants';
 
 export function LengthControl() {
   const {
@@ -41,11 +42,15 @@ export function LengthControl() {
     'vertical-whip': '¼λ',
     'inverted-l': '¼λ',
     'folded-dipole': '½λ',
+    'yagi': '½λ',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
   const isInvertedL = antennaType === 'inverted-l';
   const isFoldedDipole = antennaType === 'folded-dipole';
+  const isYagi = antennaType === 'yagi';
+  const yagi = isYagi ? yagiDimensions(length) : null;
+  const fmt = (m: number) => `${toDisplayLength(m, units).toFixed(2)} ${unit}`;
 
   const lengthLabel = isVerticalWhip
     ? `Whip length (${unit})`
@@ -53,7 +58,9 @@ export function LengthControl() {
       ? `Total wire length — vertical + horizontal (${unit})`
       : isFoldedDipole
         ? `Conductor length — ½λ each (${unit})`
-        : `Length (${unit})`;
+        : isYagi
+          ? `Driven element length (${unit})`
+          : `Length (${unit})`;
 
   return (
     <>
@@ -86,6 +93,16 @@ export function LengthControl() {
           </button>
         )}
       </div>
+      {yagi && (
+        <div id="yagi-dimensions" aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Reflector {fmt(yagi.reflectorM)} · director {fmt(yagi.directorM)}<br />
+          Spacing {fmt(yagi.spacingM)} each side (boom {fmt(yagi.boomM)})<br />
+          Lengths are for bare wire. Insulation makes wire electrically longer
+          (typically 2–4%), so these lengths are slightly long for insulated wire:
+          trim the driven element to resonance in place, then shorten the reflector
+          and director by the same percentage.
+        </div>
+      )}
     </>
   );
 }

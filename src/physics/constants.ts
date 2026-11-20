@@ -80,8 +80,47 @@ const REFERENCE_LENGTH_STRATEGIES: Record<AntennaType, (lambda: number, endEffec
     // The fold (the second parallel conductor) raises the feedpoint
     // impedance ~4× but does not change the resonant length.
     return lambda * 0.5 * endEffect;
-  }
+  },
+  yagi: (lambda) => {
+    // Driven element of the 3-element wire Yagi. The parasitic elements
+    // load it, so its resonant length differs from a lone dipole's.
+    return lambda * YAGI_DRIVEN_WL;
+  },
 };
+
+/**
+ * 3-element wire Yagi proportions. The driven element length is the one
+ * control; the reflector, director and both spacings are fixed multiples of
+ * it, so the whole array scales together when the length is changed (and is
+ * used off-frequency, e.g. behind a tuner, exactly as built).
+ *
+ * Optimised in NEC at 7.1 MHz, 8 m over average soil, 2 mm bare copper, for
+ * gain at 10–16° take-off: reflector 1.05×, director 0.96×, each spaced 0.2 λ
+ * from the driven element (≈ 0.414× the driven length), feedpoint ≈ 40 Ω,
+ * front/back ≈ 19 dB.
+ */
+export const YAGI_DRIVEN_WL = 0.4834;
+export const YAGI_REFLECTOR_RATIO = 1.05;
+export const YAGI_DIRECTOR_RATIO = 0.96;
+export const YAGI_SPACING_RATIO = 0.2 / YAGI_DRIVEN_WL;
+
+/** Physical dimensions of the wire Yagi for a given driven-element length. */
+export function yagiDimensions(drivenLengthM: number): {
+  readonly drivenM: number;
+  readonly reflectorM: number;
+  readonly directorM: number;
+  readonly spacingM: number;
+  readonly boomM: number;
+} {
+  const spacingM = drivenLengthM * YAGI_SPACING_RATIO;
+  return {
+    drivenM: drivenLengthM,
+    reflectorM: drivenLengthM * YAGI_REFLECTOR_RATIO,
+    directorM: drivenLengthM * YAGI_DIRECTOR_RATIO,
+    spacingM,
+    boomM: 2 * spacingM,
+  };
+}
 
 /**
  * Topology-aware reference length (metres).

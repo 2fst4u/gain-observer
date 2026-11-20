@@ -1,6 +1,6 @@
-import { cleanZero, SLOPING_V_MIN_TIP_Z_M, wavelengthMeters, FEED_BRIDGE_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT } from '../physics/constants';
+import { cleanZero, YAGI_REFLECTOR_RATIO, YAGI_DIRECTOR_RATIO, YAGI_SPACING_RATIO, SLOPING_V_MIN_TIP_Z_M, wavelengthMeters, FEED_BRIDGE_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT } from '../physics/constants';
 import type { Wire } from '../physics/types';
-import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, DELTA_BASE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../physics/tags';
+import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, DELTA_BASE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG, YAGI_REFLECTOR_TAG, YAGI_DIRECTOR_TAG } from '../physics/tags';
 
 /** Minimum number of NEC segments per wavelength along each V leg. */
 export const SEGS_PER_WAVELENGTH = 20;
@@ -1502,6 +1502,64 @@ export function buildDipoleWires(params: DipoleWiresParams): Wire[] {
       tag: FEED_BRIDGE_TAG,
     },
   ];
+}
+
+export interface YagiWiresParams {
+  /** Driven element length; every other dimension is a fixed ratio of it. */
+  length: number;
+  height: number;
+  /** Beam heading (compass degrees or preset): the direction the director points. */
+  orientation: Orientation;
+  wireRadius: number;
+  segments: number;
+  layout: DipoleWiresParams['layout'];
+}
+
+/**
+ * 3-element horizontal wire Yagi: reflector, driven element, director, all
+ * parallel at `height`. Only the driven element is fed (built exactly like the
+ * dipole, so the feedline, choke and coax shield attach the same way). The
+ * reflector and director are unbroken, unconnected wires.
+ *
+ * `orientation` is the beam heading. The elements lie perpendicular to it;
+ * the reflector sits one spacing behind the driven element and the director
+ * one spacing in front.
+ */
+export function buildYagiWires(params: YagiWiresParams): Wire[] {
+  const { length, height: h, orientation, wireRadius, segments, layout } = params;
+  const headingDeg = typeof orientation === 'number' ? orientation : orientationHeadingDeg(orientation);
+  const [bx, by] = orientationVector(headingDeg);
+  const [ex, ey] = orientationVector(headingDeg + 90);
+  const spacing = length * YAGI_SPACING_RATIO;
+  const density = segments / length;
+
+  const parasite = (offset: number, ratio: number, tag: number): Wire => {
+    const half = (length * ratio) / 2;
+    const cx = offset * bx;
+    const cy = offset * by;
+    return {
+      start: [cleanZero(cx - half * ex), cleanZero(cy - half * ey), h],
+      end: [cleanZero(cx + half * ex), cleanZero(cy + half * ey), h],
+      radius: wireRadius,
+      segments: Math.max(3, oddRound(length * ratio * density)),
+      tag,
+    };
+  };
+
+  return [
+    ...buildDipoleWires({ length, height: h, orientation: headingDeg + 90, wireRadius, segments, layout }),
+    parasite(-spacing, YAGI_REFLECTOR_RATIO, YAGI_REFLECTOR_TAG),
+    parasite(spacing, YAGI_DIRECTOR_RATIO, YAGI_DIRECTOR_TAG),
+  ];
+}
+
+function orientationHeadingDeg(o: OrientationPreset): number {
+  switch (o) {
+    case 'NS': return 0;
+    case 'EW': return 90;
+    case 'NE-SW': return 45;
+    case 'NW-SE': return 315;
+  }
 }
 
 function oddRound(v: number): number {

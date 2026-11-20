@@ -30,6 +30,7 @@ physical and matching configuration. Rendering shares the solver wire builder.
 | Vertical whip | Vertical wire length L; h is base height. Source on lowest segment. | Four horizontal radials of length 0.2375λ at design frequency |
 | Inverted L | Vertical section plus horizontal top wire; L is total length and h is bend height. Base-fed. | Same radial option as whip |
 | Folded dipole | Equal-radius parallel conductors of length L, joined at both ends; h is lower-wire height, aperture is vertical separation. Lower centre fed. Default L≈0.475λ, aperture 0.3 m. | Series resistor in the opposite conductor's centre |
+| 3-element wire Yagi | Three parallel horizontal wires at h, perpendicular to the beam heading (orientation). L is the centre-fed driven element; reflector 1.05 L behind it and director 0.96 L in front, each spaced 0.414 L (0.2λ at the default L≈0.483λ). The whole array scales with L and keeps its size when only the operating frequency changes. Parasitic elements are unbroken and unconnected. | None |
 
 A loop resistor is a link in the loop, not two shunts to earth. Sloping-V screens
 are explicit elevated wires, not galvanic soil connections. Termination can

@@ -18,6 +18,7 @@ const ANTENNA_LABELS: Record<string, string> = {
   'vertical-whip': 'Vertical Whip',
   'inverted-l': 'Inverted L',
   'folded-dipole': 'Folded Dipole',
+  'yagi': '3-Element Wire Yagi',
 };
 
 export function App() {

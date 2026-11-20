@@ -9,4 +9,5 @@ export const resonateTitles: Record<AntennaType, string> = {
   'vertical-whip': 'Set whip length to resonant ¼λ',
   'inverted-l': 'Set total wire length (vertical + horizontal) to resonant ¼λ. The horizontal section makes up any length the mast height falls short of a full quarter-wave.',
   'folded-dipole': 'Set each conductor to a resonant ½λ. Raw feedpoint ~300 Ω (~4× a plain dipole). A 9:1 impedance-transforming balun is enabled by default — a compromise that lands both the plain and the terminated antenna under 1.7:1, since terminating adds the resistor in series with the feedpoint. Same gain and pattern as a plain dipole when unterminated. For a broadband T2FD, add the recommended 300 Ω terminating resistor and apply the suggested transformer ratio.',
+  'yagi': 'Set the driven element to its resonant length for this frequency (~0.48λ with the parasitic elements in place). Reflector (1.05×), director (0.96×) and the 0.2λ spacings follow the driven element, so changing the length rescales the whole array. ~40 Ω feedpoint: feed it with 50 Ω coax through a 1:1 choke.',
 };

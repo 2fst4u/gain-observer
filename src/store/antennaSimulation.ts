@@ -22,6 +22,7 @@ import {
   FOLDED_DIPOLE_DEFAULT_APERTURE_M,
   FOLDED_DIPOLE_FEED_R_OHMS,
   halfWaveLength,
+  referenceLength,
   SLOPING_V_MIN_TIP_Z_M,
 } from '../physics/constants';
 import type { AtuMatchConfig } from '../physics/impedance';
@@ -52,6 +53,7 @@ import {
   buildInvertedLWires,
   buildFoldedAntennaWires,
   buildDipoleWires,
+  buildYagiWires,
   buildFeedlineShieldWires,
   SEGS_PER_WAVELENGTH,
 } from './antennaGeometry';
@@ -64,6 +66,7 @@ export const FEEDLINE_SUPPORTED_TYPES = new Set<string>([
   'sloping-v',
   'terminated-delta',
   'folded-dipole',
+  'yagi',
 ]);
 
 export const SLOPING_V_DEFAULT_TERMINATION_OHMS = 300;
@@ -78,6 +81,7 @@ const RECOMMENDED_TERMINATING_RESISTORS: Record<AntennaType, number> = {
   'delta-loop': 0,
   'vertical-whip': 0,
   'inverted-l': 0,
+  'yagi': 0,
 };
 
 export function recommendedTerminatingResistor(antennaType: AntennaType): number {
@@ -152,6 +156,8 @@ export function calculateDefaultLength(type: AntennaType, frequencyMHz: number):
       return lambda * 0.25 * 0.95;
     case 'folded-dipole':
       return halfWaveLength(frequencyMHz);
+    case 'yagi':
+      return referenceLength('yagi', frequencyMHz);
     default:
       return halfWaveLength(frequencyMHz);
   }
@@ -284,6 +290,16 @@ function buildWiresInternal(
         segments: state.segments,
         frequency: state.frequency,
         terminatingResistor: state.terminatingResistor ?? 0,
+      });
+
+    case 'yagi':
+      return buildYagiWires({
+        length: state.length,
+        height: h,
+        orientation: state.orientation,
+        wireRadius: state.wireRadius,
+        segments: state.segments,
+        layout: computeFeedlineLayout(state),
       });
 
     case 'dipole':

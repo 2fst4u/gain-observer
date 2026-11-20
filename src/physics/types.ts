@@ -26,7 +26,7 @@ export type Vec3 = readonly [number, number, number];
  *     conductor (~300 Ω). An optional terminating resistor at the centre of
  *     the upper conductor turns it into a broadband terminated folded dipole.
  */
-export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip' | 'inverted-l' | 'folded-dipole';
+export type AntennaType = 'dipole' | 'inverted-v' | 'delta-loop' | 'sloping-v' | 'terminated-delta' | 'vertical-whip' | 'inverted-l' | 'folded-dipole' | 'yagi';
 
 export interface Wire {
   readonly start: Vec3;

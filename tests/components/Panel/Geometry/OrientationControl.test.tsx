@@ -130,4 +130,10 @@ describe('OrientationControl', () => {
 
     expect(setOrientation).toHaveBeenCalledWith('NE-SW');
   });
+
+  it('labels the yagi control as the beam heading', () => {
+    mockAntennaStore(buildMockState({ antennaType: 'yagi' }));
+    render(<OrientationControl />);
+    expect(screen.getByText(/Beam heading/)).toBeDefined();
+  });
 });
