@@ -14,6 +14,7 @@ import { CounterpoiseControl } from './Geometry/CounterpoiseControl';
 import { OrientationControl } from './Geometry/OrientationControl';
 import { YagiBuildSheet } from './Geometry/YagiBuildSheet';
 import { YagiElementControls } from './Geometry/YagiElementControls';
+import { DeltaFeedControl } from './Geometry/DeltaFeedControl';
 
 export function GeometryControl() {
   const { antennaType } = useAntennaStore(useShallow((s) => ({
@@ -32,6 +33,7 @@ export function GeometryControl() {
       <YagiElementControls />
       <TravelingWaveLegControl />
       <HeightControl />
+      <DeltaFeedControl />
       <VAngleControl />
       <ApertureControl />
       <TerminationControl />

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import { buildPhysicalWires, type Orientation } from '../../store/antennaStore';
+import type { DeltaFeed } from '../../store/antennaGeometry';
 import type { AntennaType } from '../../physics/types';
 import { MAIN_WIRE_TAG, LEFT_LEG_TAG, FEED_BRIDGE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, INVERTED_L_VERTICAL_TAG } from '../../physics/tags';
 
@@ -25,6 +26,7 @@ export interface AntennaWireProps {
   readonly foldedDipoleAperture: number;
   readonly yagiReflectorRatio?: number;
   readonly yagiDirectorRatio?: number;
+  readonly deltaFeed?: DeltaFeed;
 }
 
 export interface RenderedWire {
@@ -61,6 +63,7 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
     foldedDipoleAperture,
     yagiReflectorRatio,
     yagiDirectorRatio,
+    deltaFeed,
   } = props;
 
   return useMemo(() => {
@@ -86,6 +89,7 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
       foldedDipoleAperture,
       yagiReflectorRatio,
       yagiDirectorRatio,
+      deltaFeed,
       });
     } catch {
       // The scheduler runs the same builder and reports its validation message.
@@ -159,10 +163,11 @@ function useRenderedWires(props: AntennaWireProps): { rendered: RenderedWire[]; 
     foldedDipoleAperture,
     yagiReflectorRatio,
     yagiDirectorRatio,
+    deltaFeed,
   ]);
 }
 
-function useFeedpointAndShield(rendered: RenderedWire[], byTag: Map<number, RenderedWire>, type: AntennaType) {
+function useFeedpointAndShield(rendered: RenderedWire[], byTag: Map<number, RenderedWire>, type: AntennaType, deltaFeed: DeltaFeed | undefined) {
   return useMemo(() => {
     const isDelta = type === 'delta-loop' || type === 'terminated-delta';
     const isWhip = type === 'vertical-whip';
@@ -182,7 +187,7 @@ function useFeedpointAndShield(rendered: RenderedWire[], byTag: Map<number, Rend
     // vertical-whip base > inverted-l base > dipole wire midpoint (single-wire legacy).
     const feedpointObj =
       bridge?.position ??
-      apexFedLeft?.sceneEnd ??
+      (type === 'delta-loop' && deltaFeed === 'corner' ? apexFedLeft?.sceneStart : apexFedLeft?.sceneEnd) ??
       verticalWhip?.sceneStart ??
       invertedLVertical?.sceneStart ??
       feedSingle?.position ??
@@ -199,7 +204,7 @@ function useFeedpointAndShield(rendered: RenderedWire[], byTag: Map<number, Rend
     }
 
     return { shield: shieldWire, shieldEnd, feedpoint: feedpointObj };
-  }, [rendered, byTag, type]);
+  }, [rendered, byTag, type, deltaFeed]);
 }
 
 export interface TerminatedDeltaSplitResult {
@@ -258,7 +263,7 @@ function useTerminatedDeltaSplit(
 
 export function useAntennaGeometry(props: AntennaWireProps) {
   const { rendered, byTag } = useRenderedWires(props);
-  const { shield, shieldEnd, feedpoint } = useFeedpointAndShield(rendered, byTag, props.type);
+  const { shield, shieldEnd, feedpoint } = useFeedpointAndShield(rendered, byTag, props.type, props.deltaFeed);
   const terminatedDeltaSplit = useTerminatedDeltaSplit(byTag, props.type, props.wireRadius);
 
   return { rendered, shield, shieldEnd, feedpoint, terminatedDeltaSplit };

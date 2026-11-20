@@ -33,11 +33,12 @@ import {
   YAGI_DIRECTOR_RATIO,
   YAGI_RATIO_MIN,
   YAGI_RATIO_MAX,
+  DELTA_CORNER_PERIMETER_WL,
 } from '../physics/constants';
 
 import type { Theme } from '../utils/themeColors';
 import type { UnitSystem } from '../physics/units';
-import { MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG, type Orientation } from './antennaGeometry';
+import { MIN_SEGS_PER_LEG, MAX_SEGS_PER_LEG, type Orientation, type DeltaFeed } from './antennaGeometry';
 import {
   calculateDefaultLength,
   computeOptimalVAngleDeg,
@@ -101,6 +102,7 @@ export interface ComparisonSnapshot {
   readonly foldedDipoleAperture: number;
   readonly yagiReflectorRatio: number;
   readonly yagiDirectorRatio: number;
+  readonly deltaFeed?: DeltaFeed;
   readonly groundId: string;
   readonly groundSigma: number;
   readonly groundEpsilon: number;
@@ -137,6 +139,8 @@ export interface AntennaState {
   yagiReflectorRatio: number;
   /** Wire Yagi director length ÷ driven length; follows driven-length changes. */
   yagiDirectorRatio: number;
+  /** Delta loop feedpoint: apex (horizontal pol.) or lower corner (vertical pol.). */
+  deltaFeed: DeltaFeed;
   terminatingResistor: number;
   whipCounterpoise: boolean;
 
@@ -207,6 +211,7 @@ export interface AntennaState {
   setYagiDirectorLength(meters: number): void;
   /** Restore the optimised reflector and director ratios. */
   resetYagiElements(): void;
+  setDeltaFeed(feed: DeltaFeed): void;
   setTerminatingResistor(ohms: number): void;
   setWhipCounterpoise(enabled: boolean): void;
   setWireRadius(meters: number): void;
@@ -296,6 +301,7 @@ function createComparisonSnapshot(state: AntennaState): ComparisonSnapshot | nul
     foldedDipoleAperture: state.foldedDipoleAperture,
     yagiReflectorRatio: state.yagiReflectorRatio,
     yagiDirectorRatio: state.yagiDirectorRatio,
+    deltaFeed: state.deltaFeed,
     groundId: state.groundId,
     groundSigma: state.groundSigma,
     groundEpsilon: state.groundEpsilon,
@@ -330,6 +336,7 @@ export const useAntennaStore = create<AntennaState>()(
       foldedDipoleAperture: FOLDED_DIPOLE_DEFAULT_APERTURE_M,
       yagiReflectorRatio: YAGI_REFLECTOR_RATIO,
       yagiDirectorRatio: YAGI_DIRECTOR_RATIO,
+      deltaFeed: 'apex',
       terminatingResistor: 0,
       whipCounterpoise: false,
 
@@ -479,6 +486,8 @@ export const useAntennaStore = create<AntennaState>()(
         if (isTravelingWave) {
           const n = legMultipleFromLength(s.length, s.frequency);
           s.length = n * 2 * (299.792458 / s.frequency);
+        } else if (s.antennaType === 'delta-loop' && s.deltaFeed === 'corner') {
+          s.length = DELTA_CORNER_PERIMETER_WL * (299.792458 / s.frequency);
         } else {
           s.length = calculateDefaultLength(s.antennaType, s.frequency);
         }
@@ -550,6 +559,11 @@ export const useAntennaStore = create<AntennaState>()(
       resetYagiElements: () => set((s) => {
         s.yagiReflectorRatio = YAGI_REFLECTOR_RATIO;
         s.yagiDirectorRatio = YAGI_DIRECTOR_RATIO;
+      }),
+
+      setDeltaFeed: (feed) => set((s) => {
+        if (feed !== 'apex' && feed !== 'corner') return;
+        s.deltaFeed = feed;
       }),
 
       setTerminatingResistor: (ohms) => set((s) => {

@@ -104,6 +104,14 @@ export const YAGI_REFLECTOR_RATIO = 1.05;
 export const YAGI_DIRECTOR_RATIO = 0.96;
 export const YAGI_SPACING_RATIO = 0.2 / YAGI_DRIVEN_WL;
 
+/**
+ * Resonant perimeter of a delta loop fed at a lower corner, in wavelengths.
+ * NEC puts it between 1.02 λ (tall, near-equilateral) and 1.07 λ (small loop
+ * high in wavelengths); 1.03 λ fits the common low, flattened HF case, e.g.
+ * 40 m from an 8 m support.
+ */
+export const DELTA_CORNER_PERIMETER_WL = 1.03;
+
 /** Slider spans (ratio of the driven element) around the useful region. */
 export const YAGI_REFLECTOR_SLIDER_RATIOS = [0.9, 1.2] as const;
 export const YAGI_DIRECTOR_SLIDER_RATIOS = [0.8, 1.1] as const;

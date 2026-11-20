@@ -622,6 +622,8 @@ export function buildFeedlineShieldWires(
 /** Loop feeds lean this far from vertical to stay clear of the base wire. */
 const LOOP_FEEDLINE_LEAN_RAD = Math.PI / 18;
 
+export type DeltaFeed = 'apex' | 'corner';
+
 export interface DeltaLoopWiresParams {
   length: number; // perimeter
   height: number;
@@ -630,6 +632,19 @@ export interface DeltaLoopWiresParams {
   segments: number;
   frequency: number;
   feedlineShield?: FeedlineShield | null;
+  /**
+   * Feedpoint. 'apex' (default) feeds at the top; with the base below it the
+   * loop radiates mainly horizontal polarisation, mostly upwards when low.
+   * 'corner' feeds at the bottom of the left leg; the sloping legs then carry
+   * in-phase vertical current, giving vertical polarisation and a low-angle,
+   * near-omnidirectional pattern, with a ~50–70 Ω feedpoint.
+   */
+  feed?: DeltaFeed;
+}
+
+/** Height of the delta loop's base wire (and so of a corner feedpoint). */
+export function deltaLoopBaseZ(perimeter: number, height: number): number {
+  return calcDeltaLoopGeometry(perimeter, height).bottomZ;
 }
 
 function calcSegs(length: number, lambda: number, userSegments: number, overrideMinSegs?: number): number {
@@ -716,7 +731,57 @@ function calcDeltaLoopGeometry(perimeter: number, h: number) {
  *
  * Excitation is placed on the last segment of LEFT_LEG_TAG (the apex end).
  */
+/**
+ * Delta loop fed at its lower-left corner. Without a feedline the source sits
+ * on the left leg's first segment at the corner. With one, a 1-segment source
+ * bridge starts at the corner and runs up the left leg, the leg and base are
+ * graded down to it, and the coax shield hangs from the corner.
+ */
+function buildCornerFedDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
+  const perimeter = params.length;
+  const h = params.height;
+  const [dx, dy] = orientationVector(params.orientation);
+  const { bottomZ, legLength, halfBase } = calcDeltaLoopGeometry(perimeter, h);
+  const apex: [number, number, number] = [0, 0, h];
+  const leftCorner: [number, number, number] = [cleanZero(-halfBase * dx), cleanZero(-halfBase * dy), bottomZ];
+  const rightCorner: [number, number, number] = [cleanZero(halfBase * dx), cleanZero(halfBase * dy), bottomZ];
+  const lambda = wavelengthMeters(params.frequency);
+  const segmentsPerLeg = calcSegs(legLength, lambda, params.segments / 3);
+  const rawBaseSegs = calcSegs(halfBase * 2, lambda, params.segments / 3);
+  const baseSegments = rawBaseSegs % 2 === 0 ? rawBaseSegs + 1 : rawBaseSegs;
+  const rightLeg: Wire = { start: apex, end: rightCorner, radius: params.wireRadius, segments: segmentsPerLeg, tag: RIGHT_LEG_TAG };
+
+  if (!params.feedlineShield) {
+    return [
+      { start: leftCorner, end: apex, radius: params.wireRadius, segments: segmentsPerLeg, tag: LEFT_LEG_TAG },
+      rightLeg,
+      { start: leftCorner, end: rightCorner, radius: params.wireRadius, segments: baseSegments, tag: DELTA_BASE_TAG },
+    ];
+  }
+
+  const t = Math.min(FEED_BRIDGE_LENGTH_M, legLength / 4) / legLength;
+  const bridgeTop: [number, number, number] = [
+    cleanZero(leftCorner[0] + (apex[0] - leftCorner[0]) * t),
+    cleanZero(leftCorner[1] + (apex[1] - leftCorner[1]) * t),
+    leftCorner[2] + (apex[2] - leftCorner[2]) * t,
+  ];
+  return [
+    ...buildGradedStraightWires({
+      bridgeEnd: bridgeTop, farEnd: apex, wireRadius: params.wireRadius, tag: LEFT_LEG_TAG,
+      maxSegLen: legLength / segmentsPerLeg, emitFromFarEnd: false,
+    }),
+    rightLeg,
+    ...buildGradedStraightWires({
+      bridgeEnd: leftCorner, farEnd: rightCorner, wireRadius: params.wireRadius, tag: DELTA_BASE_TAG,
+      maxSegLen: (halfBase * 2) / baseSegments, emitFromFarEnd: false,
+    }),
+    { start: leftCorner, end: bridgeTop, radius: params.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG },
+    ...buildFeedlineShieldWires(leftCorner, [dx, dy], params.feedlineShield, LOOP_FEEDLINE_LEAN_RAD),
+  ];
+}
+
 export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
+  if (params.feed === 'corner') return buildCornerFedDeltaLoopWires(params);
   const perimeter = params.length;
   const h = params.height;
   const [dx, dy] = orientationVector(params.orientation);

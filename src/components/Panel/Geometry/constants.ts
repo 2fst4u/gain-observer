@@ -3,7 +3,7 @@ import { type AntennaType } from '../../../store/antennaStore';
 export const resonateTitles: Record<AntennaType, string> = {
   'dipole': 'Half-wave resonant length: ~73 Ω feedpoint — close to a direct 50 Ω coax match with no ATU needed. ~2.15 dBi gain. The most practical starting point for most installations.',
   'inverted-v': 'Set length to resonant ½λ',
-  'delta-loop': 'Set perimeter to resonant 1λ',
+  'delta-loop': 'Set perimeter to resonance: 1λ when apex-fed, 1.03λ when fed at a lower corner',
   'sloping-v': 'Set total length to 2λ (1λ per leg)',
   'terminated-delta': 'Set perimeter to 1λ',
   'vertical-whip': 'Set whip length to resonant ¼λ',

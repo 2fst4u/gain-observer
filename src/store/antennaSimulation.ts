@@ -54,6 +54,7 @@ import {
   buildFoldedAntennaWires,
   buildDipoleWires,
   buildYagiWires,
+  deltaLoopBaseZ,
   buildFeedlineShieldWires,
   SEGS_PER_WAVELENGTH,
 } from './antennaGeometry';
@@ -171,7 +172,7 @@ export const MIN_REAL_GROUND_HEIGHT_M = wavelengthMeters(SWEEP_F_MIN_MHZ) * 0.00
 
 export function buildWires(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'yagiReflectorRatio' | 'yagiDirectorRatio' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'yagiReflectorRatio' | 'yagiDirectorRatio' | 'deltaFeed' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
 ): Wire[] {
   const wires = buildWiresInternal(state);
   const layout = computeFeedlineLayout(state);
@@ -212,7 +213,7 @@ function computeFeedlineShield(
 
 function buildWiresInternal(
   state: Pick<AntennaState, 'antennaType' | 'length' | 'height' | 'orientation' | 'wireRadius' | 'segments' | 'frequency' | 'vAngle' | 'legSlope'> &
-    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'yagiReflectorRatio' | 'yagiDirectorRatio' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
+    Partial<Pick<AntennaState, 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'whipCounterpoise' | 'foldedDipoleAperture' | 'yagiReflectorRatio' | 'yagiDirectorRatio' | 'deltaFeed' | 'terminatingResistor' | 'designFrequency' | 'groundId'>>,
 ): Wire[] {
   const h = state.height;
   const minimumHeight = state.groundId && state.groundId !== 'free' && state.groundId !== 'perfect'
@@ -242,6 +243,7 @@ function buildWiresInternal(
         segments: state.segments,
         frequency: state.frequency,
         feedlineShield: computeFeedlineShield(state),
+        feed: state.deltaFeed,
       });
 
     case 'terminated-delta':
@@ -324,7 +326,7 @@ interface FeedlineLayout {
 
 function computeFeedlineLayout(
   state: Pick<AntennaState, 'length' | 'height'> &
-    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'groundId'>>,
+    Partial<Pick<AntennaState, 'antennaType' | 'feedlineId' | 'feedlineLength' | 'feedlineOffset' | 'groundId' | 'deltaFeed'>>,
 ): FeedlineLayout | null {
   if (!FEEDLINE_SUPPORTED_TYPES.has(state.antennaType ?? '')) return null;
 
@@ -342,7 +344,10 @@ function computeFeedlineLayout(
   const rawOffset = state.antennaType === 'dipole' ? (state.feedlineOffset ?? 0) : 0;
   const offset = Math.max(-limit, Math.min(limit, rawOffset));
 
-  const topZ = state.height;
+  // A corner-fed delta loop's coax leaves from the base, not the apex.
+  const topZ = state.antennaType === 'delta-loop' && state.deltaFeed === 'corner'
+    ? deltaLoopBaseZ(state.length, state.height)
+    : state.height;
   const realGround = state.groundId && state.groundId !== 'free' && state.groundId !== 'perfect';
   const minBottomZ = state.height > 0 && state.groundId !== 'free'
     ? (realGround ? MIN_REAL_GROUND_HEIGHT_M : FEEDLINE_GROUND_GAP_M) : -len;
@@ -402,6 +407,8 @@ function buildExcitation(
         break;
       }
     }
+    // Lower-corner feed: the left leg starts at the corner, so its first segment.
+    if (state.antennaType === 'delta-loop' && state.deltaFeed === 'corner') return { wireTag: LEFT_LEG_TAG, segment: 1 };
     return { wireTag: LEFT_LEG_TAG, segment: leftLeg!.segments };
   } else if (state.antennaType === 'vertical-whip') {
     return { wireTag: VERTICAL_WHIP_TAG, segment: 1 };

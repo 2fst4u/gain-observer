@@ -25,7 +25,7 @@ physical and matching configuration. Rendering shares the solver wire builder.
 | Dipole | Horizontal length L, centre height h; centre or offset feed. Default L≈0.475λ. | None |
 | Inverted V | Descending legs, total length L; source bridge at apex h. Included angle is in the vertical plane and widens if necessary to keep tips above their floor. Default L≈0.485λ. | None |
 | Sloping V | Two long legs; h is feed height, orientation is boresight, included angle is in azimuth. Tips approach 0.5 m when geometry permits. Default total length≈2λ. | Equal series resistors in downleads to two elevated radial screens |
-| Delta loop | Isosceles triangle with perimeter L and apex height h; equilateral when height permits. Fed near the apex. Default perimeter≈λ. | None |
+| Delta loop | Isosceles triangle with perimeter L and apex height h; equilateral when height permits. Fed at the apex (default; horizontal polarisation, perimeter≈λ) or at the bottom of the left leg (lower corner; vertical polarisation, low-angle near-omnidirectional pattern, resonant perimeter≈1.03λ). A corner feed's coax hangs from that corner. | None |
 | Terminated delta | Same triangular layout, with a centre gap in the base. | One series resistor across the base gap; zero setting leaves the gap open |
 | Vertical whip | Vertical wire length L; h is base height. Source on lowest segment. | Four horizontal radials of length 0.2375λ at design frequency |
 | Inverted L | Vertical section plus horizontal top wire; L is total length and h is bend height. Base-fed. | Same radial option as whip |

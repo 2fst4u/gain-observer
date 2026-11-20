@@ -40,6 +40,7 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
     liveFoldedDipoleAperture: s.foldedDipoleAperture,
     liveYagiReflectorRatio: s.yagiReflectorRatio,
     liveYagiDirectorRatio: s.yagiDirectorRatio,
+    liveDeltaFeed: s.deltaFeed,
     liveTransformerEnabled: s.transformerEnabled,
     liveTransformerRatio: s.transformerRatio,
     liveFrequency: s.frequency,
@@ -73,6 +74,7 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
   const foldedDipoleAperture = snapshot?.foldedDipoleAperture ?? store.liveFoldedDipoleAperture;
   const yagiReflectorRatio = snapshot?.yagiReflectorRatio ?? store.liveYagiReflectorRatio;
   const yagiDirectorRatio = snapshot?.yagiDirectorRatio ?? store.liveYagiDirectorRatio;
+  const deltaFeed = snapshot ? (snapshot.deltaFeed ?? 'apex') : store.liveDeltaFeed;
   const frequency = snapshot?.frequency ?? store.liveFrequency;
 
   const designFrequency = snapshot?.designFrequency ?? store.liveDesignFrequency;
@@ -106,6 +108,7 @@ function useSceneConfiguration(snapshot: ComparisonSnapshot | null) {
     foldedDipoleAperture,
     yagiReflectorRatio,
     yagiDirectorRatio,
+    deltaFeed,
     frequency,
     designFrequency,
     terminatingResistor,
@@ -154,6 +157,7 @@ function SceneContents({ snapshot = null }: AntennaSceneProps) {
           foldedDipoleAperture={config.foldedDipoleAperture}
           yagiReflectorRatio={config.yagiReflectorRatio}
           yagiDirectorRatio={config.yagiDirectorRatio}
+          deltaFeed={config.deltaFeed}
         />
         <RadiationPattern
           result={config.result}
