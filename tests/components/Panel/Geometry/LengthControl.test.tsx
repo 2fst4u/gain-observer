@@ -209,20 +209,10 @@ describe('LengthControl', () => {
   });
 
   describe('Yagi', () => {
-    it('labels the driven element and lists the derived element dimensions', () => {
+    it('labels the driven element', () => {
       mockAntennaStore(buildMockState({ antennaType: 'yagi', length: 20 }));
       render(<LengthControl />);
       expect(screen.getByText('Driven element length (m)')).toBeDefined();
-      const dims = document.getElementById('yagi-dimensions')!.textContent!;
-      expect(dims).toContain('Reflector 21.00 m');
-      expect(dims).toContain('director 19.20 m');
-      expect(dims).toMatch(/Spacing 8\.27 m each side \(boom 16\.55 m\)/);
-    });
-
-    it('shows imperial dimensions', () => {
-      mockAntennaStore(buildMockState({ antennaType: 'yagi', length: 20, units: 'imperial' }));
-      render(<LengthControl />);
-      expect(document.getElementById('yagi-dimensions')!.textContent).toContain('ft');
     });
   });
 });

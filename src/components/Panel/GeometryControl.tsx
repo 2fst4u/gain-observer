@@ -12,6 +12,7 @@ import { ApertureControl } from './Geometry/ApertureControl';
 import { TerminationControl } from './Geometry/TerminationControl';
 import { CounterpoiseControl } from './Geometry/CounterpoiseControl';
 import { OrientationControl } from './Geometry/OrientationControl';
+import { YagiBuildSheet } from './Geometry/YagiBuildSheet';
 
 export function GeometryControl() {
   const { antennaType } = useAntennaStore(useShallow((s) => ({
@@ -35,6 +36,7 @@ export function GeometryControl() {
       <CounterpoiseControl />
       <GeometryStatus />
       <OrientationControl />
+      <YagiBuildSheet />
 
       {/* Transformer / balun: hidden for base-fed monopole-style antennas —
           the transformer model assumes a balanced two-terminal feedpoint. */}
