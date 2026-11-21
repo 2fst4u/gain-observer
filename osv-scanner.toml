@@ -1,0 +1,27 @@
+# OSV-Scanner allowlist, read by .github/workflows/osv-scanner.yml.
+#
+# Entries are added ONLY when the repository owner has decided to accept a
+# specific advisory, never unattended (see AGENTS.md). Each entry needs an id,
+# a reason that records that decision, and an ignoreUntil date no more than six
+# months out. When it lapses the scan fails again and the advisory is
+# re-investigated, not simply re-dated. Remove entries once fixed.
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2027-01-01
+# reason = "Why the risk is accepted; accepted by <owner> on <date>."
+
+# Accepted by the repository owner on 2026-11-21. Both are build-time only:
+# vite-plugin-pwa -> workbox-build -> glob 11 (-> minimatch 10). Even the latest
+# workbox-build (7.4.1, used by vite-plugin-pwa 2.0.0) still requires glob ^11,
+# so no upstream release carries the fix yet. On expiry, check whether
+# workbox-build now allows glob >= 14.0.2 and upgrade instead of re-dating.
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-02-21
+reason = "glob 11.1.0 via vite-plugin-pwa -> workbox-build; build-time only; no upstream release allows the fixed glob 14.0.2 yet. Accepted by the repository owner on 2026-11-21."
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-21
+reason = "minimatch 10.2.6 via workbox-build -> glob 11; build-time only; fixed only with glob 14 (minimatch 11), which workbox-build does not allow yet. Accepted by the repository owner on 2026-11-21."
