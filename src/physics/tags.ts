@@ -60,3 +60,12 @@ export const FOLDED_DIPOLE_TERM_BRIDGE_TAG = 19;
  */
 export const SLOPING_V_LEFT_COUNTERPOISE_TAG = 20;
 export const SLOPING_V_RIGHT_COUNTERPOISE_TAG = 21;
+
+/**
+ * Parasitic elements of the 3-element wire Yagi. They are isolated wires (no
+ * feed, no load, no connection to anything); the driven element reuses the
+ * dipole tags (MAIN_WIRE_TAG, or LEFT/RIGHT_LEG_TAG with FEED_BRIDGE_TAG when a
+ * feedline is modelled).
+ */
+export const YAGI_REFLECTOR_TAG = 22;
+export const YAGI_DIRECTOR_TAG = 23;

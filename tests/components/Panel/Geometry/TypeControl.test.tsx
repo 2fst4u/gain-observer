@@ -43,7 +43,7 @@ describe('TypeControl', () => {
     expect(select.value).toBe('delta-loop');
 
     const options = screen.getAllByRole('option') as HTMLOptionElement[];
-    expect(options).toHaveLength(8);
+    expect(options).toHaveLength(9);
 
     const values = options.map((opt) => opt.value);
     expect(values).toEqual([
@@ -55,6 +55,7 @@ describe('TypeControl', () => {
       'vertical-whip',
       'inverted-l',
       'folded-dipole',
+      'yagi',
     ]);
   });
 

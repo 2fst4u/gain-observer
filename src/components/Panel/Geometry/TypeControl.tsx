@@ -25,6 +25,7 @@ export function TypeControl() {
         <option value="vertical-whip">Vertical Whip</option>
         <option value="inverted-l">Inverted-L</option>
         <option value="folded-dipole">Folded Dipole</option>
+        <option value="yagi">3-Element Wire Yagi</option>
       </select>
       <div id="antenna-type-hint" aria-live="polite" style={{ marginBottom: 12, fontSize: 11, color: 'var(--text-muted)' }}>
         {resonateTitles[antennaType]}

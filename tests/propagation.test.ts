@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hopRangeKm, predictPropagation, solarDeclinationDeg, solarZenithDeg } from '../src/physics/propagation';
+import { hopRangeKm, predictPropagation, refinePeakElevation, solarDeclinationDeg, solarZenithDeg } from '../src/physics/propagation';
 import type { GainPattern } from '../src/physics/types';
 
 const base = {
@@ -114,5 +114,33 @@ describe('antenna lobes and feed-system gain', () => {
     antenna.data[0] = NaN;
     antenna.data[1] = -Infinity;
     expect(predictPropagation({ ...base, pattern: antenna }).selectedTakeoffElevationDeg).toBe(60);
+  });
+});
+
+describe('sub-grid lobe elevation', () => {
+  // One bearing, 2° rows, a smooth lobe peaking between rows (parabolic in dB).
+  function lobe(peakElevationDeg: number): GainPattern {
+    const thetaSteps = 91;
+    const data = new Float32Array(thetaSteps).fill(-999);
+    for (let ti = 0; ti <= 45; ti++) {
+      const elevation = 90 - 2 * ti;
+      if (elevation > 0) data[ti] = 7 - 0.01 * (elevation - peakElevationDeg) ** 2;
+    }
+    return { data, thetaSteps, phiSteps: 1, dTheta: 2, dPhi: 360 };
+  }
+
+  it('recovers a lobe peak lying between pattern rows', () => {
+    const prediction = predictPropagation({ ...base, pattern: lobe(27.3) });
+    expect(prediction.selectedTakeoffElevationDeg).toBeCloseTo(27.3, 1);
+    expect(prediction.hops[0]!.rangeKm).toBeCloseTo(hopRangeKm(27.3, 300), -1);
+    // The reported gain remains the solved sample, not an extrapolated peak.
+    expect(prediction.hops[0]!.antennaGainDbi).toBeCloseTo(7 - 0.01 * 0.7 ** 2, 5);
+  });
+
+  it('keeps the sampled elevation at the zenith and beside a null', () => {
+    expect(refinePeakElevation(lobe(27.3), 0, 90)).toBe(90);
+    const nearHorizon = lobe(2);
+    // Row at 0° elevation is the below-ground sentinel: no parabola through it.
+    expect(refinePeakElevation(nearHorizon, 0, 2)).toBe(2);
   });
 });

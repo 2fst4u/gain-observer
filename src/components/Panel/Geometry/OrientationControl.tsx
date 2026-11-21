@@ -24,13 +24,16 @@ export function OrientationControl() {
 
   const isVerticalWhip = antennaType === 'vertical-whip';
   const isInvertedL = antennaType === 'inverted-l';
+  const isYagi = antennaType === 'yagi';
+  const label = isInvertedL ? 'Horizontal section direction (°)'
+    : isYagi ? 'Beam heading (°) — direction the director points' : 'Orientation (°)';
 
   if (isVerticalWhip) return null;
 
   return (
     <>
       <label htmlFor={isInvertedL ? "inverted-l-orientation" : "dipole-orientation"} style={{ marginTop: 10 }}>
-        {isInvertedL ? "Horizontal section direction (°)" : "Orientation (°)"}
+        {label}
       </label>
       <div className="row">
         <NumericInput

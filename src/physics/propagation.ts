@@ -132,6 +132,7 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
         }
       }
       if (!Number.isFinite(bestGain)) continue;
+      bestElevation = refinePeakElevation(pattern, pi, bestElevation);
       const range = hopRangeKm(bestElevation, shellHeightKm);
       azimuthalHops.push({
         phiDeg: pi * pattern.dPhi,
@@ -167,6 +168,33 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
     })),
     azimuthalHops: azimuthalHops.length > 0 ? azimuthalHops : undefined,
   };
+}
+
+/** Neighbours further than this below the peak are a null or the below-ground
+ * sentinel, not part of the lobe, and cannot shape a parabola through it. */
+const PEAK_FIT_MAX_DROP_DB = 20;
+
+/**
+ * Locate a lobe's elevation between pattern rows. The NEC grid is 2° apart,
+ * and at low take-off angles one degree moves a 300 km shell hop by roughly
+ * 150–200 km, so the nearest sample alone quantises range coarsely. A
+ * parabola through the peak row and its two neighbours (in dB, the standard
+ * beam-peak estimator) moves the elevation by at most half a step. The
+ * reported gain stays the solved sample. At the zenith, or where a neighbour
+ * is missing, at the horizon or in a null, the sampled elevation is kept.
+ */
+export function refinePeakElevation(pattern: GainPattern, phiIndex: number, elevationDeg: number): number {
+  const ti = Math.round((90 - elevationDeg) / pattern.dTheta);
+  if (ti <= 0 || ti + 1 >= pattern.thetaSteps) return elevationDeg;
+  const at = (t: number) => pattern.data[t * pattern.phiSteps + phiIndex];
+  const above = at(ti - 1), peak = at(ti), below = at(ti + 1);
+  if (above === undefined || peak === undefined || below === undefined) return elevationDeg;
+  if (![above, peak, below].every(Number.isFinite)) return elevationDeg;
+  if (peak - above > PEAK_FIT_MAX_DROP_DB || peak - below > PEAK_FIT_MAX_DROP_DB) return elevationDeg;
+  const curvature = above - 2 * peak + below;
+  if (!(curvature < 0)) return elevationDeg;
+  const offsetRows = Math.max(-0.5, Math.min(0.5, 0.5 * (above - below) / curvature));
+  return clamp(90 - (ti + offsetRows) * pattern.dTheta, 0, 90);
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

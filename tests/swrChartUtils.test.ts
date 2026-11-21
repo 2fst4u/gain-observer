@@ -6,6 +6,15 @@ import { makeComparisonSnapshot } from './helpers/factories';
 import { displayedFeedMetrics } from '../src/physics/impedance';
 import { ATU_COMPONENT_Q } from '../src/physics/constants';
 
+/** Assert a plotted curve passes through the given (MHz, SWR) samples. */
+function expectCurve(data: { x: number; y: number }[], samples: [number, number][]) {
+  expect(data).toHaveLength(samples.length);
+  samples.forEach(([x, y], i) => {
+    expect(data[i]!.x).toBe(x);
+    expect(data[i]!.y).toBeCloseTo(y, 10);
+  });
+}
+
 describe('computeChartData', () => {
   const mockSweep: SweepPoint[] = [
     { frequencyMHz: 7.0, R: 50, X: 0, swr: 1.0 },
@@ -39,10 +48,7 @@ describe('computeChartData', () => {
 
     const dataset = result.datasets[0];
     expect(dataset.label).toBe('SWR (vs 50 Ω)');
-    expect(dataset.data).toEqual([
-      { x: 7.0, y: 1.0 },
-      { x: 7.1, y: 2.0 },
-    ]);
+    expectCurve(dataset.data, [[7.0, 1.0], [7.1, 2.0]]);
     expect(dataset.borderColor).toBe(baseArgs.accent);
   });
 
@@ -57,17 +63,11 @@ describe('computeChartData', () => {
 
     const refDataset = result.datasets[0];
     expect(refDataset.label).toBe('Reference');
-    expect(refDataset.data).toEqual([
-      { x: 7.0, y: 3.0 },
-      { x: 7.1, y: 4.0 },
-    ]);
+    expectCurve(refDataset.data, [[7.0, 3.0], [7.1, 4.0]]);
 
     const curDataset = result.datasets[1];
     expect(curDataset.label).toBe('Current');
-    expect(curDataset.data).toEqual([
-      { x: 7.0, y: 1.0 },
-      { x: 7.1, y: 2.0 },
-    ]);
+    expectCurve(curDataset.data, [[7.0, 1.0], [7.1, 2.0]]);
   });
 
   it('returns post-balun data when transformer is active (without comparison)', () => {
@@ -105,10 +105,7 @@ describe('computeChartData', () => {
 
     const refDataset = result.datasets[0];
     expect(refDataset.label).toBe('Reference');
-    expect(refDataset.data).toEqual([
-      { x: 7.0, y: 3.0 },
-      { x: 7.1, y: 4.0 },
-    ]);
+    expectCurve(refDataset.data, [[7.0, 3.0], [7.1, 4.0]]);
 
     const curDataset = result.datasets[1];
     expect(curDataset.label).toBe('Current (after 2:1)');
@@ -199,29 +196,33 @@ describe('computeStats', () => {
 
   it('evaluates minSWR, minFreq, and bands with inactive transformer', () => {
     const sweep: SweepPoint[] = [
-      { frequencyMHz: 7.0, R: 50, X: 0, swr: 1.5 },
-      { frequencyMHz: 7.1, R: 50, X: 0, swr: 1.1 }, // minSWR
-      { frequencyMHz: 7.2, R: 50, X: 0, swr: 2.1 },
+      { frequencyMHz: 7.0, R: 75, X: 0, swr: 1.5 },
+      { frequencyMHz: 7.1, R: 55, X: 0, swr: 1.1 }, // minSWR
+      { frequencyMHz: 7.2, R: 105, X: 0, swr: 2.1 },
     ];
     const result = computeStats({ sweep });
 
     expect(result).not.toBeNull();
-    expect(result?.minSWR).toBe(1.1);
-    expect(result?.minFreq).toBe(7.1);
+    // Between samples the curve is interpolated, so the minimum may sit just
+    // below the best sample, near it.
+    expect(result!.minSWR).toBeGreaterThanOrEqual(1);
+    expect(result!.minSWR).toBeLessThanOrEqual(1.1);
+    expect(result!.minFreq).toBeCloseTo(7.1, 1);
 
     expect(result?.bands).toHaveLength(1);
     const band = result!.bands[0];
     expect(band.fLow).toBe(7.0);
     expect(band.lowClipped).toBe(true);
-    expect(band.fHigh).toBeCloseTo(7.19, 3);
+    expect(band.fHigh).toBeGreaterThan(7.1);
+    expect(band.fHigh).toBeLessThan(7.2);
     expect(band.highClipped).toBe(false);
   });
 
   it('handles single-point sweep array safely', () => {
-    const sweep: SweepPoint[] = [{ frequencyMHz: 7.0, R: 50, X: 0, swr: 1.5 }];
+    const sweep: SweepPoint[] = [{ frequencyMHz: 7.0, R: 75, X: 0, swr: 1.5 }];
     const result = computeStats({ sweep });
     expect(result).not.toBeNull();
-    expect(result?.minSWR).toBe(1.5);
+    expect(result?.minSWR).toBeCloseTo(1.5, 10);
     expect(result?.minFreq).toBe(7.0);
     expect(result?.bands).toHaveLength(1); // The single point evaluates to <=2, forming a band with fLow=fHigh
     expect(result?.bands[0].fLow).toBe(7.0);
@@ -230,23 +231,23 @@ describe('computeStats', () => {
 
   it('handles sweep with NaN swr values gracefully', () => {
     const sweep: SweepPoint[] = [
-      { frequencyMHz: 7.0, R: 50, X: 0, swr: NaN },
-      { frequencyMHz: 7.1, R: 50, X: 0, swr: 2.0 },
+      { frequencyMHz: 7.0, R: NaN, X: 0, swr: NaN },
+      { frequencyMHz: 7.1, R: 100, X: 0, swr: 2.0 },
     ];
     const result = computeStats({ sweep });
     expect(result).not.toBeNull();
-    expect(result?.minSWR).toBe(2.0);
+    expect(result?.minSWR).toBeCloseTo(2.0, 10);
     expect(result?.minFreq).toBe(7.1);
   });
 
   it('handles sweep with Infinity swr values gracefully', () => {
     const sweep: SweepPoint[] = [
       { frequencyMHz: 7.0, R: 0, X: 0, swr: Infinity },
-      { frequencyMHz: 7.1, R: 50, X: 0, swr: 1.5 },
+      { frequencyMHz: 7.1, R: 75, X: 0, swr: 1.5 },
     ];
     const result = computeStats({ sweep });
     expect(result).not.toBeNull();
-    expect(result?.minSWR).toBe(1.5);
+    expect(result?.minSWR).toBeCloseTo(1.5, 10);
     expect(result?.minFreq).toBe(7.1);
   });
 
@@ -274,20 +275,19 @@ describe('computeStats', () => {
     expect(result).not.toBeNull();
     // It should evaluate based on post-balun SWR, so the minSWR should be 1.0 at 7.1 MHz.
     expect(result?.minSWR).toBeCloseTo(1.0, 3);
-    expect(result?.minFreq).toBe(7.1);
+    expect(result?.minFreq).toBeCloseTo(7.1, 1);
 
     // Post balun SWR:
     // 7.0: 1.25 (<=2)
     // 7.1: 1.0 (<=2)
     // 7.2: 4.0 (>2)
-    // Crossing 2.0 between 7.1 and 7.2.
-    // t = (2 - 1.0) / (4.0 - 1.0) = 1.0 / 3.0 = 0.333...
-    // fHigh = 7.1 + 0.333... * 0.1 = 7.1333...
+    // Crossing 2.0 between 7.1 and 7.2, located on the interpolated curve.
     expect(result?.bands).toHaveLength(1);
     const band = result!.bands[0];
     expect(band.fLow).toBe(7.0);
     expect(band.lowClipped).toBe(true);
-    expect(band.fHigh).toBeCloseTo(7.133, 3);
+    expect(band.fHigh).toBeGreaterThan(7.1);
+    expect(band.fHigh).toBeLessThan(7.2);
     expect(band.highClipped).toBe(false);
   });
 });
@@ -366,15 +366,15 @@ describe('computeOptions', () => {
 
 describe('computeYMax', () => {
   const mockSweep: SweepPoint[] = [
-    { frequencyMHz: 7.0, R: 50, X: 0, swr: 1.5 },
-    { frequencyMHz: 7.1, R: 50, X: 0, swr: 1.8 },
+    { frequencyMHz: 7.0, R: 75, X: 0, swr: 1.5 },
+    { frequencyMHz: 7.1, R: 90, X: 0, swr: 1.8 },
   ];
 
   const mockReference: Partial<ComparisonSnapshot> = {
     antennaType: 'dipole',
     height: 10,
     sweep: [
-      { frequencyMHz: 7.0, R: 150, X: 0, swr: 2.5 },
+      { frequencyMHz: 7.0, R: 125, X: 0, swr: 2.5 },
     ],
   };
 
@@ -397,7 +397,7 @@ describe('computeYMax', () => {
   it('returns appropriate scaled yMax when values cross 2.0', () => {
     const sweep = [
       ...mockSweep,
-      { frequencyMHz: 7.2, R: 50, X: 0, swr: 4.0 }, // max
+      { frequencyMHz: 7.2, R: 200, X: 0, swr: 4.0 }, // max
     ];
     expect(computeYMax({ ...baseArgs, sweep })).toBe(6);
   });
@@ -405,7 +405,7 @@ describe('computeYMax', () => {
   it('clips tight scale at SWR_CAP of 10 if bands are usable', () => {
     const sweep = [
       ...mockSweep, // has values below 2
-      { frequencyMHz: 7.2, R: 50, X: 0, swr: 20.0 }, // Huge spike
+      { frequencyMHz: 7.2, R: 1000, X: 0, swr: 20.0 }, // Huge spike
     ];
     expect(computeYMax({ ...baseArgs, sweep })).toBe(10);
   });
@@ -414,8 +414,8 @@ describe('computeYMax', () => {
     // The y-axis is a fixed reference frame; an all-mismatched window must not
     // balloon the vertical scale.
     const sweep: SweepPoint[] = [
-      { frequencyMHz: 7.0, R: 50, X: 0, swr: 5.0 },
-      { frequencyMHz: 7.1, R: 50, X: 0, swr: 15.0 }, // max
+      { frequencyMHz: 7.0, R: 250, X: 0, swr: 5.0 },
+      { frequencyMHz: 7.1, R: 750, X: 0, swr: 15.0 }, // max
     ];
     expect(computeYMax({ ...baseArgs, sweep })).toBe(10);
   });

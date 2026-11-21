@@ -207,4 +207,30 @@ describe('LengthControl', () => {
       expect(setLength).toHaveBeenCalledWith(expectedLength);
     });
   });
+
+  describe('Yagi', () => {
+    it('labels the driven element', () => {
+      mockAntennaStore(buildMockState({ antennaType: 'yagi', length: 20 }));
+      render(<LengthControl />);
+      expect(screen.getByText('Driven element length (m)')).toBeDefined();
+    });
+
+    it('adds a driven-element slider around the resonant length', () => {
+      const st = buildMockState({ antennaType: 'yagi', length: 20, frequency: 7.1 });
+      mockAntennaStore(st);
+      render(<LengthControl />);
+      const slider = screen.getByRole('slider', { name: 'Driven element length' }) as HTMLInputElement;
+      const resonant = (299.792458 / 7.1) * 0.4834;
+      expect(Number(slider.min)).toBeCloseTo(resonant * 0.7, 1);
+      expect(Number(slider.max)).toBeCloseTo(resonant * 1.3, 1);
+      fireEvent.change(slider, { target: { value: '21' } });
+      expect(st.setLength).toHaveBeenCalledWith(21);
+    });
+
+    it('does not show a slider for other antennas', () => {
+      mockAntennaStore(buildMockState({ antennaType: 'dipole' }));
+      render(<LengthControl />);
+      expect(screen.queryByRole('slider')).toBeNull();
+    });
+  });
 });

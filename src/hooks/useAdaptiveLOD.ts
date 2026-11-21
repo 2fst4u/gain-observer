@@ -8,6 +8,7 @@
 // Each tier carries:
 //   - mesh resolution (thetaSegments × phiSegments for the 3-D sphere)
 //   - sweep tuning (points, charPoints, maxAdaptiveIter, skipBroadScan)
+//   - how many solver workers may run in parallel (capped by the core count)
 
 import { useMemo } from 'react';
 
@@ -23,6 +24,8 @@ export interface LODConfig {
   readonly charPoints: number;
   readonly maxAdaptiveIter: number;
   readonly skipBroadScan: boolean;
+  /** Upper bound on parallel NEC workers (pattern solve + sweep slices). */
+  readonly maxWorkers: number;
 }
 
 export const LOD_TABLE: Record<LODLevel, LODConfig> = {
@@ -34,6 +37,7 @@ export const LOD_TABLE: Record<LODLevel, LODConfig> = {
     charPoints: 11,
     maxAdaptiveIter: 5,
     skipBroadScan: false,
+    maxWorkers: 6,
   },
   medium: {
     level: 'medium',
@@ -43,6 +47,7 @@ export const LOD_TABLE: Record<LODLevel, LODConfig> = {
     charPoints: 11,
     maxAdaptiveIter: 5,
     skipBroadScan: false,
+    maxWorkers: 4,
   },
   low: {
     level: 'low',
@@ -52,6 +57,7 @@ export const LOD_TABLE: Record<LODLevel, LODConfig> = {
     charPoints: 7,
     maxAdaptiveIter: 3,
     skipBroadScan: false,
+    maxWorkers: 2,
   },
   'ultra-low': {
     level: 'ultra-low',
@@ -62,6 +68,7 @@ export const LOD_TABLE: Record<LODLevel, LODConfig> = {
     maxAdaptiveIter: 2,
     // Skip the secondary full-HF-range broad scan on very constrained hardware.
     skipBroadScan: true,
+    maxWorkers: 1,
   },
 };
 

@@ -21,7 +21,9 @@ export function StatsReadout() {
     comparisonReference: reference,
     transformerEnabled,
     transformerRatio,
+    antennaType,
   } = useAntennaStore(useShallow((s) => ({
+    antennaType: s.antennaType,
     result: s.result,
     error: s.error,
     mode: s.mode,
@@ -74,6 +76,9 @@ export function StatsReadout() {
       )}
       <StatRow label="Take-off elevation" title="Elevation angle of the peak-gain direction: 0° = horizon, 90° = zenith." value={`${result.takeoffElevationDeg.toFixed(1)}°`} />
       <StatRow label="Azimuth of peak" title="Compass bearing of the peak-gain direction: 0° = North, 90° = East. (NEC solves in its own azimuth φ, measured from +X/East; this row reports the bearing.)" value={`${phiToBearingDeg(result.takeoffAzimuthDeg).toFixed(0)}°`} />
+      {antennaType === 'yagi' && result.terminationDiagnostics.frontBackDb !== null && (
+        <StatRow label="Front/back ratio" title="Peak gain minus the gain in the opposite direction (same elevation, azimuth + 180°)." value={`${result.terminationDiagnostics.frontBackDb.toFixed(1)} dB`} />
+      )}
       <StatRow label={impedanceLabel} title={impedanceTitle} value={`${displayedZ.R.toFixed(1)} ${displayedZ.X >= 0 ? '+' : '−'}j${Math.abs(displayedZ.X).toFixed(1)} Ω`} />
       <StatRow label="SWR (vs 50 Ω)" title={swrTitle} value={`${displayedSwr.toFixed(2)}:1`} valueStyle={{ color: displayedSwr > 2 ? 'var(--danger)' : displayedSwr > 1.5 ? 'var(--warning)' : 'var(--success)' }} />
       {mode === 'comparison' && reference && referenceMetrics && (

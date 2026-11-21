@@ -7,6 +7,8 @@ import {
   displayLengthUnit,
 } from '../../../physics/units';
 import { resonateTitles } from './constants';
+import { LengthSlider } from './LengthSlider';
+import { referenceLength, YAGI_DRIVEN_SLIDER_FACTORS } from '../../../physics/constants';
 
 export function LengthControl() {
   const {
@@ -41,11 +43,13 @@ export function LengthControl() {
     'vertical-whip': '¼λ',
     'inverted-l': '¼λ',
     'folded-dipole': '½λ',
+    'yagi': '½λ',
   };
 
   const isVerticalWhip = antennaType === 'vertical-whip';
   const isInvertedL = antennaType === 'inverted-l';
   const isFoldedDipole = antennaType === 'folded-dipole';
+  const isYagi = antennaType === 'yagi';
 
   const lengthLabel = isVerticalWhip
     ? `Whip length (${unit})`
@@ -53,7 +57,9 @@ export function LengthControl() {
       ? `Total wire length — vertical + horizontal (${unit})`
       : isFoldedDipole
         ? `Conductor length — ½λ each (${unit})`
-        : `Length (${unit})`;
+        : isYagi
+          ? `Driven element length (${unit})`
+          : `Length (${unit})`;
 
   return (
     <>
@@ -86,6 +92,17 @@ export function LengthControl() {
           </button>
         )}
       </div>
+      {isYagi && (
+        <LengthSlider
+          id="yagi-driven-slider"
+          label="Driven element length"
+          valueM={length}
+          minM={referenceLength('yagi', frequency) * YAGI_DRIVEN_SLIDER_FACTORS[0]}
+          maxM={referenceLength('yagi', frequency) * YAGI_DRIVEN_SLIDER_FACTORS[1]}
+          units={units}
+          onChange={setLength}
+        />
+      )}
     </>
   );
 }

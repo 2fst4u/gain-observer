@@ -1,6 +1,6 @@
-import { cleanZero, SLOPING_V_MIN_TIP_Z_M, wavelengthMeters, FEED_BRIDGE_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT } from '../physics/constants';
+import { cleanZero, YAGI_REFLECTOR_RATIO, YAGI_DIRECTOR_RATIO, YAGI_SPACING_RATIO, SLOPING_V_MIN_TIP_Z_M, wavelengthMeters, FEED_BRIDGE_LENGTH_M, VERTICAL_WHIP_BASE_GAP_M, VERTICAL_WHIP_RADIAL_COUNT } from '../physics/constants';
 import type { Wire } from '../physics/types';
-import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, DELTA_BASE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG } from '../physics/tags';
+import { MAIN_WIRE_TAG, LEFT_LEG_TAG, RIGHT_LEG_TAG, FEED_BRIDGE_TAG, DELTA_BASE_TAG, FEEDLINE_SHIELD_TAG, TERMINATED_DELTA_LEFT_BASE_TAG, TERMINATED_DELTA_RIGHT_BASE_TAG, VERTICAL_WHIP_TAG, VERTICAL_WHIP_RADIAL_TAG, INVERTED_L_VERTICAL_TAG, INVERTED_L_HORIZONTAL_TAG, INVERTED_L_RADIAL_TAG, FOLDED_DIPOLE_OPPOSITE_TAG, FOLDED_DIPOLE_CONNECTOR_TAG, YAGI_REFLECTOR_TAG, YAGI_DIRECTOR_TAG } from '../physics/tags';
 
 /** Minimum number of NEC segments per wavelength along each V leg. */
 export const SEGS_PER_WAVELENGTH = 20;
@@ -622,6 +622,8 @@ export function buildFeedlineShieldWires(
 /** Loop feeds lean this far from vertical to stay clear of the base wire. */
 const LOOP_FEEDLINE_LEAN_RAD = Math.PI / 18;
 
+export type DeltaFeed = 'apex' | 'corner';
+
 export interface DeltaLoopWiresParams {
   length: number; // perimeter
   height: number;
@@ -630,6 +632,19 @@ export interface DeltaLoopWiresParams {
   segments: number;
   frequency: number;
   feedlineShield?: FeedlineShield | null;
+  /**
+   * Feedpoint. 'apex' (default) feeds at the top; with the base below it the
+   * loop radiates mainly horizontal polarisation, mostly upwards when low.
+   * 'corner' feeds at the bottom of the left leg; the sloping legs then carry
+   * in-phase vertical current, giving vertical polarisation and a low-angle,
+   * near-omnidirectional pattern, with a ~50–70 Ω feedpoint.
+   */
+  feed?: DeltaFeed;
+}
+
+/** Height of the delta loop's base wire (and so of a corner feedpoint). */
+export function deltaLoopBaseZ(perimeter: number, height: number): number {
+  return calcDeltaLoopGeometry(perimeter, height).bottomZ;
 }
 
 function calcSegs(length: number, lambda: number, userSegments: number, overrideMinSegs?: number): number {
@@ -716,7 +731,57 @@ function calcDeltaLoopGeometry(perimeter: number, h: number) {
  *
  * Excitation is placed on the last segment of LEFT_LEG_TAG (the apex end).
  */
+/**
+ * Delta loop fed at its lower-left corner. Without a feedline the source sits
+ * on the left leg's first segment at the corner. With one, a 1-segment source
+ * bridge starts at the corner and runs up the left leg, the leg and base are
+ * graded down to it, and the coax shield hangs from the corner.
+ */
+function buildCornerFedDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
+  const perimeter = params.length;
+  const h = params.height;
+  const [dx, dy] = orientationVector(params.orientation);
+  const { bottomZ, legLength, halfBase } = calcDeltaLoopGeometry(perimeter, h);
+  const apex: [number, number, number] = [0, 0, h];
+  const leftCorner: [number, number, number] = [cleanZero(-halfBase * dx), cleanZero(-halfBase * dy), bottomZ];
+  const rightCorner: [number, number, number] = [cleanZero(halfBase * dx), cleanZero(halfBase * dy), bottomZ];
+  const lambda = wavelengthMeters(params.frequency);
+  const segmentsPerLeg = calcSegs(legLength, lambda, params.segments / 3);
+  const rawBaseSegs = calcSegs(halfBase * 2, lambda, params.segments / 3);
+  const baseSegments = rawBaseSegs % 2 === 0 ? rawBaseSegs + 1 : rawBaseSegs;
+  const rightLeg: Wire = { start: apex, end: rightCorner, radius: params.wireRadius, segments: segmentsPerLeg, tag: RIGHT_LEG_TAG };
+
+  if (!params.feedlineShield) {
+    return [
+      { start: leftCorner, end: apex, radius: params.wireRadius, segments: segmentsPerLeg, tag: LEFT_LEG_TAG },
+      rightLeg,
+      { start: leftCorner, end: rightCorner, radius: params.wireRadius, segments: baseSegments, tag: DELTA_BASE_TAG },
+    ];
+  }
+
+  const t = Math.min(FEED_BRIDGE_LENGTH_M, legLength / 4) / legLength;
+  const bridgeTop: [number, number, number] = [
+    cleanZero(leftCorner[0] + (apex[0] - leftCorner[0]) * t),
+    cleanZero(leftCorner[1] + (apex[1] - leftCorner[1]) * t),
+    leftCorner[2] + (apex[2] - leftCorner[2]) * t,
+  ];
+  return [
+    ...buildGradedStraightWires({
+      bridgeEnd: bridgeTop, farEnd: apex, wireRadius: params.wireRadius, tag: LEFT_LEG_TAG,
+      maxSegLen: legLength / segmentsPerLeg, emitFromFarEnd: false,
+    }),
+    rightLeg,
+    ...buildGradedStraightWires({
+      bridgeEnd: leftCorner, farEnd: rightCorner, wireRadius: params.wireRadius, tag: DELTA_BASE_TAG,
+      maxSegLen: (halfBase * 2) / baseSegments, emitFromFarEnd: false,
+    }),
+    { start: leftCorner, end: bridgeTop, radius: params.wireRadius, segments: 1, tag: FEED_BRIDGE_TAG },
+    ...buildFeedlineShieldWires(leftCorner, [dx, dy], params.feedlineShield, LOOP_FEEDLINE_LEAN_RAD),
+  ];
+}
+
 export function buildDeltaLoopWires(params: DeltaLoopWiresParams): Wire[] {
+  if (params.feed === 'corner') return buildCornerFedDeltaLoopWires(params);
   const perimeter = params.length;
   const h = params.height;
   const [dx, dy] = orientationVector(params.orientation);
@@ -1502,6 +1567,70 @@ export function buildDipoleWires(params: DipoleWiresParams): Wire[] {
       tag: FEED_BRIDGE_TAG,
     },
   ];
+}
+
+export interface YagiWiresParams {
+  /** Driven element length; every other dimension is a fixed ratio of it. */
+  length: number;
+  height: number;
+  /** Beam heading (compass degrees or preset): the direction the director points. */
+  orientation: Orientation;
+  wireRadius: number;
+  segments: number;
+  layout: DipoleWiresParams['layout'];
+  /** Reflector length ÷ driven length (default YAGI_REFLECTOR_RATIO). */
+  reflectorRatio?: number;
+  /** Director length ÷ driven length (default YAGI_DIRECTOR_RATIO). */
+  directorRatio?: number;
+}
+
+/**
+ * 3-element horizontal wire Yagi: reflector, driven element, director, all
+ * parallel at `height`. Only the driven element is fed (built exactly like the
+ * dipole, so the feedline, choke and coax shield attach the same way). The
+ * reflector and director are unbroken, unconnected wires.
+ *
+ * `orientation` is the beam heading. The elements lie perpendicular to it;
+ * the reflector sits one spacing behind the driven element and the director
+ * one spacing in front.
+ */
+export function buildYagiWires(params: YagiWiresParams): Wire[] {
+  const { length, height: h, orientation, wireRadius, segments, layout } = params;
+  const reflectorRatio = params.reflectorRatio ?? YAGI_REFLECTOR_RATIO;
+  const directorRatio = params.directorRatio ?? YAGI_DIRECTOR_RATIO;
+  const headingDeg = typeof orientation === 'number' ? orientation : orientationHeadingDeg(orientation);
+  const [bx, by] = orientationVector(headingDeg);
+  const [ex, ey] = orientationVector(headingDeg + 90);
+  const spacing = length * YAGI_SPACING_RATIO;
+  const density = segments / length;
+
+  const parasite = (offset: number, ratio: number, tag: number): Wire => {
+    const half = (length * ratio) / 2;
+    const cx = offset * bx;
+    const cy = offset * by;
+    return {
+      start: [cleanZero(cx - half * ex), cleanZero(cy - half * ey), h],
+      end: [cleanZero(cx + half * ex), cleanZero(cy + half * ey), h],
+      radius: wireRadius,
+      segments: Math.max(3, oddRound(length * ratio * density)),
+      tag,
+    };
+  };
+
+  return [
+    ...buildDipoleWires({ length, height: h, orientation: headingDeg + 90, wireRadius, segments, layout }),
+    parasite(-spacing, reflectorRatio, YAGI_REFLECTOR_TAG),
+    parasite(spacing, directorRatio, YAGI_DIRECTOR_TAG),
+  ];
+}
+
+function orientationHeadingDeg(o: OrientationPreset): number {
+  switch (o) {
+    case 'NS': return 0;
+    case 'EW': return 90;
+    case 'NE-SW': return 45;
+    case 'NW-SE': return 315;
+  }
 }
 
 function oddRound(v: number): number {
