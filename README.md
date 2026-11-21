@@ -41,3 +41,4 @@ that reader in mind.
 
 It is GPL v3 because it statically links `nec2c` (by N. Kyriazis), which is
 itself GPL v3. See LICENSE for the full text.
+
