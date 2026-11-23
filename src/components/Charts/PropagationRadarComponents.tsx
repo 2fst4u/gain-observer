@@ -1,11 +1,15 @@
+import type { JSX } from "react";
 import type { PropagationPrediction } from "../../physics/propagation";
+import { COVERAGE_BINS } from "../../physics/coverage";
 import type { UnitSystem } from "../../physics/units";
 import {
   buildAzimuthalSegments,
   formatDistance,
   hasHalfPowerBeam,
-  HOP_STYLES,
   hopStyle,
+  ringSectorPath,
+  STRENGTH_BANDS,
+  strengthBand,
   KM_PER_MILE,
   niceGridStep,
   ringLabelAnchor,
@@ -251,29 +255,77 @@ export function RadarHopRings({
   return <>{hopRings}</>;
 }
 
-const HOP_NAMES = ['1 hop', '2 hops', '3 hops'];
+/**
+ * Shaded relative power density. Adjacent range bins of one bearing in the
+ * same band are merged into one ring sector, so the SVG stays small.
+ */
+export function RadarCoverage({
+  prediction,
+  cx,
+  cy,
+  kmToPx,
+  units,
+}: {
+  readonly prediction: PropagationPrediction;
+  readonly cx: number;
+  readonly cy: number;
+  readonly kmToPx: number;
+  readonly units: UnitSystem;
+}) {
+  const map = prediction.coverage;
+  if (!map) return null;
+  // Sectors overlap slightly to hide anti-aliasing seams. Each band is one
+  // group with the opacity on the group, so overlaps composite once and do
+  // not show as darker lines.
+  const half = map.sectorWidthDeg / 2 + 0.35;
+  const seamPx = 0.6;
+  const byBand: JSX.Element[][] = STRENGTH_BANDS.map(() => []);
+  map.bearingsDeg.forEach((bearing, si) => {
+    let bin = 0;
+    while (bin < COVERAGE_BINS) {
+      const band = strengthBand(map.relativeDb[si * COVERAGE_BINS + bin]!);
+      let end = bin + 1;
+      while (end < COVERAGE_BINS && strengthBand(map.relativeDb[si * COVERAGE_BINS + end]!) === band) end++;
+      if (band >= 0) {
+        let strongest = -Infinity;
+        for (let b = bin; b < end; b++) strongest = Math.max(strongest, map.relativeDb[si * COVERAGE_BINS + b]!);
+        byBand[band]!.push(
+          <path
+            key={`${si}-${bin}`}
+            d={ringSectorPath(cx, cy, Math.max(0, bin * map.binKm * kmToPx - seamPx), end * map.binKm * kmToPx, bearing - half, bearing + half)}
+          >
+            <title>{`Bearing ${bearing.toFixed(0)}°, ${formatDistance(bin * map.binKm, units)}–${formatDistance(end * map.binKm, units)}: up to ${strongest.toFixed(1)} dB relative to the strongest point`}</title>
+          </path>,
+        );
+      }
+      bin = end;
+    }
+  });
+  return (
+    <g>
+      {/* Weakest first so stronger bands draw over their seams. */}
+      {STRENGTH_BANDS.map((style, band) => ({ style, band })).reverse().map(({ style, band }) => (
+        <g key={band} fill={style.fill} opacity={style.opacity} stroke="none">{byBand[band]}</g>
+      ))}
+    </g>
+  );
+}
 
 export function RadarLegend() {
   return (
     <figcaption style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-      <span style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {HOP_STYLES.map((style, i) => (
-          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <svg width={18} height={8} aria-hidden="true">
-              <line x1={1} y1={4} x2={17} y2={4} stroke={style.stroke} strokeOpacity={style.opacity} strokeWidth={style.width} />
+      <span style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {STRENGTH_BANDS.map((band) => (
+          <span key={band.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <svg width={12} height={10} aria-hidden="true">
+              <rect width={12} height={10} rx={2} fill={band.fill} fillOpacity={band.opacity} />
             </svg>
-            {HOP_NAMES[i]}
+            {band.label}
           </span>
         ))}
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <svg width={18} height={8} aria-hidden="true">
-            <line x1={1} y1={4} x2={17} y2={4} stroke="var(--success)" strokeWidth={1.25} strokeDasharray="3 3" />
-          </svg>
-          skip zone edge
-        </span>
       </span>
       <br />
-      Where the half-power beam's rays land. Each extra hop adds a ground reflection and more absorption, so is weaker: colours rank the hops, not signal level · no signal forecast
+      Relative signal strength on the ground: dB below the strongest point, all rays over 1–3 hops. Lines mark the half-power beam's reach (1×, 2×, 3×). D-layer absorption is not included · no absolute signal level
     </figcaption>
   );
 }

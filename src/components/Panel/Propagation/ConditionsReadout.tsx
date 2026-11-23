@@ -109,10 +109,12 @@ export function ConditionsReadout({ prediction, ionosphereStatus, haveTakeoff, u
         <p>The ionosphere is the International Reference Ionosphere (IRI) monthly median above your location: F2 peak from the URSI-88 and CCIR maps, F1 and E layers from IRI's formulas, joined as Epstein layers (computed in your browser with a port of PyIRI). Solar activity is the 12-month smoothed F10.7 flux from NOAA SWPC.</p>
         <ul style={{ paddingLeft: 18 }}>
           <li>Rays are traced through that profile at the operating frequency, curved Earth included. A ray either turns and returns or passes through.</li>
-          <li>The plot traces, per bearing, the nearest and farthest landing points of the returning rays within 3 dB of the pattern's peak gain (the half-power beam). A dashed inner outline marks a skip zone; a bearing whose beam passes through sits at the centre.</li>
+          <li>The shading is relative signal strength on the ground: for every returning ray of the antenna pattern, the power radiated into it is spread over the ground where it lands (so it concentrates near the skip distance and thins with range), summed over 1–3 hops, and shown in dB below the strongest point. Each later hop loses power to reflection from the configured ground (Fresnel coefficients, averaged over polarisation).</li>
+          <li>Lines mark where the half-power beam (within 3 dB of the pattern's peak) reaches after 1–3 hops; a dashed inner line marks a skip zone.</li>
+          <li>D-layer absorption is not included, so on the lower bands in daytime, low-angle and multi-hop paths are shown stronger than they are. There is no absolute signal level: that needs transmitter power and the receiving side.</li>
           <li>Monthly median: on a given day foF2 commonly differs by 15–20%, more during storms. Sporadic E is not modelled.</li>
           <li>The ordinary wave without the geomagnetic field. The extraordinary wave reflects up to about half the gyrofrequency (roughly 0.5–0.8 MHz) higher.</li>
-          <li>The ionosphere above the station is assumed along the whole path, and each later hop repeats the first. Ground-reflection, D-layer absorption and other losses are not calculated.</li>
+          <li>The ionosphere above the station is assumed along the whole path, and each later hop repeats the first.</li>
           <li>Antenna gain is relative to isotropic radiation. It cannot establish signal usability without transmitter power, path loss, receiving antenna and noise.</li>
         </ul>
       </div>

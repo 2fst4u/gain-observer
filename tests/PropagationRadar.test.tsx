@@ -7,12 +7,12 @@ describe('PropagationRadar', () => {
   it('draws unfilled landing arcs and identifies that signal is not calculated', () => {
     const { container } = render(<PropagationRadar prediction={makePropagationPrediction()} units="metric" size={300} />);
     expect(screen.getByRole('img', { name: /landing distance radar plot/i })).toBeTruthy();
-    expect(screen.getByText(/no signal forecast/)).toBeDefined();
-    const arc = Array.from(container.querySelectorAll('circle')).find((element) => element.getAttribute('stroke') === 'var(--success)');
+    expect(screen.getByText(/no absolute signal level/)).toBeDefined();
+    const arc = Array.from(container.querySelectorAll('circle')).find((element) => element.getAttribute('stroke') === 'var(--text)');
     expect(arc?.getAttribute('fill')).toBe('none');
   });
 
-  it('draws the East lobe on the right using compass bearings, without filled coverage wedges', () => {
+  it('draws the East lobe on the right using compass bearings, with no shading when there is no coverage map', () => {
     const prediction = makePropagationPrediction({
       hops: [makeHop({ rangeKm: 4000 })],
       azimuthalHops: [
@@ -23,9 +23,10 @@ describe('PropagationRadar', () => {
       ],
     });
     const { container } = render(<PropagationRadar prediction={prediction} units="metric" size={300} />);
-    const arcs = Array.from(container.querySelector('svg[role="img"]')!.querySelectorAll('line')).filter((line) => line.getAttribute('stroke') === 'var(--success)');
+    const arcs = Array.from(container.querySelector('svg[role="img"]')!.querySelectorAll('line')).filter((line) => line.getAttribute('stroke') === 'var(--text)');
     expect(arcs).toHaveLength(4);
     expect(container.querySelectorAll('polygon')).toHaveLength(0);
+    expect(container.querySelectorAll('path')).toHaveLength(0);
     const points = arcs.flatMap((line) => [[Number(line.getAttribute('x1')), Number(line.getAttribute('y1'))], [Number(line.getAttribute('x2')), Number(line.getAttribute('y2'))]]);
     const far = points.reduce((a, b) => Math.hypot(b[0]! - 150, b[1]! - 150) > Math.hypot(a[0]! - 150, a[1]! - 150) ? b : a);
     expect(far[0]! - 150).toBeGreaterThan(50);

@@ -17,16 +17,40 @@ export function formatDistance(km: number, units: UnitSystem): string {
 type AzimuthalHop = NonNullable<PropagationPrediction["azimuthalHops"]>[number];
 
 /**
- * Outline style per hop count. Each extra hop adds a ground reflection and
- * another pass through the absorbing lower ionosphere over a longer path, so
- * later hops are weaker: green, amber, red, drawn progressively thinner and
- * fainter. This ranks the hops; it is not a computed signal level.
+ * Outline style per hop count: neutral, so colour is reserved for the
+ * strength shading, and progressively fainter for later hops.
  */
 export const HOP_STYLES: readonly { stroke: string; opacity: number; width: number }[] = [
-  { stroke: "var(--success)", opacity: 0.95, width: 2.25 },
-  { stroke: "var(--warning)", opacity: 0.8, width: 1.75 },
-  { stroke: "var(--danger)", opacity: 0.65, width: 1.25 },
+  { stroke: "var(--text)", opacity: 0.85, width: 1.5 },
+  { stroke: "var(--text)", opacity: 0.6, width: 1.25 },
+  { stroke: "var(--text)", opacity: 0.4, width: 1 },
 ];
+
+/** Shading bands for relative power density, strongest first. */
+export const STRENGTH_BANDS: readonly { minDb: number; fill: string; opacity: number; label: string }[] = [
+  { minDb: -6, fill: "var(--success)", opacity: 0.85, label: "0–6" },
+  { minDb: -12, fill: "var(--success)", opacity: 0.5, label: "6–12" },
+  { minDb: -18, fill: "var(--warning)", opacity: 0.55, label: "12–18" },
+  { minDb: -24, fill: "var(--danger)", opacity: 0.5, label: "18–24" },
+  { minDb: -30, fill: "var(--danger)", opacity: 0.22, label: "24–30 dB down" },
+];
+
+/** Index into STRENGTH_BANDS, or -1 below the weakest band. */
+export function strengthBand(relativeDb: number): number {
+  return STRENGTH_BANDS.findIndex((band) => relativeDb >= band.minDb);
+}
+
+/** SVG path of a ring sector on the compass plot (0° up, clockwise). */
+export function ringSectorPath(cx: number, cy: number, r1: number, r2: number, fromDeg: number, toDeg: number): string {
+  const at = (r: number, deg: number) => {
+    const rad = deg * DEG_TO_RAD;
+    return `${(cx + r * Math.sin(rad)).toFixed(2)} ${(cy - r * Math.cos(rad)).toFixed(2)}`;
+  };
+  const large = toDeg - fromDeg > 180 ? 1 : 0;
+  const outer = `M ${at(r2, fromDeg)} A ${r2.toFixed(2)} ${r2.toFixed(2)} 0 ${large} 1 ${at(r2, toDeg)}`;
+  if (r1 <= 0) return `${outer} L ${cx.toFixed(2)} ${cy.toFixed(2)} Z`;
+  return `${outer} L ${at(r1, toDeg)} A ${r1.toFixed(2)} ${r1.toFixed(2)} 0 ${large} 0 ${at(r1, fromDeg)} Z`;
+}
 
 export function hopStyle(ringN: number) {
   return HOP_STYLES[Math.min(HOP_STYLES.length, Math.max(1, ringN)) - 1]!;
@@ -103,6 +127,7 @@ export function calculateMaxRangeKm(prediction: PropagationPrediction): number {
       }
     }
   }
+  if (prediction.coverage) maxRangeKm = Math.max(maxRangeKm, prediction.coverage.maxRangeKm);
   // Keep a readable scale when little or nothing returns.
   return Math.max(MIN_PLOT_RANGE_KM, maxRangeKm);
 }
@@ -112,6 +137,7 @@ export const MIN_PLOT_RANGE_KM = 200;
 
 /** True when no plotted ray returns at all at this frequency. */
 export function nothingReturns(prediction: PropagationPrediction): boolean {
+  if (prediction.coverage) return false;
   const az = prediction.azimuthalHops;
   if (az && az.length > 1) {
     return hasHalfPowerBeam(az)

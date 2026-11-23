@@ -2,10 +2,13 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   RadarGrid,
+  RadarCoverage,
   RadarHopRings,
   RadarLabels,
   RadarLegend,
 } from '../src/components/Charts/PropagationRadarComponents';
+import { STRENGTH_BANDS, strengthBand } from '../src/components/Charts/propagationRadarUtils';
+import { COVERAGE_BINS } from '../src/physics/coverage';
 import type { PropagationPrediction } from '../src/physics/propagation';
 import {
   makeAzimuthalHop,
@@ -185,15 +188,15 @@ describe('PropagationRadarComponents', () => {
       // Rings rendered in reverse order (k = 1, then k = 0)
       const ringHop2 = circles[0];
       expect(ringHop2?.getAttribute('r')).toBe('100'); // 2000 * 0.05
-      expect(ringHop2?.getAttribute('stroke')).toBe('var(--warning)');
-      expect(ringHop2?.getAttribute('stroke-opacity')).toBe('0.8');
+      expect(ringHop2?.getAttribute('stroke')).toBe('var(--text)');
+      expect(ringHop2?.getAttribute('stroke-opacity')).toBe('0.6');
       expect(ringHop2?.getAttribute('stroke-dasharray')).toBeNull();
       expect(ringHop2?.getAttribute('fill')).toBe('none');
 
       const ringHop1 = circles[1];
       expect(ringHop1?.getAttribute('r')).toBe('50'); // 1000 * 0.05
-      expect(ringHop1?.getAttribute('stroke')).toBe('var(--success)');
-      expect(ringHop1?.getAttribute('stroke-opacity')).toBe('0.95');
+      expect(ringHop1?.getAttribute('stroke')).toBe('var(--text)');
+      expect(ringHop1?.getAttribute('stroke-opacity')).toBe('0.85');
       expect(ringHop1?.getAttribute('stroke-dasharray')).toBeNull();
       expect(ringHop1?.getAttribute('fill')).toBe('none');
     });
@@ -272,27 +275,57 @@ describe('PropagationRadarComponents', () => {
     });
   });
 
-  describe('RadarLegend', () => {
-    it('describes landing distances without implying coverage or received signal', () => {
-      const { container } = render(<RadarLegend />);
+  describe('RadarCoverage', () => {
+    // Two sectors (N and S at 180° width), strongest near the centre.
+    function coverage() {
+      const relativeDb = new Float64Array(2 * COVERAGE_BINS).fill(-Infinity);
+      for (let bin = 0; bin < 10; bin++) relativeDb[bin] = -bin * 3; // 0 … −27 dB
+      relativeDb[COVERAGE_BINS + 5] = -40; // below the floor: not drawn
+      return {
+        maxRangeKm: 6400, binKm: 100, bearingsDeg: [0, 180], sectorWidthDeg: 180,
+        relativeDb, dominantHops: new Uint8Array(2 * COVERAGE_BINS), peakDensity: 1,
+      };
+    }
 
+    it('shades bins by strength band, merging runs and skipping cells below the floor', () => {
+      const prediction = makePropagationPrediction({ coverage: coverage() });
+      const { container } = render(<svg><RadarCoverage prediction={prediction} cx={150} cy={150} kmToPx={0.02} units="metric" /></svg>);
+      const groups = Array.from(container.querySelectorAll('g > g'));
+      // Weakest band first; each band's opacity is on its group.
+      expect(groups.map((g) => g.getAttribute('fill'))).toEqual(STRENGTH_BANDS.map((b) => b.fill).reverse());
+      expect(groups.map((g) => Number(g.getAttribute('opacity')))).toEqual(STRENGTH_BANDS.map((b) => b.opacity).reverse());
+      // 0,−3,−6 | −9,−12 | −15,−18 | −21,−24 | −27: one merged path per band, North sector only.
+      const paths = Array.from(container.querySelectorAll('path'));
+      expect(paths).toHaveLength(5);
+      const strongest = groups[groups.length - 1]!.querySelector('path')!;
+      expect(strongest.querySelector('title')!.textContent).toBe('Bearing 0°, 0 km–300 km: up to 0.0 dB relative to the strongest point');
+    });
+
+    it('bands relative strength from strongest to weakest', () => {
+      expect([0, -5.9, -6, -11, -17, -23, -29.9, -30, -31].map(strengthBand)).toEqual([0, 0, 0, 1, 2, 3, 4, 4, -1]);
+    });
+
+    it('draws nothing without a coverage map', () => {
+      const { container } = render(<svg><RadarCoverage prediction={makePropagationPrediction()} cx={150} cy={150} kmToPx={0.02} units="metric" /></svg>);
+      expect(container.querySelectorAll('path')).toHaveLength(0);
+    });
+  });
+
+  describe('RadarLegend', () => {
+    it('explains relative strength without implying an absolute signal level', () => {
+      const { container } = render(<RadarLegend />);
       const caption = container.querySelector('figcaption')!.textContent!;
-      expect(caption).toContain('1 hop2 hops3 hopsskip zone edge');
-      expect(caption).toContain('colours rank the hops, not signal level');
-      expect(caption).toContain('no signal forecast');
+      expect(caption).toContain('dB below the strongest point');
+      expect(caption).toContain('D-layer absorption is not included');
+      expect(caption).toContain('no absolute signal level');
       expect(screen.queryByText(/Open|Marginal|Closed|weak signal/)).toBeNull();
     });
 
-    it('colours later hops progressively weaker: green, amber, red', () => {
+    it('shows a swatch per strength band, strongest first', () => {
       const { container } = render(<RadarLegend />);
-      const swatches = Array.from(container.querySelectorAll('line')).slice(0, 3);
-      expect(swatches.map((line) => line.getAttribute('stroke'))).toEqual(['var(--success)', 'var(--warning)', 'var(--danger)']);
-      const opacity = swatches.map((line) => Number(line.getAttribute('stroke-opacity')));
-      const width = swatches.map((line) => Number(line.getAttribute('stroke-width')));
-      expect(opacity[0]).toBeGreaterThan(opacity[1]!);
-      expect(opacity[1]).toBeGreaterThan(opacity[2]!);
-      expect(width[0]).toBeGreaterThan(width[1]!);
-      expect(width[1]).toBeGreaterThan(width[2]!);
+      const swatches = Array.from(container.querySelectorAll('rect'));
+      expect(swatches.map((r) => r.getAttribute('fill'))).toEqual(STRENGTH_BANDS.map((b) => b.fill));
+      expect(swatches[0]!.getAttribute('fill')).toBe('var(--success)');
     });
   });
 });

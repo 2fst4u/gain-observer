@@ -179,21 +179,31 @@ arc on a 6371 km Earth. For a thin dense layer this reduces to specular
 reflection, `2R[π/2−ε−asin(R cosε/(R+h))]`, and to the curved-Earth secant law;
 both are tested (`tests/raytrace.test.ts`).
 
-**What the view shows.** Per bearing, the strongest lobe and the half-power
-beam (gain within 3 dB of the pattern's peak) are taken from the NEC pattern.
-The outline follows the farthest landing point of the beam's returning rays for
-1–3 hops; a dashed inner outline marks the nearest (a skip zone); a bearing
-whose beam passes through sits at the centre. The readout gives foF2, hmF2,
-foF1, foE, whether near-vertical rays return (frequency below the profile's
-peak plasma frequency), and the strongest lobe's MUF (highest returning
-frequency at its elevation).
+**What the view shows.** The shading is relative power density on the ground
+(`src/physics/coverage.ts`). For every pattern bearing and every traced ray
+that returns, the power radiated into the ray's elevation band,
+G(ε)·cos ε·Δε·Δφ/4π, is spread evenly over the stretch of ground it lands on
+after n hops, [n·D(ε), n·D(ε+Δε)], and accumulated into range bins whose
+spherical-Earth area normalises it to a density: the ray-tube spreading, which
+concentrates power near the skip distance and thins it with range. Each hop
+after the first multiplies by the ground's power reflection coefficient at the
+ray's grazing angle (Fresnel, complex permittivity εr − j60λσ, mean of
+horizontal and vertical polarisation; average ground when the antenna is in
+free space). Hops 1–3 are summed and shown in 6 dB bands below the strongest
+cell, down to −30 dB. Landed power equals radiated power to 1e-4 in the tests.
+Lines mark where the half-power beam (gain within 3 dB of the pattern's peak)
+reaches after 1–3 hops; a dashed inner line marks a skip zone. The readout
+gives foF2, hmF2, foF1, foE, whether near-vertical rays return (frequency below
+the profile's peak plasma frequency), and the strongest lobe's MUF.
 
 **Not modelled.** Day-to-day departures from the monthly median (typically
 15–20% in foF2, more in storms) and sporadic E; the geomagnetic field, so only
 the ordinary wave (the extraordinary wave reflects up to about fH/2 higher);
 horizontal gradients (the station's profile is used along the whole path, and
-later hops repeat the first); ground-reflection and D-layer absorption losses,
-noise, and any link budget. There is no received SNR, LUF or availability.
+later hops repeat the first); D-layer absorption (no sourced quiet-day model is
+used, so low-band daytime low-angle and multi-hop paths are shown too strong);
+noise and any link budget. The shading is relative only: there is no absolute
+field strength, received SNR, LUF or availability.
 
 ## Validation boundaries
 

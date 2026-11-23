@@ -1,5 +1,6 @@
-// Top-down outline of where an antenna's rays land after 1–3 hops through the
-// modelled ionosphere. Outlines are landing distances, not coverage regions.
+// Top-down view of where an antenna's rays land after 1–3 hops through the
+// modelled ionosphere: shaded by relative power density on the ground, with
+// outlines for the half-power beam's reach.
 
 import type { PropagationPrediction } from "../../physics/propagation";
 import type { UnitSystem } from "../../physics/units";
@@ -8,6 +9,7 @@ import {
   RadarGrid,
   RadarHopRings,
   RadarLabels,
+  RadarCoverage,
   RadarLegend,
 } from "./PropagationRadarComponents";
 
@@ -60,7 +62,9 @@ export function PropagationRadar({
           units={units}
         />
 
-        {/* Unfilled outlines show geometric arcs without implying coverage. */}
+        <RadarCoverage prediction={prediction} cx={cx} cy={cy} kmToPx={kmToPx} units={units} />
+
+        {/* Outlines: where the half-power beam reaches after 1–3 hops. */}
         <RadarHopRings
           prediction={prediction}
           cx={cx}

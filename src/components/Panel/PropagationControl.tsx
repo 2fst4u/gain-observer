@@ -29,6 +29,8 @@ export function PropagationControl() {
     utcHourOverride: s.utcHourOverride,
     result: s.result,
     units: s.units,
+    groundSigma: s.groundSigma,
+    groundEpsilon: s.groundEpsilon,
   })));
   const feedMetrics = useLiveFeedMetrics().metrics;
   const [f107Override, setF107Override] = useState<number | null>(null);
@@ -55,7 +57,9 @@ export function PropagationControl() {
     takeoffElevationDeg: result?.takeoffElevationDeg ?? 30,
     pattern: result?.pattern,
     realizedGainOffsetDb,
-  }), [layers, state.frequency, result?.takeoffElevationDeg, result?.pattern, realizedGainOffsetDb]);
+    ground: { sigma: state.groundSigma, epsilon: state.groundEpsilon },
+  }), [layers, state.frequency, result?.takeoffElevationDeg, result?.pattern, realizedGainOffsetDb,
+    state.groundSigma, state.groundEpsilon]);
 
   return (
     <section className="panel-section">

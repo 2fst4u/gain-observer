@@ -10,6 +10,7 @@
 // circuit availability or signal level is claimed.
 
 import { phiToBearingDeg } from './angles';
+import { AVERAGE_GROUND, computeCoverage, type CoverageMap, type GroundConstants } from './coverage';
 import type { LayerParameters } from './ionosphere/iri';
 import { plasmaFrequencyMHz } from './ionosphere/iri';
 import {
@@ -33,6 +34,9 @@ export interface PropagationInputs {
    * Undefined means realized gain is unavailable; -Infinity means zero
    * available power is delivered. This does not change the selected ray. */
   readonly realizedGainOffsetDb?: number;
+  /** Ground at the reflection points of later hops. Free space (εr = 1,
+   * σ = 0) has no ground, so average ground is used instead. */
+  readonly ground?: GroundConstants;
 }
 
 export interface HopPrediction {
@@ -62,6 +66,8 @@ export interface PropagationPrediction {
   readonly realizedGainOffsetDb?: number;
   /** Mid-month solar zenith at the station at this UT. */
   readonly solarZenithDeg: number;
+  /** Relative power density over bearing and ground range (all rays, 1–3 hops). */
+  readonly coverage?: CoverageMap;
   readonly azimuthalHops?: {
     readonly phiDeg: number;
     readonly bearingDeg: number;
@@ -218,7 +224,13 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
   const selected = rayAt(fan, selectedTakeoffElevationDeg);
   let peakFN2 = 0;
   for (const v of profile.fN2) peakFN2 = Math.max(peakFN2, v);
+  const g = input.ground;
+  const ground = g && typeof g.sigma === 'number' && !Number.isNaN(g.sigma) && Number.isFinite(g.epsilon) &&
+    !(g.sigma === 0 && g.epsilon <= 1) ? g : AVERAGE_GROUND;
+  const coverage = pattern && pattern.dTheta > 0 && pattern.dPhi > 0
+    ? computeCoverage(pattern, fan, input.frequencyMHz, ground, MAX_HOPS) : undefined;
   return {
+    coverage,
     frequencyMHz: input.frequencyMHz,
     layers: input.layers,
     verticalCriticalMHz: Math.sqrt(peakFN2),
