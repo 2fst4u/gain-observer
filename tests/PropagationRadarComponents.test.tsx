@@ -185,13 +185,15 @@ describe('PropagationRadarComponents', () => {
       // Rings rendered in reverse order (k = 1, then k = 0)
       const ringHop2 = circles[0];
       expect(ringHop2?.getAttribute('r')).toBe('100'); // 2000 * 0.05
-      expect(ringHop2?.getAttribute('stroke-opacity')).toBe('0.75');
+      expect(ringHop2?.getAttribute('stroke')).toBe('var(--warning)');
+      expect(ringHop2?.getAttribute('stroke-opacity')).toBe('0.8');
       expect(ringHop2?.getAttribute('stroke-dasharray')).toBeNull();
       expect(ringHop2?.getAttribute('fill')).toBe('none');
 
       const ringHop1 = circles[1];
       expect(ringHop1?.getAttribute('r')).toBe('50'); // 1000 * 0.05
-      expect(ringHop1?.getAttribute('stroke-opacity')).toBe('0.75');
+      expect(ringHop1?.getAttribute('stroke')).toBe('var(--success)');
+      expect(ringHop1?.getAttribute('stroke-opacity')).toBe('0.95');
       expect(ringHop1?.getAttribute('stroke-dasharray')).toBeNull();
       expect(ringHop1?.getAttribute('fill')).toBe('none');
     });
@@ -274,9 +276,23 @@ describe('PropagationRadarComponents', () => {
     it('describes landing distances without implying coverage or received signal', () => {
       const { container } = render(<RadarLegend />);
 
-      expect(container.querySelector('figcaption')?.textContent)
-        .toBe('Where the half-power beam\'s rays land · IRI monthly median · no signal forecast');
+      const caption = container.querySelector('figcaption')!.textContent!;
+      expect(caption).toContain('1 hop2 hops3 hopsskip zone edge');
+      expect(caption).toContain('colours rank the hops, not signal level');
+      expect(caption).toContain('no signal forecast');
       expect(screen.queryByText(/Open|Marginal|Closed|weak signal/)).toBeNull();
+    });
+
+    it('colours later hops progressively weaker: green, amber, red', () => {
+      const { container } = render(<RadarLegend />);
+      const swatches = Array.from(container.querySelectorAll('line')).slice(0, 3);
+      expect(swatches.map((line) => line.getAttribute('stroke'))).toEqual(['var(--success)', 'var(--warning)', 'var(--danger)']);
+      const opacity = swatches.map((line) => Number(line.getAttribute('stroke-opacity')));
+      const width = swatches.map((line) => Number(line.getAttribute('stroke-width')));
+      expect(opacity[0]).toBeGreaterThan(opacity[1]!);
+      expect(opacity[1]).toBeGreaterThan(opacity[2]!);
+      expect(width[0]).toBeGreaterThan(width[1]!);
+      expect(width[1]).toBeGreaterThan(width[2]!);
     });
   });
 });

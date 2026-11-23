@@ -4,6 +4,8 @@ import {
   buildAzimuthalSegments,
   formatDistance,
   hasHalfPowerBeam,
+  HOP_STYLES,
+  hopStyle,
   KM_PER_MILE,
   niceGridStep,
   ringLabelAnchor,
@@ -168,7 +170,8 @@ export function RadarLabels({
               x={cx + r * Math.sin(rad) + 3}
               y={cy - r * Math.cos(rad) + 4}
               fontSize={10}
-              fill="var(--text-dim)"
+              fontWeight={600}
+              fill={hopStyle(ring.n).stroke}
               fontFamily="system-ui, sans-serif"
               textAnchor="start"
               {...LABEL_HALO}
@@ -238,9 +241,9 @@ export function RadarHopRings({
           cy={cy}
           r={ring.rangeKm * kmToPx}
           fill="none"
-          stroke="var(--accent)"
-          strokeOpacity={0.75}
-          strokeWidth={2}
+          stroke={hopStyle(ring.n).stroke}
+          strokeOpacity={hopStyle(ring.n).opacity}
+          strokeWidth={hopStyle(ring.n).width}
         />,
       );
     }
@@ -248,6 +251,29 @@ export function RadarHopRings({
   return <>{hopRings}</>;
 }
 
+const HOP_NAMES = ['1 hop', '2 hops', '3 hops'];
+
 export function RadarLegend() {
-  return <figcaption style={{ fontSize: 11, color: 'var(--text-muted)' }}>Where the half-power beam's rays land · IRI monthly median · no signal forecast</figcaption>;
+  return (
+    <figcaption style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
+      <span style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {HOP_STYLES.map((style, i) => (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <svg width={18} height={8} aria-hidden="true">
+              <line x1={1} y1={4} x2={17} y2={4} stroke={style.stroke} strokeOpacity={style.opacity} strokeWidth={style.width} />
+            </svg>
+            {HOP_NAMES[i]}
+          </span>
+        ))}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <svg width={18} height={8} aria-hidden="true">
+            <line x1={1} y1={4} x2={17} y2={4} stroke="var(--success)" strokeWidth={1.25} strokeDasharray="3 3" />
+          </svg>
+          skip zone edge
+        </span>
+      </span>
+      <br />
+      Where the half-power beam's rays land. Each extra hop adds a ground reflection and more absorption, so is weaker: colours rank the hops, not signal level · no signal forecast
+    </figcaption>
+  );
 }

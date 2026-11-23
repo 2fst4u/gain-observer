@@ -8,7 +8,7 @@ describe('PropagationRadar', () => {
     const { container } = render(<PropagationRadar prediction={makePropagationPrediction()} units="metric" size={300} />);
     expect(screen.getByRole('img', { name: /landing distance radar plot/i })).toBeTruthy();
     expect(screen.getByText(/no signal forecast/)).toBeDefined();
-    const arc = Array.from(container.querySelectorAll('circle')).find((element) => element.getAttribute('stroke') === 'var(--accent)');
+    const arc = Array.from(container.querySelectorAll('circle')).find((element) => element.getAttribute('stroke') === 'var(--success)');
     expect(arc?.getAttribute('fill')).toBe('none');
   });
 
@@ -23,7 +23,7 @@ describe('PropagationRadar', () => {
       ],
     });
     const { container } = render(<PropagationRadar prediction={prediction} units="metric" size={300} />);
-    const arcs = Array.from(container.querySelectorAll('line')).filter((line) => line.getAttribute('stroke') === 'var(--accent)');
+    const arcs = Array.from(container.querySelector('svg[role="img"]')!.querySelectorAll('line')).filter((line) => line.getAttribute('stroke') === 'var(--success)');
     expect(arcs).toHaveLength(4);
     expect(container.querySelectorAll('polygon')).toHaveLength(0);
     const points = arcs.flatMap((line) => [[Number(line.getAttribute('x1')), Number(line.getAttribute('y1'))], [Number(line.getAttribute('x2')), Number(line.getAttribute('y2'))]]);

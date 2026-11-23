@@ -15,6 +15,22 @@ export function formatDistance(km: number, units: UnitSystem): string {
 }
 
 type AzimuthalHop = NonNullable<PropagationPrediction["azimuthalHops"]>[number];
+
+/**
+ * Outline style per hop count. Each extra hop adds a ground reflection and
+ * another pass through the absorbing lower ionosphere over a longer path, so
+ * later hops are weaker: green, amber, red, drawn progressively thinner and
+ * fainter. This ranks the hops; it is not a computed signal level.
+ */
+export const HOP_STYLES: readonly { stroke: string; opacity: number; width: number }[] = [
+  { stroke: "var(--success)", opacity: 0.95, width: 2.25 },
+  { stroke: "var(--warning)", opacity: 0.8, width: 1.75 },
+  { stroke: "var(--danger)", opacity: 0.65, width: 1.25 },
+];
+
+export function hopStyle(ringN: number) {
+  return HOP_STYLES[Math.min(HOP_STYLES.length, Math.max(1, ringN)) - 1]!;
+}
 export type BeamEdge = "far" | "near";
 
 /** True when the outlines trace the half-power beam rather than peak rays. */
@@ -176,9 +192,9 @@ export function buildAzimuthalSegments(
         y1={ay}
         x2={bx}
         y2={by}
-        stroke="var(--accent)"
-        strokeOpacity={0.75}
-        strokeWidth={edge === "far" ? 1.5 : 1}
+        stroke={hopStyle(ringN).stroke}
+        strokeOpacity={hopStyle(ringN).opacity}
+        strokeWidth={edge === "far" ? hopStyle(ringN).width : 1.25}
         strokeDasharray={edge === "near" ? "3 3" : undefined}
       >
         <title>{describeBearing(aPoint, ringN, edge, useBeam)}</title>
