@@ -3,6 +3,8 @@ import type { UnitSystem } from "../../physics/units";
 import {
   buildAzimuthalSegments,
   formatDistance,
+  hasHalfPowerBeam,
+  ringLabelRangeKm,
 } from "./propagationRadarUtils";
 
 export function RadarGrid({
@@ -108,19 +110,22 @@ export function RadarLabels({
 
       {/* Range label on each hop ring (placed along the +y axis but offset
           to the right to avoid the 'N' cardinal and prevent overlap) */}
-      {prediction.hops.map((ring) => (
-        <text
-          key={ring.n}
-          x={cx + 24}
-          y={cy - ring.rangeKm * kmToPx - 4}
-          fontSize={10}
-          fill="var(--text-dim)"
-          fontFamily="system-ui, sans-serif"
-          textAnchor="start"
-        >
-          {`${ring.n}× ${formatDistance(ring.rangeKm, units)}`}
-        </text>
-      ))}
+      {prediction.hops.map((ring) => {
+        const rangeKm = ringLabelRangeKm(prediction, ring.n);
+        return (
+          <text
+            key={ring.n}
+            x={cx + 24}
+            y={cy - rangeKm * kmToPx - 4}
+            fontSize={10}
+            fill="var(--text-dim)"
+            fontFamily="system-ui, sans-serif"
+            textAnchor="start"
+          >
+            {`${ring.n}× ${formatDistance(rangeKm, units)}`}
+          </text>
+        );
+      })}
     </>
   );
 }
@@ -148,6 +153,17 @@ export function RadarHopRings({
         kmToPx,
       );
       hopRings.push(<g key={ring.n}>{segments}</g>);
+      // The half-power beam's near edge, where its highest ray lands. It sits
+      // at the centre when the beam includes the zenith (NVIS), so is drawn
+      // only when the beam leaves a gap close in.
+      if (ring.n === 1 && hasHalfPowerBeam(prediction.azimuthalHops) &&
+        prediction.azimuthalHops.some((point) => (point.halfPowerRangeKm?.nearKm ?? 0) * kmToPx >= 1)) {
+        hopRings.push(
+          <g key="near">
+            {buildAzimuthalSegments(prediction.azimuthalHops, 1, cx, cy, kmToPx, "near")}
+          </g>,
+        );
+      }
     } else {
       hopRings.push(
         <circle
@@ -167,5 +183,5 @@ export function RadarHopRings({
 }
 
 export function RadarLegend() {
-  return <figcaption style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ideal ground arcs · no coverage or signal forecast</figcaption>;
+  return <figcaption style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ideal ground arcs of the half-power beam · no coverage or signal forecast</figcaption>;
 }

@@ -53,11 +53,21 @@ export interface PropagationPrediction {
     readonly rangeKm: number[];
     readonly antennaGainDbi: number;
     readonly realizedGainDbi?: number;
+    /** Elevation span at this bearing where gain is within HALF_POWER_DB of
+     * the pattern's overall peak. Undefined where no ray here comes that
+     * close. A broad high-angle (NVIS) beam includes the zenith. */
+    readonly halfPowerElevationDeg?: { readonly lowDeg: number; readonly highDeg: number };
+    /** Single-hop ground arcs of the half-power span's highest (near) and
+     * lowest (far) rays. Multiply by n for n hops. */
+    readonly halfPowerRangeKm?: { readonly nearKm: number; readonly farKm: number };
   }[];
 }
 
 const EARTH_RADIUS_KM = 6371;
 const MAX_HOPS = 3;
+/** Half-power beamwidth criterion: the standard antenna-beam definition,
+ * relative to the pattern's own peak, not a signal-quality threshold. */
+export const HALF_POWER_DB = 3;
 const DEG = Math.PI / 180;
 
 /** Monthly mid-month solar declination approximation, degrees. */
@@ -145,6 +155,23 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
     }
   }
 
+  if (pattern && azimuthalHops.length > 0) {
+    const peak = Math.max(...azimuthalHops.map((ray) => ray.antennaGainDbi));
+    for (let i = 0; i < azimuthalHops.length; i++) {
+      const ray = azimuthalHops[i]!;
+      const span = halfPowerElevationSpan(pattern, Math.round(ray.phiDeg / pattern.dPhi), peak - HALF_POWER_DB);
+      if (!span) continue;
+      azimuthalHops[i] = {
+        ...ray,
+        halfPowerElevationDeg: span,
+        halfPowerRangeKm: {
+          nearKm: hopRangeKm(span.highDeg, shellHeightKm),
+          farKm: hopRangeKm(span.lowDeg, shellHeightKm),
+        },
+      };
+    }
+  }
+
   let bestRay: (typeof azimuthalHops)[number] | undefined;
   for (const ray of azimuthalHops) {
     if (!bestRay || ray.antennaGainDbi > bestRay.antennaGainDbi ||
@@ -195,6 +222,46 @@ export function refinePeakElevation(pattern: GainPattern, phiIndex: number, elev
   if (!(curvature < 0)) return elevationDeg;
   const offsetRows = Math.max(-0.5, Math.min(0.5, 0.5 * (above - below) / curvature));
   return clamp(90 - (ti + offsetRows) * pattern.dTheta, 0, 90);
+}
+
+/**
+ * Highest and lowest upper-hemisphere elevations at one bearing where gain is
+ * at least `thresholdDbi`. Each edge is placed between rows by linear
+ * interpolation in dB against its neighbouring row; an edge at the zenith, or
+ * beside a missing sample, stays on the sampled row. A bearing whose rays
+ * cross the threshold twice (two separate lobes) reports the outermost edges.
+ */
+export function halfPowerElevationSpan(
+  pattern: GainPattern,
+  phiIndex: number,
+  thresholdDbi: number,
+): { lowDeg: number; highDeg: number } | undefined {
+  const at = (t: number) => {
+    const gain = pattern.data[t * pattern.phiSteps + phiIndex];
+    return gain !== undefined && Number.isFinite(gain) ? gain : undefined;
+  };
+  const elevationOf = (t: number) => 90 - t * pattern.dTheta;
+  let first = -1;
+  let last = -1;
+  for (let ti = 0; ti < pattern.thetaSteps && elevationOf(ti) >= 0; ti++) {
+    const gain = at(ti);
+    if (gain === undefined || gain < thresholdDbi) continue;
+    if (first < 0) first = ti;
+    last = ti;
+  }
+  if (first < 0) return undefined;
+  const edge = (inside: number, outside: number): number => {
+    const gIn = at(inside)!;
+    const gOut = outside >= 0 && outside < pattern.thetaSteps && elevationOf(outside) >= 0
+      ? at(outside) : undefined;
+    if (gOut === undefined || !(gIn > gOut)) return elevationOf(inside);
+    const fraction = (gIn - thresholdDbi) / (gIn - gOut);
+    return elevationOf(inside) + fraction * (elevationOf(outside) - elevationOf(inside));
+  };
+  return {
+    highDeg: clamp(edge(first, first - 1), 0, 90),
+    lowDeg: clamp(edge(last, last + 1), 0, 90),
+  };
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

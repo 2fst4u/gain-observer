@@ -207,12 +207,48 @@ describe('PropagationRadarComponents', () => {
     });
   });
 
+  describe('half-power beam outlines', () => {
+    // Zenith-included beam towards N/S, a lower beam E/W, nothing W.
+    const beamHops = () => [
+      makeAzimuthalHop({ phiDeg: 0, rangeKm: [0], halfPowerElevationDeg: { lowDeg: 30, highDeg: 90 }, halfPowerRangeKm: { nearKm: 0, farKm: 800 } }),
+      makeAzimuthalHop({ phiDeg: 90, rangeKm: [0], halfPowerElevationDeg: { lowDeg: 50, highDeg: 90 }, halfPowerRangeKm: { nearKm: 0, farKm: 400 } }),
+      makeAzimuthalHop({ phiDeg: 180, rangeKm: [0], halfPowerElevationDeg: { lowDeg: 30, highDeg: 90 }, halfPowerRangeKm: { nearKm: 0, farKm: 800 } }),
+      makeAzimuthalHop({ phiDeg: 270, rangeKm: [0], halfPowerElevationDeg: { lowDeg: 50, highDeg: 90 }, halfPowerRangeKm: { nearKm: 0, farKm: 400 } }),
+    ];
+
+    it('follows the beam far edge rather than the zero-range peak ray', () => {
+      const prediction = makePropagationPrediction({ hops: [makeHop({ n: 1, rangeKm: 0 })], azimuthalHops: beamHops() });
+      const { container } = render(<svg><RadarHopRings prediction={prediction} cx={150} cy={150} kmToPx={0.1} /></svg>);
+      const lines = Array.from(container.querySelectorAll('line'));
+      // No dashed near edge: the beam includes the zenith at every bearing.
+      expect(lines).toHaveLength(4);
+      expect(Number(lines[0]?.getAttribute('x1'))).toBeCloseTo(230, 8); // East, 800 km
+      expect(Number(lines[0]?.getAttribute('y2'))).toBeCloseTo(110, 8); // North, 400 km
+      expect(lines[0]?.querySelector('title')?.textContent).toContain('half-power beam 30.0–90.0° elevation');
+    });
+
+    it('labels rings with the beam reach at North', () => {
+      const prediction = makePropagationPrediction({ hops: [makeHop({ n: 1, rangeKm: 0 })], azimuthalHops: beamHops() });
+      render(<svg><RadarLabels cx={150} cy={150} size={300} margin={24} prediction={prediction} kmToPx={0.1} units="metric" /></svg>);
+      expect(screen.getByText('1× 400 km')).toBeDefined();
+    });
+
+    it('draws a dashed near edge when the beam leaves a gap close in', () => {
+      const hops = beamHops().map((hop) => ({ ...hop, halfPowerRangeKm: { nearKm: 200, farKm: 800 } }));
+      const prediction = makePropagationPrediction({ hops: [makeHop({ n: 1, rangeKm: 500 })], azimuthalHops: hops });
+      const { container } = render(<svg><RadarHopRings prediction={prediction} cx={150} cy={150} kmToPx={0.1} /></svg>);
+      const dashed = Array.from(container.querySelectorAll('line')).filter((line) => line.getAttribute('stroke-dasharray'));
+      expect(dashed).toHaveLength(4);
+      expect(Number(dashed[0]?.getAttribute('x1'))).toBeCloseTo(170, 8);
+    });
+  });
+
   describe('RadarLegend', () => {
     it('describes ideal ground arcs without implying coverage or received signal', () => {
       const { container } = render(<RadarLegend />);
 
       expect(container.querySelector('figcaption')?.textContent)
-        .toBe('Ideal ground arcs · no coverage or signal forecast');
+        .toBe('Ideal ground arcs of the half-power beam · no coverage or signal forecast');
       expect(screen.queryByText(/Open|Marginal|Closed|weak signal/)).toBeNull();
     });
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hopRangeKm, predictPropagation, refinePeakElevation, solarDeclinationDeg, solarZenithDeg } from '../src/physics/propagation';
+import { HALF_POWER_DB, halfPowerElevationSpan, hopRangeKm, predictPropagation, refinePeakElevation, solarDeclinationDeg, solarZenithDeg } from '../src/physics/propagation';
 import type { GainPattern } from '../src/physics/types';
 
 const base = {
@@ -142,5 +142,63 @@ describe('sub-grid lobe elevation', () => {
     const nearHorizon = lobe(2);
     // Row at 0° elevation is the below-ground sentinel: no parabola through it.
     expect(refinePeakElevation(nearHorizon, 0, 2)).toBe(2);
+  });
+});
+
+describe('half-power beam', () => {
+  // Inverted-V-like NVIS beam on 5° rows: peak at the zenith on every bearing,
+  // falling slowly along the wire (phi 0) and faster across it (phi 90),
+  // with a lobe at 65° on phi 90 a fraction of a dB above the zenith.
+  function nvis(): GainPattern {
+    const thetaSteps = 37, phiSteps = 72;
+    const data = new Float32Array(thetaSteps * phiSteps).fill(-100);
+    for (let ti = 0; ti < 18; ti++) {
+      const elevation = 90 - 5 * ti;
+      for (let pi = 0; pi < phiSteps; pi++) {
+        const across = Math.abs(Math.sin(pi * 5 * Math.PI / 180));
+        data[ti * phiSteps + pi] = 5 - (90 - elevation) * (0.18 - 0.08 * across);
+      }
+    }
+    data[5 * phiSteps + 18] = 5.1;
+    return { data, thetaSteps, phiSteps, dTheta: 5, dPhi: 5 };
+  }
+
+  it('reaches every bearing for a high-angle beam even when one ray narrowly wins', () => {
+    const prediction = predictPropagation({ ...base, pattern: nvis() });
+    const zeroPeakRay = prediction.azimuthalHops!.filter((hop) => hop.rangeKm[0] === 0);
+    expect(zeroPeakRay.length).toBeGreaterThan(60);
+    for (const hop of prediction.azimuthalHops!) {
+      expect(hop.halfPowerElevationDeg!.highDeg).toBe(90);
+      expect(hop.halfPowerRangeKm!.nearKm).toBe(0);
+      expect(hop.halfPowerRangeKm!.farKm).toBeGreaterThan(150);
+    }
+  });
+
+  it('interpolates the edge between rows against the pattern peak', () => {
+    const prediction = predictPropagation({ ...base, pattern: nvis() });
+    const alongWire = prediction.azimuthalHops!.find((hop) => hop.phiDeg === 0)!;
+    // 5 − 0.18·(90 − e) = 5.1 − 3 → e = 90 − 2.9 / 0.18
+    const expected = 90 - (5 - (5.1 - HALF_POWER_DB)) / 0.18;
+    // Float32 pattern samples limit agreement to a few micro-degrees.
+    expect(alongWire.halfPowerElevationDeg!.lowDeg).toBeCloseTo(expected, 4);
+    expect(alongWire.halfPowerRangeKm!.farKm).toBeCloseTo(hopRangeKm(expected, 300), 2);
+  });
+
+  it('omits bearings with no ray within half power and spans separate lobes', () => {
+    const antenna = pattern();
+    const span = halfPowerElevationSpan(antenna, 18, 10 - HALF_POWER_DB);
+    expect(span?.highDeg).toBeGreaterThan(55);
+    expect(span?.lowDeg).toBeLessThan(65);
+    const prediction = predictPropagation({ ...base, pattern: antenna });
+    // East's 8 dBi lobe is within 3 dB of the 10 dBi peak; North-east has none.
+    const east = prediction.azimuthalHops!.find((hop) => hop.phiDeg === 0)!.halfPowerElevationDeg!;
+    expect(east.lowDeg).toBeCloseTo(30 - 5 / 38, 8);
+    expect(east.highDeg).toBeCloseTo(30 + 5 / 38, 8);
+    expect(prediction.azimuthalHops!.find((hop) => hop.phiDeg === 45)!.halfPowerRangeKm).toBeUndefined();
+
+    const twoLobes = { data: new Float32Array([0, 10, 0, 0, 10, 0, -100]), thetaSteps: 7, phiSteps: 1, dTheta: 15, dPhi: 360 };
+    const lobes = halfPowerElevationSpan(twoLobes, 0, 7)!;
+    expect(lobes.highDeg).toBeCloseTo(75 + 15 * 0.3, 8);
+    expect(lobes.lowDeg).toBeCloseTo(30 - 15 * 0.3, 8);
   });
 });

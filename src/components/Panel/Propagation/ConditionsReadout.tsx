@@ -14,6 +14,9 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: {
 }) {
   const [showAssumptions, setShowAssumptions] = useState(false);
   const selected = prediction.hops[0];
+  const beam = (prediction.azimuthalHops ?? []).flatMap((point) => point.halfPowerRangeKm ? [point.halfPowerRangeKm] : []);
+  const beamNearKm = beam.length > 0 ? Math.min(...beam.map((span) => span.nearKm)) : undefined;
+  const beamFarKm = beam.length > 0 ? Math.max(...beam.map((span) => span.farKm)) : undefined;
   return (
     <>
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '12px 0 8px' }} />
@@ -27,6 +30,12 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: {
         <div role="status" aria-live="polite" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Computing antenna pattern…</div>
       )}
       <div style={{ marginTop: 10 }}>
+        {beamNearKm !== undefined && beamFarKm !== undefined && (
+          <div className="stat" title="Ground arcs of rays within 3 dB of the pattern's peak gain, over all bearings.">
+            <span className="stat-label">Half-power beam, 1 hop</span>
+            <span className="stat-value">{`${formatRange(beamNearKm, units)} – ${formatRange(beamFarKm, units)}`}</span>
+          </div>
+        )}
         {prediction.hops.map((hop) => (
           <div key={hop.n} className="stat">
             <span className="stat-label">{hop.n}× ideal hop</span>
@@ -42,7 +51,7 @@ export function ConditionsReadout({ prediction, haveTakeoff, units }: {
         <p>This is an ideal spherical-shell geometry illustration. Rays reflect at the chosen height; a real ionosphere refracts rays through a changing electron-density profile.</p>
         <ul style={{ paddingLeft: 18 }}>
           <li>The chosen shell height is not hmF2 (true electron-density peak height) or a calculated virtual height.</li>
-          <li>Each bearing uses its strongest upper-hemisphere antenna lobe. Feed-system losses change realized gain, not geometry.</li>
+          <li>The plot traces, per bearing, the nearest and farthest ground arcs of rays within 3 dB of the pattern's peak gain (the half-power beam), so a broad high-angle beam reaches every bearing. The hop list uses the single strongest lobe. Feed-system losses change realized gain, not geometry.</li>
           <li>Subsequent arcs assume the same shell height and elevation at each ground reflection. Ground-reflection and ionospheric absorption losses are not calculated.</li>
           <li>No ionospheric critical frequency, MUF, LUF, noise, received SNR, or open/closed circuit forecast is inferred from solar angle or T-index.</li>
           <li>Antenna gain is relative to isotropic radiation. It cannot establish signal usability without transmitter power, path loss, receiving antenna and noise.</li>
