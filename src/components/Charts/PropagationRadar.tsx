@@ -1,9 +1,9 @@
-// Top-down outline of ideal spherical-shell ground arcs.
-// The outlines are geometric distances, not filled coverage regions.
+// Top-down outline of where an antenna's rays land after 1–3 hops through the
+// modelled ionosphere. Outlines are landing distances, not coverage regions.
 
 import type { PropagationPrediction } from "../../physics/propagation";
 import type { UnitSystem } from "../../physics/units";
-import { calculateMaxRangeKm } from "./propagationRadarUtils";
+import { calculateMaxRangeKm, nothingReturns } from "./propagationRadarUtils";
 import {
   RadarGrid,
   RadarHopRings,
@@ -47,7 +47,7 @@ export function PropagationRadar({
         width={size}
         height={size}
         role="img"
-        aria-label="Ideal propagation geometry radar plot"
+        aria-label="Skywave landing distance radar plot"
         style={{ display: "block", maxWidth: "100%" }}
       >
         <RadarGrid
@@ -70,6 +70,19 @@ export function PropagationRadar({
 
         {/* Centre dot = antenna location */}
         <circle cx={cx} cy={cy} r={4} fill="var(--accent)" />
+
+        {nothingReturns(prediction) && (
+          <text
+            x={cx}
+            y={cy + 22}
+            textAnchor="middle"
+            fontSize={11}
+            fill="var(--text-muted)"
+            fontFamily="system-ui, sans-serif"
+          >
+            {`Passes through at ${prediction.frequencyMHz.toFixed(2)} MHz`}
+          </text>
+        )}
 
         <RadarLabels
           cx={cx}

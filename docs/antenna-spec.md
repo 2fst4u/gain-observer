@@ -153,19 +153,47 @@ Current envelope range is 20log10(max|I|/min|I|). Radiation, attenuation and
 geometry vary the envelope even for a purely forward wave. This metric is
 not a reflected-power fraction or a quantitative termination match.
 
-## Ray geometry
+## Skywave propagation
 
-The ray view reflects straight rays from a user-selected ideal spherical shell
-(default 300 km) above a 6371 km Earth. For elevation ε and shell height h, the
-one-hop surface arc is `2R[π/2−ε−asin(R cosε/(R+h))]`. Repeated illustrated arcs
-reuse this geometry. The strongest lobe per bearing and its realized antenna
-gain are shown.
+**Ionosphere.** The International Reference Ionosphere monthly median above the
+station, ported from PyIRI 0.1.7 (`src/physics/ionosphere/iri.ts`): foF2 from
+the URSI-88 maps and M(3000)F2 from the CCIR maps (spherical-harmonic in modified
+dip latitude from IGRF-13, Fourier in UT); hmF2 from M(3000)F2 and foF2/foE
+(Bilitza 1979); foE and foF1 from IRI's solar-zenith formulas; F2, F1 and E joined
+as Epstein layers. Monthly medians are centred on the 15th and interpolated
+between months; parameters are interpolated linearly in the ionosonde index IG12
+between the maps' 0 and 100 levels. Solar activity is NOAA SWPC's 12-month
+smoothed F10.7 (observed where published, else predicted), converted to IG12 as
+PyIRI does; it can be overridden. The port reproduces PyIRI to about 1e-14
+relative (`tests/iri.test.ts`).
 
-There is **no ionospheric forecast, MUF, LUF, received SNR or availability
-classification**. Real propagation needs frequency-dependent electron-density
-profiles, refraction, absorption, path conditions and a transmitter/receiver/noise
-link budget. True hmF2 is not a virtual reflection height. Manual latitude and
-longitude provide approximate monthly solar-angle context only.
+**Rays.** The profile is sampled every 0.5 km from 50 to 1000 km and rays at the
+operating frequency are traced through it in a spherically stratified,
+field-free, collisionless medium, where n² = 1 − fN²/f² and Bouguer's law
+n·r·cos β = R₀ cos β₀ holds. A ray turns at the first height where n·r = R₀ cos β₀;
+if none exists it escapes. The ground angle to the turning point is
+∫ a / (r √(n²r² − a²)) dr with a = R₀ cos β₀, integrated by Gauss–Legendre
+quadrature after substituting r = r_t − (r_t − r_b)u², which removes the
+inverse-square-root singularity at the turning point. One hop is twice that
+arc on a 6371 km Earth. For a thin dense layer this reduces to specular
+reflection, `2R[π/2−ε−asin(R cosε/(R+h))]`, and to the curved-Earth secant law;
+both are tested (`tests/raytrace.test.ts`).
+
+**What the view shows.** Per bearing, the strongest lobe and the half-power
+beam (gain within 3 dB of the pattern's peak) are taken from the NEC pattern.
+The outline follows the farthest landing point of the beam's returning rays for
+1–3 hops; a dashed inner outline marks the nearest (a skip zone); a bearing
+whose beam passes through sits at the centre. The readout gives foF2, hmF2,
+foF1, foE, whether near-vertical rays return (frequency below the profile's
+peak plasma frequency), and the strongest lobe's MUF (highest returning
+frequency at its elevation).
+
+**Not modelled.** Day-to-day departures from the monthly median (typically
+15–20% in foF2, more in storms) and sporadic E; the geomagnetic field, so only
+the ordinary wave (the extraordinary wave reflects up to about fH/2 higher);
+horizontal gradients (the station's profile is used along the whole path, and
+later hops repeat the first); ground-reflection and D-layer absorption losses,
+noise, and any link budget. There is no received SNR, LUF or availability.
 
 ## Validation boundaries
 

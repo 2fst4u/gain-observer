@@ -19,7 +19,7 @@ export type BeamEdge = "far" | "near";
 
 /** True when the outlines trace the half-power beam rather than peak rays. */
 export function hasHalfPowerBeam(az: readonly AzimuthalHop[]): boolean {
-  return az.some((point) => point.halfPowerRangeKm !== undefined);
+  return az.some((point) => point.halfPowerElevationDeg !== undefined);
 }
 
 /**
@@ -87,24 +87,44 @@ export function calculateMaxRangeKm(prediction: PropagationPrediction): number {
       }
     }
   }
-  return maxRangeKm;
+  // Keep a readable scale when little or nothing returns.
+  return Math.max(MIN_PLOT_RANGE_KM, maxRangeKm);
+}
+
+/** Smallest range the plot's rim represents. */
+export const MIN_PLOT_RANGE_KM = 200;
+
+/** True when no plotted ray returns at all at this frequency. */
+export function nothingReturns(prediction: PropagationPrediction): boolean {
+  const az = prediction.azimuthalHops;
+  if (az && az.length > 1) {
+    return hasHalfPowerBeam(az)
+      ? !az.some((point) => point.halfPowerRangeKm !== undefined)
+      : az.every((point) => !point.returns);
+  }
+  return prediction.hops.every((hop) => hop.rangeKm === undefined);
 }
 
 function describeBearing(point: AzimuthalHop, ringN: number, edge: BeamEdge, useBeam: boolean): string {
   const gain = point.realizedGainDbi !== undefined
     ? `, realized antenna gain ${point.realizedGainDbi.toFixed(2)} dBi` : "";
+  const bearing = `Bearing ${point.bearingDeg.toFixed(0)}°`;
+  const lobe = `Strongest lobe ${point.takeoffElevationDeg.toFixed(1)}°${gain}`;
   if (!useBeam) {
-    return `Bearing ${point.bearingDeg.toFixed(0)}°, elevation ${point.takeoffElevationDeg.toFixed(1)}°${gain}. Ideal arc only.`;
+    const range = point.rangeKm[ringN - 1];
+    return range !== undefined
+      ? `${bearing}, elevation ${point.takeoffElevationDeg.toFixed(1)}°${gain}: ${ringN}× lands at ${range.toFixed(0)} km.`
+      : `${bearing}, elevation ${point.takeoffElevationDeg.toFixed(1)}°${gain}: passes through the ionosphere.`;
   }
   const span = point.halfPowerElevationDeg;
-  if (!span) {
-    return `Bearing ${point.bearingDeg.toFixed(0)}°: no ray within ${HALF_POWER_DB} dB of peak. Strongest lobe ${point.takeoffElevationDeg.toFixed(1)}°${gain}.`;
-  }
-  const hops = ringN === 1 ? "1 hop" : `${ringN} hops`;
+  if (!span) return `${bearing}: no ray within ${HALF_POWER_DB} dB of peak. ${lobe}.`;
+  const beam = `${bearing}, half-power beam ${span.lowDeg.toFixed(1)}–${span.highDeg.toFixed(1)}° elevation`;
+  const reach = point.halfPowerRangeKm;
+  if (!reach) return `${beam}: passes through the ionosphere. ${lobe}.`;
   const edgeText = edge === "far"
-    ? `farthest ${hops} at ${span.lowDeg.toFixed(1)}°`
-    : `nearest 1 hop at ${span.highDeg.toFixed(1)}°`;
-  return `Bearing ${point.bearingDeg.toFixed(0)}°, half-power beam ${span.lowDeg.toFixed(1)}–${span.highDeg.toFixed(1)}° elevation, ${edgeText}. Strongest lobe ${point.takeoffElevationDeg.toFixed(1)}°${gain}. Ideal arc only.`;
+    ? `farthest landing ${(reach.farKm * ringN).toFixed(0)} km after ${ringN === 1 ? "1 hop" : `${ringN} hops`}`
+    : `nearest landing ${reach.nearKm.toFixed(0)} km (skip zone inside)`;
+  return `${beam}, ${edgeText}. ${lobe}.`;
 }
 
 export function buildAzimuthalSegments(

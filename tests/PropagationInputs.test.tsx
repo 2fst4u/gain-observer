@@ -12,6 +12,8 @@ vi.mock('../src/hooks/useGeolocation', () => {
   };
 });
 
+const fluxProps = { solarFlux: { f107: 100, origin: 'observed' as const, month: '2026-05' }, onSolarFluxChange: () => {}, onSolarFluxReset: () => {} };
+
 describe('PropagationInputs UI component', () => {
   beforeEach(() => {
     useAntennaStore.setState({
@@ -31,17 +33,31 @@ describe('PropagationInputs UI component', () => {
     vi.restoreAllMocks();
   });
 
-  it('accepts an explicit illustrative shell height without estimating hmF2', () => {
+  it('accepts a manual solar flux and resets it to the NOAA value', () => {
     const onChange = vi.fn();
-    render(<PropagationInputs shellHeightKm={300} onShellHeightChange={onChange} />);
-    const input = screen.getByLabelText('Ideal shell height in kilometres');
-    fireEvent.change(input, { target: { value: '400' } });
-    expect(onChange).toHaveBeenCalledWith(400);
-    expect(screen.queryByLabelText('Ionospheric T-index')).toBeNull();
+    const onReset = vi.fn();
+    const { rerender } = render(<PropagationInputs solarFlux={{ f107: 142.4, origin: 'predicted', month: '2026-11' }} onSolarFluxChange={onChange} onSolarFluxReset={onReset} />);
+    const input = screen.getByLabelText('Solar flux F10.7 in solar flux units') as HTMLInputElement;
+    expect(input.value).toBe('142');
+    expect(screen.getByText('NOAA SWPC predicted smoothed flux for 2026-11.')).toBeDefined();
+    fireEvent.change(input, { target: { value: '180' } });
+    expect(onChange).toHaveBeenCalledWith(180);
+    const reset = screen.getByRole('button', { name: 'Reset solar flux to NOAA SWPC data' });
+    fireEvent.click(reset);
+    expect(onReset).not.toHaveBeenCalled(); // already automatic
+    rerender(<PropagationInputs solarFlux={{ f107: 180, origin: 'manual' }} onSolarFluxChange={onChange} onSolarFluxReset={onReset} />);
+    fireEvent.click(reset);
+    expect(onReset).toHaveBeenCalled();
+    expect(screen.queryByLabelText('Ideal shell height in kilometres')).toBeNull();
+  });
+
+  it('says when NOAA SWPC could not be reached', () => {
+    render(<PropagationInputs solarFlux={{ f107: 100, origin: 'fallback' }} onSolarFluxChange={vi.fn()} onSolarFluxReset={vi.fn()} />);
+    expect(screen.getByText(/could not be reached; assuming 100/)).toBeDefined();
   });
 
   it('handles Latitude input focus, change, and blur', () => {
-    render(<PropagationInputs />);
+    render(<PropagationInputs {...fluxProps} />);
     const latInput = screen.getByLabelText('Latitude in degrees') as HTMLInputElement;
 
     fireEvent.focus(latInput);
@@ -66,7 +82,7 @@ describe('PropagationInputs UI component', () => {
   });
 
   it('allows manual longitude entry and exposes the Greenwich default', () => {
-    render(<PropagationInputs />);
+    render(<PropagationInputs {...fluxProps} />);
     const longitude = screen.getByLabelText('Longitude in degrees') as HTMLInputElement;
     expect(screen.getByText(/Defaults to 0° \(Greenwich\) until set/)).toBeDefined();
     fireEvent.focus(longitude);
@@ -86,7 +102,7 @@ describe('PropagationInputs UI component', () => {
       requestLocation: mockRequestLocation,
     });
 
-    render(<PropagationInputs />);
+    render(<PropagationInputs {...fluxProps} />);
     const button = screen.getByRole('button', { name: /Use my location/i });
 
     fireEvent.click(button);
@@ -95,7 +111,7 @@ describe('PropagationInputs UI component', () => {
   });
 
   it('handles Month select change', () => {
-    render(<PropagationInputs />);
+    render(<PropagationInputs {...fluxProps} />);
     const monthSelect = screen.getByLabelText('Month override') as HTMLSelectElement;
 
     fireEvent.change(monthSelect, { target: { value: '1' } });
@@ -106,7 +122,7 @@ describe('PropagationInputs UI component', () => {
   });
 
   it('handles UTC Hour input focus, change, and blur', () => {
-    render(<PropagationInputs />);
+    render(<PropagationInputs {...fluxProps} />);
     const utcHourInput = screen.getByLabelText('UTC hour override') as HTMLInputElement;
 
     fireEvent.focus(utcHourInput);
@@ -131,14 +147,14 @@ describe('PropagationInputs UI component', () => {
     // But testing that purely from outside React in Vitest doesn't always synchronously rerender.
     // We can manually trigger a re-render using testing-library to be safe:
     cleanup();
-    render(<PropagationInputs />);
+    render(<PropagationInputs {...fluxProps} />);
     const newUtcHourInput = screen.getByLabelText('UTC hour override') as HTMLInputElement;
     expect(newUtcHourInput.value).toBe('14:45');
   });
 
   it('handles "Auto" button for UTC Hour', () => {
     useAntennaStore.setState({ utcHourOverride: 12.5 });
-    render(<PropagationInputs />);
+    render(<PropagationInputs {...fluxProps} />);
 
     const button = screen.getByRole('button', { name: 'Reset to Auto (current UTC time)' }) as HTMLButtonElement;
     expect(button.getAttribute('aria-disabled')).toBe('false');
@@ -149,47 +165,47 @@ describe('PropagationInputs UI component', () => {
   });
 
   it('renders geoStatus messages correctly', () => {
-    const { rerender } = render(<PropagationInputs />);
+    const { rerender } = render(<PropagationInputs {...fluxProps} />);
 
     // Idle state, no location
     expect(screen.getByText(/Defaults to 0° \(equator\) until set/)).toBeDefined();
 
     // Idle state, manual location
     useAntennaStore.setState({ latitudeDeg: 10 });
-    rerender(<PropagationInputs />);
+    rerender(<PropagationInputs {...fluxProps} />);
     expect(screen.getByText(/Manual entry. Click "Use my location" to replace from the browser/)).toBeDefined();
 
     // Requesting
     vi.mocked(useGeolocation).mockReturnValue({ status: 'requesting', requestLocation: vi.fn() });
-    rerender(<PropagationInputs />);
+    rerender(<PropagationInputs {...fluxProps} />);
     expect(screen.getByText(/Asking the browser for your location/)).toBeDefined();
 
     // Granted
     vi.mocked(useGeolocation).mockReturnValue({ status: 'granted', requestLocation: vi.fn() });
-    rerender(<PropagationInputs />);
+    rerender(<PropagationInputs {...fluxProps} />);
     expect(screen.getByText(/Location obtained from the browser/)).toBeDefined();
 
     // Denied
     vi.mocked(useGeolocation).mockReturnValue({ status: 'denied', requestLocation: vi.fn() });
-    rerender(<PropagationInputs />);
+    rerender(<PropagationInputs {...fluxProps} />);
     expect(screen.getByText(/Permission denied/)).toBeDefined();
 
     // Unsupported
     vi.mocked(useGeolocation).mockReturnValue({ status: 'unsupported', requestLocation: vi.fn() });
-    rerender(<PropagationInputs />);
+    rerender(<PropagationInputs {...fluxProps} />);
     expect(screen.getByText(/Browser geolocation is unavailable/)).toBeDefined();
 
     // Error
     vi.mocked(useGeolocation).mockReturnValue({ status: 'error', requestLocation: vi.fn() });
-    rerender(<PropagationInputs />);
+    rerender(<PropagationInputs {...fluxProps} />);
     expect(screen.getByText(/Could not obtain location/)).toBeDefined();
   });
 
   it('renders initial state correctly', () => {
-    render(<PropagationInputs />);
+    render(<PropagationInputs {...fluxProps} />);
 
-    const height = screen.getByLabelText('Ideal shell height in kilometres') as HTMLInputElement;
-    expect(height.value).toBe('300');
+    const flux = screen.getByLabelText('Solar flux F10.7 in solar flux units') as HTMLInputElement;
+    expect(flux.value).toBe('100');
 
     const latInput = screen.getByLabelText('Latitude in degrees') as HTMLInputElement;
     expect(latInput.value).toBe('');

@@ -177,6 +177,7 @@ export function RadarLabels({
             </text>
           );
         }
+        if (ring.rangeKm === undefined) return null;
         return (
           <text
             key={ring.n}
@@ -229,7 +230,7 @@ export function RadarHopRings({
           </g>,
         );
       }
-    } else {
+    } else if (ring.rangeKm !== undefined) {
       hopRings.push(
         <circle
           key={ring.n}
@@ -248,5 +249,5 @@ export function RadarHopRings({
 }
 
 export function RadarLegend() {
-  return <figcaption style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ideal ground arcs of the half-power beam · no coverage or signal forecast</figcaption>;
+  return <figcaption style={{ fontSize: 11, color: 'var(--text-muted)' }}>Where the half-power beam's rays land · IRI monthly median · no signal forecast</figcaption>;
 }

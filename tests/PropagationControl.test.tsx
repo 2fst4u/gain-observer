@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { PropagationControl } from '../src/components/Panel/PropagationControl';
 import { mockAntennaStore, type MockAntennaState } from './helpers/mockStore';
@@ -19,6 +19,15 @@ vi.mock('../src/components/Charts/PropagationRadar', () => ({
 }));
 
 type MockState = MockAntennaState;
+
+// The panel fetches solar flux from NOAA SWPC; tests must never reach the
+// network. Blocks below that need data replace this with their own stub.
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network disabled in tests'); }));
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('PropagationControl - time override visibility', () => {
   const mockSetMonthOverride = vi.fn();
@@ -137,52 +146,79 @@ describe('PropagationControl - time override visibility', () => {
   });
 });
 
-describe('PropagationControl - geometry and realized gain', () => {
+describe('PropagationControl - ionosphere, solar flux and realized gain', () => {
+  // SWPC files as the panel receives them; never reach the network in tests.
+  const observed = [{ 'time-tag': '2026-05', 'f10.7': 150, 'smoothed_f10.7': -1 }];
+  const predicted = [{ 'time-tag': '2026-06', 'predicted_f10.7': 131 }];
+  let fetchMock: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    fetchMock = vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (url.includes('predicted') ? predicted : observed),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
   });
 
-  it('labels the panel as illustrative geometry without signal or ionosphere forecasts', () => {
-    mockAntennaStore({ result: null, units: 'metric', latitudeDeg: 40, longitudeDeg: -75, monthOverride: 6, utcHourOverride: 12, geolocationStatus: 'idle' });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const store = (overrides: Partial<MockState> = {}) => mockAntennaStore({
+    frequency: 7.1, result: null, units: 'metric', latitudeDeg: -33.9, longitudeDeg: 151.2,
+    monthOverride: 6, utcHourOverride: 2, geolocationStatus: 'idle', ...overrides,
+  });
+
+  it('labels the panel as a monthly-median model without signal forecasts', async () => {
+    store();
     render(<PropagationControl />);
-    expect(screen.getByRole('heading', { level: 2, name: /Propagation geometry/ })).toBeDefined();
-    expect(screen.getByText('Illustrative')).toBeDefined();
+    expect(screen.getByRole('heading', { level: 2, name: /Skywave propagation/ })).toBeDefined();
+    expect(screen.getByText('Monthly median')).toBeDefined();
     expect(screen.getByText('Received signal and path availability: not calculated.')).toBeDefined();
     expect(screen.queryByText('LUF')).toBeNull();
-    expect(screen.queryByText('foF2')).toBeNull();
+    expect(await screen.findByText('foF2 (F2 critical frequency)')).toBeDefined();
   });
 
-  it('uses the fitted transformer matching and insertion loss, rather than raw feedpoint SWR', () => {
+  it('uses NOAA SWPC flux for the chosen month and only contacts SWPC', async () => {
+    store();
+    render(<PropagationControl />);
+    expect(await screen.findByText('NOAA SWPC predicted smoothed flux for 2026-06.')).toBeDefined();
+    expect((screen.getByLabelText('Solar flux F10.7 in solar flux units') as HTMLInputElement).value).toBe('131');
+    for (const [url, init] of fetchMock.mock.calls) {
+      expect(new URL(url as string).host).toBe('services.swpc.noaa.gov');
+      expect(init).toMatchObject({ credentials: 'omit', referrerPolicy: 'no-referrer' });
+    }
+  });
+
+  it('falls back visibly when SWPC is unreachable, and a manual flux changes the ionosphere', async () => {
+    fetchMock.mockRejectedValue(new Error('offline'));
+    store({ monthOverride: 3 });
+    render(<PropagationControl />);
+    expect(await screen.findByText(/could not be reached; assuming 100/)).toBeDefined();
+    const foF2 = async () => (await screen.findByText('foF2 (F2 critical frequency)')).nextElementSibling!.textContent!;
+    const before = Number.parseFloat(await foF2());
+    fireEvent.change(screen.getByLabelText('Solar flux F10.7 in solar flux units'), { target: { value: '200' } });
+    expect(Number.parseFloat(await foF2())).toBeGreaterThan(before);
+    expect(screen.getByText('Entered manually. Reset to use NOAA SWPC data.')).toBeDefined();
+  });
+
+  it('uses the fitted transformer matching and insertion loss, rather than raw feedpoint SWR', async () => {
     const pattern = makeGainPattern();
     pattern.data.fill(-30);
     pattern.data[6 * pattern.phiSteps] = 0; // 30° elevation, 0 dBi antenna gain.
-    mockAntennaStore({
+    store({
       frequency: 14.2,
       result: makeSimulationResult({ pattern, impedance: { R: 800, X: 0 }, swr: 16, maxGainDbi: 0, maxRealizedGainDbi: -6.5471786877 }),
       transformerEnabled: true,
       transformerRatio: 16,
       feedlineId: 'none',
       atuEnabled: false,
-      units: 'metric',
-      latitudeDeg: 0,
-      longitudeDeg: 0,
-      monthOverride: 6,
-      utcHourOverride: 12,
-      geolocationStatus: 'idle',
     });
     render(<PropagationControl />);
-    const gain = screen.getByText('Selected lobe realized gain').nextElementSibling;
+    const gain = (await screen.findByText('Strongest lobe realized gain')).nextElementSibling;
     expect(gain?.textContent).toBe('-0.20 dBi');
     expect(screen.queryByText(/weak signal/)).toBeNull();
-  });
-
-  it('allows shell height changes to alter geometric arcs explicitly', () => {
-    mockAntennaStore({ result: null, units: 'metric', latitudeDeg: 0, longitudeDeg: 0, monthOverride: 6, utcHourOverride: 12, geolocationStatus: 'idle' });
-    render(<PropagationControl />);
-    const before = screen.getByText('1× ideal hop').nextElementSibling!.textContent;
-    fireEvent.change(screen.getByLabelText('Ideal shell height in kilometres'), { target: { value: '400' } });
-    const after = screen.getByText('1× ideal hop').nextElementSibling!.textContent;
-    expect(Number.parseInt(after!)).toBeGreaterThan(Number.parseInt(before!));
   });
 });

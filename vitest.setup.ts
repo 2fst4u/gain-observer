@@ -12,3 +12,9 @@ Object.defineProperty(globalThis, '__BUILD_ID__', {
   writable: true,
   configurable: true,
 });
+
+// Tests never reach the network. The propagation panel fetches solar flux
+// from NOAA SWPC; a test that needs data stubs fetch itself.
+globalThis.fetch = async (input: RequestInfo | URL) => {
+  throw new Error(`Network access is disabled in tests: ${String(input)}`);
+};

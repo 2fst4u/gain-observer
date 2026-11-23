@@ -227,7 +227,7 @@ describe('PropagationRadarComponents', () => {
       expect(Number(lines[0]?.getAttribute('x2'))).toBeCloseTo(150, 8);
       expect(Number(lines[0]?.getAttribute('y2'))).toBeCloseTo(100, 8);
       expect(lines[0]?.querySelector('title')?.textContent)
-        .toBe('Bearing 90°, elevation 15.0°, realized antenna gain 4.00 dBi. Ideal arc only.');
+        .toBe('Bearing 90°, elevation 15.0°, realized antenna gain 4.00 dBi: 1× lands at 1000 km.');
     });
   });
 
@@ -248,7 +248,7 @@ describe('PropagationRadarComponents', () => {
       expect(lines).toHaveLength(4);
       expect(Number(lines[0]?.getAttribute('x1'))).toBeCloseTo(230, 8); // East, 800 km
       expect(Number(lines[0]?.getAttribute('y2'))).toBeCloseTo(110, 8); // North, 400 km
-      expect(lines[0]?.querySelector('title')?.textContent).toContain('half-power beam 30.0–90.0° elevation');
+      expect(lines[0]?.querySelector('title')?.textContent).toContain('half-power beam 30.0–90.0° elevation, farthest landing 800 km after 1 hop');
     });
 
     it('names only the hop count, at the outline\'s farthest point', () => {
@@ -271,11 +271,11 @@ describe('PropagationRadarComponents', () => {
   });
 
   describe('RadarLegend', () => {
-    it('describes ideal ground arcs without implying coverage or received signal', () => {
+    it('describes landing distances without implying coverage or received signal', () => {
       const { container } = render(<RadarLegend />);
 
       expect(container.querySelector('figcaption')?.textContent)
-        .toBe('Ideal ground arcs of the half-power beam · no coverage or signal forecast');
+        .toBe('Where the half-power beam\'s rays land · IRI monthly median · no signal forecast');
       expect(screen.queryByText(/Open|Marginal|Closed|weak signal/)).toBeNull();
     });
   });

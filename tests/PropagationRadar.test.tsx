@@ -4,10 +4,10 @@ import { PropagationRadar } from '../src/components/Charts/PropagationRadar';
 import { makeAzimuthalHop, makeHop, makePropagationPrediction } from './helpers/factories';
 
 describe('PropagationRadar', () => {
-  it('draws unfilled ideal arcs and identifies that coverage is not calculated', () => {
+  it('draws unfilled landing arcs and identifies that signal is not calculated', () => {
     const { container } = render(<PropagationRadar prediction={makePropagationPrediction()} units="metric" size={300} />);
-    expect(screen.getByRole('img', { name: /geometry radar plot/i })).toBeTruthy();
-    expect(screen.getByText(/no coverage or signal forecast/)).toBeDefined();
+    expect(screen.getByRole('img', { name: /landing distance radar plot/i })).toBeTruthy();
+    expect(screen.getByText(/no signal forecast/)).toBeDefined();
     const arc = Array.from(container.querySelectorAll('circle')).find((element) => element.getAttribute('stroke') === 'var(--accent)');
     expect(arc?.getAttribute('fill')).toBe('none');
   });
@@ -30,5 +30,20 @@ describe('PropagationRadar', () => {
     const far = points.reduce((a, b) => Math.hypot(b[0]! - 150, b[1]! - 150) > Math.hypot(a[0]! - 150, a[1]! - 150) ? b : a);
     expect(far[0]! - 150).toBeGreaterThan(50);
     expect(Math.abs(far[1]! - 150)).toBeLessThan(1);
+  });
+});
+
+describe('PropagationRadar when nothing returns', () => {
+  it('says the rays pass through instead of drawing outlines', () => {
+    const prediction = makePropagationPrediction({
+      frequencyMHz: 14.2,
+      hops: [makeHop({ rangeKm: undefined })],
+      azimuthalHops: [
+        makeAzimuthalHop({ phiDeg: 0, returns: false, rangeKm: [], halfPowerElevationDeg: { lowDeg: 40, highDeg: 90 } }),
+        makeAzimuthalHop({ phiDeg: 180, returns: false, rangeKm: [], halfPowerElevationDeg: { lowDeg: 40, highDeg: 90 } }),
+      ],
+    });
+    render(<PropagationRadar prediction={prediction} units="metric" size={300} />);
+    expect(screen.getByText('Passes through at 14.20 MHz')).toBeDefined();
   });
 });
