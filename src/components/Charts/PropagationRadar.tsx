@@ -56,6 +56,8 @@ export function PropagationRadar({
           size={size}
           maxRadiusPx={maxRadiusPx}
           margin={margin}
+          maxRangeKm={maxRangeKm}
+          units={units}
         />
 
         {/* Unfilled outlines show geometric arcs without implying coverage. */}

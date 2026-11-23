@@ -64,6 +64,30 @@ describe('PropagationRadarComponents', () => {
     });
   });
 
+  describe('RadarGrid distance scale', () => {
+    it('places labelled grid circles at round distances', () => {
+      render(
+        <svg>
+          <RadarGrid cx={150} cy={150} size={300} maxRadiusPx={100} margin={20} maxRangeKm={2379} units="metric" />
+        </svg>,
+      );
+      // 2379 / 5 ≈ 476 → 500 km steps, up to 2000 inside the rim.
+      expect(['500 km', '1000 km', '1500 km', '2000 km'].every((t) => screen.getByText(t))).toBe(true);
+      expect(screen.queryByText('2500 km')).toBeNull();
+    });
+
+    it('rounds the scale in miles for imperial units', () => {
+      render(
+        <svg>
+          <RadarGrid cx={150} cy={150} size={300} maxRadiusPx={100} margin={20} maxRangeKm={1609.344} units="imperial" />
+        </svg>,
+      );
+      // 1000 mi / 5 = 200 mi steps.
+      expect(screen.getByText('200 mi')).toBeTruthy();
+      expect(screen.getByText('800 mi')).toBeTruthy();
+    });
+  });
+
   describe('RadarLabels', () => {
     it('renders cardinal directions (N, S, E, W)', () => {
       const prediction = makePropagationPrediction({ hops: [] });
@@ -227,10 +251,13 @@ describe('PropagationRadarComponents', () => {
       expect(lines[0]?.querySelector('title')?.textContent).toContain('half-power beam 30.0–90.0° elevation');
     });
 
-    it('labels rings with the beam reach at North', () => {
+    it('names only the hop count, at the outline\'s farthest point', () => {
       const prediction = makePropagationPrediction({ hops: [makeHop({ n: 1, rangeKm: 0 })], azimuthalHops: beamHops() });
       render(<svg><RadarLabels cx={150} cy={150} size={300} margin={24} prediction={prediction} kmToPx={0.1} units="metric" /></svg>);
-      expect(screen.getByText('1× 400 km')).toBeDefined();
+      const label = screen.getByText('1×');
+      // East, 800 km, 9 px inside: x = 150 + 71 + 3.
+      expect(Number(label.getAttribute('x'))).toBeCloseTo(224, 8);
+      expect(screen.queryByText(/km/)).toBeNull();
     });
 
     it('draws a dashed near edge when the beam leaves a gap close in', () => {

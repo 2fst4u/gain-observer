@@ -41,14 +41,34 @@ export function beamRangeKm(
   return (edge === "far" ? span.farKm : span.nearKm) * ringN;
 }
 
-/** Range shown beside each ring's label, at the bearing the label sits on (North). */
-export function ringLabelRangeKm(prediction: PropagationPrediction, ringN: number): number {
-  const az = prediction.azimuthalHops;
-  const fallback = prediction.hops[ringN - 1]?.rangeKm ?? 0;
-  if (!az || az.length <= 1 || !hasHalfPowerBeam(az)) return fallback;
-  const offNorth = (b: number) => Math.min(((b % 360) + 360) % 360, 360 - (((b % 360) + 360) % 360));
-  const north = az.reduce((a, b) => (offNorth(b.bearingDeg) < offNorth(a.bearingDeg) ? b : a));
-  return beamRangeKm(north, ringN, true, "far");
+/**
+ * Where to put an outline's hop-count label: the outline's farthest point.
+ * An outline that is not a circle has no single radius, so its label names
+ * only the hop count; the grid circles carry the distance scale.
+ */
+export function ringLabelAnchor(
+  az: readonly AzimuthalHop[],
+  ringN: number,
+): { bearingDeg: number; rangeKm: number } | undefined {
+  if (az.length === 0) return undefined;
+  const useBeam = hasHalfPowerBeam(az);
+  let best = az[0]!;
+  let bestKm = beamRangeKm(best, ringN, useBeam);
+  for (const point of az) {
+    const km = beamRangeKm(point, ringN, useBeam);
+    if (km > bestKm) { best = point; bestKm = km; }
+  }
+  return { bearingDeg: best.bearingDeg, rangeKm: bestKm };
+}
+
+/** Grid-circle spacing: a 1, 2, 2.5 or 5 × 10ⁿ step in the display unit,
+ * giving three to five circles inside the plotted range. */
+export function niceGridStep(maxRange: number): number {
+  if (!(maxRange > 0) || !Number.isFinite(maxRange)) return 0;
+  const raw = maxRange / 5;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].find((m) => m * power >= raw)!;
+  return step * power;
 }
 
 export function calculateMaxRangeKm(prediction: PropagationPrediction): number {
