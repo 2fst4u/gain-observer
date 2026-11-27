@@ -216,19 +216,42 @@ export interface TerminatedDeltaSplitResult {
   resistorRadius: number;
 }
 
+/**
+ * The two inner ends of the half-bases: the closest pair of endpoints, one
+ * from each half-base. Each half-base is graded into several sub-wires
+ * sharing a tag, emitted corner-first on the left and centre-first on the
+ * right, so neither "first wire" nor "last wire" is safe to assume.
+ */
+function innerEnds(rendered: RenderedWire[]): [[number, number, number], [number, number, number]] | null {
+  const ends = (tag: number) => rendered
+    .filter((wire) => wire.tag === tag)
+    .flatMap((wire) => [wire.sceneStart, wire.sceneEnd]);
+  const left = ends(TERMINATED_DELTA_LEFT_BASE_TAG);
+  const right = ends(TERMINATED_DELTA_RIGHT_BASE_TAG);
+  let best: [[number, number, number], [number, number, number]] | null = null;
+  let bestDistance = Infinity;
+  for (const a of left) {
+    for (const b of right) {
+      const d = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+      if (d < bestDistance) {
+        bestDistance = d;
+        best = [a, b];
+      }
+    }
+  }
+  return best;
+}
+
 function useTerminatedDeltaSplit(
-  byTag: Map<number, RenderedWire>,
+  rendered: RenderedWire[],
   type: AntennaType,
   wireRadius: number
 ): TerminatedDeltaSplitResult | null {
   return useMemo(() => {
     if (type !== 'terminated-delta') return null;
-    const leftHalfBase = byTag.get(TERMINATED_DELTA_LEFT_BASE_TAG);
-    const rightHalfBase = byTag.get(TERMINATED_DELTA_RIGHT_BASE_TAG);
-
-    if (!leftHalfBase || !rightHalfBase) return null;
-    const leftInner = leftHalfBase.sceneEnd;
-    const rightInner = rightHalfBase.sceneStart;
+    const inner = innerEnds(rendered);
+    if (!inner) return null;
+    const [leftInner, rightInner] = inner;
     const bridgeMid: [number, number, number] = [
       (leftInner[0] + rightInner[0]) / 2,
       (leftInner[1] + rightInner[1]) / 2,
@@ -258,13 +281,13 @@ function useTerminatedDeltaSplit(
       bridgeQuat,
       resistorRadius: Math.max(wireRadius * 8, 0.04),
     };
-  }, [type, byTag, wireRadius]);
+  }, [type, rendered, wireRadius]);
 }
 
 export function useAntennaGeometry(props: AntennaWireProps) {
   const { rendered, byTag } = useRenderedWires(props);
   const { shield, shieldEnd, feedpoint } = useFeedpointAndShield(rendered, byTag, props.type, props.deltaFeed);
-  const terminatedDeltaSplit = useTerminatedDeltaSplit(byTag, props.type, props.wireRadius);
+  const terminatedDeltaSplit = useTerminatedDeltaSplit(rendered, props.type, props.wireRadius);
 
   return { rendered, shield, shieldEnd, feedpoint, terminatedDeltaSplit };
 }
