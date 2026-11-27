@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useAntennaGeometry, type AntennaWireProps } from '../src/components/Scene/useAntennaGeometry';
 import { MIN_REAL_GROUND_HEIGHT_M, useAntennaStore } from '../src/store/antennaStore';
+import { FEED_BRIDGE_LENGTH_M } from '../src/physics/constants';
 
 describe('useAntennaGeometry', () => {
   beforeEach(() => {
@@ -71,6 +72,44 @@ describe('useAntennaGeometry', () => {
     expect(result.current.rendered.length).toBeGreaterThan(0);
     expect(result.current.terminatedDeltaSplit).not.toBeNull();
     expect(result.current.terminatedDeltaSplit?.bridgeLen).toBeGreaterThan(0);
+  });
+
+  it('centres the terminating resistor under the apex across the 0.1 m gap', () => {
+    // A 40 m loop on 7.1 MHz grades each half-base into several sub-wires
+    // emitted corner-first on the left, so the inner end is not the first
+    // wire's end. The resistor must still bridge exactly the centre gap.
+    for (const orientation of ['NS', 'EW'] as const) {
+      for (const feedlineId of ['none', 'rg8x']) {
+        const { result } = renderHook(() => useAntennaGeometry({
+          type: 'terminated-delta',
+          length: 40,
+          height: 12,
+          orientation,
+          wireRadius: 0.001,
+          segments: 41,
+          feedlineId,
+          feedlineLength: 15,
+          feedlineOffset: 0.5,
+          whipCounterpoise: false,
+          vAngle: 180,
+          legSlope: 0,
+          frequency: 7.1,
+          foldedDipoleAperture: 0.3,
+          designFrequency: 7.1,
+          groundId: 'free',
+          terminatingResistor: 600,
+          transformerEnabled: false,
+        }));
+        const split = result.current.terminatedDeltaSplit!;
+        // Scene x and z are horizontal; the mast stands on the origin.
+        expect(Math.abs(split.bridgeMid[0])).toBeLessThan(1e-6);
+        expect(Math.abs(split.bridgeMid[2])).toBeLessThan(1e-6);
+        expect(split.bridgeLen).toBeCloseTo(FEED_BRIDGE_LENGTH_M, 6);
+        // The two inner-end markers sit symmetrically either side.
+        expect(split.leftInner[0] + split.rightInner[0]).toBeCloseTo(0, 6);
+        expect(split.leftInner[2] + split.rightInner[2]).toBeCloseTo(0, 6);
+      }
+    }
   });
 
   it('handles feedline shield and bridge', () => {
