@@ -29,6 +29,10 @@
 
   --chart-grid: rgba(255, 255, 255, 0.08);
   --chart-text: #c6cdd6;
+
+  /* Native widgets (select lists and their hover highlight, scrollbars,
+     spinners) follow the app's theme, not the OS preference. */
+  color-scheme: dark;
 }
 
 :root[data-theme='light'] {
@@ -59,4 +63,6 @@
 
   --chart-grid: rgba(0, 0, 0, 0.08);
   --chart-text: #3a4250;
+
+  color-scheme: light;
 }
