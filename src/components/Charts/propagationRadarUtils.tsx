@@ -40,6 +40,42 @@ export function strengthBand(relativeDb: number): number {
   return STRENGTH_BANDS.findIndex((band) => relativeDb >= band.minDb);
 }
 
+/**
+ * Shading bands for received power, dBm, on the S-meter scale (S9 = −73 dBm,
+ * 6 dB per S-unit), strongest first, sharing the strength colours.
+ */
+export const SIGNAL_BANDS: readonly { minDb: number; fill: string; opacity: number; label: string }[] = [
+  { minDb: -73, fill: "var(--success)", opacity: 0.85, label: "S9+" },
+  { minDb: -85, fill: "var(--success)", opacity: 0.5, label: "S7–9" },
+  { minDb: -97, fill: "var(--warning)", opacity: 0.55, label: "S5–7" },
+  { minDb: -109, fill: "var(--danger)", opacity: 0.5, label: "S3–5" },
+  { minDb: -121, fill: "var(--danger)", opacity: 0.22, label: "S1–3" },
+];
+
+/** S-meter reading of a received power: "S7", or "S9+12 dB" above S9. */
+export function sMeterLabel(dbm: number): string {
+  if (dbm >= -73) return `S9+${Math.round(dbm + 73)} dB`;
+  return `S${Math.max(0, Math.round(9 + (dbm + 73) / 6))}`;
+}
+
+type CoverageMapLike = NonNullable<PropagationPrediction["coverage"]>;
+
+/** The bands and per-cell values a coverage map is shaded by. */
+export function coverageScale(map: CoverageMapLike) {
+  const absolute = map.receivedDbm !== undefined;
+  const bands = absolute ? SIGNAL_BANDS : STRENGTH_BANDS;
+  const values = map.receivedDbm ?? map.relativeDb;
+  return {
+    absolute,
+    bands,
+    values,
+    band: (value: number) => bands.findIndex((b) => value >= b.minDb),
+    describe: (value: number) => absolute
+      ? `up to ${sMeterLabel(value)} (${value.toFixed(0)} dBm)`
+      : `up to ${value.toFixed(1)} dB relative to the strongest point`,
+  };
+}
+
 /** SVG path of a ring sector on the compass plot (0° up, clockwise). */
 export function ringSectorPath(cx: number, cy: number, r1: number, r2: number, fromDeg: number, toDeg: number): string {
   const at = (r: number, deg: number) => {

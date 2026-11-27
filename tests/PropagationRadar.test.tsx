@@ -7,7 +7,7 @@ describe('PropagationRadar', () => {
   it('draws unfilled landing arcs and identifies that signal is not calculated', () => {
     const { container } = render(<PropagationRadar prediction={makePropagationPrediction()} units="metric" size={300} />);
     expect(screen.getByRole('img', { name: /landing distance radar plot/i })).toBeTruthy();
-    expect(screen.getByText(/no absolute signal level/)).toBeDefined();
+    expect(screen.getByText(/No absolute signal level/)).toBeDefined();
     const arc = Array.from(container.querySelectorAll('circle')).find((element) => element.getAttribute('stroke') === 'var(--text)');
     expect(arc?.getAttribute('fill')).toBe('none');
   });

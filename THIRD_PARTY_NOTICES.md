@@ -64,6 +64,19 @@ Geomagnetic field coefficients: International Geomagnetic Reference Field,
 International Geomagnetic Reference Field: the thirteenth generation, Earth,
 Planets and Space, 73, 49.
 
+## D-layer absorption (Davies / Rawer)
+
+`src/physics/absorption.ts` implements the non-deviative absorption formula
+and winter-anomaly factors given in K. Davies, *Ionospheric Radio
+Propagation*, National Bureau of Standards Monograph 80, US Department of
+Commerce, 1965, eq. (5.19) and table 5.1 (a formula Davies attributes to
+K. Rawer, fitted to vertical-incidence measurements at Slough). The monograph
+was written by a federal employee and issued by the US Government Printing
+Office, so its text is not subject to copyright in the United States (17 U.S.C.
+§ 105); only an equation and four table factors are used, with citation.
+Figures in the monograph reproduced by permission of other publishers are not
+used. Available from NIST: https://doi.org/10.6028/NBS.MONO.80
+
 ## NOAA SWPC solar-cycle data
 
 Smoothed and predicted 10.7 cm solar flux are fetched at run time from the

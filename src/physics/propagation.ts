@@ -11,6 +11,7 @@
 
 import { phiToBearingDeg } from './angles';
 import { AVERAGE_GROUND, computeCoverage, type CoverageMap, type GroundConstants } from './coverage';
+import { f107ToR12 } from './ionosphere/iri';
 import type { LayerParameters } from './ionosphere/iri';
 import { plasmaFrequencyMHz } from './ionosphere/iri';
 import {
@@ -37,6 +38,16 @@ export interface PropagationInputs {
   /** Ground at the reflection points of later hops. Free space (εr = 1,
    * σ = 0) has no ground, so average ground is used instead. */
   readonly ground?: GroundConstants;
+  /** Transmitter and circumstances for absolute received power. Without
+   * them the coverage map is relative. */
+  readonly link?: {
+    readonly txPowerW: number;
+    readonly date: Date;
+    readonly latitudeDeg: number;
+    readonly longitudeDeg: number;
+    /** 12-month smoothed 10.7 cm solar flux, sfu. */
+    readonly f107: number;
+  };
 }
 
 export interface HopPrediction {
@@ -228,7 +239,15 @@ export function predictPropagation(input: PropagationInputs): PropagationPredict
   const ground = g && typeof g.sigma === 'number' && !Number.isNaN(g.sigma) && Number.isFinite(g.epsilon) &&
     !(g.sigma === 0 && g.epsilon <= 1) ? g : AVERAGE_GROUND;
   const coverage = pattern && pattern.dTheta > 0 && pattern.dPhi > 0
-    ? computeCoverage(pattern, fan, input.frequencyMHz, ground, MAX_HOPS) : undefined;
+    ? computeCoverage(pattern, fan, input.frequencyMHz, ground, MAX_HOPS, input.link && {
+      txPowerW: input.link.txPowerW,
+      realizedGainOffsetDb: realizedGainOffsetDb !== undefined && Number.isFinite(realizedGainOffsetDb)
+        ? realizedGainOffsetDb : realizedGainOffsetDb === -Infinity ? -300 : 0,
+      date: input.link.date,
+      latitudeDeg: input.link.latitudeDeg,
+      longitudeDeg: input.link.longitudeDeg,
+      sunspotNumber: f107ToR12(input.link.f107),
+    }) : undefined;
   return {
     coverage,
     frequencyMHz: input.frequencyMHz,

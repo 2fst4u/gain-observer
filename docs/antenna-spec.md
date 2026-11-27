@@ -179,31 +179,41 @@ arc on a 6371 km Earth. For a thin dense layer this reduces to specular
 reflection, `2R[π/2−ε−asin(R cosε/(R+h))]`, and to the curved-Earth secant law;
 both are tested (`tests/raytrace.test.ts`).
 
-**What the view shows.** The shading is relative power density on the ground
-(`src/physics/coverage.ts`). For every pattern bearing and every traced ray
-that returns, the power radiated into the ray's elevation band,
-G(ε)·cos ε·Δε·Δφ/4π, is spread evenly over the stretch of ground it lands on
-after n hops, [n·D(ε), n·D(ε+Δε)], and accumulated into range bins whose
-spherical-Earth area normalises it to a density: the ray-tube spreading, which
-concentrates power near the skip distance and thins it with range. Each hop
-after the first multiplies by the ground's power reflection coefficient at the
-ray's grazing angle (Fresnel, complex permittivity εr − j60λσ, mean of
-horizontal and vertical polarisation; average ground when the antenna is in
-free space). Hops 1–3 are summed and shown in 6 dB bands below the strongest
-cell, down to −30 dB. Landed power equals radiated power to 1e-4 in the tests.
-Lines mark where the half-power beam (gain within 3 dB of the pattern's peak)
-reaches after 1–3 hops; a dashed inner line marks a skip zone. The readout
-gives foF2, hmF2, foF1, foE, whether near-vertical rays return (frequency below
-the profile's peak plasma frequency), and the strongest lobe's MUF.
+**What the view shows.** The shading is the median power an isotropic
+receiving antenna would deliver (`src/physics/coverage.ts`). For every pattern
+bearing and every traced ray that returns, the transmitter power through the
+realized gain (NEC gain plus the feed-system offset), P·G(ε)·cos ε·Δε·Δφ/4π, is
+spread evenly over the stretch of ground the ray band lands on after n hops,
+[n·D(ε), n·D(ε+Δε)], and accumulated into range bins whose spherical-Earth area
+turns it into a power density: the ray tube, which concentrates power near the
+skip distance and thins it with range. Each hop after the first multiplies by
+the ground's power reflection coefficient at the ray's grazing angle (Fresnel,
+complex permittivity εr − j60λσ, mean of horizontal and vertical polarisation;
+average ground when the antenna is in free space). Each hop also loses D-layer
+absorption (`src/physics/absorption.ts`) from Rawer's formula as given by
+Davies, NBS Monograph 80 (1965), eq. 5.19:
+La = 430(1 + 0.0035R) cos^0.75 χ sec φD (f + fL)^-2 dB per hop, with χ the
+solar zenith at the hop's midpoint along the bearing, φD the angle of
+incidence at 90 km, fL the longitudinal gyrofrequency (IGRF at 100 km), R the
+smoothed sunspot number from F10.7, and table 5.1's winter-anomaly factors for
+dipole latitudes 40°–70°. The received power is P_density·λ²/4π, less 3 dB for
+a linearly polarised antenna receiving the circularly polarised ordinary wave
+(Davies §5.3.5), shown on the S-meter scale (S9 = −73 dBm, 6 dB per unit) down
+to S1. With unit transmitter power and no absorption, landed power equals
+radiated power to 1e-4 in the tests. Lines mark where the half-power beam
+(gain within 3 dB of the pattern's peak) reaches after 1–3 hops; a dashed
+inner line marks a skip zone. The readout gives foF2, hmF2, foF1, foE, whether
+near-vertical rays return (frequency below the profile's peak plasma
+frequency), and the strongest lobe's MUF.
 
 **Not modelled.** Day-to-day departures from the monthly median (typically
 15–20% in foF2, more in storms) and sporadic E; the geomagnetic field, so only
 the ordinary wave (the extraordinary wave reflects up to about fH/2 higher);
 horizontal gradients (the station's profile is used along the whole path, and
-later hops repeat the first); D-layer absorption (no sourced quiet-day model is
-used, so low-band daytime low-angle and multi-hop paths are shown too strong);
-noise and any link budget. The shading is relative only: there is no absolute
-field strength, received SNR, LUF or availability.
+later hops repeat the first); auroral and polar-cap absorption and night-time
+absorption (the formula is zero with the sun down); day-to-day absorption
+variability (up to about a factor of 2 in winter); fading allowances; and
+noise, so there is no received SNR, LUF or availability.
 
 ## Validation boundaries
 

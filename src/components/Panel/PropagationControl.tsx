@@ -34,6 +34,7 @@ export function PropagationControl() {
   })));
   const feedMetrics = useLiveFeedMetrics().metrics;
   const [f107Override, setF107Override] = useState<number | null>(null);
+  const [txPowerW, setTxPowerW] = useState(100);
   const time = predictionTime(state.monthOverride, state.utcHourOverride);
   const date = useMemo(() => new Date(time), [time]);
   const flux = useSolarFlux(date.getUTCFullYear(), date.getUTCMonth() + 1);
@@ -58,8 +59,9 @@ export function PropagationControl() {
     pattern: result?.pattern,
     realizedGainOffsetDb,
     ground: { sigma: state.groundSigma, epsilon: state.groundEpsilon },
+    link: { txPowerW, date, latitudeDeg: state.latitudeDeg ?? 0, longitudeDeg: state.longitudeDeg ?? 0, f107 },
   }), [layers, state.frequency, result?.takeoffElevationDeg, result?.pattern, realizedGainOffsetDb,
-    state.groundSigma, state.groundEpsilon]);
+    state.groundSigma, state.groundEpsilon, txPowerW, date, state.latitudeDeg, state.longitudeDeg, f107]);
 
   return (
     <section className="panel-section">
@@ -71,6 +73,8 @@ export function PropagationControl() {
         solarFlux={fluxDisplay}
         onSolarFluxChange={setF107Override}
         onSolarFluxReset={() => setF107Override(null)}
+        txPowerW={txPowerW}
+        onTxPowerChange={setTxPowerW}
       />
       <ConditionsReadout
         prediction={prediction}

@@ -32,9 +32,10 @@ Results depend on thin-wire segmentation, a flat homogeneous ground model,
 and the specified feed system. The propagation view traces the antenna's rays
 through the International Reference Ionosphere's monthly median above your
 location, with solar activity from NOAA, to show where they land at your
-frequency and when they pass straight through, shaded by relative strength on
-the ground. It does not give an absolute signal level or say whether a contact
-will work.
+frequency and when they pass straight through, shaded by the median signal
+level for your transmitter power, including D-layer absorption. It does not
+yet account for noise, so it shows signal strength rather than whether a
+contact will work.
 
 ## About the project
 

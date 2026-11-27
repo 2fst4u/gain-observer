@@ -100,7 +100,7 @@ export function PropagationRadar({
       </svg>
 
       {/* SEO: Using <figcaption> instead of a generic <div> clearly associates this legend with the preceding <svg> graphic. */}
-      <RadarLegend />
+      <RadarLegend absolute={prediction.coverage?.receivedDbm !== undefined} />
     </figure>
   );
 }

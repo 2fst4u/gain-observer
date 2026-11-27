@@ -136,6 +136,17 @@ export function subsolarPoint(jd: number): { lon: number; lat: number } {
   return { lon, lat: dec };
 }
 
+/** Solar zenith at a location and UTC instant, degrees. */
+export function solarZenithAtDeg(date: Date, lat: number, lon: number): number {
+  const sun = subsolarPoint(julianDate(
+    date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate(),
+    date.getUTCHours(), date.getUTCMinutes() + date.getUTCSeconds() / 60,
+  ));
+  const cosZ = Math.sin(sun.lat * DEG) * Math.sin(lat * DEG) +
+    Math.cos(sun.lat * DEG) * Math.cos(lat * DEG) * Math.cos((sun.lon - lon) * DEG);
+  return Math.acos(Math.max(-1, Math.min(1, cosZ))) / DEG;
+}
+
 /** Solar zenith at a location on the 15th of a month at a UT hour, as PyIRI
  * evaluates it for the monthly-median E and F1 layers. */
 export function midMonthSolarZenithDeg(year: number, month: number, utHour: number, lon: number, lat: number): number {

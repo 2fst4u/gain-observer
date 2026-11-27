@@ -7,7 +7,7 @@ import {
   RadarLabels,
   RadarLegend,
 } from '../src/components/Charts/PropagationRadarComponents';
-import { STRENGTH_BANDS, strengthBand } from '../src/components/Charts/propagationRadarUtils';
+import { SIGNAL_BANDS, sMeterLabel, STRENGTH_BANDS, strengthBand } from '../src/components/Charts/propagationRadarUtils';
 import { COVERAGE_BINS } from '../src/physics/coverage';
 import type { PropagationPrediction } from '../src/physics/propagation';
 import {
@@ -305,6 +305,31 @@ describe('PropagationRadarComponents', () => {
       expect([0, -5.9, -6, -11, -17, -23, -29.9, -30, -31].map(strengthBand)).toEqual([0, 0, 0, 1, 2, 3, 4, 4, -1]);
     });
 
+    it('shades absolute received power in S-meter bands', () => {
+      const relativeDb = new Float64Array(2 * COVERAGE_BINS).fill(-Infinity);
+      const receivedDbm = new Float64Array(2 * COVERAGE_BINS).fill(-Infinity);
+      receivedDbm[0] = -60; // S9+13
+      receivedDbm[1] = -90; // S5–7
+      receivedDbm[2] = -130; // below S1: not drawn
+      const prediction = makePropagationPrediction({
+        coverage: {
+          maxRangeKm: 6400, binKm: 100, bearingsDeg: [0, 180], sectorWidthDeg: 180,
+          relativeDb, receivedDbm, dominantHops: new Uint8Array(2 * COVERAGE_BINS), peakDensity: 1,
+        },
+      });
+      const { container } = render(<svg><RadarCoverage prediction={prediction} cx={150} cy={150} kmToPx={0.02} units="metric" /></svg>);
+      const groups = Array.from(container.querySelectorAll('g > g'));
+      expect(groups.map((g) => g.getAttribute('fill'))).toEqual(SIGNAL_BANDS.map((b) => b.fill).reverse());
+      const titles = Array.from(container.querySelectorAll('path title')).map((t) => t.textContent);
+      expect(titles).toContain('Bearing 0°, 0 km–100 km: up to S9+13 dB (-60 dBm)');
+      expect(titles).toContain('Bearing 0°, 100 km–200 km: up to S6 (-90 dBm)');
+      expect(titles).toHaveLength(2);
+    });
+
+    it('labels S-meter readings', () => {
+      expect([-50, -73, -79, -121, -140].map(sMeterLabel)).toEqual(['S9+23 dB', 'S9+0 dB', 'S8', 'S1', 'S0']);
+    });
+
     it('draws nothing without a coverage map', () => {
       const { container } = render(<svg><RadarCoverage prediction={makePropagationPrediction()} cx={150} cy={150} kmToPx={0.02} units="metric" /></svg>);
       expect(container.querySelectorAll('path')).toHaveLength(0);
@@ -316,9 +341,17 @@ describe('PropagationRadarComponents', () => {
       const { container } = render(<RadarLegend />);
       const caption = container.querySelector('figcaption')!.textContent!;
       expect(caption).toContain('dB below the strongest point');
-      expect(caption).toContain('D-layer absorption is not included');
-      expect(caption).toContain('no absolute signal level');
+      expect(caption).toContain('No absolute signal level');
       expect(screen.queryByText(/Open|Marginal|Closed|weak signal/)).toBeNull();
+    });
+
+    it('explains the S-meter scale and that readability depends on noise', () => {
+      const { container } = render(<RadarLegend absolute />);
+      const caption = container.querySelector('figcaption')!.textContent!;
+      expect(caption).toContain('S9+S7–9S5–7S3–5S1–3');
+      expect(caption).toContain('isotropic receiving antenna');
+      expect(caption).toContain('D-layer absorption (Davies/Rawer)');
+      expect(caption).toContain('depends on the noise where you listen');
     });
 
     it('shows a swatch per strength band, strongest first', () => {

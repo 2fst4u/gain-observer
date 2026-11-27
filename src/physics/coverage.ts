@@ -1,4 +1,4 @@
-// Relative skywave power density over the ground around the station.
+// Skywave power density over the ground around the station.
 //
 // Each traced ray carries the power the antenna radiates into its elevation
 // band (gain × cos ε × Δε × Δφ / 4π for unit input power). For 1–3 hops the
@@ -10,14 +10,21 @@
 // configured ground, averaged over horizontal and vertical polarisation
 // because the ionosphere rotates and splits the wave's polarisation.
 //
-// Not included: D-layer absorption (no sourced quiet-day model is used, so
-// low-band daytime multi-hop and low-angle paths are shown too strong),
-// focusing by Earth curvature beyond the ray-tube area, and anything on the
-// receiving side. The result is relative: dB below the strongest cell.
+// With link inputs (transmitter power, date and place), each hop also loses
+// D-layer absorption from Rawer's formula in Davies, NBS Monograph 80 (see
+// ./absorption.ts), evaluated at the hop's midpoint along the bearing, and the
+// result is converted to the power an isotropic receiving antenna would
+// deliver, less 3 dB for a linearly polarised antenna receiving the
+// circularly polarised ordinary wave (Davies §5.3.5). These are monthly-median
+// values with no fading allowance. Without link inputs the map is relative:
+// dB below its strongest cell.
 
 import type { RayResult } from './ionosphere/raytrace';
 import type { GainPattern } from './types';
 import { phiToBearingDeg } from './angles';
+import { hopAbsorptionDb, winterAnomalyFactor } from './absorption';
+import { decimalYear, dipoleLatitudeDeg, geomagneticField, gyrofrequencyMHz } from './ionosphere/igrf';
+import { solarZenithAtDeg } from './ionosphere/iri';
 
 const EARTH_RADIUS_KM = 6371;
 const DEG = Math.PI / 180;
@@ -27,6 +34,31 @@ const C = 299_792_458;
 export const COVERAGE_BINS = 64;
 /** Cells weaker than this, relative to the strongest, are not drawn. */
 export const COVERAGE_FLOOR_DB = -30;
+/** S-meter reference: S9 is −73 dBm at the receiver input, 6 dB per S-unit. */
+export const S9_DBM = -73;
+/** Absolute maps are drawn down to S1 (−121 dBm). */
+export const S1_DBM = S9_DBM - 8 * 6;
+/** Power fraction a linearly polarised antenna takes from a circular wave. */
+const POLARISATION_FACTOR = 0.5;
+
+/** What turns relative power density into received power. */
+export interface LinkInputs {
+  /** Transmitter output power, W. */
+  readonly txPowerW: number;
+  /** Feed-system offset from NEC gain to realized gain, dB (≤ 0). */
+  readonly realizedGainOffsetDb?: number;
+  /** UTC instant: solar zenith along each path. */
+  readonly date: Date;
+  readonly latitudeDeg: number;
+  readonly longitudeDeg: number;
+  /** 12-month smoothed sunspot number. */
+  readonly sunspotNumber: number;
+}
+
+/** S-units (S1–S9, then dB over S9 as S9 + n/6) of a received power. */
+export function sUnits(dbm: number): number {
+  return 9 + (dbm - S9_DBM) / 6;
+}
 
 export interface GroundConstants {
   /** Conductivity, S/m (Infinity for a perfect conductor). */
@@ -51,6 +83,9 @@ export interface CoverageMap {
   readonly dominantHops: Uint8Array;
   /** Power density of the strongest cell per unit radiated power, km⁻². */
   readonly peakDensity: number;
+  /** With link inputs: received power, dBm, into an isotropic antenna
+   * (−Infinity where nothing lands). */
+  readonly receivedDbm?: Float64Array;
 }
 
 // ---- complex arithmetic for the Fresnel coefficients ----
@@ -110,17 +145,65 @@ export function computeCoverage(
   frequencyMHz: number,
   ground: GroundConstants,
   maxHops = 3,
+  link?: LinkInputs,
 ): CoverageMap | undefined {
   // First pass over the widest possible range finds the farthest cell that
   // will be drawn; the second recomputes at that radius for finer bins.
-  const wide = mapCoverage(pattern, fan, frequencyMHz, ground, maxHops);
+  const wide = mapCoverage(pattern, fan, frequencyMHz, ground, maxHops, undefined, link);
   if (!wide) return undefined;
-  let lastBin = 0;
+  let lastBin = -1;
   for (let cell = 0; cell < wide.relativeDb.length; cell++) {
-    if (wide.relativeDb[cell]! >= COVERAGE_FLOOR_DB) lastBin = Math.max(lastBin, cell % COVERAGE_BINS);
+    const drawn = wide.receivedDbm ? wide.receivedDbm[cell]! >= S1_DBM : wide.relativeDb[cell]! >= COVERAGE_FLOOR_DB;
+    if (drawn) lastBin = Math.max(lastBin, cell % COVERAGE_BINS);
   }
+  if (lastBin < 0) return wide;
   const radius = Math.min(wide.maxRangeKm, (lastBin + 1) * wide.binKm * 1.05);
-  return mapCoverage(pattern, fan, frequencyMHz, ground, maxHops, radius) ?? wide;
+  return mapCoverage(pattern, fan, frequencyMHz, ground, maxHops, radius, link) ?? wide;
+}
+
+/** Point at a distance and compass bearing along a great circle. */
+function destination(latDeg: number, lonDeg: number, bearingDeg: number, distanceKm: number) {
+  const d = distanceKm / EARTH_RADIUS_KM, b = bearingDeg * DEG;
+  const lat1 = latDeg * DEG, lon1 = lonDeg * DEG;
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(b));
+  const lon2 = lon1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+  return { lat: lat2 / DEG, lon: ((lon2 / DEG + 540) % 360) - 180 };
+}
+
+const PATH_STEP_KM = 100;
+const FIELD_EVERY = 4; // field samples every 400 km, interpolated between
+
+/**
+ * Absorption inputs sampled along one bearing: solar zenith, longitudinal
+ * gyrofrequency at 100 km and the winter-anomaly factor, every 100 km.
+ */
+function samplePath(link: LinkInputs, bearingDeg: number, maxKm: number) {
+  const n = Math.ceil(maxKm / PATH_STEP_KM) + 1;
+  const chi = new Float64Array(n), fL = new Float64Array(n), winter = new Float64Array(n);
+  const date = link.date;
+  const month = date.getUTCMonth() + 1;
+  const decimal = decimalYear(date.getUTCFullYear(), month, date.getUTCDate());
+  const points = Array.from({ length: n }, (_, i) =>
+    destination(link.latitudeDeg, link.longitudeDeg, bearingDeg, i * PATH_STEP_KM));
+  for (let i = 0; i < n; i++) chi[i] = solarZenithAtDeg(date, points[i]!.lat, points[i]!.lon);
+  for (let i = 0; i < n; i += FIELD_EVERY) {
+    const p = points[i]!;
+    const field = geomagneticField(decimal, p.lon, p.lat, 100);
+    fL[i] = gyrofrequencyMHz(field.totalNt) * Math.abs(Math.sin(field.inclinationDeg * DEG));
+    winter[i] = winterAnomalyFactor(month, dipoleLatitudeDeg(decimal, p.lat, p.lon));
+  }
+  for (let i = 0; i < n; i++) {
+    if (i % FIELD_EVERY === 0) continue;
+    const lo = i - (i % FIELD_EVERY), hi = Math.min(n - 1, lo + FIELD_EVERY);
+    const last = hi % FIELD_EVERY === 0 ? hi : lo;
+    const t = last === lo ? 0 : (i - lo) / (last - lo);
+    fL[i] = fL[lo]! + t * (fL[last]! - fL[lo]!);
+    winter[i] = t < 0.5 ? winter[lo]! : winter[last]!;
+  }
+  return (km: number) => {
+    const i = Math.max(0, Math.min(n - 1, Math.round(km / PATH_STEP_KM)));
+    return { chi: chi[i]!, fL: fL[i]!, winter: winter[i]! };
+  };
 }
 
 /** The map out to a fixed radius (or the farthest significant landing). */
@@ -131,6 +214,7 @@ export function mapCoverage(
   ground: GroundConstants,
   maxHops: number,
   radiusKm?: number,
+  link?: LinkInputs,
 ): CoverageMap | undefined {
   if (fan.length < 2 || pattern.phiSteps < 1) return undefined;
   const step = fan[1]!.elevationDeg - fan[0]!.elevationDeg;
@@ -160,7 +244,9 @@ export function mapCoverage(
   const power = new Float64Array(sectors * COVERAGE_BINS);
   const hopPower = new Float64Array(sectors * COVERAGE_BINS * maxHops);
 
+  const sunspots = link ? Math.max(0, link.sunspotNumber) : 0;
   for (let pi = 0; pi < sectors; pi++) {
+    const along = link ? samplePath(link, phiToBearingDeg(pi * pattern.dPhi), maxRangeKm) : undefined;
     for (let k = 0; k + 1 < fan.length; k++) {
       const a = fan[k]!, b = fan[k + 1]!;
       if (!a.returns || !b.returns) continue;
@@ -168,9 +254,22 @@ export function mapCoverage(
       const radiated = gainAt(pattern, pi, mid) * Math.cos(mid * DEG) * step * DEG * widthRad / (4 * Math.PI);
       if (!(radiated > 0)) continue;
       const reflect = groundReflectionPower(ground, frequencyMHz, mid);
+      const hopKm = (a.rangeKm! + b.rangeKm!) / 2;
       let carried = radiated;
       for (let n = 1; n <= maxHops; n++) {
         if (n > 1) carried *= reflect;
+        if (along) {
+          // This hop's absorption, at its midpoint along the path.
+          const at = along((n - 0.5) * hopKm);
+          carried *= 10 ** (-hopAbsorptionDb({
+            sunspotNumber: sunspots,
+            solarZenithDeg: at.chi,
+            elevationDeg: mid,
+            frequencyMHz,
+            longitudinalGyroMHz: at.fL,
+            winterFactor: at.winter,
+          }) / 10);
+        }
         const lo = Math.min(a.rangeKm!, b.rangeKm!) * n;
         const hi = Math.max(a.rangeKm!, b.rangeKm!) * n;
         if (lo >= maxRangeKm) continue;
@@ -210,6 +309,19 @@ export function mapCoverage(
     }
     dominantHops[cell] = best;
   }
+  let receivedDbm: Float64Array | undefined;
+  if (link) {
+    // W per km² of ground for the radiated power, then the power an
+    // isotropic antenna (effective area λ²/4π) collects.
+    const watts = Math.max(0, link.txPowerW) * 10 ** ((link.realizedGainOffsetDb ?? 0) / 10);
+    const lambda = C / (frequencyMHz * 1e6);
+    const aperture = lambda * lambda / (4 * Math.PI) * POLARISATION_FACTOR;
+    receivedDbm = new Float64Array(power.length);
+    for (let cell = 0; cell < power.length; cell++) {
+      const perM2 = density[cell]! * watts / 1e6;
+      receivedDbm[cell] = perM2 > 0 ? 10 * Math.log10(perM2 * aperture) + 30 : -Infinity;
+    }
+  }
   return {
     maxRangeKm,
     binKm,
@@ -218,5 +330,6 @@ export function mapCoverage(
     relativeDb,
     dominantHops,
     peakDensity: maxDensity,
+    receivedDbm,
   };
 }

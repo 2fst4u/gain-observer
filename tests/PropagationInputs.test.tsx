@@ -51,6 +51,15 @@ describe('PropagationInputs UI component', () => {
     expect(screen.queryByLabelText('Ideal shell height in kilometres')).toBeNull();
   });
 
+  it('accepts a transmitter power, clamped to 1–1500 W', () => {
+    const onTx = vi.fn();
+    render(<PropagationInputs {...fluxProps} txPowerW={100} onTxPowerChange={onTx} />);
+    const input = screen.getByLabelText('Transmitter power in watts') as HTMLInputElement;
+    expect(input.value).toBe('100');
+    fireEvent.change(input, { target: { value: '400' } });
+    expect(onTx).toHaveBeenCalledWith(400);
+  });
+
   it('says when NOAA SWPC could not be reached', () => {
     render(<PropagationInputs solarFlux={{ f107: 100, origin: 'fallback' }} onSolarFluxChange={vi.fn()} onSolarFluxReset={vi.fn()} />);
     expect(screen.getByText(/could not be reached; assuming 100/)).toBeDefined();

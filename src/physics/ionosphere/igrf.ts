@@ -90,16 +90,13 @@ function legendre(thetaDeg: number): number[][] {
   return P;
 }
 
-/**
- * Magnetic inclination (dip), degrees, positive downward, at a geodetic
- * latitude/longitude and height. Synthesised to degree 13.
- */
-export function inclinationDeg(
+/** North, east and down field components, nT, synthesised to degree 13. */
+function fieldNed(
   dateDecimal: number,
   longitudeDeg: number,
   latitudeDeg: number,
-  heightKm = 300,
-): number {
+  heightKm: number,
+): { X: number; Y: number; Z: number } {
   const coeffs = coefficientsAt(dateDecimal);
   const geo = geodeticToGeocentric(heightKm, 90 - latitudeDeg);
   const theta = geo.colatDeg;
@@ -131,7 +128,52 @@ export function inclinationDeg(
   const t = X;
   X = X * geo.cd + Z * geo.sd;
   Z = Z * geo.cd - t * geo.sd;
+  return { X, Y, Z };
+}
+
+/**
+ * Magnetic inclination (dip), degrees, positive downward, at a geodetic
+ * latitude/longitude and height. Synthesised to degree 13.
+ */
+export function inclinationDeg(
+  dateDecimal: number,
+  longitudeDeg: number,
+  latitudeDeg: number,
+  heightKm = 300,
+): number {
+  const { X, Y, Z } = fieldNed(dateDecimal, longitudeDeg, latitudeDeg, heightKm);
   return Math.atan2(Z, Math.hypot(X, Y)) / DEG;
+}
+
+/** Inclination, degrees, and total intensity, nT, at a point. */
+export function geomagneticField(
+  dateDecimal: number,
+  longitudeDeg: number,
+  latitudeDeg: number,
+  heightKm: number,
+): { inclinationDeg: number; totalNt: number } {
+  const { X, Y, Z } = fieldNed(dateDecimal, longitudeDeg, latitudeDeg, heightKm);
+  return { inclinationDeg: Math.atan2(Z, Math.hypot(X, Y)) / DEG, totalNt: Math.hypot(X, Y, Z) };
+}
+
+/** Electron gyrofrequency, MHz, for a field intensity in nT (28 Hz/nT). */
+export function gyrofrequencyMHz(totalNt: number): number {
+  return 2.8e-5 * totalNt;
+}
+
+/**
+ * Latitude in the centred-dipole (geomagnetic) frame, degrees, from the
+ * first three Gauss coefficients: the boreal dipole pole is antiparallel to
+ * the dipole moment (g10, g11, h11).
+ */
+export function dipoleLatitudeDeg(dateDecimal: number, latitudeDeg: number, longitudeDeg: number): number {
+  const [g10, g11, h11] = coefficientsAt(dateDecimal);
+  const m = Math.hypot(g10!, g11!, h11!);
+  // Unit vector of the north geomagnetic pole in Earth-centred coordinates.
+  const px = -g11! / m, py = -h11! / m, pz = -g10! / m;
+  const lat = latitudeDeg * DEG, lon = longitudeDeg * DEG;
+  const x = Math.cos(lat) * Math.cos(lon), y = Math.cos(lat) * Math.sin(lon), z = Math.sin(lat);
+  return Math.asin(Math.max(-1, Math.min(1, x * px + y * py + z * pz))) / DEG;
 }
 
 /** Modified dip latitude (Rawer): atan(I / √cos φ). */

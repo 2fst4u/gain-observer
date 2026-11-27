@@ -77,6 +77,8 @@ describe('ConditionsReadout', () => {
     expect(text.closest('div')!.hidden).toBe(false);
     expect(screen.getByText(/Sporadic E is not modelled/)).toBeDefined();
     expect(screen.getByText(/extraordinary wave/)).toBeDefined();
+    expect(screen.getByText(/NBS Monograph 80, 1965, eq. 5.19/)).toBeDefined();
+    expect(screen.getByText(/S9 = −73 dBm/)).toBeDefined();
   });
 
   it('formats imperial distances correctly', () => {

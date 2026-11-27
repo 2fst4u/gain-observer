@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COVERAGE_BINS, COVERAGE_FLOOR_DB, computeCoverage, groundReflectionPower, mapCoverage } from '../src/physics/coverage';
+import { COVERAGE_BINS, COVERAGE_FLOOR_DB, computeCoverage, groundReflectionPower, mapCoverage, sUnits } from '../src/physics/coverage';
 import { sampleProfile, traceFan } from '../src/physics/ionosphere/raytrace';
 import type { GainPattern } from '../src/physics/types';
 
@@ -98,5 +98,56 @@ describe('relative coverage map', () => {
     const map = computeCoverage(isotropic(1), mirrorFan, 7, { sigma: 0.005, epsilon: 13 }, 3)!;
     const drawn = Array.from(map.relativeDb).map((db, bin) => (db >= COVERAGE_FLOOR_DB ? bin : -1));
     expect(Math.max(...drawn)).toBeGreaterThan(COVERAGE_BINS * 0.8);
+  });
+});
+
+describe('absolute received power', () => {
+  // Station on the equator at 0°E. At 00 UT on the March equinox the sun is
+  // over 180°E, so everything within 4000 km is in darkness (no absorption);
+  // at 12 UT it is overhead.
+  const night = new Date(Date.UTC(2026, 2, 20, 0, 0));
+  const noon = new Date(Date.UTC(2026, 2, 20, 12, 0));
+  const link = (overrides: Partial<{ txPowerW: number; date: Date; realizedGainOffsetDb: number }> = {}) => ({
+    txPowerW: 100, latitudeDeg: 0, longitudeDeg: 0, sunspotNumber: 80, date: night, ...overrides,
+  });
+  const perfect = { sigma: Infinity, epsilon: 1 };
+  const lambda = 299_792_458 / 7e6;
+  const aperture = lambda * lambda / (4 * Math.PI) * 0.5; // isotropic, less 3 dB polarisation
+
+  it('conserves transmitted power at night: landed power equals half the input for an isotropic hemisphere', () => {
+    const map = mapCoverage(isotropic(1), mirrorFan, 7, perfect, 1, 4000, link())!;
+    let landedW = 0;
+    for (let bin = 0; bin < COVERAGE_BINS; bin++) {
+      const dbm = map.receivedDbm![bin]!;
+      if (!Number.isFinite(dbm)) continue;
+      const areaM2 = 1e6 * 2 * Math.PI * R * R * (Math.cos(bin * map.binKm / R) - Math.cos((bin + 1) * map.binKm / R));
+      landedW += 10 ** ((dbm - 30) / 10) / aperture * areaM2;
+    }
+    expect(landedW).toBeCloseTo(100 * 0.5, 2);
+  });
+
+  it('scales with transmitter power and feed-system loss', () => {
+    const at = (o: Parameters<typeof link>[0]) => mapCoverage(isotropic(2), mirrorFan, 7, perfect, 1, 4000, link(o))!.receivedDbm!;
+    const base = at({}), tenfold = at({ txPowerW: 1000 }), lossy = at({ realizedGainOffsetDb: -3 });
+    for (let cell = 0; cell < base.length; cell++) {
+      if (!Number.isFinite(base[cell]!)) continue;
+      expect(tenfold[cell]! - base[cell]!).toBeCloseTo(10, 9);
+      expect(lossy[cell]! - base[cell]!).toBeCloseTo(-3, 9);
+    }
+  });
+
+  it('weakens every cell in daylight by D-layer absorption', () => {
+    const dark = mapCoverage(isotropic(2), mirrorFan, 7, perfect, 1, 4000, link())!.receivedDbm!;
+    const day = mapCoverage(isotropic(2), mirrorFan, 7, perfect, 1, 4000, link({ date: noon }))!.receivedDbm!;
+    for (let cell = 0; cell < dark.length; cell++) {
+      if (!Number.isFinite(dark[cell]!)) continue;
+      expect(day[cell]!).toBeLessThan(dark[cell]! - 1);
+    }
+  });
+
+  it('reads S-units with S9 at −73 dBm and 6 dB per unit', () => {
+    expect(sUnits(-73)).toBe(9);
+    expect(sUnits(-121)).toBe(1);
+    expect(sUnits(-61)).toBe(11);
   });
 });

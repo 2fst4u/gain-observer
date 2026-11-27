@@ -334,17 +334,43 @@ function SolarFluxInput({ flux, onChange, onReset }: {
   );
 }
 
+function TxPowerInput({ watts, onChange }: { watts: number; onChange: (watts: number) => void }) {
+  return (
+    <>
+      <label htmlFor="tx-power" style={{ marginTop: 10 }}>Transmitter power (W)</label>
+      <NumericInput
+        id="tx-power"
+        aria-label="Transmitter power in watts"
+        aria-describedby="tx-power-hint"
+        min={1}
+        max={1500}
+        step={1}
+        value={watts}
+        onChange={(value) => onChange(Math.max(1, Math.min(1500, value)))}
+      />
+      <p id="tx-power-hint" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
+        Power into the feed system. Feed-line and matching losses are applied from the feed settings.
+      </p>
+    </>
+  );
+}
+
 export function PropagationInputs({
   solarFlux,
   onSolarFluxChange,
   onSolarFluxReset,
+  txPowerW = 100,
+  onTxPowerChange = () => {},
 }: {
   solarFlux: SolarFluxDisplay;
   onSolarFluxChange: (f107: number) => void;
   onSolarFluxReset: () => void;
+  txPowerW?: number;
+  onTxPowerChange?: (watts: number) => void;
 }) {
   return (
     <>
+      <TxPowerInput watts={txPowerW} onChange={onTxPowerChange} />
       <LatitudeInput />
       <LongitudeInput />
       <MonthInput />
