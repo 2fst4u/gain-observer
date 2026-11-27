@@ -15,7 +15,6 @@ body,
 }
 
 html {
-  color-scheme: dark light;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   background-color: var(--bg);
@@ -152,6 +151,20 @@ select {
   padding: 5px 8px;
   border-radius: 4px;
   width: 100%;
+}
+
+/* Options take the theme's colours explicitly: browsers that draw the list
+   themselves otherwise mix the select's text colour with their own
+   highlight and background, which can leave hovered text unreadable. */
+select option,
+select optgroup {
+  background-color: var(--bg-raised);
+  color: var(--text);
+}
+
+select option:checked {
+  background-color: var(--accent);
+  color: #fff;
 }
 
 input[type='range'] {

@@ -1,13 +1,15 @@
-// Top-down outline of ideal spherical-shell ground arcs.
-// The outlines are geometric distances, not filled coverage regions.
+// Top-down view of where an antenna's rays land after 1–3 hops through the
+// modelled ionosphere: shaded by relative power density on the ground, with
+// outlines for the half-power beam's reach.
 
 import type { PropagationPrediction } from "../../physics/propagation";
 import type { UnitSystem } from "../../physics/units";
-import { calculateMaxRangeKm } from "./propagationRadarUtils";
+import { calculateMaxRangeKm, nothingReturns } from "./propagationRadarUtils";
 import {
   RadarGrid,
   RadarHopRings,
   RadarLabels,
+  RadarCoverage,
   RadarLegend,
 } from "./PropagationRadarComponents";
 
@@ -47,7 +49,7 @@ export function PropagationRadar({
         width={size}
         height={size}
         role="img"
-        aria-label="Ideal propagation geometry radar plot"
+        aria-label="Skywave landing distance radar plot"
         style={{ display: "block", maxWidth: "100%" }}
       >
         <RadarGrid
@@ -56,9 +58,13 @@ export function PropagationRadar({
           size={size}
           maxRadiusPx={maxRadiusPx}
           margin={margin}
+          maxRangeKm={maxRangeKm}
+          units={units}
         />
 
-        {/* Unfilled outlines show geometric arcs without implying coverage. */}
+        <RadarCoverage prediction={prediction} cx={cx} cy={cy} kmToPx={kmToPx} units={units} />
+
+        {/* Outlines: where the half-power beam reaches after 1–3 hops. */}
         <RadarHopRings
           prediction={prediction}
           cx={cx}
@@ -68,6 +74,19 @@ export function PropagationRadar({
 
         {/* Centre dot = antenna location */}
         <circle cx={cx} cy={cy} r={4} fill="var(--accent)" />
+
+        {nothingReturns(prediction) && (
+          <text
+            x={cx}
+            y={cy + 22}
+            textAnchor="middle"
+            fontSize={11}
+            fill="var(--text-muted)"
+            fontFamily="system-ui, sans-serif"
+          >
+            {`Passes through at ${prediction.frequencyMHz.toFixed(2)} MHz`}
+          </text>
+        )}
 
         <RadarLabels
           cx={cx}
@@ -81,7 +100,7 @@ export function PropagationRadar({
       </svg>
 
       {/* SEO: Using <figcaption> instead of a generic <div> clearly associates this legend with the preceding <svg> graphic. */}
-      <RadarLegend />
+      <RadarLegend absolute={prediction.coverage?.receivedDbm !== undefined} />
     </figure>
   );
 }

@@ -15,6 +15,7 @@ import type {
 } from '../../src/physics/types';
 import type { ComparisonSnapshot } from '../../src/store/antennaStore';
 import type { HopPrediction, PropagationPrediction } from '../../src/physics/propagation';
+import type { LayerParameters } from '../../src/physics/ionosphere/iri';
 import { phiToBearingDeg } from '../../src/physics/angles';
 
 /** Flat pattern with a mild gradient, so cuts and peak-finding have something to bite on. */
@@ -129,6 +130,7 @@ export function makeAzimuthalHop(overrides: Partial<AzimuthalHop> = {}): Azimuth
     phiDeg,
     bearingDeg: phiToBearingDeg(phiDeg),
     takeoffElevationDeg: 15,
+    returns: true,
     rangeKm: [1000],
     antennaGainDbi: 5,
     realizedGainDbi: 4,
@@ -140,11 +142,26 @@ export function makePropagationPrediction(
   overrides: Partial<PropagationPrediction> = {},
 ): PropagationPrediction {
   return {
-    shellHeightKm: 300,
+    frequencyMHz: 7.1,
+    layers: makeLayerParameters(),
+    verticalCriticalMHz: 8,
+    selectedMufMHz: 14,
     hops: [makeHop()],
     selectedTakeoffElevationDeg: 15,
+    selectedReturns: true,
+    selectedApexKm: 250,
     realizedGainOffsetDb: -1,
     solarZenithDeg: 45,
+    ...overrides,
+  };
+}
+
+export function makeLayerParameters(overrides: Partial<LayerParameters> = {}): LayerParameters {
+  return {
+    foF2: 8, foF1: NaN, foE: 3,
+    hmF2: 300, hmF1: NaN, hmE: 110,
+    bF2Bot: 40, bF2Top: 50, bF1Bot: NaN, bEBot: 5, bETop: 7,
+    m3000: 3, modipDeg: -50, solarZenithDeg: 45, ig12: 80,
     ...overrides,
   };
 }

@@ -4,6 +4,7 @@ import { useAntennaStore } from '../../../store/antennaStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useGeolocation } from '../../../hooks/useGeolocation';
 import { NumericInput } from '../../UI/NumericInput';
+import { FALLBACK_F107, type SolarFluxSource } from '../../../physics/ionosphere/solarFlux';
 
 const MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -164,7 +165,7 @@ function LongitudeInput() {
         }}
       />
       <p id="longitude-hint" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
-        East is positive; west is negative. {longitudeDeg === null ? 'Defaults to 0° (Greenwich) until set.' : 'Used with UTC time to calculate the local solar angle.'}
+        East is positive; west is negative. {longitudeDeg === null ? 'Defaults to 0° (Greenwich) until set.' : 'Sets the ionosphere above the station and the local time of day.'}
       </p>
     </>
   );
@@ -202,7 +203,7 @@ function MonthInput() {
         </select>
       </div>
       <div id="month-hint" style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-        Month for the approximate solar-angle readout. Leave as Auto to use current time.
+        Month of the ionosphere. Auto uses today's date; a chosen month uses its middle.
       </div>
     </>
   );
@@ -282,33 +283,99 @@ function UtcHourInput() {
   );
 }
 
-export function PropagationInputs({
-  shellHeightKm = 300,
-  onShellHeightChange = () => {},
-}: {
-  shellHeightKm?: number;
-  onShellHeightChange?: (height: number) => void;
+export type SolarFluxDisplay =
+  | { readonly f107: number; readonly origin: 'manual' | 'loading' | 'fallback' }
+  | { readonly f107: number; readonly origin: SolarFluxSource; readonly month: string };
+
+function solarFluxHint(flux: SolarFluxDisplay): string {
+  switch (flux.origin) {
+    case 'manual': return 'Entered manually. Reset to use NOAA SWPC data.';
+    case 'loading': return 'Fetching the smoothed flux from NOAA SWPC…';
+    case 'fallback': return `NOAA SWPC could not be reached; assuming ${FALLBACK_F107}. Enter a value to override.`;
+    case 'observed': return `NOAA SWPC 12-month smoothed observed flux for ${flux.month}.`;
+    case 'predicted': return `NOAA SWPC predicted smoothed flux for ${flux.month}.`;
+    case 'recent-monthly': return `Mean of NOAA SWPC monthly flux to ${flux.month} (no smoothed value yet).`;
+  }
+}
+
+function SolarFluxInput({ flux, onChange, onReset }: {
+  flux: SolarFluxDisplay;
+  onChange: (f107: number) => void;
+  onReset: () => void;
 }) {
   return (
     <>
-      <label htmlFor="shell-height">Ideal shell height (km)</label>
-      <NumericInput
-        id="shell-height"
-        aria-label="Ideal shell height in kilometres"
-        aria-describedby="shell-height-hint"
-        min={50}
-        max={1000}
-        step={10}
-        value={shellHeightKm}
-        onChange={(height) => onShellHeightChange(Math.max(50, Math.min(1000, height)))}
-      />
-      <p id="shell-height-hint" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
-        Choose an illustrative reflecting height. This is neither a measured hmF2 nor a frequency-dependent virtual height.
+      <label htmlFor="solar-flux" style={{ marginTop: 10 }}>Solar flux F10.7 (sfu)</label>
+      <div className="row">
+        <NumericInput
+          id="solar-flux"
+          aria-label="Solar flux F10.7 in solar flux units"
+          aria-describedby="solar-flux-hint"
+          min={60}
+          max={300}
+          step={1}
+          value={Math.round(flux.f107)}
+          onChange={(value) => onChange(Math.max(60, Math.min(300, value)))}
+        />
+        <button
+          type="button"
+          onClick={() => { if (flux.origin === 'manual') onReset(); }}
+          aria-disabled={flux.origin !== 'manual'}
+          style={{ flex: '0 0 auto' }}
+          aria-label="Reset solar flux to NOAA SWPC data"
+        >
+          Auto
+        </button>
+      </div>
+      <p id="solar-flux-hint" aria-live="polite" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
+        {solarFluxHint(flux)}
       </p>
+    </>
+  );
+}
+
+function TxPowerInput({ watts, onChange }: { watts: number; onChange: (watts: number) => void }) {
+  return (
+    <>
+      <label htmlFor="tx-power" style={{ marginTop: 10 }}>Transmitter power (W)</label>
+      <NumericInput
+        id="tx-power"
+        aria-label="Transmitter power in watts"
+        aria-describedby="tx-power-hint"
+        min={1}
+        max={1500}
+        step={1}
+        value={watts}
+        onChange={(value) => onChange(Math.max(1, Math.min(1500, value)))}
+      />
+      <p id="tx-power-hint" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
+        Power into the feed system. Feed-line and matching losses are applied from the feed settings.
+      </p>
+    </>
+  );
+}
+
+export function PropagationInputs({
+  solarFlux,
+  onSolarFluxChange,
+  onSolarFluxReset,
+  txPowerW = 100,
+  onTxPowerChange = () => {},
+}: {
+  solarFlux: SolarFluxDisplay;
+  onSolarFluxChange: (f107: number) => void;
+  onSolarFluxReset: () => void;
+  txPowerW?: number;
+  onTxPowerChange?: (watts: number) => void;
+}) {
+  return (
+    <>
+      <TxPowerInput watts={txPowerW} onChange={onTxPowerChange} />
       <LatitudeInput />
       <LongitudeInput />
       <MonthInput />
       <UtcHourInput />
+      <SolarFluxInput flux={solarFlux} onChange={onSolarFluxChange} onReset={onSolarFluxReset} />
     </>
   );
 }

@@ -153,19 +153,67 @@ Current envelope range is 20log10(max|I|/min|I|). Radiation, attenuation and
 geometry vary the envelope even for a purely forward wave. This metric is
 not a reflected-power fraction or a quantitative termination match.
 
-## Ray geometry
+## Skywave propagation
 
-The ray view reflects straight rays from a user-selected ideal spherical shell
-(default 300 km) above a 6371 km Earth. For elevation ε and shell height h, the
-one-hop surface arc is `2R[π/2−ε−asin(R cosε/(R+h))]`. Repeated illustrated arcs
-reuse this geometry. The strongest lobe per bearing and its realized antenna
-gain are shown.
+**Ionosphere.** The International Reference Ionosphere monthly median above the
+station, ported from PyIRI 0.1.7 (`src/physics/ionosphere/iri.ts`): foF2 from
+the URSI-88 maps and M(3000)F2 from the CCIR maps (spherical-harmonic in modified
+dip latitude from IGRF-13, Fourier in UT); hmF2 from M(3000)F2 and foF2/foE
+(Bilitza 1979); foE and foF1 from IRI's solar-zenith formulas; F2, F1 and E joined
+as Epstein layers. Monthly medians are centred on the 15th and interpolated
+between months; parameters are interpolated linearly in the ionosonde index IG12
+between the maps' 0 and 100 levels. Solar activity is NOAA SWPC's 12-month
+smoothed F10.7 (observed where published, else predicted), converted to IG12 as
+PyIRI does; it can be overridden. The port reproduces PyIRI to about 1e-14
+relative (`tests/iri.test.ts`).
 
-There is **no ionospheric forecast, MUF, LUF, received SNR or availability
-classification**. Real propagation needs frequency-dependent electron-density
-profiles, refraction, absorption, path conditions and a transmitter/receiver/noise
-link budget. True hmF2 is not a virtual reflection height. Manual latitude and
-longitude provide approximate monthly solar-angle context only.
+**Rays.** The profile is sampled every 0.5 km from 50 to 1000 km and rays at the
+operating frequency are traced through it in a spherically stratified,
+field-free, collisionless medium, where n² = 1 − fN²/f² and Bouguer's law
+n·r·cos β = R₀ cos β₀ holds. A ray turns at the first height where n·r = R₀ cos β₀;
+if none exists it escapes. The ground angle to the turning point is
+∫ a / (r √(n²r² − a²)) dr with a = R₀ cos β₀, integrated by Gauss–Legendre
+quadrature after substituting r = r_t − (r_t − r_b)u², which removes the
+inverse-square-root singularity at the turning point. One hop is twice that
+arc on a 6371 km Earth. For a thin dense layer this reduces to specular
+reflection, `2R[π/2−ε−asin(R cosε/(R+h))]`, and to the curved-Earth secant law;
+both are tested (`tests/raytrace.test.ts`).
+
+**What the view shows.** The shading is the median power an isotropic
+receiving antenna would deliver (`src/physics/coverage.ts`). For every pattern
+bearing and every traced ray that returns, the transmitter power through the
+realized gain (NEC gain plus the feed-system offset), P·G(ε)·cos ε·Δε·Δφ/4π, is
+spread evenly over the stretch of ground the ray band lands on after n hops,
+[n·D(ε), n·D(ε+Δε)], and accumulated into range bins whose spherical-Earth area
+turns it into a power density: the ray tube, which concentrates power near the
+skip distance and thins it with range. Each hop after the first multiplies by
+the ground's power reflection coefficient at the ray's grazing angle (Fresnel,
+complex permittivity εr − j60λσ, mean of horizontal and vertical polarisation;
+average ground when the antenna is in free space). Each hop also loses D-layer
+absorption (`src/physics/absorption.ts`) from Rawer's formula as given by
+Davies, NBS Monograph 80 (1965), eq. 5.19:
+La = 430(1 + 0.0035R) cos^0.75 χ sec φD (f + fL)^-2 dB per hop, with χ the
+solar zenith at the hop's midpoint along the bearing, φD the angle of
+incidence at 90 km, fL the longitudinal gyrofrequency (IGRF at 100 km), R the
+smoothed sunspot number from F10.7, and table 5.1's winter-anomaly factors for
+dipole latitudes 40°–70°. The received power is P_density·λ²/4π, less 3 dB for
+a linearly polarised antenna receiving the circularly polarised ordinary wave
+(Davies §5.3.5), shown on the S-meter scale (S9 = −73 dBm, 6 dB per unit) down
+to S1. With unit transmitter power and no absorption, landed power equals
+radiated power to 1e-4 in the tests. Lines mark where the half-power beam
+(gain within 3 dB of the pattern's peak) reaches after 1–3 hops; a dashed
+inner line marks a skip zone. The readout gives foF2, hmF2, foF1, foE, whether
+near-vertical rays return (frequency below the profile's peak plasma
+frequency), and the strongest lobe's MUF.
+
+**Not modelled.** Day-to-day departures from the monthly median (typically
+15–20% in foF2, more in storms) and sporadic E; the geomagnetic field, so only
+the ordinary wave (the extraordinary wave reflects up to about fH/2 higher);
+horizontal gradients (the station's profile is used along the whole path, and
+later hops repeat the first); auroral and polar-cap absorption and night-time
+absorption (the formula is zero with the sun down); day-to-day absorption
+variability (up to about a factor of 2 in winter); fading allowances; and
+noise, so there is no received SNR, LUF or availability.
 
 ## Validation boundaries
 

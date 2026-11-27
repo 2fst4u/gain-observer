@@ -29,8 +29,13 @@ delta loops and terminated deltas, from 1.8–30 MHz, over real ground.
 `docs/antenna-spec.md` describes the geometry and physics of each in detail.
 
 Results depend on thin-wire segmentation, a flat homogeneous ground model,
-and the specified feed system. The ray view illustrates antenna elevations
-using an ideal reflecting shell; it does not predict coverage or signal strength.
+and the specified feed system. The propagation view traces the antenna's rays
+through the International Reference Ionosphere's monthly median above your
+location, with solar activity from NOAA, to show where they land at your
+frequency and when they pass straight through, shaded by the median signal
+level for your transmitter power, including D-layer absorption. It does not
+yet account for noise, so it shows signal strength rather than whether a
+contact will work.
 
 ## About the project
 
@@ -40,4 +45,5 @@ the link above rather than self-hosted, and the documentation is written with
 that reader in mind.
 
 It is GPL v3 because it statically links `nec2c` (by N. Kyriazis), which is
-itself GPL v3. See LICENSE for the full text.
+itself GPL v3. See LICENSE for the full text. The ionosphere model is a port of
+PyIRI (MIT) using the IRI coefficient maps; see THIRD_PARTY_NOTICES.md.

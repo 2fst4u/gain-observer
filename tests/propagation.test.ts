@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { hopRangeKm, predictPropagation, refinePeakElevation, solarDeclinationDeg, solarZenithDeg } from '../src/physics/propagation';
+import { HALF_POWER_DB, halfPowerElevationSpan, hopRangeKm, predictPropagation, rayAt, refinePeakElevation, traceIonosphere } from '../src/physics/propagation';
+import { makeLayerParameters } from './helpers/factories';
 import type { GainPattern } from '../src/physics/types';
 
+// A dense ionosphere returns every ray at 7.1 MHz; a weak one lets the
+// near-vertical rays through.
+const dense = makeLayerParameters({ foF2: 40, foE: 3, hmF2: 300 });
+const weak = makeLayerParameters({ foF2: 5, foE: 0.6, hmF2: 320 });
+
 const base = {
+  frequencyMHz: 7.1,
+  layers: dense,
   takeoffElevationDeg: 15,
-  shellHeightKm: 300,
-  month: 6,
-  utcHour: 12,
-  latitudeDeg: 30,
-  longitudeDeg: 0,
 };
 
 function pattern(): GainPattern {
@@ -18,32 +21,7 @@ function pattern(): GainPattern {
   return result;
 }
 
-describe('solar geometry', () => {
-  it('uses mid-month northern and southern solstice declinations', () => {
-    expect(solarDeclinationDeg(6)).toBeCloseTo(23.3, 0);
-    expect(solarDeclinationDeg(12)).toBeCloseTo(-23.3, 0);
-  });
-
-  it('has exact zenith at the subsolar latitude and local mean noon', () => {
-    const latitude = solarDeclinationDeg(6);
-    expect(solarZenithDeg(latitude, 150, 6, 2)).toBeCloseTo(0, 6);
-    expect(solarZenithDeg(-latitude, 150, 6, 14)).toBeCloseTo(180, 6);
-  });
-
-  it('is invariant when longitude and UTC hour describe the same solar time', () => {
-    expect(solarZenithDeg(45, 90, 3, 6)).toBeCloseTo(solarZenithDeg(45, 0, 3, 12), 10);
-    expect(solarZenithDeg(45, -90, 3, 18)).toBeCloseTo(solarZenithDeg(45, 0, 3, 12), 10);
-  });
-
-  it('does not silently use Greenwich for a manually specified longitude', () => {
-    const greenwich = predictPropagation({ ...base, latitudeDeg: 0 });
-    const east = predictPropagation({ ...base, latitudeDeg: 0, longitudeDeg: 150 });
-    expect(greenwich.solarZenithDeg).toBeLessThan(25);
-    expect(east.solarZenithDeg).toBeGreaterThan(140);
-  });
-});
-
-describe('ideal shell geometry', () => {
+describe('shell geometry and traced hops', () => {
   it('returns exact zero ground arc for vertical incidence', () => {
     expect(hopRangeKm(90, 300)).toBe(0);
     expect(predictPropagation({ ...base, takeoffElevationDeg: 90 }).hops.every((hop) => hop.rangeKm === 0)).toBe(true);
@@ -66,9 +44,10 @@ describe('ideal shell geometry', () => {
     }
   });
 
-  it('multiplies ideal ground arcs without claiming availability or signal quality', () => {
+  it('multiplies traced landing ranges without claiming availability or signal quality', () => {
     const prediction = predictPropagation(base);
-    expect(prediction.hops.map((hop) => hop.rangeKm)).toEqual([1, 2, 3].map((n) => n * hopRangeKm(15, 300)));
+    const single = rayAt(traceIonosphere(dense, 7.1).fan, 15).rangeKm!;
+    expect(prediction.hops.map((hop) => hop.rangeKm)).toEqual([1, 2, 3].map((n) => n * single));
     expect(prediction).not.toHaveProperty('lufMHz');
     expect(prediction).not.toHaveProperty('foF2MHz');
     expect(prediction.hops[0]).not.toHaveProperty('linkQuality');
@@ -132,7 +111,7 @@ describe('sub-grid lobe elevation', () => {
   it('recovers a lobe peak lying between pattern rows', () => {
     const prediction = predictPropagation({ ...base, pattern: lobe(27.3) });
     expect(prediction.selectedTakeoffElevationDeg).toBeCloseTo(27.3, 1);
-    expect(prediction.hops[0]!.rangeKm).toBeCloseTo(hopRangeKm(27.3, 300), -1);
+    expect(prediction.hops[0]!.rangeKm).toBeCloseTo(rayAt(traceIonosphere(dense, 7.1).fan, 27.3).rangeKm!, 0);
     // The reported gain remains the solved sample, not an extrapolated peak.
     expect(prediction.hops[0]!.antennaGainDbi).toBeCloseTo(7 - 0.01 * 0.7 ** 2, 5);
   });
@@ -142,5 +121,93 @@ describe('sub-grid lobe elevation', () => {
     const nearHorizon = lobe(2);
     // Row at 0° elevation is the below-ground sentinel: no parabola through it.
     expect(refinePeakElevation(nearHorizon, 0, 2)).toBe(2);
+  });
+});
+
+describe('half-power beam', () => {
+  // Inverted-V-like NVIS beam on 5° rows: peak at the zenith on every bearing,
+  // falling slowly along the wire (phi 0) and faster across it (phi 90),
+  // with a lobe at 65° on phi 90 a fraction of a dB above the zenith.
+  function nvis(): GainPattern {
+    const thetaSteps = 37, phiSteps = 72;
+    const data = new Float32Array(thetaSteps * phiSteps).fill(-100);
+    for (let ti = 0; ti < 18; ti++) {
+      const elevation = 90 - 5 * ti;
+      for (let pi = 0; pi < phiSteps; pi++) {
+        const across = Math.abs(Math.sin(pi * 5 * Math.PI / 180));
+        data[ti * phiSteps + pi] = 5 - (90 - elevation) * (0.18 - 0.08 * across);
+      }
+    }
+    data[5 * phiSteps + 18] = 5.1;
+    return { data, thetaSteps, phiSteps, dTheta: 5, dPhi: 5 };
+  }
+
+  it('reaches every bearing for a high-angle beam even when one ray narrowly wins', () => {
+    const prediction = predictPropagation({ ...base, pattern: nvis() });
+    const zeroPeakRay = prediction.azimuthalHops!.filter((hop) => hop.rangeKm[0] === 0);
+    expect(zeroPeakRay.length).toBeGreaterThan(60);
+    for (const hop of prediction.azimuthalHops!) {
+      expect(hop.halfPowerElevationDeg!.highDeg).toBe(90);
+      expect(hop.halfPowerRangeKm!.nearKm).toBe(0);
+      expect(hop.halfPowerRangeKm!.farKm).toBeGreaterThan(50);
+    }
+  });
+
+  it('interpolates the edge between rows against the pattern peak', () => {
+    const prediction = predictPropagation({ ...base, pattern: nvis() });
+    const alongWire = prediction.azimuthalHops!.find((hop) => hop.phiDeg === 0)!;
+    // 5 − 0.18·(90 − e) = 5.1 − 3 → e = 90 − 2.9 / 0.18
+    const expected = 90 - (5 - (5.1 - HALF_POWER_DB)) / 0.18;
+    // Float32 pattern samples limit agreement to a few micro-degrees.
+    expect(alongWire.halfPowerElevationDeg!.lowDeg).toBeCloseTo(expected, 4);
+    expect(alongWire.halfPowerRangeKm!.farKm).toBeCloseTo(rayAt(traceIonosphere(dense, 7.1).fan, expected).rangeKm!, 2);
+  });
+
+  it('omits bearings with no ray within half power and spans separate lobes', () => {
+    const antenna = pattern();
+    const span = halfPowerElevationSpan(antenna, 18, 10 - HALF_POWER_DB);
+    expect(span?.highDeg).toBeGreaterThan(55);
+    expect(span?.lowDeg).toBeLessThan(65);
+    const prediction = predictPropagation({ ...base, pattern: antenna });
+    // East's 8 dBi lobe is within 3 dB of the 10 dBi peak; North-east has none.
+    const east = prediction.azimuthalHops!.find((hop) => hop.phiDeg === 0)!.halfPowerElevationDeg!;
+    expect(east.lowDeg).toBeCloseTo(30 - 5 / 38, 8);
+    expect(east.highDeg).toBeCloseTo(30 + 5 / 38, 8);
+    expect(prediction.azimuthalHops!.find((hop) => hop.phiDeg === 45)!.halfPowerRangeKm).toBeUndefined();
+
+    const twoLobes = { data: new Float32Array([0, 10, 0, 0, 10, 0, -100]), thetaSteps: 7, phiSteps: 1, dTheta: 15, dPhi: 360 };
+    const lobes = halfPowerElevationSpan(twoLobes, 0, 7)!;
+    expect(lobes.highDeg).toBeCloseTo(75 + 15 * 0.3, 8);
+    expect(lobes.lowDeg).toBeCloseTo(30 - 15 * 0.3, 8);
+  });
+});
+
+describe('rays that pass through the ionosphere', () => {
+  it('reports the strongest lobe passing through above its MUF', () => {
+    const prediction = predictPropagation({ ...base, layers: weak, takeoffElevationDeg: 80 });
+    expect(prediction.selectedReturns).toBe(false);
+    expect(prediction.hops.every((hop) => hop.rangeKm === undefined)).toBe(true);
+    expect(prediction.selectedMufMHz).toBeLessThan(7.1);
+    expect(prediction.verticalCriticalMHz).toBeCloseTo(5, 1);
+  });
+
+  it('leaves a skip zone inside a high-angle beam the ionosphere cannot return', () => {
+    // Zenith-peaked beam with its half-power edge at 30°: at 7.1 MHz over a
+    // 5 MHz F2 layer only its lower part (below about 40°) returns.
+    const thetaSteps = 19, phiSteps = 4;
+    const data = new Float32Array(thetaSteps * phiSteps).fill(-100);
+    for (let ti = 0; ti < 18; ti++) {
+      for (let pi = 0; pi < phiSteps; pi++) data[ti * phiSteps + pi] = 5 - ti * 0.25;
+    }
+    const nvis = { data, thetaSteps, phiSteps, dTheta: 5, dPhi: 90 };
+    const prediction = predictPropagation({ ...base, layers: weak, pattern: nvis });
+    for (const hop of prediction.azimuthalHops!) {
+      expect(hop.returns).toBe(false); // the zenith ray escapes
+      expect(hop.halfPowerElevationDeg!.highDeg).toBe(90);
+      expect(hop.halfPowerRangeKm!.nearKm).toBeGreaterThan(300);
+    }
+    const tooWeak = makeLayerParameters({ foF2: 1, foE: 0.3 });
+    const none = predictPropagation({ ...base, layers: tooWeak, pattern: nvis });
+    expect(none.azimuthalHops!.every((hop) => hop.halfPowerRangeKm === undefined)).toBe(true);
   });
 });

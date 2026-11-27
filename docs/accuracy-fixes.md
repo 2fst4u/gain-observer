@@ -27,6 +27,10 @@ The default ray view is now an explicit ideal-shell geometry illustration.
 Actual ionospheric coverage and received SNR require a validated propagation
 model and a link budget; they are not supplied by this implementation.
 
+*Superseded November 2026:* the ideal shell was replaced by rays traced through
+the IRI monthly-median ionosphere (see "Skywave propagation" in
+`antenna-spec.md`). Received SNR and availability are still not calculated.
+
 Two limitations remain explicit: the choked terminated-delta feed has not been
 numerically repaired, and the original native engine source/toolchain has not
 been recovered. The former is blocked; the latter is documented with unchanged

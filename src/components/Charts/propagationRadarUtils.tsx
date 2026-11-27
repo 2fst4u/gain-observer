@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import type { PropagationPrediction } from "../../physics/propagation";
 import type { UnitSystem } from "../../physics/units";
+import { HALF_POWER_DB } from "../../physics/propagation";
 
 export const KM_PER_MILE = 1.609344;
 export const DEG_TO_RAD = Math.PI / 180;
@@ -13,19 +14,195 @@ export function formatDistance(km: number, units: UnitSystem): string {
   return `${km.toFixed(0)} km`;
 }
 
+type AzimuthalHop = NonNullable<PropagationPrediction["azimuthalHops"]>[number];
+
+/**
+ * Outline style per hop count: neutral, so colour is reserved for the
+ * strength shading, and progressively fainter for later hops.
+ */
+export const HOP_STYLES: readonly { stroke: string; opacity: number; width: number }[] = [
+  { stroke: "var(--text)", opacity: 0.85, width: 1.5 },
+  { stroke: "var(--text)", opacity: 0.6, width: 1.25 },
+  { stroke: "var(--text)", opacity: 0.4, width: 1 },
+];
+
+/** Shading bands for relative power density, strongest first. */
+export const STRENGTH_BANDS: readonly { minDb: number; fill: string; opacity: number; label: string }[] = [
+  { minDb: -6, fill: "var(--success)", opacity: 0.85, label: "0–6" },
+  { minDb: -12, fill: "var(--success)", opacity: 0.5, label: "6–12" },
+  { minDb: -18, fill: "var(--warning)", opacity: 0.55, label: "12–18" },
+  { minDb: -24, fill: "var(--danger)", opacity: 0.5, label: "18–24" },
+  { minDb: -30, fill: "var(--danger)", opacity: 0.22, label: "24–30 dB down" },
+];
+
+/** Index into STRENGTH_BANDS, or -1 below the weakest band. */
+export function strengthBand(relativeDb: number): number {
+  return STRENGTH_BANDS.findIndex((band) => relativeDb >= band.minDb);
+}
+
+/**
+ * Shading bands for received power, dBm, on the S-meter scale (S9 = −73 dBm,
+ * 6 dB per S-unit), strongest first, sharing the strength colours.
+ */
+export const SIGNAL_BANDS: readonly { minDb: number; fill: string; opacity: number; label: string }[] = [
+  { minDb: -73, fill: "var(--success)", opacity: 0.85, label: "S9+" },
+  { minDb: -85, fill: "var(--success)", opacity: 0.5, label: "S7–9" },
+  { minDb: -97, fill: "var(--warning)", opacity: 0.55, label: "S5–7" },
+  { minDb: -109, fill: "var(--danger)", opacity: 0.5, label: "S3–5" },
+  { minDb: -121, fill: "var(--danger)", opacity: 0.22, label: "S1–3" },
+];
+
+/** S-meter reading of a received power: "S7", or "S9+12 dB" above S9. */
+export function sMeterLabel(dbm: number): string {
+  if (dbm >= -73) return `S9+${Math.round(dbm + 73)} dB`;
+  return `S${Math.max(0, Math.round(9 + (dbm + 73) / 6))}`;
+}
+
+type CoverageMapLike = NonNullable<PropagationPrediction["coverage"]>;
+
+/** The bands and per-cell values a coverage map is shaded by. */
+export function coverageScale(map: CoverageMapLike) {
+  const absolute = map.receivedDbm !== undefined;
+  const bands = absolute ? SIGNAL_BANDS : STRENGTH_BANDS;
+  const values = map.receivedDbm ?? map.relativeDb;
+  return {
+    absolute,
+    bands,
+    values,
+    band: (value: number) => bands.findIndex((b) => value >= b.minDb),
+    describe: (value: number) => absolute
+      ? `up to ${sMeterLabel(value)} (${value.toFixed(0)} dBm)`
+      : `up to ${value.toFixed(1)} dB relative to the strongest point`,
+  };
+}
+
+/** SVG path of a ring sector on the compass plot (0° up, clockwise). */
+export function ringSectorPath(cx: number, cy: number, r1: number, r2: number, fromDeg: number, toDeg: number): string {
+  const at = (r: number, deg: number) => {
+    const rad = deg * DEG_TO_RAD;
+    return `${(cx + r * Math.sin(rad)).toFixed(2)} ${(cy - r * Math.cos(rad)).toFixed(2)}`;
+  };
+  const large = toDeg - fromDeg > 180 ? 1 : 0;
+  const outer = `M ${at(r2, fromDeg)} A ${r2.toFixed(2)} ${r2.toFixed(2)} 0 ${large} 1 ${at(r2, toDeg)}`;
+  if (r1 <= 0) return `${outer} L ${cx.toFixed(2)} ${cy.toFixed(2)} Z`;
+  return `${outer} L ${at(r1, toDeg)} A ${r1.toFixed(2)} ${r1.toFixed(2)} 0 ${large} 0 ${at(r1, fromDeg)} Z`;
+}
+
+export function hopStyle(ringN: number) {
+  return HOP_STYLES[Math.min(HOP_STYLES.length, Math.max(1, ringN)) - 1]!;
+}
+export type BeamEdge = "far" | "near";
+
+/** True when the outlines trace the half-power beam rather than peak rays. */
+export function hasHalfPowerBeam(az: readonly AzimuthalHop[]): boolean {
+  return az.some((point) => point.halfPowerElevationDeg !== undefined);
+}
+
+/**
+ * Ground arc drawn for one bearing and hop count. With half-power data, the
+ * outline follows the beam's lowest (far) or highest (near) ray, so a broad
+ * high-angle beam reads as reaching every bearing instead of collapsing to
+ * whichever single ray is a fraction of a dB stronger. A bearing with no
+ * half-power ray sits at the centre. Without that data, the peak ray is used.
+ */
+export function beamRangeKm(
+  point: AzimuthalHop,
+  ringN: number,
+  useBeam: boolean,
+  edge: BeamEdge = "far",
+): number {
+  if (!useBeam) return point.rangeKm[ringN - 1] ?? 0;
+  const span = point.halfPowerRangeKm;
+  if (!span) return 0;
+  return (edge === "far" ? span.farKm : span.nearKm) * ringN;
+}
+
+/**
+ * Where to put an outline's hop-count label: the outline's farthest point.
+ * An outline that is not a circle has no single radius, so its label names
+ * only the hop count; the grid circles carry the distance scale.
+ */
+export function ringLabelAnchor(
+  az: readonly AzimuthalHop[],
+  ringN: number,
+): { bearingDeg: number; rangeKm: number } | undefined {
+  if (az.length === 0) return undefined;
+  const useBeam = hasHalfPowerBeam(az);
+  let best = az[0]!;
+  let bestKm = beamRangeKm(best, ringN, useBeam);
+  for (const point of az) {
+    const km = beamRangeKm(point, ringN, useBeam);
+    if (km > bestKm) { best = point; bestKm = km; }
+  }
+  return { bearingDeg: best.bearingDeg, rangeKm: bestKm };
+}
+
+/** Grid-circle spacing: a 1, 2, 2.5 or 5 × 10ⁿ step in the display unit,
+ * giving three to five circles inside the plotted range. */
+export function niceGridStep(maxRange: number): number {
+  if (!(maxRange > 0) || !Number.isFinite(maxRange)) return 0;
+  const raw = maxRange / 5;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].find((m) => m * power >= raw)!;
+  return step * power;
+}
+
 export function calculateMaxRangeKm(prediction: PropagationPrediction): number {
   let maxRangeKm = prediction.hops[prediction.hops.length - 1]?.rangeKm ?? 1;
-  if (prediction.azimuthalHops) {
-    const len = prediction.azimuthalHops.length;
-    for (let i = 0; i < len; i++) {
-      const az = prediction.azimuthalHops[i]!;
-      const lastRange = az.rangeKm[az.rangeKm.length - 1];
+  const az = prediction.azimuthalHops;
+  if (az) {
+    const useBeam = hasHalfPowerBeam(az);
+    const n = Math.max(prediction.hops.length, 1);
+    for (let i = 0; i < az.length; i++) {
+      const point = az[i]!;
+      const lastRange = useBeam
+        ? beamRangeKm(point, n, true, "far")
+        : point.rangeKm[point.rangeKm.length - 1];
       if (lastRange && lastRange > maxRangeKm) {
         maxRangeKm = lastRange;
       }
     }
   }
-  return maxRangeKm;
+  if (prediction.coverage) maxRangeKm = Math.max(maxRangeKm, prediction.coverage.maxRangeKm);
+  // Keep a readable scale when little or nothing returns.
+  return Math.max(MIN_PLOT_RANGE_KM, maxRangeKm);
+}
+
+/** Smallest range the plot's rim represents. */
+export const MIN_PLOT_RANGE_KM = 200;
+
+/** True when no plotted ray returns at all at this frequency. */
+export function nothingReturns(prediction: PropagationPrediction): boolean {
+  if (prediction.coverage) return false;
+  const az = prediction.azimuthalHops;
+  if (az && az.length > 1) {
+    return hasHalfPowerBeam(az)
+      ? !az.some((point) => point.halfPowerRangeKm !== undefined)
+      : az.every((point) => !point.returns);
+  }
+  return prediction.hops.every((hop) => hop.rangeKm === undefined);
+}
+
+function describeBearing(point: AzimuthalHop, ringN: number, edge: BeamEdge, useBeam: boolean): string {
+  const gain = point.realizedGainDbi !== undefined
+    ? `, realized antenna gain ${point.realizedGainDbi.toFixed(2)} dBi` : "";
+  const bearing = `Bearing ${point.bearingDeg.toFixed(0)}°`;
+  const lobe = `Strongest lobe ${point.takeoffElevationDeg.toFixed(1)}°${gain}`;
+  if (!useBeam) {
+    const range = point.rangeKm[ringN - 1];
+    return range !== undefined
+      ? `${bearing}, elevation ${point.takeoffElevationDeg.toFixed(1)}°${gain}: ${ringN}× lands at ${range.toFixed(0)} km.`
+      : `${bearing}, elevation ${point.takeoffElevationDeg.toFixed(1)}°${gain}: passes through the ionosphere.`;
+  }
+  const span = point.halfPowerElevationDeg;
+  if (!span) return `${bearing}: no ray within ${HALF_POWER_DB} dB of peak. ${lobe}.`;
+  const beam = `${bearing}, half-power beam ${span.lowDeg.toFixed(1)}–${span.highDeg.toFixed(1)}° elevation`;
+  const reach = point.halfPowerRangeKm;
+  if (!reach) return `${beam}: passes through the ionosphere. ${lobe}.`;
+  const edgeText = edge === "far"
+    ? `farthest landing ${(reach.farKm * ringN).toFixed(0)} km after ${ringN === 1 ? "1 hop" : `${ringN} hops`}`
+    : `nearest landing ${reach.nearKm.toFixed(0)} km (skip zone inside)`;
+  return `${beam}, ${edgeText}. ${lobe}.`;
 }
 
 export function buildAzimuthalSegments(
@@ -34,14 +211,15 @@ export function buildAzimuthalSegments(
   cx: number,
   cy: number,
   kmToPx: number,
+  edge: BeamEdge = "far",
 ): JSX.Element[] {
   const len = az.length;
   if (len === 0) return [];
   const segments = new Array<JSX.Element>(len);
 
-  const ringIndex = ringN - 1;
+  const useBeam = hasHalfPowerBeam(az);
   let aPoint = az[0]!;
-  const rA = (aPoint.rangeKm[ringIndex] ?? 0) * kmToPx;
+  const rA = beamRangeKm(aPoint, ringN, useBeam, edge) * kmToPx;
   // Screen angle is a compass bearing: 0° points up (North) and grows
   // clockwise, hence x = sin, y = −cos. The pattern's own NEC azimuth φ is a
   // different convention and must not be substituted here.
@@ -63,7 +241,7 @@ export function buildAzimuthalSegments(
       by = firstAy;
     } else {
       bPoint = az[i + 1]!;
-      const rB = (bPoint.rangeKm[ringIndex] ?? 0) * kmToPx;
+      const rB = beamRangeKm(bPoint, ringN, useBeam, edge) * kmToPx;
       const bRad = (((bPoint.bearingDeg % 360) + 360) % 360) * DEG_TO_RAD;
       bx = cx + rB * Math.sin(bRad);
       by = cy - rB * Math.cos(bRad);
@@ -71,16 +249,17 @@ export function buildAzimuthalSegments(
 
     segments[i] = (
       <line
-        key={`${ringN}-${i}`}
+        key={`${edge}-${ringN}-${i}`}
         x1={ax}
         y1={ay}
         x2={bx}
         y2={by}
-        stroke="var(--accent)"
-        strokeOpacity={0.75}
-        strokeWidth={1.5}
+        stroke={hopStyle(ringN).stroke}
+        strokeOpacity={hopStyle(ringN).opacity}
+        strokeWidth={edge === "far" ? hopStyle(ringN).width : 1.25}
+        strokeDasharray={edge === "near" ? "3 3" : undefined}
       >
-        <title>{`Bearing ${aPoint.bearingDeg.toFixed(0)}°, elevation ${aPoint.takeoffElevationDeg.toFixed(1)}°${aPoint.realizedGainDbi !== undefined ? `, realized antenna gain ${aPoint.realizedGainDbi.toFixed(2)} dBi` : ''}. Ideal arc only.`}</title>
+        <title>{describeBearing(aPoint, ringN, edge, useBeam)}</title>
       </line>
     );
 
